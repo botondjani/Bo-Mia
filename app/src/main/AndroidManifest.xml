@@ -63,14 +63,15 @@
             android:excludeFromRecents="true"
             android:exported="false"
             android:launchMode="singleTask"
-            android:taskAffinity="app.tend.pause" />
+            android:taskAffinity="app.tend.pause"
+            android:theme="@style/Theme.Tend.Overlay" />
 
         <activity
             android:name=".monitor.WorthItActivity"
             android:excludeFromRecents="true"
             android:exported="false"
             android:taskAffinity="app.tend.pause"
-            android:theme="@style/Theme.Tend.Dialog" />
+            android:theme="@style/Theme.Tend.Overlay" />
 
         <service
             android:name=".monitor.MonitorService"

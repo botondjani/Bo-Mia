@@ -65,10 +65,10 @@ object RiveRig {
 }
 
 @Composable
-fun CharacterView(avatar: Avatar, mood: Mood, size: Dp, modifier: Modifier = Modifier) {
+fun CharacterView(avatar: Avatar, mood: Mood, size: Dp, modifier: Modifier = Modifier, reading: Boolean = false) {
     val rig = RiveRig.bytes(LocalContext.current)
     if (rig != null) RiveCharacter(rig, avatar, mood, size, modifier)
-    else DrawnCharacter(avatar, mood, size, modifier)
+    else DrawnCharacter(avatar, mood, size, modifier, reading)
 }
 
 @Composable
@@ -94,7 +94,7 @@ private fun RiveCharacter(rig: ByteArray, avatar: Avatar, mood: Mood, size: Dp, 
 
 /** Fallback until the Rive rig exists: the drawn character breathes, blinks and glances around. */
 @Composable
-private fun DrawnCharacter(avatar: Avatar, mood: Mood, size: Dp, modifier: Modifier) {
+private fun DrawnCharacter(avatar: Avatar, mood: Mood, size: Dp, modifier: Modifier, reading: Boolean) {
     val t = rememberInfiniteTransition(label = "character")
     val breathe by t.animateFloat(
         -1f, 1f, infiniteRepeatable(tween(if (mood == Mood.TIRED) 3600 else 2400, easing = FastOutSlowInEasing), RepeatMode.Reverse),
@@ -117,12 +117,12 @@ private fun DrawnCharacter(avatar: Avatar, mood: Mood, size: Dp, modifier: Modif
         }
     }
     // Scrolling stares at the phone; tired doesn't look around.
-    val glance = if (mood == Mood.HAPPY || mood == Mood.OUTSIDE) look else 0f
+    val glance = if (!reading && (mood == Mood.HAPPY || mood == Mood.OUTSIDE)) look else 0f
     Canvas(modifier.size(size)) {
         drawIntoCanvas {
             CharacterPainter.draw(
                 it.nativeCanvas, avatar, mood, this.size.minDimension,
-                CharacterPainter.Pose(blink = blink.value, breathe = breathe, look = glance),
+                CharacterPainter.Pose(blink = blink.value, breathe = breathe, look = glance, book = reading),
             )
         }
     }

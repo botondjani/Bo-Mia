@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="moss">#316849</color>
-    <color name="ink">#1D2A23</color>
     <color name="sage">#F1F4ED</color>
     <color name="muted">#6B756F</color>
 </resources>

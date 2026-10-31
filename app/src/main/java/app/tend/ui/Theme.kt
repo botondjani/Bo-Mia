@@ -1,6 +1,8 @@
 package app.tend.ui
 
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -41,7 +43,9 @@ private val typography = Typography(
     headlineMedium = TextStyle(fontFamily = Fredoka, fontWeight = FontWeight(600), fontSize = 26.sp, color = Brand.Ink),
     titleLarge = TextStyle(fontFamily = Fredoka, fontWeight = FontWeight(600), fontSize = 20.sp, color = Brand.Ink),
     titleMedium = TextStyle(fontFamily = Fredoka, fontWeight = FontWeight(500), fontSize = 17.sp, color = Brand.Ink),
-    bodyLarge = TextStyle(fontFamily = Nunito, fontWeight = FontWeight(600), fontSize = 16.sp, color = Brand.Ink),
+    // No colour here: MaterialTheme uses bodyLarge as the default text style, and a colour would
+    // override button content colours (dark text on green buttons). Ink comes from LocalContentColor.
+    bodyLarge = TextStyle(fontFamily = Nunito, fontWeight = FontWeight(600), fontSize = 16.sp),
     bodyMedium = TextStyle(fontFamily = Nunito, fontWeight = FontWeight(400), fontSize = 14.sp, color = Brand.Muted),
     labelLarge = TextStyle(fontFamily = Nunito, fontWeight = FontWeight(700), fontSize = 15.sp),
     labelSmall = TextStyle(fontFamily = Nunito, fontWeight = FontWeight(700), fontSize = 11.sp, letterSpacing = 1.2.sp, color = Brand.Muted),
@@ -56,5 +60,4 @@ fun TendTheme(content: @Composable () -> Unit) = MaterialTheme(
         onBackground = Brand.Ink, onSurface = Brand.Ink,
     ),
     typography = typography,
-    content = content,
-)
+) { CompositionLocalProvider(LocalContentColor provides Brand.Ink, content = content) }

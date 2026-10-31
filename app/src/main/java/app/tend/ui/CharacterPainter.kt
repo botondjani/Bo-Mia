@@ -45,6 +45,8 @@ object CharacterPainter {
         val breathe: Float = 0f,
         /** -1..1, pupils glance left or right. */
         val look: Float = 0f,
+        /** Holds an open book and reads (focus timer). */
+        val book: Boolean = false,
     )
 
     @Synchronized
@@ -100,6 +102,7 @@ object CharacterPainter {
         drawEyes(c, mood, body, pose)
         drawMouth(c, mood)
         drawExtras(c, mood)
+        if (pose.book) drawBook(c)
         c.restore()
     }
 
@@ -107,7 +110,7 @@ object CharacterPainter {
         for (x in floatArrayOf(39f, 61f)) {
             fill.color = 0xFFFFFFFF.toInt(); c.drawCircle(x, 46f, 8f, fill)
             fill.color = if (mood == Mood.SCROLLING) 0xFF3B5BDB.toInt() else INK
-            val py = if (mood == Mood.SCROLLING) 49f else 47f
+            val py = if (mood == Mood.SCROLLING || pose.book) 49f else 47f
             val px = x + 1f + 2f * pose.look
             c.drawCircle(px, py, 4.6f, fill)
             fill.color = 0xFFFFFFFF.toInt(); c.drawCircle(px + 1.5f, py - 2f, 1.5f, fill)
@@ -138,6 +141,17 @@ object CharacterPainter {
                 fill.color = CORAL; c.drawOval(RectF(45f, 69f, 55f, 75f), fill)
             }
         }
+    }
+
+    private fun drawBook(c: Canvas) {
+        fill.color = CORAL
+        c.drawPath(Path().apply { moveTo(28f, 70f); lineTo(50f, 74f); lineTo(72f, 70f); lineTo(72f, 90f); lineTo(50f, 94f); lineTo(28f, 90f); close() }, fill)
+        fill.color = 0xFFFFF8EC.toInt()
+        c.drawPath(Path().apply { moveTo(31f, 70f); lineTo(49f, 73f); lineTo(49f, 90f); lineTo(31f, 87f); close() }, fill)
+        c.drawPath(Path().apply { moveTo(69f, 70f); lineTo(51f, 73f); lineTo(51f, 90f); lineTo(69f, 87f); close() }, fill)
+        stroke.strokeWidth = 1f; stroke.color = 0x551D2A23
+        for (y in floatArrayOf(77f, 81f, 85f)) { c.drawLine(34f, y, 46f, y + 1.5f, stroke); c.drawLine(54f, y + 1.5f, 66f, y, stroke) }
+        stroke.strokeWidth = 2.6f; stroke.color = INK
     }
 
     private fun drawExtras(c: Canvas, mood: Mood) {

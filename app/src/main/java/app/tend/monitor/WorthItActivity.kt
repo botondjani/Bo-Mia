@@ -5,42 +5,75 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.tend.core.Mood
 import app.tend.data.TendStore
-import app.tend.ui.Card
+import app.tend.ui.Brand
 import app.tend.ui.CharacterView
+import app.tend.ui.PopupSheet
 import app.tend.ui.TendTheme
 
-/** One-tap question after a session in a blocked app. Feeds the weekly patterns. */
+/** One-tap question after a session in a paused app. Feeds the weekly patterns. */
 class WorthItActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         val store = TendStore(this)
         val pkg = intent.getStringExtra(EXTRA_PKG).orEmpty()
         val seconds = intent.getLongExtra(EXTRA_SECONDS, 0)
         val minutes = ((seconds + 59) / 60).coerceAtLeast(1)
+        val label = runCatching { packageManager.getApplicationInfo(pkg, 0).loadLabel(packageManager).toString() }.getOrNull()
+        val what = (if (minutes == 1L) "that minute" else "those $minutes minutes") + (label?.let { " on $it" } ?: "")
 
         setContent {
             TendTheme {
-                Card {
-                    CharacterView(store.avatar, Mood.HAPPY, 72.dp)
-                    Text(
-                        "Were those $minutes minutes worth it?",
-                        style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center,
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("Yes", "Kind of", "Not really").forEach { a ->
-                            OutlinedButton(onClick = { store.logAnswer("worth_it", pkg, a, seconds); finish() }) { Text(a) }
+                PopupSheet(onDismiss = ::finish) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CharacterView(store.avatar, Mood.HAPPY, 72.dp)
+                        Spacer(Modifier.width(12.dp))
+                        Text("Was $what worth it?", style = MaterialTheme.typography.titleLarge)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        listOf(
+                            Triple("😊", "Yes", Brand.Mint),
+                            Triple("😐", "Kind of", Brand.Sunny),
+                            Triple("😕", "Not really", Brand.Coral),
+                        ).forEach { (emoji, answer, tint) ->
+                            Column(
+                                Modifier.weight(1f).clip(RoundedCornerShape(20.dp)).background(tint.copy(alpha = 0.25f))
+                                    .clickable { store.logAnswer("worth_it", pkg, answer, seconds); finish() }
+                                    .padding(vertical = 14.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Text(emoji, fontSize = 30.sp)
+                                Text(answer, style = MaterialTheme.typography.labelLarge, color = Brand.Ink, maxLines = 1)
+                            }
                         }
                     }
-                    Text("Just for you: we use it for your weekly patterns.", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "Just for you: it shapes your weekly patterns.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             }
         }

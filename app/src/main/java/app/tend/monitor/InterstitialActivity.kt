@@ -8,6 +8,15 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import app.tend.ui.PopupSheet
+import app.tend.ui.PrimaryButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -52,6 +61,11 @@ import kotlinx.coroutines.delay
 class InterstitialActivity : ComponentActivity() {
     private val store by lazy { TendStore(this) }
 
+    /** Null until the activity sync has run; then what the sheet shows. */
+    private var view by mutableStateOf<View?>(null)
+
+    private data class View(val label: String, val locked: Boolean, val opensToday: Int, val delaySeconds: Int, val remaining: Int)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -61,56 +75,66 @@ class InterstitialActivity : ComponentActivity() {
             override fun handleOnBackPressed() = goHome()
         })
         val firstShow = savedInstanceState == null
+        // The scrim covers the app right away; the sheet appears once we know the budget.
+        setContent { TendTheme { view?.let { Sheet(pkg, it) } ?: Scrim() } }
         // Fresh steps or a finished workout may have just earned minutes: sync before deciding.
         lifecycleScope.launch {
             withTimeoutOrNull(SYNC_TIMEOUT_MS) { TaskSync.sync(this@InterstitialActivity) }
-            show(pkg, label, firstShow)
-        }
-    }
-
-    private fun show(pkg: String, label: String, firstShow: Boolean) {
-        val cfg = store.config
-        val locked = Budget.isLocked(cfg, store.today())
-
-        var day = store.today()
-        val delaySeconds = Budget.openDelaySeconds(cfg, day)
-        if (firstShow && !locked) day = store.update { it.copy(opensToday = it.opensToday + 1) }
-
-        setContent {
-            TendTheme {
-                Column(
-                    Modifier.fillMaxSize().background(Brand.Sage).safeDrawingPadding().padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text(if (locked) "Opening $label" else "Opening $label · ${ordinal(day.opensToday)} time today", style = MaterialTheme.typography.bodyMedium)
-                    CharacterView(store.avatar, if (locked) Mood.TIRED else Mood.SCROLLING, 150.dp)
-                    if (locked) Locked() else Delay(pkg, delaySeconds, Budget.remainingMinutes(cfg, day))
-                }
-            }
+            val cfg = store.config
+            val locked = Budget.isLocked(cfg, store.today())
+            var day = store.today()
+            val delaySeconds = Budget.openDelaySeconds(cfg, day)
+            if (firstShow && !locked) day = store.update { it.copy(opensToday = it.opensToday + 1) }
+            view = View(label, locked, day.opensToday, delaySeconds, Budget.remainingMinutes(cfg, day))
         }
     }
 
     @Composable
-    private fun Delay(pkg: String, delaySeconds: Int, remaining: Int) {
-        var answer by rememberSaveable { mutableStateOf<String?>(null) }
-        var left by rememberSaveable { mutableIntStateOf(delaySeconds) }
-        LaunchedEffect(Unit) { while (left > 0) { delay(1000); left-- } }
+    private fun Scrim() = Box(Modifier.fillMaxSize().background(Brand.Ink.copy(alpha = 0.45f)))
 
-        Text("What are you looking for?", style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
-        Text("${store.avatar.displayName}'s doing it too. Not sure why either.", style = MaterialTheme.typography.bodyMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Checking messages", "Something specific", "Just bored").forEach { a ->
-                FilterChip(
-                    selected = answer == a,
-                    onClick = { if (answer == null) store.logAnswer("looking_for", pkg, a); answer = a },
-                    label = { Text(a) },
+    @Composable
+    private fun Sheet(pkg: String, v: View) = PopupSheet(onDismiss = ::goHome) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            CharacterView(store.avatar, if (v.locked) Mood.TIRED else Mood.SCROLLING, 84.dp)
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text(
+                    if (v.locked) "Today's budget is used up" else "What are you looking for?",
+                    style = MaterialTheme.typography.titleLarge,
+                )
+                Text(
+                    if (v.locked) "Opening ${v.label}" else "Opening ${v.label} · ${ordinal(v.opensToday)} time today",
+                    style = MaterialTheme.typography.bodyMedium,
                 )
             }
         }
-        Card { Text("Today's budget · $remaining min left", style = MaterialTheme.typography.bodyLarge) }
-        Spacer(Modifier.height(8.dp))
-        Button(onClick = ::goHome, modifier = Modifier.fillMaxWidth()) { Text("I'll take a walk instead") }
+        if (v.locked) Locked() else Delay(pkg, v)
+    }
+
+    @Composable
+    private fun Delay(pkg: String, v: View) {
+        var answer by rememberSaveable { mutableStateOf<String?>(null) }
+        var left by rememberSaveable { mutableIntStateOf(v.delaySeconds) }
+        LaunchedEffect(Unit) { while (left > 0) { delay(1000); left-- } }
+
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Checking messages", "Something specific", "Just bored").forEach { a ->
+                val on = answer == a
+                Text(
+                    a,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (on) Color.White else Brand.Moss,
+                    modifier = Modifier.clip(RoundedCornerShape(50)).background(if (on) Brand.Moss else Brand.Card)
+                        .clickable { if (answer == null) store.logAnswer("looking_for", pkg, a); answer = a }
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                )
+            }
+        }
+        Text(
+            "${v.remaining} min left today · ${store.avatar.displayName}'s scrolling too, not sure why either.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        PrimaryButton("I'll take a walk instead", ::goHome)
         OutlinedButton(
             onClick = {
                 store.focusStartedAt = 0 // opening a paused app ends the reading session
@@ -119,32 +143,32 @@ class InterstitialActivity : ComponentActivity() {
                 finish()
             },
             enabled = left == 0,
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text(if (left > 0) "Open in $left s" else "Open") }
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+        ) { Text(if (left > 0) "Open in $left s" else "Open ${v.label}") }
         Text(
             if (store.focusStartedAt > 0) "Opening it ends your reading session." else "Every extra open today waits 5 s longer.",
             style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 
     @Composable
     private fun Locked() {
         val next = Tasks.next(store.today())
-        Text("Today's budget is used up", style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
         Text(
             next?.let { "${it.title} brings back ${it.rewardMinutes} min. Want to do it together?" }
                 ?: "That's all for today. Tomorrow's a fresh start.",
-            style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodyLarge,
         )
-        Spacer(Modifier.height(8.dp))
-        Button(
-            onClick = {
-                startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                finish()
-            },
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("Let's earn some") }
-        OutlinedButton(onClick = ::goHome, modifier = Modifier.fillMaxWidth()) { Text("Not now") }
+        PrimaryButton("Let's earn some", {
+            startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            finish()
+        })
+        OutlinedButton(
+            onClick = ::goHome, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth().height(52.dp),
+        ) { Text("Not now") }
     }
 
     private fun goHome() {

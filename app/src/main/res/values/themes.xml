@@ -3,7 +3,11 @@
     <style name="Theme.Tend" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/sage</item>
     </style>
-    <style name="Theme.Tend.Dialog" parent="android:Theme.Material.Light.Dialog.NoActionBar">
+    <!-- Pop-ups over other apps: the app underneath stays visible, Compose draws the scrim. -->
+    <style name="Theme.Tend.Overlay" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowAnimationStyle">@null</item>
     </style>
 </resources>

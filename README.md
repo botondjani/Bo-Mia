@@ -13,13 +13,13 @@ This is the MVP skeleton described in the concept doc. Native Android, English o
 | Health Connect: reads today's steps + exercise minutes (read-only) on app open, every minute while open, and before every pause screen; progress bars and a celebration when a task completes | `health/HealthConnect.kt`, `health/TaskSync.kt` |
 | Moods (happy / tired / scrolling / outside) and companion lines | `core/Mood.kt` |
 | Monitoring: UsageStats polled every second, opens a delay screen, counts time used, locks at zero, logs every miss | `monitor/MonitorService.kt` |
-| Delay screen: "What are you looking for?", 3 answers, "I'll take a walk instead", countdown | `monitor/InterstitialActivity.kt` |
-| "Worth it?" (Yes / Kind of / Not really) after sessions of 30 s or more | `monitor/WorthItActivity.kt` |
+| Pause pop-up: slides up over the opened app (translucent), "What are you looking for?", 3 answers, "I'll take a walk instead", countdown | `monitor/InterstitialActivity.kt` |
+| "Worth it?" pop-up over the home screen, three emoji tiles, after sessions of 30 s or more | `monitor/WorthItActivity.kt` |
 | Evening recap (from 19:00): minutes got back, tonight's plant, steps / exercise / reading, "Worth it?" summary with late-night pattern, home milestones | `core/Garden.kt`, `ui/Garden.kt` |
 | Garden: one plant per day from unused minutes (sprout < 15, tulip < 30, sunflower ≥ 30), planted at midnight; the home grows weekly (lit window + bench in week 2, own tree in week 4) | `core/Garden.kt`, `ui/Garden.kt` |
 | Patterns (last 7 days): screen time per day, minutes got back, "Worth it?" by time of day and by app, what you were looking for, one insight sentence | `core/Patterns.kt`, `ui/Patterns.kt` |
 | Evening reminder: offered once on the recap, toggle + 20/21/22:00 in settings; inexact daily alarm, silent if the recap was already opened, rescheduled after reboot | `reminder/RecapReminder.kt` |
-| Home screen widget: face, minutes left, next task; refreshes on every change | `widget/TendWidget.kt` |
+| Home screen widget (2×1): face and minutes left (or what earns minutes back when out); refreshes on every change | `widget/TendWidget.kt` |
 | Onboarding (7 steps, suggested apps, in-context permissions), settings, home, focus timer | `ui/` |
 | Character: Rive runtime plays `assets/tend_character.riv` (mood/mia/tap inputs, see `docs/rive-rig.md`); without it a drawn fallback that breathes, blinks and glances around | `ui/Character.kt`, `ui/CharacterPainter.kt` |
 | Brand: Moss/Mint/Coral/Sunny/Sky/Ink/Sage, Fredoka + Nunito (OFL, bundled) | `ui/Theme.kt` |

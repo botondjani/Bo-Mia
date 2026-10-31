@@ -3,6 +3,7 @@ package app.tend.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -203,14 +205,32 @@ fun Pill(text: String, color: Color = Brand.Sage, modifier: Modifier = Modifier)
 fun FocusTimerScreen(avatar: Avatar, task: TaskDef, secondsLeft: Long, onCancel: () -> Unit) = Column(
     Modifier.fillMaxSize().background(Brand.Sage).padding(24.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
-    verticalArrangement = Arrangement.Center,
+    verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
 ) {
-    CharacterView(avatar, app.tend.core.Mood.HAPPY, 160.dp)
-    Spacer(Modifier.height(16.dp))
+    Text("READING TOGETHER", style = MaterialTheme.typography.labelSmall)
+    Box(contentAlignment = Alignment.Center) {
+        val total = task.target * 60f
+        androidx.compose.foundation.Canvas(Modifier.size(280.dp)) {
+            val w = 14.dp.toPx()
+            val inset = w / 2
+            val arc = androidx.compose.ui.geometry.Size(size.width - w, size.height - w)
+            val topLeft = androidx.compose.ui.geometry.Offset(inset, inset)
+            val style = androidx.compose.ui.graphics.drawscope.Stroke(w, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            drawArc(Brand.Mint.copy(alpha = 0.3f), 0f, 360f, false, topLeft, arc, style = style)
+            drawArc(Brand.Moss, -90f, 360f * (1f - secondsLeft / total), false, topLeft, arc, style = style)
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CharacterView(avatar, app.tend.core.Mood.HAPPY, 150.dp, reading = true)
+            Text("%d:%02d".format(secondsLeft / 60, secondsLeft % 60), style = MaterialTheme.typography.headlineLarge, color = Brand.Moss)
+        }
+    }
     Text(task.title, style = MaterialTheme.typography.titleLarge)
-    Text("%d:%02d".format(secondsLeft / 60, secondsLeft % 60), style = MaterialTheme.typography.headlineLarge, color = Brand.Moss)
-    Text("${avatar.displayName} is reading with you. +${task.rewardMinutes} min when the timer ends.", style = MaterialTheme.typography.bodyMedium)
-    Spacer(Modifier.height(24.dp))
-    TextButton(onClick = onCancel) { Text("Stop for now") }
+    Text(
+        "${avatar.displayName} is reading with you. +${task.rewardMinutes} min when the timer ends. " +
+            "You can leave tend; opening a paused app ends the session.",
+        style = MaterialTheme.typography.bodyMedium,
+        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+    )
+    androidx.compose.material3.OutlinedButton(onClick = onCancel, shape = RoundedCornerShape(20.dp)) { Text("Stop for now") }
 }
 
