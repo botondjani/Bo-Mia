@@ -16,6 +16,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import app.tend.ui.PopupSheet
+import app.tend.ui.blurBehind
+import androidx.compose.material3.ButtonDefaults
 import app.tend.ui.PrimaryButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -70,6 +72,7 @@ class InterstitialActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        blurBehind()
         val pkg = intent.getStringExtra(EXTRA_PKG) ?: return finish()
         val label = runCatching { packageManager.getApplicationInfo(pkg, 0).loadLabel(packageManager).toString() }.getOrDefault(pkg)
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -91,25 +94,29 @@ class InterstitialActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun Scrim() = Box(Modifier.fillMaxSize().background(Brand.Ink.copy(alpha = 0.45f)))
+    private fun Scrim() = Box(Modifier.fillMaxSize().background(Brand.Ink.copy(alpha = 0.35f)))
 
     @Composable
-    private fun Sheet(pkg: String, v: View) = PopupSheet(onDismiss = ::goHome) {
+    private fun Sheet(pkg: String, v: View) = PopupSheet(onDismiss = ::goHome, minHeightFraction = 0.5f) {
+        if (v.locked) Locked(v) else Delay(pkg, v)
+    }
+
+    @Composable
+    private fun Header(v: View) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            CharacterView(store.avatar, if (v.locked) Mood.TIRED else Mood.SCROLLING, 84.dp)
+            CharacterView(store.avatar, if (v.locked) Mood.TIRED else Mood.SCROLLING, 76.dp)
             Spacer(Modifier.width(12.dp))
             Column {
                 Text(
-                    if (v.locked) "Today's budget is used up" else "What are you looking for?",
-                    style = MaterialTheme.typography.titleLarge,
+                    if (v.locked) "${v.label} · out of minutes" else "${v.label} · ${ordinal(v.opensToday)} open today",
+                    style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
-                    if (v.locked) "Opening ${v.label}" else "Opening ${v.label} · ${ordinal(v.opensToday)} time today",
-                    style = MaterialTheme.typography.bodyMedium,
+                    if (v.locked) "Today's budget is used up." else Taglines.forOpen(v.opensToday, store.avatar.displayName),
+                    style = MaterialTheme.typography.titleLarge,
                 )
             }
         }
-        if (v.locked) Locked() else Delay(pkg, v)
     }
 
     @Composable
@@ -118,8 +125,11 @@ class InterstitialActivity : ComponentActivity() {
         var left by rememberSaveable { mutableIntStateOf(v.delaySeconds) }
         LaunchedEffect(Unit) { while (left > 0) { delay(1000); left-- } }
 
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Header(v)
+        Text("WHAT ARE YOU LOOKING FOR?", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Checking messages", "Something specific", "Just bored").forEach { a ->
+            listOf("Messages", "Something specific", "Just bored").forEach { a ->
                 val on = answer == a
                 Text(
                     a,
@@ -131,9 +141,13 @@ class InterstitialActivity : ComponentActivity() {
                 )
             }
         }
-        Text(Taglines.forOpen(v.opensToday, store.avatar.displayName), style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
-        Text("${v.remaining} min left today", style = MaterialTheme.typography.bodyMedium)
-        PrimaryButton("I'll take a walk instead", ::goHome)
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 20.dp)) {
+        Text(
+            if (store.focusStartedAt > 0) "${v.remaining} min left today · opening ends your reading session" else "${v.remaining} min left today",
+            style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
+        )
+        PrimaryButton("Not now", ::goHome)
         OutlinedButton(
             onClick = {
                 store.focusStartedAt = 0 // opening a paused app ends the reading session
@@ -143,31 +157,33 @@ class InterstitialActivity : ComponentActivity() {
             },
             enabled = left == 0,
             shape = RoundedCornerShape(20.dp),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Brand.Muted.copy(alpha = if (left > 0) 0.35f else 0.8f)),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Brand.Ink, disabledContentColor = Brand.Muted),
             modifier = Modifier.fillMaxWidth().height(52.dp),
-        ) { Text(if (left > 0) "Open in $left s" else "Open ${v.label}") }
-        Text(
-            if (store.focusStartedAt > 0) "Opening it ends your reading session." else "Every extra open today waits 5 s longer.",
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        ) { Text(if (left > 0) "Open ${v.label} in $left s" else "Open ${v.label}") }
+        }
     }
 
     @Composable
-    private fun Locked() {
+    private fun Locked(v: View) {
         val next = Tasks.next(store.today(), store.selectedTasks)
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Header(v)
         Text(
-            next?.let { "${it.title} brings back ${it.rewardMinutes} min. Want to do it together?" }
+            next?.let { "${it.emoji} ${it.title} brings back ${it.rewardMinutes} min. Want to do it together?" }
                 ?: "That's all for today. Tomorrow's a fresh start.",
             style = MaterialTheme.typography.bodyLarge,
         )
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 20.dp)) {
         PrimaryButton("Let's earn some", {
-            startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            startActivity(Intent(this@InterstitialActivity, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             finish()
         })
         OutlinedButton(
             onClick = ::goHome, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth().height(52.dp),
         ) { Text("Not now") }
+        }
     }
 
     private fun goHome() {

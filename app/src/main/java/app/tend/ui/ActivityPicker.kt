@@ -1,6 +1,5 @@
 package app.tend.ui
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -30,6 +29,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import app.tend.core.TaskDef
 import app.tend.core.Tasks
 
@@ -37,10 +37,32 @@ import app.tend.core.Tasks
 @Composable
 fun ActivityPicker(selected: List<TaskDef>, onToggle: (TaskDef) -> Unit) {
     val full = selected.size >= Tasks.MAX_SELECTED
-    Text("${selected.size} of ${Tasks.MAX_SELECTED} picked", style = MaterialTheme.typography.labelSmall)
-    Tasks.presets.forEach { task -> ActivityRow(task, task in selected, enabled = task in selected || !full) { onToggle(task) } }
+    var adding by rememberSaveable { mutableStateOf(false) }
+    PickCounter(selected.size)
+    if (!full) TextButton(onClick = { adding = true }) { Text("＋ Add your own") }
     selected.filter { Tasks.isCustom(it) }.forEach { task -> ActivityRow(task, true, enabled = true) { onToggle(task) } }
-    if (!full) OwnActivity { onToggle(it) }
+    Tasks.presets.forEach { task -> ActivityRow(task, task in selected, enabled = task in selected || !full) { onToggle(task) } }
+    if (adding) OwnActivityDialog(onDismiss = { adding = false }) { onToggle(it); adding = false }
+}
+
+/** "3 of 5" with five dots, so the limit is obvious before anyone hits it. */
+@Composable
+private fun PickCounter(count: Int) = Row(
+    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Brand.Card).padding(horizontal = 14.dp, vertical = 10.dp),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    Column(Modifier.weight(1f)) {
+        Text("$count of ${Tasks.MAX_SELECTED} picked", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
+        Text(
+            if (count >= Tasks.MAX_SELECTED) "That's the max. Tap one to swap it out." else "You can pick up to ${Tasks.MAX_SELECTED}.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        repeat(Tasks.MAX_SELECTED) { i ->
+            Spacer(Modifier.size(12.dp).clip(CircleShape).background(if (i < count) Brand.Moss else Brand.Mint.copy(alpha = 0.3f)))
+        }
+    }
 }
 
 @Composable
@@ -70,16 +92,15 @@ private fun ActivityRow(task: TaskDef, on: Boolean, enabled: Boolean, onClick: (
 private val EMOJIS = listOf("🎸", "🧘", "✍️", "🐶", "🌱", "🧩", "🎹", "🚲")
 
 @Composable
-private fun OwnActivity(onAdd: (TaskDef) -> Unit) {
-    var open by rememberSaveable { mutableStateOf(false) }
+private fun OwnActivityDialog(onDismiss: () -> Unit, onAdd: (TaskDef) -> Unit) {
     var name by rememberSaveable { mutableStateOf("") }
     var emoji by rememberSaveable { mutableStateOf(EMOJIS.first()) }
-    TextButton(onClick = { open = !open }) { Text(if (open) "Cancel" else "＋ Add your own") }
-    AnimatedVisibility(open) {
+    Dialog(onDismissRequest = onDismiss) {
         Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Brand.Card).padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Brand.Card).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            Text("Your own activity", style = MaterialTheme.typography.titleLarge)
             OutlinedTextField(
                 value = name, onValueChange = { name = it.take(40) },
                 placeholder = { Text("e.g. Play guitar") }, singleLine = true,
@@ -95,9 +116,8 @@ private fun OwnActivity(onAdd: (TaskDef) -> Unit) {
                 }
             }
             Text("Check off when done · +${Tasks.CUSTOM_REWARD} min", style = MaterialTheme.typography.bodyMedium)
-            PrimaryButton("Add", {
-                onAdd(Tasks.custom(name, emoji)); name = ""; open = false
-            }, enabled = name.isNotBlank())
+            PrimaryButton("Add", { onAdd(Tasks.custom(name, emoji)) }, enabled = name.isNotBlank())
+            TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Cancel") }
         }
     }
 }

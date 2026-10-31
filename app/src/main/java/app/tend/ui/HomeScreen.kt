@@ -55,6 +55,7 @@ fun HomeScreen(
     onConnectHealth: () -> Unit,
     onStartFocus: (TaskDef) -> Unit,
     onCheckOff: (TaskDef) -> Unit,
+    onUndo: (TaskDef) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenGarden: () -> Unit,
     onOpenRecap: () -> Unit,
@@ -120,7 +121,7 @@ fun HomeScreen(
             Text("No activities picked yet", style = MaterialTheme.typography.titleMedium)
             TextButton(onClick = onOpenSettings) { Text("Pick what you'd rather do →") }
         }
-        tasks.forEach { task -> TaskRow(task, day, health, focusSecondsLeft, onStartFocus, onCheckOff) }
+        tasks.forEach { task -> TaskRow(task, day, health, focusSecondsLeft, onStartFocus, onCheckOff, onUndo) }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -140,6 +141,7 @@ private fun TaskRow(
     focusSecondsLeft: Long?,
     onStartFocus: (TaskDef) -> Unit,
     onCheckOff: (TaskDef) -> Unit,
+    onUndo: (TaskDef) -> Unit,
 ) = Card {
     val done = task.id in day.completedTasks
     val progress = Tasks.progress(task, day)
@@ -158,7 +160,11 @@ private fun TaskRow(
             )
         }
         when {
-            done -> Pill("✓ +${task.rewardMinutes} min")
+            done && task.manual -> Column(horizontalAlignment = Alignment.End) {
+                Pill(day.grants[task.id]?.takeIf { it > 0 }?.let { "✓ +$it min" } ?: "✓")
+                TextButton(onClick = { onUndo(task) }) { Text("Undo") }
+            }
+            done -> Pill("✓ +${day.grants[task.id] ?: task.rewardMinutes} min")
             task.verification == Verification.FOCUS_TIMER -> Button(onClick = { onStartFocus(task) }) {
                 Text(focusSecondsLeft?.let { "Continue · ${it / 60}:%02d".format(it % 60) } ?: "Start", color = Color.White)
             }
@@ -182,7 +188,7 @@ private fun progressLabel(task: TaskDef, progress: Long): String = when (task.id
 
 /** Short moment of joy when a task completes: the character goes outside, minutes are credited. */
 @Composable
-fun Celebration(avatar: Avatar, tasks: List<TaskDef>, minutes: Int, onDismiss: () -> Unit) = Dialog(onDismissRequest = onDismiss) {
+fun Celebration(avatar: Avatar, tasks: List<TaskDef>, minutes: Int, onUndo: (() -> Unit)?, onDismiss: () -> Unit) = Dialog(onDismissRequest = onDismiss) {
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Brand.Card).padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -197,6 +203,7 @@ fun Celebration(avatar: Avatar, tasks: List<TaskDef>, minutes: Int, onDismiss: (
             style = MaterialTheme.typography.bodyMedium,
         )
         PrimaryButton("Nice", onDismiss, modifier = Modifier.padding(top = 8.dp))
+        if (onUndo != null) TextButton(onClick = onUndo) { Text("Oops, undo") }
     }
 }
 

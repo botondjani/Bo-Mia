@@ -78,6 +78,12 @@ class PermissionActions(
     val requestUsage: () -> Unit,
     val requestOverlay: () -> Unit,
     val openAppInfo: () -> Unit,
+    /** Side-loaded on Android 13+: Android locks both switches until "Allow restricted settings". */
+    val restricted: Boolean = false,
+    /** The user already let Android say no once, so the unlock option now exists in App info. */
+    val unlockTried: Boolean = false,
+    val tryUnlock: () -> Unit = {},
+    val skipUnlock: () -> Unit = {},
 )
 
 private enum class Step { WELCOME, COMPANION, HOW, APPS, ACTIVITIES, BUDGET, PERMISSIONS, DONE }
@@ -161,7 +167,7 @@ fun Onboarding(
                 }
 
                 Step.PERMISSIONS -> StepPage(
-                    cta = if (perms.permissions.allGranted) "Continue" else "Two switches to go",
+                    cta = if (perms.permissions.allGranted) "Continue" else "A few taps to go",
                     ctaEnabled = perms.permissions.allGranted,
                     onCta = next,
                 ) {
@@ -314,7 +320,7 @@ fun AppPicker(catalog: AppCatalog, blocked: Set<String>, onToggle: (String) -> U
                 shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(),
             )
             val matches = remember(query) {
-                catalog.others.filter { query.isBlank() || it.label.contains(query.trim(), ignoreCase = true) }.take(8)
+                catalog.others.filter { query.isBlank() || it.label.contains(query.trim(), ignoreCase = true) }
             }
             matches.forEach { app -> AppRow(catalog, app, app.pkg in blocked, onToggle) }
         }
@@ -392,17 +398,48 @@ private fun Choices(options: List<Int>, value: Int, onPick: (Int) -> Unit) =
 @Composable
 fun PermissionSteps(perms: PermissionActions) {
     val p = perms.permissions
+    val unlock = perms.restricted && !p.allGranted
+    if (unlock) UnlockCard(perms)
+    val n = if (unlock) 1 else 0
     // Overlay first: once it's granted, tend may bring itself back to the front after the second switch.
     PermissionCard(
-        number = 1, title = "Display over other apps", why = "So the little pause can appear when you open a picked app.",
-        granted = p.overlay, active = !p.overlay, blocked = perms.overlayBlocked,
+        number = n + 1, title = "Display over other apps", why = "So the little pause can appear when you open a picked app.",
+        granted = p.overlay, active = !unlock && !p.overlay, blocked = perms.overlayBlocked,
         onAllow = perms.requestOverlay, onAppInfo = perms.openAppInfo,
     )
     PermissionCard(
-        number = 2, title = "Usage access", why = "So screen time is measured on your phone, not guessed.",
-        granted = p.usageAccess, active = p.overlay && !p.usageAccess, blocked = perms.usageBlocked,
+        number = n + 2, title = "Usage access", why = "So screen time is measured on your phone, not guessed.",
+        granted = p.usageAccess, active = !unlock && p.overlay && !p.usageAccess, blocked = perms.usageBlocked,
         onAllow = perms.requestUsage, onAppInfo = perms.openAppInfo,
     )
+}
+
+/** Step 1 for side-loaded installs: lift Android's "restricted settings" lock before asking for anything. */
+@Composable
+private fun UnlockCard(perms: PermissionActions) = Column(
+    Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Brand.Card)
+        .border(2.dp, Brand.Moss, RoundedCornerShape(22.dp)).padding(16.dp),
+    verticalArrangement = Arrangement.spacedBy(8.dp),
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(32.dp).clip(CircleShape).background(Brand.Sage), contentAlignment = Alignment.Center) {
+            Text("1", color = Brand.Moss, style = MaterialTheme.typography.titleMedium)
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text("Unlock tend's settings", style = MaterialTheme.typography.titleMedium)
+            Text("One time only. Android locks these switches for apps installed outside the Play Store.", style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+    if (!perms.unlockTried) {
+        Text("Tap Start. Android will say no, that's expected: close its message and come back here.", style = MaterialTheme.typography.bodyLarge)
+        PrimaryButton("Start", perms.tryUnlock)
+    } else {
+        Text("Now: App info → ⋮ in the top right corner → Allow restricted settings → confirm. Then come back.", style = MaterialTheme.typography.bodyLarge)
+        PrimaryButton("Open app info", perms.openAppInfo)
+        TextButton(onClick = perms.tryUnlock) { Text("Android didn't say no? Try again") }
+    }
+    TextButton(onClick = perms.skipUnlock) { Text("Already unlocked? Skip") }
 }
 
 @Composable

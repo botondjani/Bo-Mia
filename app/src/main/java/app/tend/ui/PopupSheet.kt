@@ -9,10 +9,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,12 +30,13 @@ import androidx.compose.ui.unit.dp
  * Tapping the scrim calls [onDismiss].
  */
 @Composable
-fun PopupSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+fun PopupSheet(onDismiss: () -> Unit, minHeightFraction: Float = 0f, content: @Composable ColumnScope.() -> Unit) {
     val shown = remember { MutableTransitionState(false).apply { targetState = true } }
-    Box(Modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val minHeight = maxHeight * minHeightFraction
         AnimatedVisibility(shown, enter = fadeIn()) {
             Box(
-                Modifier.fillMaxSize().background(Brand.Ink.copy(alpha = 0.45f))
+                Modifier.fillMaxSize().background(Brand.Ink.copy(alpha = 0.35f))
                     .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
             )
         }
@@ -43,15 +46,23 @@ fun PopupSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Uni
             modifier = Modifier.align(Alignment.BottomCenter),
         ) {
             Column(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                Modifier.fillMaxWidth().heightIn(min = minHeight).clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
                     .background(Brand.Sage)
                     // Swallow taps so they don't reach the scrim.
                     .clickable(remember { MutableInteractionSource() }, indication = null) {}
                     .navigationBarsPadding()
                     .padding(horizontal = 20.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                // With a minimum height, the first child sits at the top and the last at the bottom.
+                verticalArrangement = if (minHeightFraction > 0f) Arrangement.SpaceBetween else Arrangement.spacedBy(12.dp),
                 content = content,
             )
         }
     }
+}
+
+/** Blurs whatever app is underneath a pop-up window (Android 12+, where the phone allows it). */
+fun android.app.Activity.blurBehind() {
+    if (android.os.Build.VERSION.SDK_INT < 31) return
+    window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+    window.attributes = window.attributes.also { it.blurBehindRadius = 60 }
 }

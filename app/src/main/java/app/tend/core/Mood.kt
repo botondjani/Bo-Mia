@@ -16,6 +16,14 @@ object Moods {
         else -> Mood.HAPPY
     }
 
+    /** A two-word status for the widget: "Bo is happy". */
+    fun status(name: String, mood: Mood): String = "$name is " + when (mood) {
+        Mood.HAPPY -> "happy"
+        Mood.TIRED -> "sleepy"
+        Mood.SCROLLING -> "scrolling"
+        Mood.OUTSIDE -> "glowing"
+    }
+
     /** Companion line: kind nudges towards the user's own picks, never shaming. */
     fun line(cfg: BudgetConfig, day: DayState, selected: List<TaskDef>): String {
         val done = selected.count { it.id in day.completedTasks }

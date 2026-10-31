@@ -51,9 +51,10 @@ class BudgetTest {
         assertEquals(50, d.earnedMinutes)
     }
 
-    @Test fun `each open waits five seconds longer`() {
-        assertEquals(3, Budget.openDelaySeconds(cfg, day))
-        assertEquals(18, Budget.openDelaySeconds(cfg, day.copy(opensToday = 3)))
+    @Test fun `opens wait 5 s, one second more each time, at most 10 s`() {
+        assertEquals(5, Budget.openDelaySeconds(cfg, day))
+        assertEquals(8, Budget.openDelaySeconds(cfg, day.copy(opensToday = 3)))
+        assertEquals(10, Budget.openDelaySeconds(cfg, day.copy(opensToday = 40)))
     }
 
     @Test fun `only unused minutes grow the garden, overuse does not carry over`() {
@@ -105,5 +106,22 @@ class BudgetTest {
     @Test fun `companion line follows the user's own picks`() {
         assertEquals("What shall we do today? 🎨 Hobby sounds nice.", Moods.line(cfg, day, listOf(Tasks.HOBBY)))
         assertEquals("We haven't been outside in a while. Quick walk?", Moods.line(cfg, day, listOf(Tasks.OUTSIDE)))
+    }
+
+    @Test fun `undo takes back exactly what a check-off granted`() {
+        val small = cfg.copy(manualCapMinutes = 20)
+        var d = Budget.credit(small, day, "friends", 15, manual = true)
+        d = Budget.credit(small, d, "hobby", 15, manual = true) // capped: only 5 granted
+        assertEquals(20, d.manualEarnedMinutes)
+        d = Budget.undo(d, "hobby", manual = true)
+        assertEquals(15, d.earnedMinutes)
+        assertEquals(15, d.manualEarnedMinutes)
+        assertFalse("hobby" in d.completedTasks)
+        assertEquals(d, Budget.undo(d, "hobby", manual = true))
+    }
+
+    @Test fun `status names the companion's mood`() {
+        assertEquals("Bo is happy", Moods.status("Bo", Mood.HAPPY))
+        assertEquals("Mia is sleepy", Moods.status("Mia", Mood.TIRED))
     }
 }

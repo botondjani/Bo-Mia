@@ -38,6 +38,8 @@ object TaskSync {
         return diff(before, store.today(), store.selectedTasks)
     }
 
+    fun undo(store: TendStore, task: TaskDef) = store.update { Budget.undo(it, task.id, task.manual) }
+
     private fun diff(before: app.tend.core.DayState, after: app.tend.core.DayState, selected: List<TaskDef>) = Done(
         selected.filter { it.id in after.completedTasks && it.id !in before.completedTasks },
         after.earnedMinutes - before.earnedMinutes,

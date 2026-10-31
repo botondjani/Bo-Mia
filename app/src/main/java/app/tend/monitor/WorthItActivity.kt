@@ -29,6 +29,7 @@ import app.tend.data.TendStore
 import app.tend.ui.Brand
 import app.tend.ui.CharacterView
 import app.tend.ui.PopupSheet
+import app.tend.ui.blurBehind
 import app.tend.ui.TendTheme
 
 /** One-tap question after a session in a paused app. Feeds the weekly patterns. */
@@ -36,6 +37,7 @@ class WorthItActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        blurBehind()
         val store = TendStore(this)
         val pkg = intent.getStringExtra(EXTRA_PKG).orEmpty()
         val seconds = intent.getLongExtra(EXTRA_SECONDS, 0)

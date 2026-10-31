@@ -11,9 +11,11 @@ data class BudgetConfig(
     /** Internal cap on minutes earned by manual check-offs (not shown to the user). */
     val manualCapMinutes: Int = 45,
     /** Delay before the first open of a blocked app. */
-    val baseDelaySeconds: Int = 3,
+    val baseDelaySeconds: Int = 5,
     /** Every further open today waits this much longer. */
-    val delayStepSeconds: Int = 5,
+    val delayStepSeconds: Int = 1,
+    /** The wait never grows beyond this. */
+    val maxDelaySeconds: Int = 10,
 )
 
 /** Everything that resets at midnight. Earned minutes expire with it. */
@@ -27,6 +29,8 @@ data class DayState(
     /** Today's totals from Health Connect, as of the last sync. */
     val steps: Long = 0,
     val exerciseMinutes: Int = 0,
+    /** Minutes actually granted per task today, so a check-off can be undone exactly. */
+    val grants: Map<String, Int> = emptyMap(),
 )
 
 object Budget {
@@ -55,7 +59,7 @@ object Budget {
 
     /** Wait before the next open; grows with every open today. */
     fun openDelaySeconds(cfg: BudgetConfig, day: DayState): Int =
-        cfg.baseDelaySeconds + cfg.delayStepSeconds * day.opensToday
+        minOf(cfg.baseDelaySeconds + cfg.delayStepSeconds * day.opensToday, cfg.maxDelaySeconds)
 
     /**
      * Credits a completed task. Each task counts once per day; the credit is clamped
@@ -69,6 +73,19 @@ object Budget {
             earnedMinutes = day.earnedMinutes + granted,
             manualEarnedMinutes = day.manualEarnedMinutes + if (manual) granted else 0,
             completedTasks = day.completedTasks + taskId,
+            grants = day.grants + (taskId to granted),
+        )
+    }
+
+    /** Takes back a credited task (a mistaken check-off), exactly what it granted. */
+    fun undo(day: DayState, taskId: String, manual: Boolean): DayState {
+        if (taskId !in day.completedTasks) return day
+        val granted = day.grants[taskId] ?: 0
+        return day.copy(
+            earnedMinutes = day.earnedMinutes - granted,
+            manualEarnedMinutes = day.manualEarnedMinutes - if (manual) granted else 0,
+            completedTasks = day.completedTasks - taskId,
+            grants = day.grants - taskId,
         )
     }
 

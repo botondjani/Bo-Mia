@@ -8,6 +8,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -33,6 +34,7 @@ import androidx.compose.ui.Modifier
 import android.Manifest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
+import app.tend.core.Budget
 import app.tend.core.Patterns
 import app.tend.core.Recap
 import app.tend.reminder.RecapReminder
@@ -73,6 +75,8 @@ class MainActivity : ComponentActivity() {
     /** The user went to a settings page and came back without the permission. */
     private var usageAttempted = false
     private var overlayAttempted = false
+    private var unlockTried = false
+    private var unlockSkipped = false
 
     private enum class Screen { HOME, SETTINGS, PERMISSIONS, GARDEN, RECAP, PATTERNS }
 
@@ -163,7 +167,14 @@ class MainActivity : ComponentActivity() {
             }
         }
         LaunchedEffect(openRecap) { if (openRecap) { screen = Screen.RECAP; openRecap = false } }
-        celebrate?.let { Celebration(store.avatar, it.tasks, it.minutes) { celebrate = null } }
+        celebrate?.let { done ->
+            // Only a single hand check-off can be undone; measured tasks are facts.
+            val undoable = done.tasks.singleOrNull()?.takeIf { it.manual }
+            Celebration(
+                store.avatar, done.tasks, done.minutes,
+                onUndo = undoable?.let { t -> { TaskSync.undo(store, t); celebrate = null; refresh++ } },
+            ) { celebrate = null }
+        }
         val toggleTask: (TaskDef) -> Unit = { store.toggleTask(it); refresh++ }
 
         val toggleApp: (String) -> Unit = { pkg ->
@@ -260,6 +271,7 @@ class MainActivity : ComponentActivity() {
                     if (done.tasks.isNotEmpty()) celebrate = done
                     refresh++
                 },
+                onUndo = { TaskSync.undo(store, it); refresh++ },
                 onOpenSettings = { screen = Screen.SETTINGS },
                 onOpenGarden = { screen = Screen.GARDEN },
                 onOpenRecap = { screen = Screen.RECAP },
@@ -273,7 +285,7 @@ class MainActivity : ComponentActivity() {
         Column(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f)) {
                 when (screen) {
-                    Screen.GARDEN -> GardenScreen(store.avatar, store.plants, store.daysTended)
+                    Screen.GARDEN -> GardenScreen(store.avatar, store.plants, store.daysTended, Budget.gardenMinutesAtClose(store.config, store.today()))
                     Screen.PATTERNS -> PatternsScreen(
                         store.avatar,
                         Patterns.week(LocalDate.now(), store.daySummaries(), store.answers()),
@@ -298,15 +310,28 @@ class MainActivity : ComponentActivity() {
             requestUsage = {
                 usageAttempted = true
                 returnWhenGranted { permissions().usageAccess }
-                // Straight to tend's own switch where the phone supports it, else the list.
-                open(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:$packageName")), Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                hint("Switch on usage access for tend")
+                // Straight to tend's own switch where the phone supports it, else the list scrolled to tend.
+                open(highlightTend(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:$packageName"))), highlightTend(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)))
             },
             requestOverlay = {
                 overlayAttempted = true
                 returnWhenGranted { Settings.canDrawOverlays(this) }
-                open(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")), Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION))
+                hint("Find tend and switch on \"Allow display over other apps\"")
+                open(highlightTend(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))), highlightTend(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)))
             },
-            openAppInfo = { open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) },
+            openAppInfo = {
+                hint("Tap ⋮ in the top right, then \"Allow restricted settings\"")
+                open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+            },
+            restricted = !unlockSkipped && restrictedSettingsLocked(),
+            unlockTried = unlockTried,
+            tryUnlock = {
+                unlockTried = true
+                // Android only offers "Allow restricted settings" after it has refused a switch once.
+                open(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:$packageName")), Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+            },
+            skipUnlock = { unlockSkipped = true; refresh++ },
         )
     }
 
@@ -327,6 +352,27 @@ class MainActivity : ComponentActivity() {
                 else -> Unit
             }
         })
+    }
+
+    /** Asks Settings to scroll to and flash tend's row, where the phone supports it. */
+    private fun highlightTend(intent: Intent) = intent
+        .putExtra(":settings:fragment_args_key", packageName)
+        .putExtra(":settings:show_fragment_args", Bundle().apply { putString(":settings:fragment_args_key", packageName) })
+
+    /** A short note that stays visible on top of the Settings page. */
+    private fun hint(text: String) = Toast.makeText(this, text, Toast.LENGTH_LONG).show()
+
+    /**
+     * Android 13+ locks some switches for side-loaded apps until the user allows "restricted
+     * settings" in App info. The op is readable for our own app; if it isn't, assume unlocked.
+     */
+    private fun restrictedSettingsLocked(): Boolean {
+        if (Build.VERSION.SDK_INT < 33) return false
+        val mode = runCatching {
+            getSystemService(AppOpsManager::class.java)
+                .unsafeCheckOpNoThrow("android:access_restricted_settings", Process.myUid(), packageName)
+        }.getOrNull() ?: return false
+        return mode != AppOpsManager.MODE_ALLOWED && mode != AppOpsManager.MODE_DEFAULT
     }
 
     private fun open(vararg intents: Intent) {

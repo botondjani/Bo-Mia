@@ -30,7 +30,7 @@
             android:fontFamily="@font/fredoka"
             android:maxLines="1"
             android:textColor="@color/moss"
-            android:textSize="20sp"
+            android:textSize="18sp"
             android:textStyle="bold" />
 
         <TextView
@@ -41,5 +41,14 @@
             android:text="@string/widget_left_today"
             android:textColor="@color/muted"
             android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:textColor="@color/moss"
+            android:textSize="12sp"
+            android:textStyle="bold" />
     </LinearLayout>
 </LinearLayout>

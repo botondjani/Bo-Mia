@@ -193,6 +193,9 @@ class TendStore(private val context: Context) {
             usedSeconds = prefs.getLong("day_used", 0),
             opensToday = prefs.getInt("day_opens", 0),
             completedTasks = prefs.getStringSet("day_tasks", emptySet())!!,
+            grants = prefs.getString("day_grants", "")!!.split(';').mapNotNull {
+                it.split('=').takeIf { p -> p.size == 2 }?.let { (k, v) -> v.toIntOrNull()?.let { m -> k to m } }
+            }.toMap(),
             steps = prefs.getLong("day_steps", 0),
             exerciseMinutes = prefs.getInt("day_exercise", 0),
         )
@@ -205,6 +208,7 @@ class TendStore(private val context: Context) {
         putLong("day_used", d.usedSeconds)
         putInt("day_opens", d.opensToday)
         putStringSet("day_tasks", d.completedTasks)
+        putString("day_grants", d.grants.entries.joinToString(";") { "${it.key}=${it.value}" })
         putLong("day_steps", d.steps)
         putInt("day_exercise", d.exerciseMinutes)
         extra()

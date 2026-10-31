@@ -8,18 +8,18 @@ This is the MVP skeleton described in the concept doc. Native Android, English o
 
 | Part | Where |
 |---|---|
-| Budget logic: free base, earned minutes that expire each day, manual-credit cap, lock at ≤ 0, +5 s delay on every open, unused minutes go to the garden | `core/Budget.kt` (unit-tested) |
-| Activities the user picks (up to 5, nothing pre-selected): workout (30 min exercise) and walk (4,000 steps) via Health Connect, read/learn via a 20 min focus timer, friends & family / hobby / tidy up / cooking and own activities by check-off (daily check-off cap 45 min) | `core/Tasks.kt`, `ui/ActivityPicker.kt`, `health/` |
+| Budget logic: free base, earned minutes that expire each day, manual-credit cap, lock at ≤ 0, delay before every open (5 s, +1 s each time, at most 10 s), unused minutes go to the garden | `core/Budget.kt` (unit-tested) |
+| Activities the user picks (up to 5, nothing pre-selected): workout (30 min exercise) and walk (4,000 steps) via Health Connect, read/learn via a 20 min focus timer, friends & family / hobby / tidy up / cooking and own activities by check-off with undo (daily check-off cap 45 min) | `core/Tasks.kt`, `ui/ActivityPicker.kt`, `health/` |
 | Health Connect: reads today's steps + exercise minutes (read-only) on app open, every minute while open, and before every pause screen; progress bars and a celebration when a task completes | `health/HealthConnect.kt`, `health/TaskSync.kt` |
 | Moods (happy / tired / scrolling / outside) and companion lines | `core/Mood.kt` |
 | Monitoring: UsageStats polled every second, opens a delay screen, counts time used, locks at zero, logs every miss | `monitor/MonitorService.kt` |
-| Pause pop-up: slides up over the opened app (translucent), "What are you looking for?", 3 answers, "I'll take a walk instead", countdown | `monitor/InterstitialActivity.kt` |
+| Pause pop-up: half-height sheet over the opened app with the app blurred behind (Android 12+), a "We tend to…" line, "What are you looking for?" chips, "Not now" and a counted-down "Open" | `monitor/InterstitialActivity.kt` |
 | "Worth it?" pop-up over the home screen, three emoji tiles, after sessions of 30 s or more | `monitor/WorthItActivity.kt` |
 | Evening recap (from 19:00): minutes got back, tonight's plant, steps / exercise / reading, "Worth it?" summary with late-night pattern, home milestones | `core/Garden.kt`, `ui/Garden.kt` |
 | Garden: one plant per day from unused minutes (sprout < 15, tulip < 30, sunflower ≥ 30), planted at midnight; the home grows weekly (lit window + bench in week 2, own tree in week 4) | `core/Garden.kt`, `ui/Garden.kt` |
 | Patterns (last 7 days): screen time per day, minutes got back, "Worth it?" by time of day and by app, what you were looking for, one insight sentence | `core/Patterns.kt`, `ui/Patterns.kt` |
 | Evening reminder: offered once on the recap, toggle + 20/21/22:00 in settings; inexact daily alarm, silent if the recap was already opened, rescheduled after reboot | `reminder/RecapReminder.kt` |
-| Home screen widget (2×1): face and minutes left (or what earns minutes back when out); refreshes on every change | `widget/TendWidget.kt` |
+| Home screen widget (2×1): face, minutes left (or what earns minutes back when out) and a status like "Bo is happy"; refreshes on every change | `widget/TendWidget.kt` |
 | Onboarding (8 steps incl. "What would you rather do?", suggested apps, in-context permissions), settings, home, focus timer | `ui/` |
 | Character: Rive runtime plays `assets/tend_character.riv` (mood/mia/tap inputs, see `docs/rive-rig.md`); without it a drawn fallback that breathes, blinks and glances around | `ui/Character.kt`, `ui/CharacterPainter.kt` |
 | Brand: Moss/Mint/Coral/Sunny/Sky/Ink/Sage, Fredoka + Nunito (OFL, bundled) | `ui/Theme.kt` |
@@ -48,7 +48,7 @@ Install the APK and follow the onboarding: welcome, companion, how it works, app
 
 - **Display over other apps** comes first. Once it's on, Android lets tend bring itself back to the front, so after the second switch the user returns to the app automatically.
 - **Usage access** comes second.
-- **"App was denied access"**: Android 13+ blocks these switches for side-loaded apps ("restricted settings"). Fix it once under App info → ⋮ → *Allow restricted settings*. The onboarding detects this and shows the steps. For testers using adb: `adb shell appops set app.tend ACCESS_RESTRICTED_SETTINGS allow`.
+- **Unlock first**: Android 13+ locks these switches for side-loaded apps ("restricted settings"). If the lock is on, onboarding starts with an unlock step: let Android refuse once, then App info → ⋮ → *Allow restricted settings*. Settings pages are opened scrolled to tend where the phone supports it, with a short on-screen hint. For testers using adb: `adb shell appops set app.tend ACCESS_RESTRICTED_SETTINGS allow`.
 - **Health Connect** is connected from the home screen ("Connect Health Connect"). On Android 13 and below the button opens the Play Store to install it first.
 - The reading timer keeps running when you leave tend. Opening a paused app from the pause screen ends it.
 - Notification permission is asked only when you turn on the evening reminder. Until then the monitor's notification stays hidden.
