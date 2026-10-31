@@ -58,7 +58,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.tend.core.Avatar
 import app.tend.core.BudgetConfig
+import app.tend.core.Budget
+import app.tend.core.DayState
 import app.tend.core.Mood
+import java.time.LocalDate
+import app.tend.core.TaskDef
+import app.tend.core.Tasks
 
 data class Permissions(val usageAccess: Boolean, val overlay: Boolean) {
     val allGranted get() = usageAccess && overlay
@@ -75,7 +80,7 @@ class PermissionActions(
     val openAppInfo: () -> Unit,
 )
 
-private enum class Step { WELCOME, COMPANION, HOW, APPS, BUDGET, PERMISSIONS, DONE }
+private enum class Step { WELCOME, COMPANION, HOW, APPS, ACTIVITIES, BUDGET, PERMISSIONS, DONE }
 
 @Composable
 fun Onboarding(
@@ -87,6 +92,8 @@ fun Onboarding(
     onAvatar: (Avatar) -> Unit,
     onConfig: (BudgetConfig) -> Unit,
     onToggleApp: (String) -> Unit,
+    tasks: List<TaskDef>,
+    onToggleTask: (TaskDef) -> Unit,
     onAddWidget: (() -> Unit)?,
     onFinish: () -> Unit,
 ) {
@@ -125,7 +132,7 @@ fun Onboarding(
                 Step.HOW -> StepPage(cta = "Sounds good", onCta = next) {
                     Title("How it works", "No bans, no lectures. Just a small trade.")
                     HowRow("🌤", "${cfg.freeMinutes} free minutes a day", "For the apps you pick. The rest you earn.")
-                    HowRow("🏃", "Earn more by living", "A run, a walk outside or 20 minutes of reading gives you minutes back.")
+                    HowRow("🌱", "Earn more by living", "Do the things you'd rather do, and get minutes back. You pick them next.")
                     HowRow("🌻", "Unused minutes grow a garden", "Tonight, what you don't scroll becomes ${avatar.displayName}'s garden.")
                     HowRow("⏳", "A little pause before you open", "Every extra open today waits 5 seconds longer.")
                 }
@@ -137,6 +144,15 @@ fun Onboarding(
                 ) {
                     Title("Which apps pull you in?", "We picked the usual suspects. Tap to change.")
                     AppPicker(catalog, blocked, onToggleApp)
+                }
+
+                Step.ACTIVITIES -> StepPage(
+                    cta = if (tasks.isEmpty()) "Pick at least one" else "Continue with ${tasks.size}",
+                    ctaEnabled = tasks.isNotEmpty(),
+                    onCta = next,
+                ) {
+                    Title("What would you rather do?", "Pick up to ${Tasks.MAX_SELECTED} things that make your day better. Each one gives screen time back.")
+                    ActivityPicker(tasks, onToggleTask)
                 }
 
                 Step.BUDGET -> StepPage(cta = "Continue", onCta = next) {
@@ -162,7 +178,7 @@ fun Onboarding(
                     Spacer(Modifier.height(20.dp))
                     Text("You're all set!", style = MaterialTheme.typography.headlineLarge)
                     Text(
-                        "${cfg.freeMinutes} free minutes today, up to ${cfg.totalMinutes - cfg.freeMinutes} more to earn.",
+                        "${cfg.freeMinutes} free minutes today, up to ${Budget.earnableFrom(cfg, DayState(LocalDate.now()), tasks)} more to earn.",
                         style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = Brand.Muted,
                     )
                     if (onAddWidget != null) {

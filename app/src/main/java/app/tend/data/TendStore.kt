@@ -9,6 +9,8 @@ import app.tend.core.DayState
 import app.tend.core.DaySummary
 import app.tend.core.Garden
 import app.tend.core.Plant
+import app.tend.core.TaskDef
+import app.tend.core.Tasks
 import app.tend.core.WorthIt
 import app.tend.widget.TendWidget
 import java.io.File
@@ -29,6 +31,40 @@ class TendStore(private val context: Context) {
     var onboarded: Boolean
         get() = prefs.getBoolean("onboarded", false)
         set(v) = edit { putBoolean("onboarded", v) }
+
+    /** The things the user would rather do than scroll, in their order (at most [Tasks.MAX_SELECTED]). */
+    val selectedTasks: List<TaskDef>
+        get() {
+            val ids = prefs.getString("tasks", null)
+                ?: return if (onboarded) Tasks.legacyDefault else emptyList() // onboarded before picking existed
+            val known = (Tasks.presets + customTasks).associateBy { it.id }
+            return ids.split(',').mapNotNull { known[it] }
+        }
+
+    /** User-made check-off activities, stored as "id|emoji|title" lines. */
+    private val customTasks: List<TaskDef>
+        get() = prefs.getString("custom_tasks", "")!!.lines().mapNotNull { line ->
+            val p = line.split('|')
+            if (p.size == 3) Tasks.custom(p[2], p[1]).copy(id = p[0]) else null
+        }
+
+    /** Adds or removes a preset or custom activity; adding is refused beyond the limit. */
+    fun toggleTask(task: TaskDef) {
+        val current = selectedTasks
+        val next = when {
+            current.any { it.id == task.id } -> current.filterNot { it.id == task.id }
+            current.size >= Tasks.MAX_SELECTED -> return
+            else -> current + task
+        }
+        val customs = if (Tasks.isCustom(task)) {
+            if (next.any { it.id == task.id }) customTasks.filterNot { it.id == task.id } + task
+            else customTasks.filterNot { it.id == task.id }
+        } else customTasks
+        edit {
+            putString("custom_tasks", customs.joinToString("\n") { "${it.id}|${it.emoji}|${it.title}" })
+            putString("tasks", next.joinToString(",") { it.id })
+        }
+    }
 
     var blockedPackages: Set<String>
         get() = prefs.getStringSet("blocked", emptySet())!!

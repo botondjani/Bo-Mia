@@ -142,14 +142,14 @@ class MainActivity : ComponentActivity() {
         var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
         var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
         var health by remember { mutableStateOf<HealthConnect.Status?>(null) }
-        var celebrate by remember { mutableStateOf<List<TaskDef>>(emptyList()) }
+        var celebrate by remember { mutableStateOf<TaskSync.Done?>(null) }
         var synced by remember { mutableIntStateOf(0) }
         synced // read so recomposition follows a sync
 
         suspend fun sync() {
             health = HealthConnect(this@MainActivity).status()
             val done = TaskSync.sync(this@MainActivity)
-            if (done.isNotEmpty()) celebrate = celebrate + done
+            if (done.tasks.isNotEmpty()) celebrate = done
             synced++
         }
         LaunchedEffect(refresh) { if (store.onboarded) sync() }
@@ -163,7 +163,8 @@ class MainActivity : ComponentActivity() {
             }
         }
         LaunchedEffect(openRecap) { if (openRecap) { screen = Screen.RECAP; openRecap = false } }
-        if (celebrate.isNotEmpty()) Celebration(store.avatar, celebrate) { celebrate = emptyList() }
+        celebrate?.let { Celebration(store.avatar, it.tasks, it.minutes) { celebrate = null } }
+        val toggleTask: (TaskDef) -> Unit = { store.toggleTask(it); refresh++ }
 
         val toggleApp: (String) -> Unit = { pkg ->
             val b = store.blockedPackages
@@ -181,6 +182,8 @@ class MainActivity : ComponentActivity() {
                 onAvatar = { store.avatar = it; refresh++ },
                 onConfig = { store.config = it; refresh++ },
                 onToggleApp = toggleApp,
+                tasks = store.selectedTasks,
+                onToggleTask = toggleTask,
                 onAddWidget = widgetPinner(),
                 onFinish = { store.onboarded = true; MonitorService.start(this); refresh++ },
             )
@@ -193,6 +196,8 @@ class MainActivity : ComponentActivity() {
                 onAvatar = { store.avatar = it; refresh++ },
                 onConfig = { store.config = it; refresh++ },
                 onToggleApp = toggleApp,
+                tasks = store.selectedTasks,
+                onToggleTask = toggleTask,
                 reminderEnabled = store.reminderEnabled,
                 reminderHour = store.reminderHour,
                 onReminder = ::setReminder,
@@ -228,6 +233,7 @@ class MainActivity : ComponentActivity() {
                 avatar = store.avatar,
                 cfg = store.config,
                 day = store.today(),
+                tasks = store.selectedTasks,
                 plantCount = store.plants.size,
                 isEvening = LocalTime.now().hour >= RECAP_FROM_HOUR,
                 missCount = store.missCount(),
@@ -247,6 +253,11 @@ class MainActivity : ComponentActivity() {
                 },
                 onStartFocus = {
                     if (store.focusStartedAt == 0L) store.focusStartedAt = System.currentTimeMillis()
+                    refresh++
+                },
+                onCheckOff = { task ->
+                    val done = TaskSync.checkOff(store, task)
+                    if (done.tasks.isNotEmpty()) celebrate = done
                     refresh++
                 },
                 onOpenSettings = { screen = Screen.SETTINGS },

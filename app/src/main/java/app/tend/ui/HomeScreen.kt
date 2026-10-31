@@ -44,6 +44,7 @@ fun HomeScreen(
     avatar: Avatar,
     cfg: BudgetConfig,
     day: DayState,
+    tasks: List<TaskDef>,
     plantCount: Int,
     isEvening: Boolean,
     missCount: Int,
@@ -53,6 +54,7 @@ fun HomeScreen(
     onFixPermissions: () -> Unit,
     onConnectHealth: () -> Unit,
     onStartFocus: (TaskDef) -> Unit,
+    onCheckOff: (TaskDef) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenGarden: () -> Unit,
     onOpenRecap: () -> Unit,
@@ -86,7 +88,7 @@ fun HomeScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CharacterView(avatar, Moods.of(cfg, day), 96.dp)
                 Spacer(Modifier.padding(6.dp))
-                Text(Moods.line(cfg, day), style = MaterialTheme.typography.titleMedium)
+                Text(Moods.line(cfg, day, tasks), style = MaterialTheme.typography.titleMedium)
             }
         }
 
@@ -97,12 +99,13 @@ fun HomeScreen(
                 style = MaterialTheme.typography.headlineLarge,
                 color = if (remaining > 0) Brand.Moss else Brand.Coral,
             )
-            Text("Up to ${Budget.earnableMinutes(cfg, day)} more to earn", style = MaterialTheme.typography.bodyLarge)
+            Text("Up to ${Budget.earnableFrom(cfg, day, tasks)} more to earn", style = MaterialTheme.typography.bodyLarge)
             Text("What you don't use tonight grows the garden.", style = MaterialTheme.typography.bodyMedium)
         }
 
         Text("TODAY", style = MaterialTheme.typography.labelSmall)
-        if (health == HealthConnect.Status.NEEDS_PERMISSION || health == HealthConnect.Status.NEEDS_INSTALL) Card {
+        val needsHealth = tasks.any { it.verification == Verification.AUTOMATIC }
+        if (needsHealth && (health == HealthConnect.Status.NEEDS_PERMISSION || health == HealthConnect.Status.NEEDS_INSTALL)) Card {
             Text("Count walks and workouts automatically", style = MaterialTheme.typography.titleMedium)
             Text(
                 "Health Connect shares today's steps and exercise with tend. Read only, stays on your phone.",
@@ -113,7 +116,11 @@ fun HomeScreen(
                 onConnectHealth, modifier = Modifier.padding(top = 8.dp),
             )
         }
-        Tasks.all.forEach { task -> TaskRow(task, day, health, focusSecondsLeft, onStartFocus) }
+        if (tasks.isEmpty()) Card {
+            Text("No activities picked yet", style = MaterialTheme.typography.titleMedium)
+            TextButton(onClick = onOpenSettings) { Text("Pick what you'd rather do →") }
+        }
+        tasks.forEach { task -> TaskRow(task, day, health, focusSecondsLeft, onStartFocus, onCheckOff) }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -132,16 +139,17 @@ private fun TaskRow(
     health: HealthConnect.Status?,
     focusSecondsLeft: Long?,
     onStartFocus: (TaskDef) -> Unit,
+    onCheckOff: (TaskDef) -> Unit,
 ) = Card {
     val done = task.id in day.completedTasks
     val progress = Tasks.progress(task, day)
     val measured = task.verification == Verification.AUTOMATIC && health == HealthConnect.Status.READY
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text(task.title, style = MaterialTheme.typography.bodyLarge)
+            Text("${task.emoji}  ${task.title}", style = MaterialTheme.typography.bodyLarge)
             Text(
                 when {
-                    task.verification == Verification.FOCUS_TIMER -> task.subtitle
+                    task.verification != Verification.AUTOMATIC -> task.subtitle
                     measured && progress != null -> progressLabel(task, progress)
                     health == HealthConnect.Status.UNSUPPORTED -> "Needs Health Connect, not available on this phone"
                     else -> "${task.subtitle} · connect Health Connect"
@@ -154,6 +162,7 @@ private fun TaskRow(
             task.verification == Verification.FOCUS_TIMER -> Button(onClick = { onStartFocus(task) }) {
                 Text(focusSecondsLeft?.let { "Continue · ${it / 60}:%02d".format(it % 60) } ?: "Start", color = Color.White)
             }
+            task.manual -> Button(onClick = { onCheckOff(task) }) { Text("Done", color = Color.White) }
             else -> Pill("+${task.rewardMinutes} min")
         }
     }
@@ -173,16 +182,20 @@ private fun progressLabel(task: TaskDef, progress: Long): String = when (task.id
 
 /** Short moment of joy when a task completes: the character goes outside, minutes are credited. */
 @Composable
-fun Celebration(avatar: Avatar, tasks: List<TaskDef>, onDismiss: () -> Unit) = Dialog(onDismissRequest = onDismiss) {
+fun Celebration(avatar: Avatar, tasks: List<TaskDef>, minutes: Int, onDismiss: () -> Unit) = Dialog(onDismissRequest = onDismiss) {
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Brand.Card).padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         BobbingCharacter(avatar, app.tend.core.Mood.OUTSIDE, 140.dp)
-        Text("+${tasks.sumOf { it.rewardMinutes }} min", style = MaterialTheme.typography.headlineLarge, color = Brand.Moss)
-        Text(tasks.joinToString(" · ") { it.title }, style = MaterialTheme.typography.titleMedium)
-        Text("${avatar.displayName} loved that. Minutes are yours for today.", style = MaterialTheme.typography.bodyMedium)
+        // The manual cap is an internal rule: past it, no minutes, but the moment still counts.
+        if (minutes > 0) Text("+$minutes min", style = MaterialTheme.typography.headlineLarge, color = Brand.Moss)
+        Text(tasks.joinToString(" · ") { "${it.emoji} ${it.title}" }, style = MaterialTheme.typography.titleMedium)
+        Text(
+            if (minutes > 0) "${avatar.displayName} loved that. Minutes are yours for today." else "${avatar.displayName} loved that.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
         PrimaryButton("Nice", onDismiss, modifier = Modifier.padding(top = 8.dp))
     }
 }

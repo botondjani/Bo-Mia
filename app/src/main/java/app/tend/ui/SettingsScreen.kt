@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.tend.core.Avatar
 import app.tend.core.BudgetConfig
+import app.tend.core.TaskDef
 
 /** Settings after onboarding: the same pickers, on one page. */
 @Composable
@@ -33,6 +34,8 @@ fun SettingsScreen(
     onAvatar: (Avatar) -> Unit,
     onConfig: (BudgetConfig) -> Unit,
     onToggleApp: (String) -> Unit,
+    tasks: List<TaskDef>,
+    onToggleTask: (TaskDef) -> Unit,
     reminderEnabled: Boolean,
     reminderHour: Int,
     onReminder: (enabled: Boolean, hour: Int) -> Unit,
@@ -46,6 +49,8 @@ fun SettingsScreen(
     CompanionPicker(avatar, onAvatar)
     Text("APPS TO PAUSE", style = MaterialTheme.typography.labelSmall)
     AppPicker(catalog, blocked, onToggleApp)
+    Text("INSTEAD OF SCROLLING", style = MaterialTheme.typography.labelSmall)
+    ActivityPicker(tasks, onToggleTask)
     Text("DAILY BUDGET", style = MaterialTheme.typography.labelSmall)
     BudgetPicker(cfg, onConfig)
     Text("EVENING RECAP", style = MaterialTheme.typography.labelSmall)

@@ -9,7 +9,7 @@ This is the MVP skeleton described in the concept doc. Native Android, English o
 | Part | Where |
 |---|---|
 | Budget logic: free base, earned minutes that expire each day, manual-credit cap, lock at ≤ 0, +5 s delay on every open, unused minutes go to the garden | `core/Budget.kt` (unit-tested) |
-| 3 task types: move (30 min of exercise) and outside (4,000 steps) via Health Connect, reading via a 20 min focus timer | `core/Tasks.kt`, `health/` |
+| Activities the user picks (up to 5, nothing pre-selected): workout (30 min exercise) and walk (4,000 steps) via Health Connect, read/learn via a 20 min focus timer, friends & family / hobby / tidy up / cooking and own activities by check-off (daily check-off cap 45 min) | `core/Tasks.kt`, `ui/ActivityPicker.kt`, `health/` |
 | Health Connect: reads today's steps + exercise minutes (read-only) on app open, every minute while open, and before every pause screen; progress bars and a celebration when a task completes | `health/HealthConnect.kt`, `health/TaskSync.kt` |
 | Moods (happy / tired / scrolling / outside) and companion lines | `core/Mood.kt` |
 | Monitoring: UsageStats polled every second, opens a delay screen, counts time used, locks at zero, logs every miss | `monitor/MonitorService.kt` |
@@ -20,7 +20,7 @@ This is the MVP skeleton described in the concept doc. Native Android, English o
 | Patterns (last 7 days): screen time per day, minutes got back, "Worth it?" by time of day and by app, what you were looking for, one insight sentence | `core/Patterns.kt`, `ui/Patterns.kt` |
 | Evening reminder: offered once on the recap, toggle + 20/21/22:00 in settings; inexact daily alarm, silent if the recap was already opened, rescheduled after reboot | `reminder/RecapReminder.kt` |
 | Home screen widget (2×1): face and minutes left (or what earns minutes back when out); refreshes on every change | `widget/TendWidget.kt` |
-| Onboarding (7 steps, suggested apps, in-context permissions), settings, home, focus timer | `ui/` |
+| Onboarding (8 steps incl. "What would you rather do?", suggested apps, in-context permissions), settings, home, focus timer | `ui/` |
 | Character: Rive runtime plays `assets/tend_character.riv` (mood/mia/tap inputs, see `docs/rive-rig.md`); without it a drawn fallback that breathes, blinks and glances around | `ui/Character.kt`, `ui/CharacterPainter.kt` |
 | Brand: Moss/Mint/Coral/Sunny/Sky/Ink/Sage, Fredoka + Nunito (OFL, bundled) | `ui/Theme.kt` |
 

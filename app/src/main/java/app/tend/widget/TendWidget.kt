@@ -31,7 +31,7 @@ class TendWidget : AppWidgetProvider() {
             val cfg = store.config
             val day = store.today()
             val remaining = Budget.remainingMinutes(cfg, day)
-            val next = Tasks.next(day)
+            val next = Tasks.next(day, store.selectedTasks)
             val views = RemoteViews(context.packageName, R.layout.widget).apply {
                 setImageViewBitmap(R.id.face, CharacterPainter.bitmap(store.avatar, Moods.of(cfg, day), 176))
                 setTextViewText(R.id.minutes, if (remaining > 0) "$remaining min" else "0 min")

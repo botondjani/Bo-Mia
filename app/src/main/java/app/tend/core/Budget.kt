@@ -9,7 +9,7 @@ data class BudgetConfig(
     /** Free base budget, available without doing anything. */
     val freeMinutes: Int = 45,
     /** Internal cap on minutes earned by manual check-offs (not shown to the user). */
-    val manualCapMinutes: Int = 30,
+    val manualCapMinutes: Int = 45,
     /** Delay before the first open of a blocked app. */
     val baseDelaySeconds: Int = 3,
     /** Every further open today waits this much longer. */
@@ -39,6 +39,17 @@ object Budget {
     fun earnableMinutes(cfg: BudgetConfig, day: DayState): Int =
         (cfg.totalMinutes - cfg.freeMinutes - day.earnedMinutes).coerceAtLeast(0)
 
+    /**
+     * What the selected tasks can still bring today: their rewards, with check-offs limited by
+     * the manual cap, and everything by the daily total.
+     */
+    fun earnableFrom(cfg: BudgetConfig, day: DayState, selected: List<TaskDef>): Int {
+        val open = selected.filter { it.id !in day.completedTasks }
+        val measured = open.filterNot { it.manual }.sumOf { it.rewardMinutes }
+        val manual = minOf(open.filter { it.manual }.sumOf { it.rewardMinutes }, (cfg.manualCapMinutes - day.manualEarnedMinutes).coerceAtLeast(0))
+        return minOf(measured + manual, earnableMinutes(cfg, day))
+    }
+
     /** Blocked apps stay closed until a task brings the balance back above zero. */
     fun isLocked(cfg: BudgetConfig, day: DayState): Boolean = remainingMinutes(cfg, day) <= 0
 
@@ -65,12 +76,12 @@ object Budget {
      * Applies today's activity totals and credits the automatic tasks they complete.
      * Totals never go down within a day (a source can briefly report less while syncing).
      */
-    fun applyActivity(cfg: BudgetConfig, day: DayState, steps: Long?, exerciseMinutes: Int?): DayState {
+    fun applyActivity(cfg: BudgetConfig, day: DayState, steps: Long?, exerciseMinutes: Int?, selected: List<TaskDef>): DayState {
         var d = day.copy(
             steps = maxOf(day.steps, steps ?: 0),
             exerciseMinutes = maxOf(day.exerciseMinutes, exerciseMinutes ?: 0),
         )
-        for (task in completedAutomaticTasks(d.steps, d.exerciseMinutes)) {
+        for (task in completedAutomaticTasks(d.steps, d.exerciseMinutes, selected)) {
             d = credit(cfg, d, task.id, task.rewardMinutes, manual = false)
         }
         return d

@@ -155,7 +155,7 @@ class InterstitialActivity : ComponentActivity() {
 
     @Composable
     private fun Locked() {
-        val next = Tasks.next(store.today())
+        val next = Tasks.next(store.today(), store.selectedTasks)
         Text(
             next?.let { "${it.title} brings back ${it.rewardMinutes} min. Want to do it together?" }
                 ?: "That's all for today. Tomorrow's a fresh start.",

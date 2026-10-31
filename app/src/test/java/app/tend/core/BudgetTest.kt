@@ -68,19 +68,42 @@ class BudgetTest {
     }
 
     @Test fun `automatic tasks complete from activity numbers`() {
-        assertEquals(listOf(Tasks.OUTSIDE), completedAutomaticTasks(steps = 4200, exerciseMinutes = 10))
-        assertEquals(emptyList<TaskDef>(), completedAutomaticTasks(null, null))
+        val both = listOf(Tasks.MOVE, Tasks.OUTSIDE)
+        assertEquals(listOf(Tasks.OUTSIDE), completedAutomaticTasks(steps = 4200, exerciseMinutes = 10, both))
+        assertEquals(emptyList<TaskDef>(), completedAutomaticTasks(null, null, both))
+        assertEquals(emptyList<TaskDef>(), completedAutomaticTasks(steps = 9000, exerciseMinutes = 60, listOf(Tasks.READ)))
     }
 
     @Test fun `activity sync credits automatic tasks once and never lowers totals`() {
-        var d = Budget.applyActivity(cfg, day, steps = 3100, exerciseMinutes = 0)
+        var d = Budget.applyActivity(cfg, day, steps = 3100, exerciseMinutes = 0, selected = Tasks.legacyDefault)
         assertEquals(3100, d.steps)
         assertEquals(emptySet<String>(), d.completedTasks)
-        d = Budget.applyActivity(cfg, d, steps = 4100, exerciseMinutes = 35)
+        d = Budget.applyActivity(cfg, d, steps = 4100, exerciseMinutes = 35, selected = Tasks.legacyDefault)
         assertEquals(setOf("outside", "move"), d.completedTasks)
         assertEquals(50, d.earnedMinutes)
-        d = Budget.applyActivity(cfg, d, steps = 200, exerciseMinutes = null)
+        d = Budget.applyActivity(cfg, d, steps = 200, exerciseMinutes = null, selected = Tasks.legacyDefault)
         assertEquals(4100, d.steps)
         assertEquals(50, d.earnedMinutes)
+    }
+
+    @Test fun `earnable counts only the user's picks, check-offs within the cap`() {
+        val picks = listOf(Tasks.OUTSIDE, Tasks.FRIENDS, Tasks.HOBBY, Tasks.CHORES, Tasks.custom("Guitar", "🎸"))
+        assertEquals(20 + 45, Budget.earnableFrom(cfg.copy(manualCapMinutes = 45), day, picks))
+        val d = Budget.credit(cfg, day, Tasks.OUTSIDE.id, 20, manual = false)
+        assertEquals(45, Budget.earnableFrom(cfg.copy(manualCapMinutes = 45), d, picks))
+        assertEquals(0, Budget.earnableFrom(cfg, day, emptyList()))
+    }
+
+    @Test fun `custom activities get a clean id and a fixed reward`() {
+        val t = Tasks.custom("  Play guitar, loud | ", "🎸")
+        assertEquals("custom:play-guitar-loud", t.id)
+        assertEquals("Play guitar loud", t.title)
+        assertEquals(Tasks.CUSTOM_REWARD, t.rewardMinutes)
+        assertTrue(t.manual)
+    }
+
+    @Test fun `companion line follows the user's own picks`() {
+        assertEquals("What shall we do today? 🎨 Hobby sounds nice.", Moods.line(cfg, day, listOf(Tasks.HOBBY)))
+        assertEquals("We haven't been outside in a while. Quick walk?", Moods.line(cfg, day, listOf(Tasks.OUTSIDE)))
     }
 }
