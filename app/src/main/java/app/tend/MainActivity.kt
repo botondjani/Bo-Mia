@@ -271,6 +271,7 @@ class MainActivity : ComponentActivity() {
                 weeklyLetter = store.weeklyLetter,
                 onWeeklyLetter = ::setWeeklyLetter,
                 onExport = ::exportTestData,
+                onReplayTour = { store.tourDone = false; screen = Screen.HOME },
                 onDone = { screen = Screen.HOME },
             )
 
@@ -362,6 +363,8 @@ class MainActivity : ComponentActivity() {
                 // Not during onboarding: from the second day on, until placed or seen.
                 showWidgetTip = !store.widgetTipDone && store.daysTended >= 1 && !widgetPlaced(),
                 onWidgetTipDone = { store.widgetTipDone = true; refresh++ },
+                showTour = !store.tourDone,
+                onTourDone = { store.tourDone = true; refresh++ },
                 brokenTimer = Tasks.presets.firstOrNull { it.id == store.timerBroken },
                 onDismissBroken = { store.timerBroken = ""; refresh++ },
             )

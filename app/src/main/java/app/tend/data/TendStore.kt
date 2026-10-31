@@ -73,6 +73,11 @@ class TendStore(private val context: Context) {
         get() = prefs.getBoolean("restricted_unlocked", false)
         set(v) = edit { putBoolean("restricted_unlocked", v) }
 
+    /** The first-run tour of the home screen has been shown (or skipped). */
+    var tourDone: Boolean
+        get() = prefs.getBoolean("tour_done", false)
+        set(v) = edit { putBoolean("tour_done", v) }
+
     /** The one-time "there's a widget" tip was seen. */
     var widgetTipDone: Boolean
         get() = prefs.getBoolean("widget_tip_done", false)

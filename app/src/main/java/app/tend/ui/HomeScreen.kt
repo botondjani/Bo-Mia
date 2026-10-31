@@ -77,11 +77,16 @@ fun HomeScreen(
     brokenTimer: TaskDef? = null,
     onDismissBroken: () -> Unit = {},
     onWidgetTipDone: () -> Unit = {},
+    /** First run: Bo walks through the screen once. */
+    showTour: Boolean = false,
+    onTourDone: () -> Unit = {},
 ) {
+    val tour = androidx.compose.runtime.remember { TourTargets() }
     var widgetGuide by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     if (widgetGuide) WidgetGuideDialog(avatar) { widgetGuide = false; onWidgetTipDone() }
     val remaining = Budget.remainingMinutes(cfg, day)
     val mood = Moods.of(cfg, day)
+    Box(Modifier.fillMaxSize()) {
     Column(
         Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp).padding(top = Space.xs, bottom = Space.xxl),
@@ -93,11 +98,11 @@ fun HomeScreen(
                 Text(day.date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.ENGLISH)), style = MaterialTheme.typography.bodyMedium)
                 Text(greeting(), style = MaterialTheme.typography.headlineMedium)
             }
-            IconButtonSoft(Icons.Filled.Settings, "Settings", onOpenSettings)
+            Box(Modifier.tourTarget(tour, "settings")) { IconButtonSoft(Icons.Filled.Settings, "Settings", onOpenSettings) }
         }
 
         // Hero: the companion and today's minutes
-        Column(Modifier.fillMaxWidth().surface(radius = 28.dp).padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(Space.s)) {
+        Column(Modifier.fillMaxWidth().tourTarget(tour, "minutes").surface(radius = 28.dp).padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(Space.s)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CharacterView(avatar, mood, 88.dp)
                 Spacer(Modifier.width(Space.l))
@@ -112,7 +117,7 @@ fun HomeScreen(
                 Text("min left today", style = MaterialTheme.typography.titleMedium, color = Brand.Muted, modifier = Modifier.weight(1f).padding(bottom = 10.dp))
                 // The garden is one tap away, next to today's minutes.
                 Row(
-                    Modifier.padding(bottom = 6.dp).clip(RoundedCornerShape(50)).background(Brand.Sage)
+                    Modifier.padding(bottom = 6.dp).tourTarget(tour, "garden").clip(RoundedCornerShape(50)).background(Brand.Sage)
                         .tappable(onClick = onOpenGarden).padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -150,11 +155,22 @@ fun HomeScreen(
 
         SectionHeader("Instead of scrolling", "${tasks.count { it.id in day.completedTasks }} of ${tasks.size} done")
         if (tasks.isEmpty()) Notice("sparkle", "Pick what you'd rather do", "A few activities that give minutes back", onOpenSettings)
-        Tasks.ordered(day, tasks).forEach { task ->
-            TaskRow(task, day, health, focusSecondsLeft?.takeIf { task.id == focusTaskId }, onStartFocus, onCheckOff, onUndo)
+        Tasks.ordered(day, tasks).forEachIndexed { i, task ->
+            Box(if (i == 0) Modifier.tourTarget(tour, "activity") else Modifier) {
+                TaskRow(task, day, health, focusSecondsLeft?.takeIf { task.id == focusTaskId }, onStartFocus, onCheckOff, onUndo)
+            }
         }
     }
+    if (showTour) TourOverlay(avatar, tour, homeTour(avatar.displayName, cfg.freeMinutes), onTourDone)
+    }
 }
+
+private fun homeTour(name: String, free: Int) = listOf(
+    TourStep("minutes", "Your minutes for today", "Every app you picked draws from here. You start with $free, and I'll pause you before each open."),
+    TourStep("activity", "Do one, earn minutes", "Finish one of these and I add minutes back. Walks and workouts count by themselves; the rest you start or tick off here."),
+    TourStep("garden", "Our garden", "Minutes you don't use grow into a plant at midnight. Come visit, and see how the week went."),
+    TourStep("settings", "Make it yours", "Apps, activities, your budget and the evening mode live here. Change them any time."),
+)
 
 private fun greeting(): String = when (java.time.LocalTime.now().hour) {
     in 5..11 -> "Good morning"

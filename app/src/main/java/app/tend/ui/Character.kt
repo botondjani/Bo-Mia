@@ -54,6 +54,9 @@ object RiveRig {
     /** Optional trigger: fired when the character is tapped. */
     const val INPUT_TAP = "tap"
 
+    /** Boolean: lab coat, glasses and a waving pointer (onboarding, tour). */
+    const val INPUT_SCIENTIST = "scientist"
+
     /** Boolean input per accessory, named like [Accessory] in lower case. */
     fun inputOf(a: Accessory) = a.name.lowercase()
 
@@ -126,16 +129,18 @@ fun CharacterView(
     reading: Boolean = false,
     /** Pop-ups over other apps use the drawn character: it's on screen in the very first frame. */
     lightweight: Boolean = false,
+    /** Lab coat, glasses and a pointer: Bo explaining things in onboarding and the tour. */
+    scientist: Boolean = false,
 ) {
     val rig = if (lightweight) null else RiveRig.bytes(LocalContext.current)
     var failed by remember { mutableStateOf(false) }
     val accessories = LocalAccessories.current
-    if (rig != null && !failed) RiveCharacter(rig, avatar, if (reading) RiveRig.READING else mood.ordinal.toFloat(), accessories, size, modifier) { failed = true }
-    else DrawnCharacter(avatar, mood, size, modifier, reading, accessories)
+    if (rig != null && !failed) RiveCharacter(rig, avatar, if (reading) RiveRig.READING else mood.ordinal.toFloat(), accessories, scientist, size, modifier) { failed = true }
+    else DrawnCharacter(avatar, mood, size, modifier, reading, accessories, scientist)
 }
 
 @Composable
-private fun RiveCharacter(rig: ByteArray, avatar: Avatar, mood: Float, accessories: Set<Accessory>, size: Dp, modifier: Modifier, onFailed: () -> Unit) {
+private fun RiveCharacter(rig: ByteArray, avatar: Avatar, mood: Float, accessories: Set<Accessory>, scientist: Boolean, size: Dp, modifier: Modifier, onFailed: () -> Unit) {
     val view = remember { arrayOfNulls<RiveAnimationView>(1) }
     AndroidView(
         factory = { context ->
@@ -158,6 +163,7 @@ private fun RiveCharacter(rig: ByteArray, avatar: Avatar, mood: Float, accessori
             runCatching { rive.setNumberState(RiveRig.STATE_MACHINE, RiveRig.INPUT_MOOD, mood) }
             runCatching { rive.setBooleanState(RiveRig.STATE_MACHINE, RiveRig.INPUT_MIA, avatar == Avatar.MIA) }
             for (a in Accessory.entries) runCatching { rive.setBooleanState(RiveRig.STATE_MACHINE, RiveRig.inputOf(a), a in accessories) }
+            runCatching { rive.setBooleanState(RiveRig.STATE_MACHINE, RiveRig.INPUT_SCIENTIST, scientist) }
         },
         modifier = modifier.size(size).clickable(remember { MutableInteractionSource() }, indication = null) {
             runCatching { view[0]?.fireState(RiveRig.STATE_MACHINE, RiveRig.INPUT_TAP) }
@@ -167,8 +173,9 @@ private fun RiveCharacter(rig: ByteArray, avatar: Avatar, mood: Float, accessori
 
 /** Fallback until the Rive rig exists: the drawn character breathes, blinks and glances around. */
 @Composable
-private fun DrawnCharacter(avatar: Avatar, mood: Mood, size: Dp, modifier: Modifier, reading: Boolean, accessories: Set<Accessory>) {
+private fun DrawnCharacter(avatar: Avatar, mood: Mood, size: Dp, modifier: Modifier, reading: Boolean, accessories: Set<Accessory>, scientist: Boolean) {
     val t = rememberInfiniteTransition(label = "character")
+    val point by t.animateFloat(-8f, 8f, infiniteRepeatable(tween(1600, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "point")
     val breathe by t.animateFloat(
         -1f, 1f, infiniteRepeatable(tween(if (mood == Mood.TIRED) 3600 else 2400, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "breathe",
@@ -195,7 +202,7 @@ private fun DrawnCharacter(avatar: Avatar, mood: Mood, size: Dp, modifier: Modif
         drawIntoCanvas {
             CharacterPainter.draw(
                 it.nativeCanvas, avatar, mood, this.size.minDimension,
-                CharacterPainter.Pose(blink = blink.value, breathe = breathe, look = glance, book = reading),
+                CharacterPainter.Pose(blink = blink.value, breathe = breathe, look = glance, book = reading, scientist = scientist, point = if (scientist) point else 0f),
                 accessories,
             )
         }

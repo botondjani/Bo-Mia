@@ -49,6 +49,7 @@ fun SettingsScreen(
     weeklyLetter: Boolean,
     onWeeklyLetter: (Boolean) -> Unit,
     onExport: () -> Unit,
+    onReplayTour: () -> Unit,
     onDone: () -> Unit,
 ) = Column(
     Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
@@ -86,6 +87,7 @@ fun SettingsScreen(
         if (missCount == 0) "Diagnostics · no blocking misses logged" else "Diagnostics · $missCount blocking misses logged",
         style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = Space.s),
     )
+    SecondaryButton("Show the tour again", onReplayTour)
     SecondaryButton("Export test data", onExport)
     PrimaryButton("Done", onDone, enabled = blocked.isNotEmpty(), modifier = Modifier.padding(vertical = 20.dp))
 }

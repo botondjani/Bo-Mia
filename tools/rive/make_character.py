@@ -4,7 +4,8 @@ Generates app/src/main/assets/tend_character.riv: Bo and Mia on one rig.
 Contract (see docs/rive-rig.md and ui/Character.kt):
   artboard "Character" 500x500, state machine "Mood" with inputs
     mood (number: 0 happy, 1 tired, 2 scrolling, 3 outside, 4 reading), mia (bool), tap (trigger),
-    headband, glasses, hat, flower (bool: accessories earned by a week of habits).
+    headband, glasses, hat, flower (bool: accessories earned by a week of habits),
+    scientist (bool: lab coat, glasses and a waving pointer for onboarding and the tour).
 Layers: mood pose, skin (Bo/Mia), breathing, blinking, glancing, tap hop.
 
 Geometry follows the drawn fallback (ui/CharacterPainter.kt): a 100-unit box scaled x5,
@@ -21,6 +22,7 @@ from riv import *
 MINT, MINT_LIGHT = 0xFF7ECAA3, 0xFFA9DDC1
 GREY, GREY_LIGHT = 0xFFAEB8B0, 0xFFC8D0CA
 INK, WHITE, BLUE = 0xFF1D2A23, 0xFFFFFFFF, 0xFF3B5BDB
+COAT, COAT_LINE = 0xFFFDFDFB, 0xFFD5DCD6
 CHEEK, HAIR, CORAL, SUNNY, SKY, MOSS, SHADOW = 0x96C9937A, 0xFF5A3A2A, 0xFFE76649, 0xFFF6D673, 0xFF8EC4E8, 0xFF316849, 0x221D2A23
 S = 5.0  # painter unit -> artboard px
 
@@ -103,8 +105,25 @@ def build():
     mia_front = r.node('mia_front', body)
     mia_back = r.node('mia_back', body)
     acc = {name: r.node(f'acc_{name}', body) for name in ('hat', 'flower', 'glasses', 'headband')}
+    sci = r.node('scientist', body)
+    pointer = r.node('pointer', sci, *T(80, 78))  # turns around the hand
+
+    def at_hand(x, y):
+        """Painter coordinates -> painter coordinates that land right under the pointer node."""
+        return x - 30, y + 14
 
     # --- Drawables, front to back ---------------------------------------------------------
+    # Scientist: the hand over the pointer, glasses over the eyes (the coat comes further back).
+    r.ellipse('sci_hand', sci, 80, 78, 8.4, 8.4, MINT)
+    r.ellipse('pointer_tip', pointer, *at_hand(92, 49), 4.8, 4.8, CORAL)
+    r.path('pointer_stick', pointer, [(*at_hand(80, 78), None, None), (*at_hand(92, 49), None, None)], False, stroke=HAIR, width=2.2)
+    for ex in (39, 61):
+        x, y = T(ex, 46)
+        ring = r.add(SHAPE, name=f'sci_lens_{ex}', parentId=sci, x=x, y=y)
+        r.add(ELLIPSE, parentId=ring, pWidth=19 * S, pHeight=19 * S)
+        r.paint(ring, stroke=INK, width=1.8)
+    r.path('sci_bridge', sci, [(48.5, 45, None, None), (51.5, 45, None, None)], False, stroke=INK, width=1.8)
+
     # Accessories sit on top of everything on the head.
     r.rect('hat_band', acc['hat'], 50, 18, 28, 4, 0, CORAL)
     r.ellipse('hat_brim', acc['hat'], 50, 22.5, 60, 9, SUNNY)
@@ -162,6 +181,14 @@ def build():
     mouth_happy, _ = r.path('smile', body, [(57.5, 64, None, (55.5, 68.6)), (42.5, 64, (44.5, 68.6), None)], False, stroke=INK)
     mouth_tired, _ = r.path('frown', body, [(43.4, 68.6, None, (45.3, 65.6)), (56.6, 68.6, (54.7, 65.6), None)], False, stroke=INK)
     mouth_flat, _ = r.path('flat', body, [(45, 68, None, None), (55, 68, None, None)], False, stroke=INK)
+
+    # Lab coat: in front of cheeks, belly and body, behind the face.
+    r.path('pen', sci, [(33, 75.5, None, None), (33, 71.5, None, None)], False, stroke=CORAL, width=1.8)
+    r.path('pocket', sci, [(26.5, 75.5, None, None), (35.5, 75.5, None, None), (35.5, 82.5, None, None), (26.5, 82.5, None, None)], True, stroke=COAT_LINE, width=1.4)
+    r.path('lapel_l', sci, [(44, 66, None, None), (40.5, 76, None, None)], False, stroke=COAT_LINE, width=1.4)
+    r.path('lapel_r', sci, [(56, 66, None, None), (59.5, 76, None, None)], False, stroke=COAT_LINE, width=1.4)
+    r.path('coat_l', sci, [(44, 66, None, None), (18.3, 64, None, None), (18, 68, None, (20, 86)), (50, 92, (34, 92), None), (40, 92, None, None)], True, fill=COAT)
+    r.path('coat_r', sci, [(56, 66, None, None), (81.7, 64, None, None), (82, 68, None, (80, 86)), (50, 92, (66, 92), None), (60, 92, None, None)], True, fill=COAT)
 
     r.ellipse('cheek_l', body, 30, 60, 10, 10, CHEEK)
     r.ellipse('cheek_r', body, 70, 60, 10, 10, CHEEK)
@@ -256,6 +283,9 @@ def build():
                animation(f'{name}_on', 1, LOOP_ONESHOT, {node: {K_OPACITY: [(0, 1.0, INTERP_HOLD)]}}))
         for name, node in acc.items()
     }
+    a_sci_off = animation('scientist_off', 1, LOOP_ONESHOT, {sci: {K_OPACITY: [(0, 0.0, INTERP_HOLD)]}})
+    a_sci_on = animation('scientist_on', 1, LOOP_ONESHOT, {sci: {K_OPACITY: [(0, 1.0, INTERP_HOLD)]}})
+    a_point = animation('point', 96, LOOP_PINGPONG, {pointer: {K_ROTATION: [(0, -0.14, INTERP_CUBIC), (96, 0.14, INTERP_CUBIC)]}})
     a_rest = animation('rest', 1, LOOP_ONESHOT, {hop: {K_Y: [(0, feet[1], INTERP_HOLD)]}})
     a_hop = animation('hop', 40, LOOP_ONESHOT, {hop: {K_Y: [
         (0, feet[1], INTERP_CUBIC), (12, feet[1] - 60, INTERP_CUBIC), (24, feet[1], INTERP_CUBIC), (31, feet[1] - 14, INTERP_CUBIC), (40, feet[1], INTERP_HOLD)]}})
@@ -269,7 +299,8 @@ def build():
     for i, name in enumerate(('headband', 'glasses', 'hat', 'flower')):
         w.obj(SM_BOOL, smName=name)                      # inputs 3..6
         acc_inputs[name] = 3 + i
-    MOOD, MIA, TAP = 0, 1, 2
+    w.obj(SM_BOOL, smName='scientist')                   # input 7
+    MOOD, MIA, TAP, SCIENTIST = 0, 1, 2, 7
 
     def layer(name, states, entry_to, any_transitions=(), state_transitions=None):
         """states: animation indices -> layer states 3, 4, ... (0 entry, 1 any, 2 exit)."""
@@ -304,6 +335,11 @@ def build():
             (3, [(COND_BOOL, dict(inputId=acc_inputs[name], op=OP_NOT_EQUAL))], 200),
             (4, [(COND_BOOL, dict(inputId=acc_inputs[name], op=OP_EQUAL))], 200),
         ])
+    layer('scientist', [a_sci_off, a_sci_on], 3, [
+        (3, [(COND_BOOL, dict(inputId=SCIENTIST, op=OP_NOT_EQUAL))], 200),
+        (4, [(COND_BOOL, dict(inputId=SCIENTIST, op=OP_EQUAL))], 200),
+    ])
+    layer('point', [a_point], 3)
     layer('tap', [a_rest, a_hop], 3,
           [(4, [(COND_TRIGGER, dict(inputId=TAP))], 0)],
           {4: [(3, dict(flags=FLAG_ENABLE_EXIT_TIME | FLAG_EXIT_TIME_IS_PERCENTAGE, exitTime=100))]})

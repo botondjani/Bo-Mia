@@ -6,7 +6,7 @@
 python3 tools/rive/make_character.py   # rewrites app/src/main/assets/tend_character.riv
 ```
 
-`tools/rive/riv.py` is a small writer for the Rive runtime format (major version 7). Type and property keys come from the rive-runtime generated headers. The file was checked with the official Rive web runtime (`@rive-app/canvas` 2.44.0): it loads, has the three inputs, and all moods, both looks, breathing, blinking and the tap hop play.
+`tools/rive/riv.py` is a small writer for the Rive runtime format (major version 7). Type and property keys come from the rive-runtime generated headers. The file was checked with the official Rive web runtime (`@rive-app/canvas` 2.44.0): it loads, has all inputs (incl. `scientist`), and all moods, both looks, breathing, blinking and the tap hop play.
 
 ## Contract
 
@@ -20,6 +20,7 @@ Read by `ui/Character.kt` → `RiveRig`. Names are case-sensitive.
 | Input | `mia` | Boolean | `false` Bo · `true` Mia |
 | Input | `tap` | Trigger | a short hop |
 | Input | `headband`, `glasses`, `hat`, `flower` | Boolean | accessories earned by a week of habits (200 ms fade) |
+| Input | `scientist` | Boolean | lab coat, glasses and a pointer (onboarding slides, home tour) |
 
 A missing input doesn't crash the app; the rig just won't react to it.
 
@@ -32,6 +33,8 @@ A missing input doesn't crash the app; the rig just won't react to it.
 | breathe | Squash and stretch from the feet, 1.2 s each way, eased |
 | blink | Blinks every 4.5 s |
 | glance | Looks left, then right, every 9 s |
+| scientist | Shows or hides the lab coat, glasses and pointer (200 ms) |
+| point | The pointer waves around the hand, 1.6 s each way |
 | tap | Hop with a little bounce; the shadow, grass and sun stay on the ground |
 
 ## Look

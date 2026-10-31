@@ -92,7 +92,7 @@ class PermissionActions(
     val skipUnlock: () -> Unit = {},
 )
 
-private enum class Step { WELCOME, COMPANION, HOW, APPS, ACTIVITIES, BUDGET, PERMISSIONS, DONE }
+private enum class Step { INTRO, COMPANION, APPS, ACTIVITIES, BUDGET, PERMISSIONS, DONE }
 
 @Composable
 fun Onboarding(
@@ -113,7 +113,7 @@ fun Onboarding(
     val next = { stepIndex = (stepIndex + 1).coerceAtMost(Step.entries.lastIndex) }
 
     Column(Modifier.fillMaxSize().background(Brand.Sage)) {
-        if (step != Step.WELCOME && step != Step.DONE) {
+        if (step != Step.INTRO && step != Step.DONE) {
             Progress(stepIndex, Step.entries.size - 1) { stepIndex-- }
         }
         AnimatedContent(
@@ -126,26 +126,11 @@ fun Onboarding(
             label = "onboarding",
         ) { s ->
             when (s) {
-                Step.WELCOME -> StepPage(cta = "Let's go", onCta = next, centered = true) {
-                    BobbingCharacter(avatar, Mood.HAPPY, 180.dp)
-                    Spacer(Modifier.height(24.dp))
-                    Text("tend", style = MaterialTheme.typography.headlineLarge.copy(fontSize = MaterialTheme.typography.headlineLarge.fontSize * 1.6f), color = Brand.Moss)
-                    Text("Take care of you. Offline.", style = MaterialTheme.typography.titleLarge)
-                    Spacer(Modifier.height(8.dp))
-                    Text("A tiny companion that grows when you live your real day.", style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = Brand.Muted)
-                }
+                Step.INTRO -> IntroSlides(avatar, cfg.freeMinutes, onDone = next)
 
                 Step.COMPANION -> StepPage(cta = "Continue with ${avatar.displayName}", onCta = next) {
                     Title("Who's keeping you company?", "Same heart, different hair. You can switch later.")
                     CompanionPicker(avatar, onAvatar)
-                }
-
-                Step.HOW -> StepPage(cta = "Sounds good", onCta = next) {
-                    Title("How it works", "No bans, no lectures. Just a small trade.")
-                    HowRow("sun", "${cfg.freeMinutes} free minutes a day", "For the apps you pick. The rest you earn.")
-                    HowRow("sprout", "Earn more by living", "Do the things you'd rather do, and get minutes back. You pick them next.")
-                    HowRow("flower", "Unused minutes grow a garden", "Tonight, what you don't scroll becomes ${avatar.displayName}'s garden.")
-                    HowRow("hourglass", "A little pause before you open", "5 seconds at first, a second more each time.")
                 }
 
                 Step.APPS -> StepPage(
@@ -239,19 +224,6 @@ private fun Title(title: String, subtitle: String) {
     Text(title, style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(top = 8.dp))
     Text(subtitle, style = MaterialTheme.typography.bodyLarge, color = Brand.Muted)
     Spacer(Modifier.height(4.dp))
-}
-
-@Composable
-private fun HowRow(icon: String, title: String, body: String) = Row(
-    Modifier.fillMaxWidth().surface(radius = 20.dp).padding(16.dp),
-    verticalAlignment = Alignment.CenterVertically,
-) {
-    TendIcons.Badge(icon, 48.dp)
-    Spacer(Modifier.width(14.dp))
-    Column {
-        Text(title, style = MaterialTheme.typography.titleMedium)
-        Text(body, style = MaterialTheme.typography.bodyMedium)
-    }
 }
 
 @Composable

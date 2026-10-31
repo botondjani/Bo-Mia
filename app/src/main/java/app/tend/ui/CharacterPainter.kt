@@ -26,6 +26,8 @@ object CharacterPainter {
     private const val SUNNY = 0xFFF6D673.toInt()
     private const val SKY = 0xFF8EC4E8.toInt()
     private const val SHADOW = 0x221D2A23
+    private const val COAT = 0xFFFDFDFB.toInt()
+    private const val COAT_LINE = 0xFFD5DCD6.toInt()
 
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -48,6 +50,10 @@ object CharacterPainter {
         val look: Float = 0f,
         /** Holds an open book and reads (focus timer). */
         val book: Boolean = false,
+        /** Lab coat, glasses and a pointer: Bo explaining things (onboarding, tour). */
+        val scientist: Boolean = false,
+        /** Pointer angle in degrees around the hand, for a little wave while explaining. */
+        val point: Float = 0f,
     )
 
     @Synchronized
@@ -100,12 +106,44 @@ object CharacterPainter {
         c.drawCircle(30f, 60f, 5f, fill); c.drawCircle(70f, 60f, 5f, fill)
         fill.alpha = 255
 
+        if (pose.scientist) drawCoat(c, belly)
         drawEyes(c, mood, body, pose)
         drawMouth(c, mood)
         drawExtras(c, mood)
         if (pose.book) drawBook(c)
-        drawAccessories(c, accessories)
+        drawAccessories(c, if (pose.scientist) accessories + Accessory.GLASSES else accessories)
+        if (pose.scientist) drawPointer(c, pose.point)
         c.restore()
+    }
+
+    /** White lab coat over the lower body, open at the front, with lapels and a pen in the pocket. */
+    private fun drawCoat(c: Canvas, belly: Int) {
+        fill.color = COAT
+        c.drawPath(Path().apply {
+            moveTo(44f, 66f); lineTo(18.3f, 64f); lineTo(18f, 68f); cubicTo(20f, 86f, 34f, 92f, 50f, 92f); lineTo(40f, 92f); close()
+        }, fill)
+        c.drawPath(Path().apply {
+            moveTo(56f, 66f); lineTo(81.7f, 64f); lineTo(82f, 68f); cubicTo(80f, 86f, 66f, 92f, 50f, 92f); lineTo(60f, 92f); close()
+        }, fill)
+        stroke.color = COAT_LINE; stroke.strokeWidth = 1.4f
+        c.drawLine(44f, 66f, 40.5f, 76f, stroke); c.drawLine(56f, 66f, 59.5f, 76f, stroke)
+        c.drawRoundRect(RectF(26.5f, 75.5f, 35.5f, 82.5f), 1.5f, 1.5f, stroke)
+        stroke.color = CORAL; stroke.strokeWidth = 1.8f
+        c.drawLine(33f, 75.5f, 33f, 71.5f, stroke)
+        stroke.color = INK; stroke.strokeWidth = 2.6f
+        fill.color = belly
+    }
+
+    /** A pointer held at the right side, turning [angle] degrees around the hand. */
+    private fun drawPointer(c: Canvas, angle: Float) {
+        c.save()
+        c.rotate(angle, 80f, 78f)
+        stroke.color = HAIR; stroke.strokeWidth = 2.2f
+        c.drawLine(80f, 78f, 92f, 49f, stroke)
+        fill.color = CORAL; c.drawCircle(92f, 49f, 2.4f, fill)
+        stroke.color = INK; stroke.strokeWidth = 2.6f
+        c.restore()
+        fill.color = MINT; c.drawCircle(80f, 78f, 4.2f, fill) // the hand
     }
 
     private fun drawEyes(c: Canvas, mood: Mood, body: Int, pose: Pose) {
