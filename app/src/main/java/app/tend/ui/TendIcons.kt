@@ -20,7 +20,7 @@ import app.tend.R
 /** tend's own line icons (res/drawable/ic_t_*): one 24 grid, 1.8 stroke, round caps. */
 object TendIcons {
     private val res = mapOf(
-        "workout" to R.drawable.ic_t_workout, "outside" to R.drawable.ic_t_outside, "read" to R.drawable.ic_t_read,
+        "workout" to R.drawable.ic_t_workout, "outside" to R.drawable.ic_t_outside, "read" to R.drawable.ic_t_read, "learn" to R.drawable.ic_t_learn,
         "friends" to R.drawable.ic_t_friends, "hobby" to R.drawable.ic_t_hobby, "chores" to R.drawable.ic_t_chores,
         "cook" to R.drawable.ic_t_cook, "music" to R.drawable.ic_t_music, "pen" to R.drawable.ic_t_pen,
         "paw" to R.drawable.ic_t_paw, "sprout" to R.drawable.ic_t_sprout, "bike" to R.drawable.ic_t_bike,
@@ -33,7 +33,7 @@ object TendIcons {
     /** Accent per icon, so the list reads at a glance: movement mint, mind sky, people coral, home sunny. */
     private val accent = mapOf(
         "workout" to Brand.Mint, "outside" to Brand.Mint, "bike" to Brand.Mint, "sprout" to Brand.Mint,
-        "read" to Brand.Sky, "pen" to Brand.Sky, "music" to Brand.Sky, "moon" to Brand.Sky,
+        "read" to Brand.Sky, "learn" to Brand.Sky, "pen" to Brand.Sky, "music" to Brand.Sky, "moon" to Brand.Sky,
         "friends" to Brand.Coral, "heart" to Brand.Coral, "alert" to Brand.Coral, "paw" to Brand.Coral,
         "hobby" to Brand.Sunny, "chores" to Brand.Sunny, "cook" to Brand.Sunny, "star" to Brand.Sunny, "sun" to Brand.Sunny,
     )

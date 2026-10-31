@@ -40,6 +40,7 @@ fun SettingsScreen(
     tasks: List<TaskDef>,
     onToggleTask: (TaskDef) -> Unit,
     missCount: Int,
+    onAddWidget: () -> Boolean,
     reminderEnabled: Boolean,
     reminderHour: Int,
     onReminder: (enabled: Boolean, hour: Int) -> Unit,
@@ -85,6 +86,8 @@ fun SettingsScreen(
             }
         }
     }
+    Text("HOME SCREEN", style = MaterialTheme.typography.labelSmall)
+    WidgetButton(avatar, onAddWidget)
     Text(
         if (missCount == 0) "Diagnostics · no blocking misses logged" else "Diagnostics · $missCount blocking misses logged",
         style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = Space.s),

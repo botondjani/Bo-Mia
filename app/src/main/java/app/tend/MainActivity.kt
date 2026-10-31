@@ -84,7 +84,7 @@ class MainActivity : ComponentActivity() {
     private var openRecap by mutableStateOf(false)
 
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        store.reminderEnabled = granted
+        if (store.reminderPrompted) store.reminderEnabled = granted // asked for the evening reminder, not for nudges
         RecapReminder.schedule(this)
         refresh++
     }
@@ -137,7 +137,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         handler.removeCallbacksAndMessages(null)
         refresh++
-        if (store.onboarded && permissions().allGranted) MonitorService.start(this)
+        // Usage access is enough to count minutes; without the overlay the monitor nudges by notification.
+        if (store.onboarded && permissions().usageAccess) MonitorService.start(this)
     }
 
     @Composable
@@ -195,8 +196,15 @@ class MainActivity : ComponentActivity() {
                 onToggleApp = toggleApp,
                 tasks = store.selectedTasks,
                 onToggleTask = toggleTask,
-                onAddWidget = widgetPinner(),
-                onFinish = { store.onboarded = true; MonitorService.start(this); refresh++ },
+                onAddWidget = ::pinWidget,
+                onFinish = {
+                    store.onboarded = true
+                    if (permissions().usageAccess) MonitorService.start(this)
+                    if (!permissions().overlay && Build.VERSION.SDK_INT >= 33 && !RecapReminder.canNotify(this)) {
+                        notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) // for the fallback nudge
+                    }
+                    refresh++
+                },
             )
 
             screen == Screen.SETTINGS -> SettingsScreen(
@@ -210,6 +218,7 @@ class MainActivity : ComponentActivity() {
                 tasks = store.selectedTasks,
                 onToggleTask = toggleTask,
                 missCount = store.missCount(),
+                onAddWidget = ::pinWidget,
                 reminderEnabled = store.reminderEnabled,
                 reminderHour = store.reminderHour,
                 onReminder = ::setReminder,
@@ -237,7 +246,7 @@ class MainActivity : ComponentActivity() {
             screen == Screen.GARDEN || screen == Screen.PATTERNS -> Tabbed(screen, { screen = it })
 
             (TaskSync.focusSecondsLeft(store, now) ?: 0) > 0 -> FocusTimerScreen(
-                store.avatar, Tasks.READ, TaskSync.focusSecondsLeft(store, now)!!,
+                store.avatar, store.focusTask, TaskSync.focusSecondsLeft(store, now)!!,
                 onCancel = { store.focusStartedAt = 0; refresh++ },
             )
 
@@ -248,9 +257,10 @@ class MainActivity : ComponentActivity() {
                 tasks = store.selectedTasks,
                 plantCount = store.plants.size,
                 isEvening = LocalTime.now().hour >= RECAP_FROM_HOUR,
-                permissionsMissing = !permissions().allGranted,
+                permissions = permissions(),
                 health = health,
                 focusSecondsLeft = TaskSync.focusSecondsLeft(store, now),
+                focusTaskId = store.focusTaskId,
                 onFixPermissions = { screen = Screen.PERMISSIONS },
                 onConnectHealth = {
                     if (health == HealthConnect.Status.NEEDS_INSTALL) {
@@ -262,8 +272,8 @@ class MainActivity : ComponentActivity() {
                         healthPermissions.launch(HealthConnect.PERMISSIONS)
                     }
                 },
-                onStartFocus = {
-                    if (store.focusStartedAt == 0L) store.focusStartedAt = System.currentTimeMillis()
+                onStartFocus = { task ->
+                    if (store.focusStartedAt == 0L) { store.focusTaskId = task.id; store.focusStartedAt = System.currentTimeMillis() }
                     refresh++
                 },
                 onCheckOff = { task ->
@@ -382,10 +392,11 @@ class MainActivity : ComponentActivity() {
     }
 
     /** Null when the launcher can't pin widgets from inside the app. */
-    private fun widgetPinner(): (() -> Unit)? {
+    /** Asks the launcher to place the widget; false when it can't or won't (then the user adds it by hand). */
+    private fun pinWidget(): Boolean {
         val manager = AppWidgetManager.getInstance(this)
-        if (!manager.isRequestPinAppWidgetSupported) return null
-        return { manager.requestPinAppWidget(ComponentName(this, TendWidget::class.java), null, null) }
+        if (!manager.isRequestPinAppWidgetSupported) return false
+        return runCatching { manager.requestPinAppWidget(ComponentName(this, TendWidget::class.java), null, null) }.getOrDefault(false)
     }
 
     private fun permissions(): Permissions {

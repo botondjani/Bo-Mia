@@ -103,7 +103,7 @@ fun Onboarding(
     onToggleApp: (String) -> Unit,
     tasks: List<TaskDef>,
     onToggleTask: (TaskDef) -> Unit,
-    onAddWidget: (() -> Unit)?,
+    onAddWidget: () -> Boolean,
     onFinish: () -> Unit,
 ) {
     var stepIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -174,12 +174,15 @@ fun Onboarding(
                     ctaEnabled = perms.permissions.allGranted,
                     onCta = next,
                 ) {
+                    var askSkip by rememberSaveable { mutableStateOf(false) }
+                    if (askSkip) LimitedModeDialog(perms.permissions, onConfirm = { askSkip = false; next() }, onDismiss = { askSkip = false })
                     val first = blocked.firstOrNull()?.let(catalog::label) ?: "an app"
                     Title(
                         "Let ${avatar.displayName} notice",
                         "Two quick switches so ${avatar.displayName} can see when you open $first and give you a breath. Nothing leaves your phone.",
                     )
                     PermissionSteps(perms)
+                    if (!perms.permissions.allGranted) LinkText("Continue without", { askSkip = true })
                 }
 
                 Step.DONE -> StepPage(cta = "Start my day", onCta = onFinish, centered = true) {
@@ -190,10 +193,8 @@ fun Onboarding(
                         "${cfg.freeMinutes} free minutes today, up to ${Budget.earnableFrom(cfg, DayState(LocalDate.now()), tasks)} more to earn.",
                         style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = Brand.Muted,
                     )
-                    if (onAddWidget != null) {
-                        Spacer(Modifier.height(16.dp))
-                        SecondaryButton("Put ${avatar.displayName} on your home screen", onAddWidget)
-                    }
+                    Spacer(Modifier.height(16.dp))
+                    WidgetButton(avatar, onAddWidget)
                 }
             }
         }
@@ -413,8 +414,8 @@ fun PermissionSteps(perms: PermissionActions) {
 /** Step 1 for side-loaded installs: lift Android's "restricted settings" lock before asking for anything. */
 @Composable
 private fun UnlockCard(perms: PermissionActions) = Column(
-    Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Brand.Card)
-        .border(2.dp, Brand.Moss, RoundedCornerShape(22.dp)).padding(16.dp),
+    Modifier.fillMaxWidth().surface(radius = 22.dp)
+        .border(1.5.dp, Brand.Moss, RoundedCornerShape(22.dp)).padding(16.dp),
     verticalArrangement = Arrangement.spacedBy(8.dp),
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -427,15 +428,15 @@ private fun UnlockCard(perms: PermissionActions) = Column(
             Text("One time only. Android locks these switches for apps installed outside the Play Store.", style = MaterialTheme.typography.bodyMedium)
         }
     }
+    Text("In App info: tap ⋮ in the top right corner → Allow restricted settings → confirm. Then come back.", style = MaterialTheme.typography.bodyLarge)
+    PrimaryButton("Open app info", perms.openAppInfo)
     if (!perms.unlockTried) {
-        Text("Tap Start. Android will say no, that's expected: close its message and come back here.", style = MaterialTheme.typography.bodyLarge)
-        PrimaryButton("Start", perms.tryUnlock)
+        // Some phones only add the menu item after Android has refused a switch once.
+        LinkText("No \"Allow restricted settings\" in the menu? Tap here first, then open App info again.", perms.tryUnlock)
     } else {
-        Text("Now: App info → ⋮ in the top right corner → Allow restricted settings → confirm. Then come back.", style = MaterialTheme.typography.bodyLarge)
-        PrimaryButton("Open app info", perms.openAppInfo)
-        TextButton(onClick = perms.tryUnlock) { Text("Android didn't say no? Try again") }
+        Text("Android said no? Good, the menu item should be there now.", style = MaterialTheme.typography.bodyMedium)
     }
-    TextButton(onClick = perms.skipUnlock) { Text("Already unlocked? Skip") }
+    LinkText("Already unlocked? Skip", perms.skipUnlock)
 }
 
 @Composable
@@ -488,3 +489,50 @@ private fun RestrictedHelp(onAppInfo: () -> Unit) = Column(
     Text("1. Open app info\n2. Tap ⋮ in the top right corner\n3. Choose \"Allow restricted settings\"\n4. Come back and tap Try again", style = MaterialTheme.typography.bodyLarge)
     TextButton(onClick = onAppInfo) { Text("Open app info →") }
 }
+
+/**
+ * Asks the launcher to pin the widget. Launchers differ (some ignore the request, some need a
+ * second tap), so after the tap we always show the manual way too.
+ */
+@Composable
+fun WidgetButton(avatar: Avatar, onAddWidget: () -> Boolean) {
+    var asked by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    SecondaryButton("Put ${avatar.displayName} on your home screen", { asked = onAddWidget() })
+    asked?.let { accepted ->
+        Text(
+            (if (accepted) "Confirm in the pop-up. Nothing showed up? " else "Your launcher wants you to add it yourself: ") +
+                "long-press an empty spot on your home screen → Widgets → tend.",
+            style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(top = Space.s),
+        )
+    }
+}
+
+@Composable
+fun LinkText(text: String, onClick: () -> Unit) = Text(
+    text, style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+    modifier = Modifier.tappable(onClick = onClick).padding(vertical = Space.s),
+)
+
+/** What still works if a switch stays off, so skipping is an informed choice, not a dead end. */
+@Composable
+fun LimitedModeDialog(p: Permissions, onConfirm: () -> Unit, onDismiss: () -> Unit) =
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.fillMaxWidth().surface(radius = 28.dp).padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(Space.m),
+        ) {
+            Text("Continue in limited mode?", style = MaterialTheme.typography.titleLarge)
+            if (!p.usageAccess) Text(
+                "Without usage access, tend can't see screen time or app opens. Activities, the reading timer and the garden still work.",
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            if (p.usageAccess && !p.overlay) Text(
+                "Without \"display over other apps\", there's no pause before scrolling. tend still counts your minutes and sends a gentle notification instead.",
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Text("You can turn the switches on any time from the home screen.", style = MaterialTheme.typography.bodyMedium)
+            PrimaryButton("Continue anyway", onConfirm)
+            SecondaryButton("Set it up now", onDismiss)
+        }
+    }

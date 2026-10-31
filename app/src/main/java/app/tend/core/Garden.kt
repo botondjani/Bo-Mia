@@ -50,7 +50,7 @@ data class Recap(
                 tonightsPlant = Garden.plantFor(unused),
                 steps = day.steps,
                 exerciseMinutes = day.exerciseMinutes,
-                readingMinutes = if (Tasks.READ.id in day.completedTasks) Tasks.READ.target else 0,
+                readingMinutes = listOf(Tasks.READ, Tasks.LEARN).filter { it.id in day.completedTasks }.sumOf { it.target },
                 worthItAnswers = answers.size,
                 notWorthIt = not.size,
                 notWorthAfterHour = earliestNot?.takeIf { not.size >= 2 && it >= LATE_FROM_HOUR },

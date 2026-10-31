@@ -103,6 +103,22 @@ class BudgetTest {
         assertTrue(t.manual)
     }
 
+    @Test fun `companion line looks back at what we did today`() {
+        val picks = listOf(Tasks.MOVE, Tasks.LEARN, Tasks.HOBBY)
+        var d = Budget.credit(cfg, day, Tasks.MOVE.id, 30, manual = false)
+        assertEquals("Today we already moved. Nice start!", Moods.line(cfg, d, picks))
+        d = Budget.credit(cfg, d, Tasks.LEARN.id, 20, manual = false)
+        assertEquals("Today we already moved and learned something. Look at us!", Moods.line(cfg, d, picks))
+        d = Budget.credit(cfg, d, Tasks.HOBBY.id, 15, manual = true)
+        assertEquals("Today we already moved, learned something and played with a hobby. Everything's done. Proud of us.", Moods.line(cfg, d, picks))
+    }
+
+    @Test fun `finished tasks sink to the bottom`() {
+        val picks = listOf(Tasks.MOVE, Tasks.READ, Tasks.HOBBY)
+        val d = Budget.credit(cfg, day, Tasks.MOVE.id, 30, manual = false)
+        assertEquals(listOf(Tasks.READ, Tasks.HOBBY, Tasks.MOVE), Tasks.ordered(d, picks))
+    }
+
     @Test fun `companion line follows the user's own picks`() {
         assertEquals("What shall we do today? Hobby sounds nice.", Moods.line(cfg, day, listOf(Tasks.HOBBY)))
         assertEquals("We haven't been outside in a while. Quick walk?", Moods.line(cfg, day, listOf(Tasks.OUTSIDE)))

@@ -119,9 +119,46 @@ class MonitorService : Service() {
     }
 
     private fun intercept(pkg: String, now: Long) {
+        if (!android.provider.Settings.canDrawOverlays(this)) return nudge(pkg)
         interceptedPkg = pkg
         interceptedAt = now
         startActivity(InterstitialActivity.intent(this, pkg))
+    }
+
+    /**
+     * Limited mode (no "display over other apps"): Android won't let us show the pause, so a
+     * notification nudges instead; tapping it opens the pause. Minutes are still counted.
+     */
+    private fun nudge(pkg: String) {
+        val cfg0 = store.config
+        if (!app.tend.reminder.RecapReminder.canNotify(this)) {
+            if (!app.tend.core.Budget.isLocked(cfg0, store.today())) { sessionPkg = pkg; sessionStart = System.currentTimeMillis() }
+            return
+        }
+        val label = runCatching { packageManager.getApplicationInfo(pkg, 0).loadLabel(packageManager).toString() }.getOrDefault(pkg)
+        val cfg = store.config
+        val day = store.today()
+        val text = if (app.tend.core.Budget.isLocked(cfg, day)) "Out of minutes for today. ${store.avatar.displayName} is here if you want to earn some."
+            else "${app.tend.core.Budget.remainingMinutes(cfg, day)} min left today. Worth it right now?"
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(NotificationChannel(NUDGE_CHANNEL, "Pause nudges", NotificationManager.IMPORTANCE_HIGH))
+        val open = PendingIntent.getActivity(this, 3, InterstitialActivity.intent(this, pkg), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        nm.notify(
+            3,
+            Notification.Builder(this, NUDGE_CHANNEL)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle("Opening $label")
+                .setContentText(text)
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .setTimeoutAfter(60_000)
+                .build(),
+        )
+        // Without the pause, the open itself is the session start (not when locked: one nudge, no loop).
+        if (!app.tend.core.Budget.isLocked(cfg, day)) {
+            sessionPkg = pkg
+            sessionStart = System.currentTimeMillis()
+        }
     }
 
     private fun endSession(now: Long, askWorthIt: Boolean) {
@@ -152,6 +189,7 @@ class MonitorService : Service() {
 
     companion object {
         private const val CHANNEL = "monitor"
+        private const val NUDGE_CHANNEL = "nudge"
         private const val POLL_MS = 1000L
         private const val MISS_AFTER_MS = 3000L
         private const val GAP_LOG_SECONDS = 120

@@ -24,17 +24,31 @@ object Moods {
         Mood.OUTSIDE -> "glowing"
     }
 
-    /** Companion line: kind nudges towards the user's own picks, never shaming. */
+    /**
+     * Companion line. Before anything is done: one gentle idea. After that: a look back at what
+     * we already did today, with praise that grows with the day. Never a to-do list, never shaming.
+     */
     fun line(cfg: BudgetConfig, day: DayState, selected: List<TaskDef>): String {
-        val done = selected.count { it.id in day.completedTasks }
+        val done = selected.filter { it.id in day.completedTasks }
         val next = Tasks.next(day, selected)
-        return when {
+        if (selected.isEmpty()) return "Pick a few things you'd rather do, and we'll do them together."
+        if (done.isEmpty()) return when {
             Budget.isLocked(cfg, day) -> "Budget's empty for now. Want to earn some back together?"
-            next == null && done > 0 -> "What a day. Proud of us."
-            next == null -> "Pick a few things you'd rather do, and we'll do them together."
-            done == 0 && next == Tasks.OUTSIDE -> "We haven't been outside in a while. Quick walk?"
-            done == 0 -> "What shall we do today? ${next.title} sounds nice."
-            else -> "Nice one! ${next.title} next?"
+            next == Tasks.OUTSIDE -> "We haven't been outside in a while. Quick walk?"
+            else -> "What shall we do today? ${next!!.title} sounds nice."
         }
+        val praise = when {
+            next == null -> "Everything's done. Proud of us."
+            done.size == 1 -> "Nice start!"
+            done.size == 2 -> "Look at us!"
+            else -> "You're doing great!"
+        }
+        return "Today we already ${joinAnd(done.map(Tasks::pastTense))}. $praise"
+    }
+
+    private fun joinAnd(parts: List<String>) = when (parts.size) {
+        1 -> parts[0]
+        2 -> "${parts[0]} and ${parts[1]}"
+        else -> parts.dropLast(1).joinToString(", ") + " and " + parts.last()
     }
 }

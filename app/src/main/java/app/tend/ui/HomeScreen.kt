@@ -57,9 +57,10 @@ fun HomeScreen(
     tasks: List<TaskDef>,
     plantCount: Int,
     isEvening: Boolean,
-    permissionsMissing: Boolean,
+    permissions: Permissions,
     health: HealthConnect.Status?,
     focusSecondsLeft: Long?,
+    focusTaskId: String,
     onFixPermissions: () -> Unit,
     onConnectHealth: () -> Unit,
     onStartFocus: (TaskDef) -> Unit,
@@ -73,7 +74,7 @@ fun HomeScreen(
     val mood = Moods.of(cfg, day)
     Column(
         Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp).padding(top = Space.l, bottom = Space.xxl),
+            .padding(horizontal = 20.dp).padding(top = Space.xs, bottom = Space.xxl),
         verticalArrangement = Arrangement.spacedBy(Space.m),
     ) {
         // Header: greeting + settings
@@ -86,9 +87,9 @@ fun HomeScreen(
         }
 
         // Hero: the companion and today's minutes
-        Column(Modifier.fillMaxWidth().surface(radius = 28.dp).padding(20.dp), verticalArrangement = Arrangement.spacedBy(Space.m)) {
+        Column(Modifier.fillMaxWidth().surface(radius = 28.dp).padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(Space.s)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                CharacterView(avatar, mood, 104.dp)
+                CharacterView(avatar, mood, 88.dp)
                 Spacer(Modifier.width(Space.l))
                 Column(Modifier.weight(1f)) {
                     Text(Moods.status(avatar.displayName, mood).uppercase(), style = MaterialTheme.typography.labelSmall, color = Brand.Moss)
@@ -116,7 +117,10 @@ fun HomeScreen(
         }
 
         if (isEvening) Notice("moon", "Tonight's recap is ready", "See what today gave back", onOpenRecap)
-        if (permissionsMissing) Notice("alert", "${avatar.displayName} can't see app opens", "A switch was turned off. Tap to fix.", onFixPermissions)
+        when {
+            !permissions.usageAccess -> Notice("alert", "Limited mode", "${avatar.displayName} can't see screen time. Tap to turn it on.", onFixPermissions)
+            !permissions.overlay -> Notice("alert", "No pause before scrolling", "Only a notification for now. Tap to fix.", onFixPermissions)
+        }
         val needsHealth = tasks.any { it.verification == Verification.AUTOMATIC }
         if (needsHealth && (health == HealthConnect.Status.NEEDS_PERMISSION || health == HealthConnect.Status.NEEDS_INSTALL)) {
             Notice(
@@ -127,7 +131,9 @@ fun HomeScreen(
 
         SectionHeader("Instead of scrolling", "${tasks.count { it.id in day.completedTasks }} of ${tasks.size} done")
         if (tasks.isEmpty()) Notice("sparkle", "Pick what you'd rather do", "A few activities that give minutes back", onOpenSettings)
-        tasks.forEach { task -> TaskRow(task, day, health, focusSecondsLeft, onStartFocus, onCheckOff, onUndo) }
+        Tasks.ordered(day, tasks).forEach { task ->
+            TaskRow(task, day, health, focusSecondsLeft?.takeIf { task.id == focusTaskId }, onStartFocus, onCheckOff, onUndo)
+        }
     }
 }
 
@@ -226,7 +232,7 @@ fun FocusTimerScreen(avatar: Avatar, task: TaskDef, secondsLeft: Long, onCancel:
     horizontalAlignment = Alignment.CenterHorizontally,
     verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
 ) {
-    Text("READING TOGETHER", style = MaterialTheme.typography.labelSmall)
+    Text(if (task.id == Tasks.LEARN.id) "LEARNING TOGETHER" else "READING TOGETHER", style = MaterialTheme.typography.labelSmall)
     Box(contentAlignment = Alignment.Center) {
         val total = task.target * 60f
         androidx.compose.foundation.Canvas(Modifier.size(280.dp)) {
@@ -245,7 +251,7 @@ fun FocusTimerScreen(avatar: Avatar, task: TaskDef, secondsLeft: Long, onCancel:
     }
     Text(task.title, style = MaterialTheme.typography.titleLarge)
     Text(
-        "${avatar.displayName} is reading with you. +${task.rewardMinutes} min when the timer ends. " +
+        "${avatar.displayName} is ${if (task.id == Tasks.LEARN.id) "learning" else "reading"} with you. +${task.rewardMinutes} min when the timer ends. " +
             "You can leave tend; opening a paused app ends the session.",
         style = MaterialTheme.typography.bodyMedium,
         textAlign = androidx.compose.ui.text.style.TextAlign.Center,

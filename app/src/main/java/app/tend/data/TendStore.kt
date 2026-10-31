@@ -82,6 +82,14 @@ class TendStore(private val context: Context) {
         get() = prefs.getLong("focus_started", 0)
         set(v) = edit { putLong("focus_started", v) }
 
+    /** Which timer task is running (read or learn). */
+    var focusTaskId: String
+        get() = prefs.getString("focus_task", Tasks.READ.id)!!
+        set(v) = edit { putString("focus_task", v) }
+
+    val focusTask: TaskDef
+        get() = Tasks.presets.firstOrNull { it.id == focusTaskId } ?: Tasks.READ
+
     /** One plant per closed day that had unused minutes, oldest first. */
     val plants: List<Plant>
         get() {

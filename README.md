@@ -9,9 +9,9 @@ This is the MVP skeleton described in the concept doc. Native Android, English o
 | Part | Where |
 |---|---|
 | Budget logic: free base, earned minutes that expire each day, manual-credit cap, lock at ≤ 0, delay before every open (5 s, +1 s each time, at most 10 s), unused minutes go to the garden | `core/Budget.kt` (unit-tested) |
-| Activities the user picks (up to 5, nothing pre-selected): workout (30 min exercise) and walk (4,000 steps) via Health Connect, read/learn via a 20 min focus timer, friends & family / hobby / tidy up / cooking and own activities by check-off with undo (daily check-off cap 45 min) | `core/Tasks.kt`, `ui/ActivityPicker.kt`, `health/` |
+| Activities the user picks (up to 6, nothing pre-selected): workout (30 min exercise) and walk (4,000 steps) via Health Connect, read (20 min) and learn (30 min) via a focus timer, friends & family / hobby / tidy up / cooking and own activities by check-off with undo (daily check-off cap 45 min) | `core/Tasks.kt`, `ui/ActivityPicker.kt`, `health/` |
 | Health Connect: reads today's steps + exercise minutes (read-only) on app open, every minute while open, and before every pause screen; progress bars and a celebration when a task completes | `health/HealthConnect.kt`, `health/TaskSync.kt` |
-| Moods (happy / tired / scrolling / outside) and companion lines | `core/Mood.kt` |
+| Moods (happy / tired / scrolling / outside); the companion line looks back at what we did today ("Today we already went outside and learned something. Look at us!"); finished tasks sink to the bottom | `core/Mood.kt`, `core/Tasks.kt` |
 | Monitoring: UsageStats polled every second, opens a delay screen, counts time used, locks at zero, logs every miss | `monitor/MonitorService.kt` |
 | Pause pop-up: half-height sheet over the opened app with the app blurred behind (Android 12+), a "We tend to…" line, "What are you looking for?" chips, "Not now" and a counted-down "Open" | `monitor/InterstitialActivity.kt` |
 | "Worth it?" pop-up over the home screen, three emoji tiles, after sessions of 30 s or more | `monitor/WorthItActivity.kt` |
@@ -49,8 +49,10 @@ Install the APK and follow the onboarding: welcome, companion, how it works, app
 
 - **Display over other apps** comes first. Once it's on, Android lets tend bring itself back to the front, so after the second switch the user returns to the app automatically.
 - **Usage access** comes second.
-- **Unlock first**: Android 13+ locks these switches for side-loaded apps ("restricted settings"). If the lock is on, onboarding starts with an unlock step: let Android refuse once, then App info → ⋮ → *Allow restricted settings*. Settings pages are opened scrolled to tend where the phone supports it, with a short on-screen hint. For testers using adb: `adb shell appops set app.tend ACCESS_RESTRICTED_SETTINGS allow`.
+- **Unlock first**: Android 13+ locks these switches for side-loaded apps ("restricted settings"). If the lock is on, onboarding starts with: App info → ⋮ → *Allow restricted settings*. If the menu item is missing, a link lets Android refuse a switch once, after which it appears. Settings pages are opened scrolled to tend where the phone supports it, with a short on-screen hint. For testers using adb: `adb shell appops set app.tend ACCESS_RESTRICTED_SETTINGS allow`.
 - **Health Connect** is connected from the home screen ("Connect Health Connect"). On Android 13 and below the button opens the Play Store to install it first.
 - The reading timer keeps running when you leave tend. Opening a paused app from the pause screen ends it.
-- Notification permission is asked only when you turn on the evening reminder. Until then the monitor's notification stays hidden.
+- **Limited mode**: "Continue without" skips the switches after explaining what stops working. Without usage access tend can't measure screen time (activities, timer and garden still work). Without the overlay there's no pause pop-up; minutes are still counted and a notification nudges instead (notification permission is asked for that). The home screen shows what's missing.
+- **Widget**: "Put Bo on your home screen" (onboarding and settings) asks the launcher; if it doesn't show its pop-up, the manual way is shown.
+- Notification permission is otherwise asked only when you turn on the evening reminder. Until then the monitor's notification stays hidden.
 - On Xiaomi, Samsung, Huawei and similar phones, turn off battery optimisation for tend, or the monitor gets killed (this shows up in the miss log).

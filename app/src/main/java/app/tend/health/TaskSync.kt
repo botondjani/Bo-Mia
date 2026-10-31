@@ -47,12 +47,12 @@ object TaskSync {
 
     fun focusSecondsLeft(store: TendStore, now: Long = System.currentTimeMillis()): Long? {
         val start = store.focusStartedAt.takeIf { it > 0 } ?: return null
-        return (Tasks.READ.target * 60L - (now - start) / 1000).coerceAtLeast(0)
+        return (store.focusTask.target * 60L - (now - start) / 1000).coerceAtLeast(0)
     }
 
     private fun finishFocusIfDue(store: TendStore) {
         if (focusSecondsLeft(store) != 0L) return
         store.focusStartedAt = 0
-        store.credit(Tasks.READ.id, Tasks.READ.rewardMinutes, manual = false)
+        store.focusTask.let { store.credit(it.id, it.rewardMinutes, manual = false) }
     }
 }

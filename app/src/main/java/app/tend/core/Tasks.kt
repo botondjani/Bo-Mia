@@ -20,20 +20,21 @@ data class TaskDef(
 }
 
 object Tasks {
-    const val MAX_SELECTED = 5
+    const val MAX_SELECTED = 6
     const val CUSTOM_REWARD = 10
     private const val CUSTOM_PREFIX = "custom:"
 
     val MOVE = TaskDef("move", "Workout or run", "Automatic · 30 min of exercise", 30, Verification.AUTOMATIC, 30, "workout")
     val OUTSIDE = TaskDef("outside", "Walk outside", "Automatic · 4,000 steps", 20, Verification.AUTOMATIC, 4000, "outside")
-    val READ = TaskDef("read", "Read or learn", "Focus timer · 20 min", 15, Verification.FOCUS_TIMER, 20, "read")
+    val READ = TaskDef("read", "Read", "Focus timer · 20 min", 15, Verification.FOCUS_TIMER, 20, "read")
+    val LEARN = TaskDef("learn", "Learn something", "Focus timer · 30 min", 20, Verification.FOCUS_TIMER, 30, "learn")
     val FRIENDS = TaskDef("friends", "Friends & family", "Check off · time together, a call", 15, Verification.CHECK_OFF, 0, "friends")
     val HOBBY = TaskDef("hobby", "Hobby", "Check off · make, play, create", 15, Verification.CHECK_OFF, 0, "hobby")
     val CHORES = TaskDef("chores", "Tidy up", "Check off · a bit of home care", 10, Verification.CHECK_OFF, 0, "chores")
     val COOK = TaskDef("cook", "Cook something good", "Check off · a healthy meal", 10, Verification.CHECK_OFF, 0, "cook")
 
     /** What onboarding suggests. Nothing is pre-selected. */
-    val presets = listOf(MOVE, OUTSIDE, READ, FRIENDS, HOBBY, CHORES, COOK)
+    val presets = listOf(MOVE, OUTSIDE, READ, LEARN, FRIENDS, HOBBY, CHORES, COOK)
 
     /** What users who onboarded before activities were selectable keep. */
     val legacyDefault = listOf(MOVE, OUTSIDE, READ)
@@ -47,6 +48,22 @@ object Tasks {
     fun isCustom(task: TaskDef) = task.id.startsWith(CUSTOM_PREFIX)
 
     fun next(day: DayState, selected: List<TaskDef>): TaskDef? = selected.firstOrNull { it.id !in day.completedTasks }
+
+    /** Today's list: still-to-do first, finished ones sink to the bottom (order kept within each group). */
+    fun ordered(day: DayState, selected: List<TaskDef>): List<TaskDef> = selected.sortedBy { it.id in day.completedTasks }
+
+    /** How the companion talks about a finished task: "Today we already …". */
+    fun pastTense(task: TaskDef): String = when (task.id) {
+        MOVE.id -> "moved"
+        OUTSIDE.id -> "went outside"
+        READ.id -> "read"
+        LEARN.id -> "learned something"
+        FRIENDS.id -> "made time for our people"
+        HOBBY.id -> "played with a hobby"
+        CHORES.id -> "tidied up"
+        COOK.id -> "cooked something good"
+        else -> "did ${task.title.lowercase()}"
+    }
 
     /** Measured progress towards an automatic task's target, or null for other tasks. */
     fun progress(task: TaskDef, day: DayState): Long? = when (task.id) {
