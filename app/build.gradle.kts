@@ -14,7 +14,11 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        // Rive ships native code per CPU; phones only need ARM. (x86 emulators are left out.)
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
+    // Compress the native libraries in the side-loaded APK; they are unpacked at install.
+    packaging { jniLibs { useLegacyPackaging = true } }
 
     buildTypes {
         release {
@@ -42,6 +46,7 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
     implementation(libs.health.connect)
+    implementation(libs.rive)
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.junit)
 }

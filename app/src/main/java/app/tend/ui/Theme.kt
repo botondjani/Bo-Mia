@@ -1,26 +1,18 @@
 package app.tend.ui
 
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import app.tend.R
-import app.tend.core.Avatar
-import app.tend.core.Mood
 
 object Brand {
     val Moss = Color(0xFF316849)
@@ -66,10 +58,3 @@ fun TendTheme(content: @Composable () -> Unit) = MaterialTheme(
     typography = typography,
     content = content,
 )
-
-@Composable
-fun CharacterView(avatar: Avatar, mood: Mood, size: Dp, modifier: Modifier = Modifier) {
-    Canvas(modifier.size(size)) {
-        drawIntoCanvas { CharacterPainter.draw(it.nativeCanvas, avatar, mood, this.size.minDimension) }
-    }
-}

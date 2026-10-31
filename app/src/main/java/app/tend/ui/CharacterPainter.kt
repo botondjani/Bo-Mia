@@ -37,10 +37,21 @@ object CharacterPainter {
             draw(Canvas(it), avatar, mood, sizePx.toFloat())
         }
 
+    /** Animation pose for the fallback character; the widget uses the resting pose. */
+    data class Pose(
+        /** 0 eyes open, 1 closed. */
+        val blink: Float = 0f,
+        /** -1..1, squash and stretch from the feet. */
+        val breathe: Float = 0f,
+        /** -1..1, pupils glance left or right. */
+        val look: Float = 0f,
+    )
+
     @Synchronized
-    fun draw(c: Canvas, avatar: Avatar, mood: Mood, size: Float) {
+    fun draw(c: Canvas, avatar: Avatar, mood: Mood, size: Float, pose: Pose = Pose()) {
         c.save()
         c.scale(size / 100f, size / 100f)
+        c.scale(1f + 0.025f * pose.breathe, 1f - 0.025f * pose.breathe, 50f, 92f)
         val tired = mood == Mood.TIRED
         val body = if (tired) TIRED else MINT
         val belly = if (tired) TIRED_LIGHT else MINT_LIGHT
@@ -86,23 +97,30 @@ object CharacterPainter {
         c.drawCircle(30f, 60f, 5f, fill); c.drawCircle(70f, 60f, 5f, fill)
         fill.alpha = 255
 
-        drawEyes(c, mood, body)
+        drawEyes(c, mood, body, pose)
         drawMouth(c, mood)
         drawExtras(c, mood)
         c.restore()
     }
 
-    private fun drawEyes(c: Canvas, mood: Mood, body: Int) {
+    private fun drawEyes(c: Canvas, mood: Mood, body: Int, pose: Pose) {
         for (x in floatArrayOf(39f, 61f)) {
             fill.color = 0xFFFFFFFF.toInt(); c.drawCircle(x, 46f, 8f, fill)
             fill.color = if (mood == Mood.SCROLLING) 0xFF3B5BDB.toInt() else INK
             val py = if (mood == Mood.SCROLLING) 49f else 47f
-            c.drawCircle(x + 1f, py, 4.6f, fill)
-            fill.color = 0xFFFFFFFF.toInt(); c.drawCircle(x + 2.5f, py - 2f, 1.5f, fill)
+            val px = x + 1f + 2f * pose.look
+            c.drawCircle(px, py, 4.6f, fill)
+            fill.color = 0xFFFFFFFF.toInt(); c.drawCircle(px + 1.5f, py - 2f, 1.5f, fill)
             if (mood == Mood.TIRED || mood == Mood.SCROLLING) { // heavy lids
                 fill.color = body
                 c.drawRect(x - 9f, 37f, x + 9f, if (mood == Mood.TIRED) 46f else 44f, fill)
                 c.drawLine(x - 7f, if (mood == Mood.TIRED) 46f else 44f, x + 7f, if (mood == Mood.TIRED) 46f else 44f, stroke)
+            }
+            if (pose.blink > 0.05f) { // lid comes down over the eye
+                val lid = 37f + 17f * pose.blink
+                fill.color = body
+                c.drawRect(x - 9f, 37f, x + 9f, lid, fill)
+                c.drawLine(x - 7f, lid, x + 7f, lid, stroke)
             }
         }
     }

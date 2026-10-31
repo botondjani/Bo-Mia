@@ -6,6 +6,7 @@ activityCompose = "1.12.2"
 coreKtx = "1.17.0"
 junit = "4.13.2"
 healthConnect = "1.1.0"
+rive = "11.14.3"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -16,6 +17,7 @@ compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview"
 compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 compose-material3 = { module = "androidx.compose.material3:material3" }
 health-connect = { module = "androidx.health.connect:connect-client", version.ref = "healthConnect" }
+rive = { module = "app.rive:rive-android", version.ref = "rive" }
 junit = { module = "junit:junit", version.ref = "junit" }
 
 [plugins]

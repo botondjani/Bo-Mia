@@ -21,6 +21,7 @@ This is the MVP skeleton described in the concept doc. Native Android, English o
 | Evening reminder: offered once on the recap, toggle + 20/21/22:00 in settings; inexact daily alarm, silent if the recap was already opened, rescheduled after reboot | `reminder/RecapReminder.kt` |
 | Home screen widget: face, minutes left, next task; refreshes on every change | `widget/TendWidget.kt` |
 | Onboarding (7 steps, suggested apps, in-context permissions), settings, home, focus timer | `ui/` |
+| Character: Rive runtime plays `assets/tend_character.riv` (mood/mia/tap inputs, see `docs/rive-rig.md`); without it a drawn fallback that breathes, blinks and glances around | `ui/Character.kt`, `ui/CharacterPainter.kt` |
 | Brand: Moss/Mint/Coral/Sunny/Sky/Ink/Sage, Fredoka + Nunito (OFL, bundled) | `ui/Theme.kt` |
 
 Logs are written to the app's private storage: `answers.csv` (looking-for and worth-it answers), `history.csv` (one line per closed day) and `misses.csv` (blocking gaps or opens that weren't caught).
@@ -29,12 +30,12 @@ Logs are written to the app's private storage: `answers.csv` (looking-for and wo
 
 - **Background Health Connect reads**: data is read only while tend is on screen (home or pause screen). The widget can lag until then.
 - **Step source**: Health Connect needs an app that writes steps (Google Fit, Samsung Health, Fitbit, or the phone's built-in step tracking on newer Pixels). Workouts count once a tracker writes an exercise session.
-- **Rive**: the character is drawn by `CharacterPainter` (Canvas) as a placeholder until the Rive rig replaces it.
+- **Rive rig file**: the runtime is wired in, but `tend_character.riv` still has to be made in the Rive editor (spec: `docs/rive-rig.md`). Until then the drawn character is used.
 - Out of MVP scope (from the concept doc): floating character, friends, coins/shop, iOS.
 
 ## Build
 
-Requires JDK 17+ and the Android SDK (platform 36).
+Requires JDK 17+ and the Android SDK (platform 36). The APK contains ARM native code only (Rive), so it runs on phones but not on x86 emulators.
 
 ```bash
 ./gradlew testDebugUnitTest   # domain logic tests
