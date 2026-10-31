@@ -193,6 +193,13 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun Content(catalog: AppCatalog) {
         refresh // read so recomposition follows onResume
+        // Status and navigation bar icons follow the theme in use.
+        val dark = app.tend.ui.Brand.dark
+        LaunchedEffect(dark) {
+            val bars = if (dark) SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+                else SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+            enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
+        }
         var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
         var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
         var health by remember { mutableStateOf<HealthConnect.Status?>(null) }
@@ -282,6 +289,8 @@ class MainActivity : ComponentActivity() {
                 onWeeklyLetter = ::setWeeklyLetter,
                 onExport = ::exportTestData,
                 onReplayTour = { store.tourDone = false; screen = Screen.HOME },
+                theme = app.tend.ui.ThemeChoice.mode ?: store.themeMode,
+                onTheme = { store.themeMode = it; app.tend.ui.ThemeChoice.mode = it },
                 onDone = { screen = Screen.HOME },
             )
 

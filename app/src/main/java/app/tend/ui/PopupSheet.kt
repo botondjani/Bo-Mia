@@ -45,7 +45,7 @@ fun PopupSheet(
         val minHeight = maxHeight * minHeightFraction
         AnimatedVisibility(shown, enter = fadeIn(tween(260))) {
             Box(
-                Modifier.fillMaxSize().background(Brand.Ink.copy(alpha = if (blurOn.value) 0.25f else 0.55f))
+                Modifier.fillMaxSize().background(Brand.Shade.copy(alpha = if (blurOn.value) 0.25f else 0.55f))
                     .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
             )
         }

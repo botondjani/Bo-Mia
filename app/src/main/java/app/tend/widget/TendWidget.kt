@@ -78,7 +78,10 @@ object Widgets {
             setOnClickPendingIntent(R.id.root, open)
         })
         if (garden.isNotEmpty()) manager.updateAppWidget(garden, RemoteViews(context.packageName, R.layout.widget_garden).apply {
-            setImageViewBitmap(R.id.garden, gardenBitmap(store.avatar, plants, Garden.homeStage(store.daysTended), worn, 440, 440))
+            setImageViewBitmap(R.id.garden, gardenBitmap(
+                store.avatar, plants, Garden.homeStage(store.daysTended), worn, 440, 440,
+                night = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES,
+            ))
             setTextViewText(R.id.minutes, minutes)
             setOnClickPendingIntent(R.id.root, open)
         })

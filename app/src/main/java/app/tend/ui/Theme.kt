@@ -1,5 +1,8 @@
 package app.tend.ui
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
@@ -16,17 +19,33 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import app.tend.R
 
+/**
+ * Brand colours, light or dark. Every colour reads [dark], a snapshot state, so screens and the
+ * drawn scenes follow a theme switch at once. Mint, coral, sunny and sky stay the same.
+ */
 object Brand {
-    val Moss = Color(0xFF316849)
+    var dark by mutableStateOf(false)
+
+    val Moss get() = if (dark) Color(0xFF4FA077) else Color(0xFF316849)
     val Mint = Color(0xFF7ECAA3)
     val Coral = Color(0xFFE76649)
     val Sunny = Color(0xFFF6D673)
     val Sky = Color(0xFF8EC4E8)
-    val Ink = Color(0xFF1D2A23)
-    val Sage = Color(0xFFF1F4ED)
-    val Card = Color(0xFFFFFFFF)
-    val Muted = Color(0xFF6B756F)
+    val Ink get() = if (dark) Color(0xFFE6EEE9) else Color(0xFF1D2A23)
+    val Sage get() = if (dark) Color(0xFF111915) else Color(0xFFF1F4ED)
+    val Card get() = if (dark) Color(0xFF1B2620) else Color(0xFFFFFFFF)
+    val Muted get() = if (dark) Color(0xFF98A69E) else Color(0xFF6B756F)
+    /** A picked item's tint. */
+    val Picked get() = if (dark) Color(0xFF1F3A2C) else Color(0xFFE8F5EE)
+    /** Shadows and scrims stay dark in both themes. */
+    val Shade = Color(0xFF0A0F0C)
 }
+
+/** The user's choice: follow the phone, or always light or dark. Kept here so every screen sees a switch. */
+object ThemeChoice {
+    var mode by mutableStateOf<String?>(null)
+}
+
 
 @OptIn(ExperimentalTextApi::class)
 private fun variable(res: Int, weight: Int) =
@@ -38,7 +57,7 @@ val Fredoka = FontFamily(variable(R.font.fredoka, 500), variable(R.font.fredoka,
 /** Body text, interface, buttons. */
 val Nunito = FontFamily(variable(R.font.nunito, 400), variable(R.font.nunito, 600), variable(R.font.nunito, 700))
 
-private val typography = Typography(
+private fun typography() = Typography(
     // Hero numbers: minutes left, big stats.
     displayLarge = TextStyle(fontFamily = Fredoka, fontWeight = FontWeight(600), fontSize = 56.sp, lineHeight = 60.sp, letterSpacing = (-1).sp, color = Brand.Moss),
     headlineLarge = TextStyle(fontFamily = Fredoka, fontWeight = FontWeight(600), fontSize = 32.sp, lineHeight = 38.sp, letterSpacing = (-0.4).sp, color = Brand.Ink),
@@ -54,12 +73,24 @@ private val typography = Typography(
 )
 
 @Composable
-fun TendTheme(content: @Composable () -> Unit) = MaterialTheme(
-    colorScheme = lightColorScheme(
-        primary = Brand.Moss, onPrimary = Color.White,
-        secondary = Brand.Mint, tertiary = Brand.Coral,
-        background = Brand.Sage, surface = Brand.Card,
-        onBackground = Brand.Ink, onSurface = Brand.Ink,
-    ),
-    typography = typography,
-) { CompositionLocalProvider(LocalContentColor provides Brand.Ink, content = content) }
+fun TendTheme(content: @Composable () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val mode = ThemeChoice.mode ?: app.tend.data.TendStore(context).themeMode.also { ThemeChoice.mode = it }
+    val dark = when (mode) { "dark" -> true; "light" -> false; else -> androidx.compose.foundation.isSystemInDarkTheme() }
+    if (Brand.dark != dark) Brand.dark = dark
+    val type = androidx.compose.runtime.remember(dark) { typography() }
+    MaterialTheme(
+        colorScheme = (if (dark) androidx.compose.material3.darkColorScheme(
+            primary = Brand.Moss, onPrimary = Color.White,
+            secondary = Brand.Mint, tertiary = Brand.Coral,
+            background = Brand.Sage, surface = Brand.Card,
+            onBackground = Brand.Ink, onSurface = Brand.Ink,
+        ) else lightColorScheme(
+            primary = Brand.Moss, onPrimary = Color.White,
+            secondary = Brand.Mint, tertiary = Brand.Coral,
+            background = Brand.Sage, surface = Brand.Card,
+            onBackground = Brand.Ink, onSurface = Brand.Ink,
+        )),
+        typography = type,
+    ) { CompositionLocalProvider(LocalContentColor provides Brand.Ink, content = content) }
+}

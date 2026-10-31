@@ -51,6 +51,8 @@ fun SettingsScreen(
     onWeeklyLetter: (Boolean) -> Unit,
     onExport: () -> Unit,
     onReplayTour: () -> Unit,
+    theme: String,
+    onTheme: (String) -> Unit,
     onDone: () -> Unit,
 ) = Column(
     Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
@@ -77,6 +79,24 @@ fun SettingsScreen(
         SwitchRow("Recap reminder", "One quiet note when the evening starts", reminderEnabled, onReminder)
         SwitchRow("Sleepy pauses", "From then until 5:00 the pause waits 15 s and ${avatar.displayName} gets sleepy", eveningPause, onEveningPause)
         SwitchRow("Sunday letter", "A short note on Sunday evening about your week", weeklyLetter, onWeeklyLetter)
+    }
+    Text("APPEARANCE", style = MaterialTheme.typography.labelSmall)
+    Card {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("system" to "Auto", "light" to "Light", "dark" to "Dark").forEach { (key, label) ->
+                val on = key == theme
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (on) Color.White else Brand.Moss,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
+                        .background(if (on) Brand.Moss else Brand.Sage)
+                        .clickable { onTheme(key) }.padding(vertical = 12.dp),
+                )
+            }
+        }
+        Text("Auto follows your phone.", style = MaterialTheme.typography.bodyMedium)
     }
     Text("HOME SCREEN", style = MaterialTheme.typography.labelSmall)
     WidgetButton(avatar, onAddWidget)

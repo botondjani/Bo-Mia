@@ -52,7 +52,7 @@ object Space {
 
 /** White surface with a soft, low shadow instead of borders. */
 fun Modifier.surface(radius: Dp = 24.dp, color: Color = Brand.Card): Modifier = this
-    .shadow(10.dp, RoundedCornerShape(radius), ambientColor = Brand.Ink.copy(alpha = 0.05f), spotColor = Brand.Ink.copy(alpha = 0.08f))
+    .shadow(10.dp, RoundedCornerShape(radius), ambientColor = Brand.Shade.copy(alpha = 0.05f), spotColor = Brand.Shade.copy(alpha = 0.08f))
     .clip(RoundedCornerShape(radius))
     .background(color)
 

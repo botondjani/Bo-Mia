@@ -80,22 +80,34 @@ fun DrawScope.drawGarden(
     mood: Mood = Mood.HAPPY,
     preview: Plant? = null,
     accessories: Set<Accessory> = emptySet(),
+    /** Dark theme: the same garden at night, with the moon, stars and a lit window. */
+    night: Boolean = Brand.dark,
 ) {
     val w = size.width
     val h = size.height
     val groundY = h * 0.5f
+    val grass = if (night) Color(0xFF3E7A5B) else Brand.Mint
 
-    // Sky, sun, clouds, a soft hill
-    drawRect(Brush.verticalGradient(listOf(Brand.Sky.copy(alpha = 0.55f), Brand.Sage), endY = groundY), size = Size(w, groundY))
-    drawCircle(Brand.Sunny.copy(alpha = 0.35f), h * 0.085f, Offset(w * 0.12f, h * 0.12f))
-    drawCircle(Brand.Sunny, h * 0.06f, Offset(w * 0.12f, h * 0.12f))
-    cloud(Offset(w * 0.42f, h * 0.1f), h * 0.035f)
-    cloud(Offset(w * 0.78f, h * 0.17f), h * 0.028f)
-    drawOval(Brand.Mint.copy(alpha = 0.55f), Offset(-w * 0.2f, groundY - h * 0.08f), Size(w * 0.9f, h * 0.2f))
-    drawRect(Brand.Mint, topLeft = Offset(0f, groundY), size = Size(w, h - groundY))
+    if (night) { // Night sky, moon, a few stars
+        drawRect(Brush.verticalGradient(listOf(Color(0xFF1C2B47), Color(0xFF2B4A4A)), endY = groundY), size = Size(w, groundY))
+        val moon = Offset(w * 0.12f, h * 0.12f)
+        drawCircle(Color(0xFFF3EBC8).copy(alpha = 0.18f), h * 0.085f, moon)
+        drawCircle(Color(0xFFF3EBC8), h * 0.055f, moon)
+        drawCircle(Color(0xFF1C2B47), h * 0.045f, moon + Offset(h * 0.03f, -h * 0.02f)) // crescent
+        for ((sx, sy, r) in listOf(Triple(0.3f, 0.08f, 1f), Triple(0.45f, 0.18f, 0.7f), Triple(0.58f, 0.06f, 0.9f), Triple(0.72f, 0.14f, 0.6f), Triple(0.9f, 0.07f, 1f), Triple(0.36f, 0.27f, 0.6f)))
+            drawCircle(Color.White.copy(alpha = 0.85f), h * 0.008f * r, Offset(w * sx, h * sy))
+    } else { // Sky, sun, clouds
+        drawRect(Brush.verticalGradient(listOf(Brand.Sky.copy(alpha = 0.55f), Brand.Sage), endY = groundY), size = Size(w, groundY))
+        drawCircle(Brand.Sunny.copy(alpha = 0.35f), h * 0.085f, Offset(w * 0.12f, h * 0.12f))
+        drawCircle(Brand.Sunny, h * 0.06f, Offset(w * 0.12f, h * 0.12f))
+        cloud(Offset(w * 0.42f, h * 0.1f), h * 0.035f)
+        cloud(Offset(w * 0.78f, h * 0.17f), h * 0.028f)
+    }
+    drawOval(grass.copy(alpha = 0.55f), Offset(-w * 0.2f, groundY - h * 0.08f), Size(w * 0.9f, h * 0.2f))
+    drawRect(grass, topLeft = Offset(0f, groundY), size = Size(w, h - groundY))
 
     // Fence along the back of the lawn
-    val fence = Color.White.copy(alpha = 0.85f)
+    val fence = Color.White.copy(alpha = if (night) 0.4f else 0.85f)
     drawRect(fence, Offset(0f, groundY - h * 0.045f), Size(w, h * 0.012f))
     drawRect(fence, Offset(0f, groundY - h * 0.02f), Size(w, h * 0.012f))
     var x = w * 0.02f
@@ -121,7 +133,7 @@ fun DrawScope.drawGarden(
     val doorX = hx + hw * 0.6f
     drawRoundRect(Brand.Moss, Offset(doorX, groundY - hh * 0.65f), Size(hw * 0.22f, hh * 0.65f), CornerRadius(8f))
     drawCircle(Brand.Sunny, hw * 0.018f, Offset(doorX + hw * 0.17f, groundY - hh * 0.32f))
-    val lit = homeStage >= 1
+    val lit = homeStage >= 1 || night
     val win = Offset(hx + hw * 0.14f, groundY - hh * 0.75f)
     val winSize = Size(hw * 0.28f, hh * 0.4f)
     if (lit) drawCircle(Brand.Sunny.copy(alpha = 0.35f), hw * 0.22f, Offset(win.x + winSize.width / 2, win.y + winSize.height / 2))
@@ -188,14 +200,14 @@ private fun DrawScope.cloud(c: Offset, r: Float) {
 }
 
 /** The garden as a bitmap with rounded corners, for the home screen widget. */
-fun gardenBitmap(avatar: Avatar, plants: List<Plant>, homeStage: Int, accessories: Set<Accessory>, widthPx: Int, heightPx: Int): android.graphics.Bitmap {
+fun gardenBitmap(avatar: Avatar, plants: List<Plant>, homeStage: Int, accessories: Set<Accessory>, widthPx: Int, heightPx: Int, night: Boolean = false): android.graphics.Bitmap {
     val image = androidx.compose.ui.graphics.ImageBitmap(widthPx, heightPx)
     val canvas = androidx.compose.ui.graphics.Canvas(image)
     val size = Size(widthPx.toFloat(), heightPx.toFloat())
     canvas.clipPath(Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(androidx.compose.ui.geometry.Rect(Offset.Zero, size), CornerRadius(widthPx * 0.16f))) })
     androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(
         androidx.compose.ui.unit.Density(1f), androidx.compose.ui.unit.LayoutDirection.Ltr, canvas, size,
-    ) { drawGarden(avatar, plants, homeStage, accessories = accessories) }
+    ) { drawGarden(avatar, plants, homeStage, accessories = accessories, night = night) }
     return image.asAndroidBitmap()
 }
 
@@ -310,7 +322,7 @@ private fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory>
         val state = when (a) { in worn -> "Wearing it"; in onShelf -> "On the shelf, back with ${a.how}"; else -> a.how.replaceFirstChar { it.uppercase() } }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
             Box(
-                Modifier.size(40.dp).clip(CircleShape).background(if (a in worn) Brand.Mint.copy(alpha = 0.3f) else Brand.Sage),
+                Modifier.size(40.dp).clip(CircleShape).background(if (a in worn) Brand.Mint.copy(alpha = 0.3f) else if (Brand.dark) Brand.Mint.copy(alpha = 0.18f) else Brand.Sage),
                 contentAlignment = Alignment.Center,
             ) {
                 androidx.compose.foundation.Image(

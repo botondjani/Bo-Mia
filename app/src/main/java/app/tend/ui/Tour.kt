@@ -88,7 +88,7 @@ fun TourOverlay(avatar: Avatar, targets: TourTargets, steps: List<TourStep>, onD
             .clickable(remember { MutableInteractionSource() }, indication = null) {},
     ) {
         Canvas(Modifier.fillMaxSize().graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }) {
-            drawRect(Brand.Ink.copy(alpha = 0.72f))
+            drawRect(Brand.Shade.copy(alpha = 0.72f))
             val radius = CornerRadius(24.dp.toPx())
             drawRoundRect(Color.Black, Offset(l, t), Size(r - l, b - t), radius, blendMode = BlendMode.Clear)
             drawRoundRect(Brand.Mint, Offset(l, t), Size(r - l, b - t), radius, style = Stroke(2.dp.toPx()))

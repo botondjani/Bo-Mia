@@ -149,8 +149,8 @@ private fun ScrollDemo(active: Boolean) {
     val line = remember { Brand.Muted.copy(alpha = 0.25f) }
     val t = ticker(active, 1000, 100_000)
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(170.dp, 300.dp).clip(RoundedCornerShape(30.dp)).background(Brand.Ink).padding(8.dp)) {
-            Canvas(Modifier.fillMaxSize().clip(RoundedCornerShape(24.dp)).background(Color(0xFFF7F8F5))) {
+        Box(Modifier.size(170.dp, 300.dp).clip(RoundedCornerShape(30.dp)).background(Brand.Shade).padding(8.dp)) {
+            Canvas(Modifier.fillMaxSize().clip(RoundedCornerShape(24.dp)).background(Brand.Card)) {
                 val card = 92.dp.toPx()
                 val pos = if (active) cards else 0f
                 var i = pos.toInt()

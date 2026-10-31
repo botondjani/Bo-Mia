@@ -99,7 +99,7 @@ private fun PickCounter(count: Int) = Row(
 
 @Composable
 private fun ActivityRow(task: TaskDef, on: Boolean, enabled: Boolean, onClick: () -> Unit) = Row(
-    Modifier.fillMaxWidth().surface(radius = 20.dp, color = if (on) Color(0xFFE8F5EE) else Brand.Card)
+    Modifier.fillMaxWidth().surface(radius = 20.dp, color = if (on) Brand.Picked else Brand.Card)
         .border(1.5.dp, if (on) Brand.Moss else Color.Transparent, RoundedCornerShape(20.dp))
         .then(if (enabled) Modifier.tappable(onClick = onClick) else Modifier)
         .padding(horizontal = 14.dp, vertical = 12.dp),
