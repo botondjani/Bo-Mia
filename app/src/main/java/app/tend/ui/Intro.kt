@@ -237,7 +237,7 @@ private fun GardenDemo(active: Boolean, avatar: Avatar) {
     val t = ticker(active, 900, 8)
     val all = listOf(Plant.SPROUT, Plant.TULIP, Plant.SUNFLOWER, Plant.TULIP, Plant.SUNFLOWER, Plant.SPROUT)
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        GardenScene(avatar, all.take(t.coerceAtMost(all.size)), if (t >= all.size) 1 else 0)
+        GardenScene(avatar, all.take(t.coerceAtMost(all.size)), if (t >= all.size) 1 else 0, night = false)
         Text(
             if (t == 0) "Tonight" else "Night ${t.coerceAtMost(all.size)}",
             style = MaterialTheme.typography.titleMedium, color = Brand.Moss, modifier = Modifier.padding(top = 12.dp),

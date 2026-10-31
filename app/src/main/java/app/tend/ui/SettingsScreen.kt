@@ -83,7 +83,7 @@ fun SettingsScreen(
     Text("APPEARANCE", style = MaterialTheme.typography.labelSmall)
     Card {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("system" to "Auto", "light" to "Light", "dark" to "Dark").forEach { (key, label) ->
+            listOf("light" to "Light", "dark" to "Dark", "system" to "Auto").forEach { (key, label) ->
                 val on = key == theme
                 Text(
                     label,

@@ -88,9 +88,9 @@ class TendStore(private val context: Context) {
         get() = prefs.getLong("onboarded_at", 0)
         set(v) = edit { putLong("onboarded_at", v) }
 
-    /** "system" (follow the phone), "light" or "dark". */
+    /** "light" (default), "dark" or "system" (follow the phone). */
     var themeMode: String
-        get() = prefs.getString("theme", "system") ?: "system"
+        get() = prefs.getString("theme", "light") ?: "light"
         set(v) = edit { putString("theme", v) }
 
     /** The first-run tour of the home screen has been shown (or skipped). */

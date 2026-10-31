@@ -30,18 +30,8 @@ object TendIcons {
         "face_yes" to R.drawable.ic_t_face_yes, "face_meh" to R.drawable.ic_t_face_meh, "face_no" to R.drawable.ic_t_face_no,
     )
 
-    /** Accent per icon, so the list reads at a glance: movement mint, mind sky, people coral, home sunny. */
-    private val accent = mapOf(
-        "workout" to Brand.Mint, "outside" to Brand.Mint, "bike" to Brand.Mint, "sprout" to Brand.Mint,
-        "read" to Brand.Sky, "learn" to Brand.Sky, "pen" to Brand.Sky, "music" to Brand.Sky, "moon" to Brand.Sky,
-        "friends" to Brand.Coral, "heart" to Brand.Coral, "alert" to Brand.Coral, "paw" to Brand.Coral,
-        "hobby" to Brand.Sunny, "chores" to Brand.Sunny, "cook" to Brand.Sunny, "star" to Brand.Sunny, "sun" to Brand.Sunny,
-    )
-
     /** Icons offered for the user's own activities. */
     val ownChoices = listOf("music", "pen", "paw", "sprout", "bike", "star", "heart", "sun")
-
-    fun accentOf(key: String): Color = accent[key] ?: Brand.Mint
 
     @Composable
     fun Glyph(key: String, size: Dp = 24.dp, tint: Color = Brand.Moss) {
@@ -53,8 +43,9 @@ object TendIcons {
 
     /** The icon in a soft tinted circle: list rows, notices, tiles. */
     @Composable
-    fun Badge(key: String, size: Dp = 44.dp, accent: Color = accentOf(key)) = Box(
-        Modifier.size(size).clip(CircleShape).background(accent.copy(alpha = 0.22f)),
+    fun Badge(key: String, size: Dp = 44.dp, accent: Color = Brand.Mint) = Box(
+        // One soft mint circle for every icon, so lists read as one set.
+        Modifier.size(size).clip(CircleShape).background(accent.copy(alpha = if (Brand.dark) 0.16f else 0.22f)),
         contentAlignment = Alignment.Center,
     ) { Glyph(key, size * 0.52f) }
 }

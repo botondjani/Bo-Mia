@@ -177,9 +177,10 @@ fun HomeScreen(
         // The open activities share the space that's left and scroll on their own; the page never does.
         // Cards fade and shrink a little as they slide in or out at the edges.
         val list = androidx.compose.foundation.lazy.rememberLazyListState()
-        EdgeToEdge(Modifier.weight(1f)) {
+        // About three cards tall (less if the screen is short); the rest scroll in.
+        EdgeToEdge(Modifier.weight(1f, fill = false).heightIn(max = 300.dp)) {
             androidx.compose.foundation.lazy.LazyColumn(
-                Modifier.fillMaxSize(),
+                Modifier.fillMaxWidth(),
                 state = list,
                 flingBehavior = androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior(list),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 4.dp),

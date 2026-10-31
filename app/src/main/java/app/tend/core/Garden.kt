@@ -14,6 +14,9 @@ object Garden {
     }
 
     /** The home grows weekly: 0 first sprouts, 1 lit window and bench (week 2), 2 a tree of your own (week 4). */
+    /** The garden is drawn at night from the evening hour until 5:00, whatever the theme. */
+    fun isNight(eveningFrom: Int, hour: Int = java.time.LocalTime.now().hour): Boolean = Budget.isEvening(eveningFrom, hour)
+
     fun homeStage(daysTended: Int): Int = when {
         daysTended < 7 -> 0
         daysTended < 21 -> 1

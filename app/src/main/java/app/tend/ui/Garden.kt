@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import app.tend.core.Accessory
 import app.tend.core.Garden
+import androidx.compose.material.icons.filled.Settings
 import app.tend.core.Mood
 import app.tend.core.Plant
 import app.tend.core.Recap
@@ -66,10 +67,14 @@ fun GardenScene(
     mood: Mood = Mood.HAPPY,
     /** Tonight's plant, drawn see-through in the next free spot. */
     preview: Plant? = null,
+    /** Night or day; by default night from the evening hour until 5:00, in either theme. */
+    night: Boolean? = null,
 ) {
     val accessories = LocalAccessories.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val isNight = night ?: androidx.compose.runtime.remember { Garden.isNight(app.tend.data.TendStore(context).eveningFrom) }
     Canvas(modifier.fillMaxWidth().aspectRatio(1.3f).clip(RoundedCornerShape(28.dp))) {
-        drawGarden(avatar, plants, homeStage, mood, preview, accessories)
+        drawGarden(avatar, plants, homeStage, mood, preview, accessories, isNight)
     }
 }
 
@@ -81,8 +86,8 @@ fun DrawScope.drawGarden(
     mood: Mood = Mood.HAPPY,
     preview: Plant? = null,
     accessories: Set<Accessory> = emptySet(),
-    /** Dark theme: the same garden at night, with the moon, stars and a lit window. */
-    night: Boolean = Brand.dark,
+    /** Evening: the same garden at night, with the moon, stars and a lit window. */
+    night: Boolean = false,
 ) {
     val w = size.width
     val h = size.height
@@ -92,13 +97,22 @@ fun DrawScope.drawGarden(
     if (night) { // Night sky, moon, a few stars
         drawRect(Brush.verticalGradient(listOf(Color(0xFF1C2B47), Color(0xFF2B4A4A)), endY = groundY), size = Size(w, groundY))
         val moon = Offset(w * 0.12f, h * 0.12f)
-        drawCircle(Color(0xFFF3EBC8).copy(alpha = 0.18f), h * 0.085f, moon)
-        drawCircle(Color(0xFFF3EBC8), h * 0.055f, moon)
-        drawCircle(Color(0xFF1C2B47), h * 0.045f, moon + Offset(h * 0.03f, -h * 0.02f)) // crescent
+        val r = h * 0.055f
+        drawCircle(Color(0xFFF3EBC8).copy(alpha = 0.12f), r * 1.7f, moon)
+        // A crescent: the disc minus a slightly larger disc shifted up and right.
+        val crescent = Path().apply {
+            op(
+                Path().apply { addOval(androidx.compose.ui.geometry.Rect(moon, r)) },
+                Path().apply { addOval(androidx.compose.ui.geometry.Rect(moon + Offset(r * 0.55f, -r * 0.35f), r * 0.95f)) },
+                androidx.compose.ui.graphics.PathOperation.Difference,
+            )
+        }
+        drawPath(crescent, Color(0xFFF3EBC8))
         for ((sx, sy, r) in listOf(Triple(0.3f, 0.08f, 1f), Triple(0.45f, 0.18f, 0.7f), Triple(0.58f, 0.06f, 0.9f), Triple(0.72f, 0.14f, 0.6f), Triple(0.9f, 0.07f, 1f), Triple(0.36f, 0.27f, 0.6f)))
             drawCircle(Color.White.copy(alpha = 0.85f), h * 0.008f * r, Offset(w * sx, h * sy))
     } else { // Sky, sun, clouds
-        drawRect(Brush.verticalGradient(listOf(Brand.Sky.copy(alpha = 0.55f), Brand.Sage), endY = groundY), size = Size(w, groundY))
+        // Daytime stays light in either theme.
+        drawRect(Brush.verticalGradient(listOf(Color(0xFFC3DFEF), Color(0xFFF1F4ED)), endY = groundY), size = Size(w, groundY))
         drawCircle(Brand.Sunny.copy(alpha = 0.35f), h * 0.085f, Offset(w * 0.12f, h * 0.12f))
         drawCircle(Brand.Sunny, h * 0.06f, Offset(w * 0.12f, h * 0.12f))
         cloud(Offset(w * 0.42f, h * 0.1f), h * 0.035f)
@@ -165,13 +179,13 @@ fun DrawScope.drawGarden(
     val bedRight = doorX - hw * 0.35f
     val step = (bedRight - bedLeft) / perRow
     for (r in 0 until rows) {
-        val y = groundY + (h - groundY) * (0.3f + r * 0.3f)
+        val y = groundY + (h - groundY) * (0.36f + r * 0.28f)
         drawRoundRect(Soil.copy(alpha = 0.35f), Offset(bedLeft - step * 0.2f, y - h * 0.012f), Size(bedRight - bedLeft + step * 0.1f, h * 0.03f), CornerRadius(20f))
     }
     for (i in 0 until slots) {
         val r = i / perRow
         val c = i % perRow
-        val base = Offset(bedLeft + step * (c + 0.4f), groundY + (h - groundY) * (0.3f + r * 0.3f))
+        val base = Offset(bedLeft + step * (c + 0.4f), groundY + (h - groundY) * (0.36f + r * 0.28f))
         val plant = shown.getOrNull(i)
         when {
             plant != null -> drawPlant(plant, base, h * 0.13f)
@@ -187,7 +201,8 @@ fun DrawScope.drawGarden(
     val cs = h * 0.24f
     drawIntoCanvas {
         it.nativeCanvas.save()
-        it.nativeCanvas.translate(w * 0.24f, groundY - cs * 0.75f)
+        // Standing at the fence, clear of the first flower bed.
+        it.nativeCanvas.translate(w * 0.24f, groundY - cs * 0.88f)
         CharacterPainter.draw(it.nativeCanvas, avatar, mood, cs, accessories = accessories)
         it.nativeCanvas.restore()
     }
@@ -257,6 +272,7 @@ fun GardenScreen(
     worn: Set<Accessory> = emptySet(),
     onShelf: Set<Accessory> = emptySet(),
     onBack: () -> Unit,
+    onOpenSettings: () -> Unit = {},
     week: @Composable ColumnScope.() -> Unit,
 ) = Column(
     Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState())
@@ -267,7 +283,8 @@ fun GardenScreen(
     Row(verticalAlignment = Alignment.CenterVertically) {
         IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, "Back", onBack)
         Spacer(Modifier.width(Space.m))
-        Text("${avatar.displayName}'s garden & week", style = MaterialTheme.typography.headlineMedium)
+        Text("${avatar.displayName}'s garden & week", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+        IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Settings, "Settings", onOpenSettings)
     }
     GardenScene(avatar, plants, Garden.homeStage(daysTended), preview = tonight)
     Things(avatar, worn, onShelf)
@@ -323,7 +340,8 @@ private fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory>
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(
                     Modifier.size(48.dp).clip(CircleShape)
-                        .background(if (a in worn) Brand.Mint.copy(alpha = 0.3f) else if (Brand.dark) Brand.Mint.copy(alpha = 0.18f) else Brand.Sage),
+                        // Light chips in both themes, so the ink-drawn glasses stay visible.
+                        .background(if (a in worn) Brand.Mint.copy(alpha = 0.35f) else if (Brand.dark) Color(0xFFDCE2DD) else Brand.Sage),
                     contentAlignment = Alignment.Center,
                 ) {
                     androidx.compose.foundation.Image(
@@ -332,7 +350,7 @@ private fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory>
                     )
                 }
                 Text(
-                    a.title.removePrefix("Reading "), style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), maxLines = 1, textAlign = TextAlign.Center,
+                    a.title.removePrefix("Reading ").replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), maxLines = 1, textAlign = TextAlign.Center,
                     color = if (a in worn) Brand.Ink else Brand.Muted, modifier = Modifier.padding(top = 4.dp),
                 )
                 Text(

@@ -26,17 +26,18 @@ import app.tend.R
 object Brand {
     var dark by mutableStateOf(false)
 
-    val Moss get() = if (dark) Color(0xFF4FA077) else Color(0xFF316849)
+    val Moss get() = if (dark) Color(0xFF5AA27E) else Color(0xFF316849)
     val Mint = Color(0xFF7ECAA3)
     val Coral = Color(0xFFE76649)
     val Sunny = Color(0xFFF6D673)
     val Sky = Color(0xFF8EC4E8)
-    val Ink get() = if (dark) Color(0xFFE6EEE9) else Color(0xFF1D2A23)
-    val Sage get() = if (dark) Color(0xFF111915) else Color(0xFFF1F4ED)
-    val Card get() = if (dark) Color(0xFF1B2620) else Color(0xFFFFFFFF)
-    val Muted get() = if (dark) Color(0xFF98A69E) else Color(0xFF6B756F)
+    // Dark is a near-neutral charcoal; green stays for accents only.
+    val Ink get() = if (dark) Color(0xFFE9EBEA) else Color(0xFF1D2A23)
+    val Sage get() = if (dark) Color(0xFF131414) else Color(0xFFF1F4ED)
+    val Card get() = if (dark) Color(0xFF1E201F) else Color(0xFFFFFFFF)
+    val Muted get() = if (dark) Color(0xFF9DA19F) else Color(0xFF6B756F)
     /** A picked item's tint. */
-    val Picked get() = if (dark) Color(0xFF1F3A2C) else Color(0xFFE8F5EE)
+    val Picked get() = if (dark) Color(0xFF233029) else Color(0xFFE8F5EE)
     /** Shadows and scrims stay dark in both themes. */
     val Shade = Color(0xFF0A0F0C)
 }
@@ -76,7 +77,7 @@ private fun typography() = Typography(
 fun TendTheme(content: @Composable () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val mode = ThemeChoice.mode ?: app.tend.data.TendStore(context).themeMode.also { ThemeChoice.mode = it }
-    val dark = when (mode) { "dark" -> true; "light" -> false; else -> androidx.compose.foundation.isSystemInDarkTheme() }
+    val dark = when (mode) { "dark" -> true; "system" -> androidx.compose.foundation.isSystemInDarkTheme(); else -> false }
     if (Brand.dark != dark) Brand.dark = dark
     val type = androidx.compose.runtime.remember(dark) { typography() }
     MaterialTheme(

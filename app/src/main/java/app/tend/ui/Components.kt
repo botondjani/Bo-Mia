@@ -121,7 +121,7 @@ fun IconButtonSoft(icon: ImageVector, description: String, onClick: () -> Unit) 
 
 /** One-line heads-up with an action: recap ready, permission off, connect Health Connect. */
 @Composable
-fun Notice(icon: String, title: String, body: String, onClick: () -> Unit, tint: Color = TendIcons.accentOf(icon)) = Row(
+fun Notice(icon: String, title: String, body: String, onClick: () -> Unit, tint: Color = if (icon == "alert") Brand.Coral else Brand.Mint) = Row(
     Modifier.fillMaxWidth().surface().tappable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
     verticalAlignment = Alignment.CenterVertically,
 ) {

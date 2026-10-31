@@ -316,6 +316,7 @@ class MainActivity : ComponentActivity() {
                 store.avatar, store.plants, store.daysTended, Budget.gardenMinutesAtClose(store.config, store.today()),
                 worn = shelf.first, onShelf = shelf.second,
                 onBack = { screen = Screen.HOME },
+                onOpenSettings = { screen = Screen.SETTINGS },
             ) {
                 WeekSections(
                     store.avatar,

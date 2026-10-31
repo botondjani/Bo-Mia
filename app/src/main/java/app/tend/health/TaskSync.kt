@@ -23,9 +23,12 @@ object TaskSync {
             val hc = HealthConnect(context, selected)
             val steps = hc.stepsToday()
             val exercise = hc.exerciseMinutesToday()
-            var sleep = hc.sleepMinutesLastNight()
+            // Only nights that began after setup count: no sleep credit for the night before installing.
+            val night = java.time.LocalDate.now().minusDays(1).atTime(20, 0).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val sleepCounts = store.onboardedAt < night
+            var sleep = if (sleepCounts) hc.sleepMinutesLastNight() else null
             // No sleep tracker (or nothing written last night): the longest screen-off stretch stands in.
-            if (Tasks.SLEEP in selected && (sleep == null || sleep == 0)) {
+            if (sleepCounts && Tasks.SLEEP in selected && (sleep == null || sleep == 0)) {
                 sleep = (estimatedSleepMillis(context) / 60_000).toInt().takeIf { it > 0 }
                 if (sleep != null) store.sleepEstimatedOn = java.time.LocalDate.now().toString()
             }

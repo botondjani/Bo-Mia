@@ -19,6 +19,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|start"
         android:layout_margin="12dp"
+        android:id="@+id/pill"
         android:background="@drawable/widget_pill"
         android:baselineAligned="true"
         android:orientation="horizontal"
@@ -38,6 +39,7 @@
             android:textStyle="bold" />
 
         <TextView
+            android:id="@+id/pill_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="4dp"

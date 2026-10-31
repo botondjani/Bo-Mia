@@ -51,7 +51,9 @@ object Widgets {
         val mood = Moods.of(cfg, day)
         val next = Tasks.next(day, store.selectedTasks)
         val plants = store.plants
-        val shown = listOf(store.avatar, mood, remaining, next?.id, day.completedTasks.sorted(), plants.size, store.daysTended).joinToString("|")
+        // Evening (from the evening hour until 5:00): night garden and a dark card, in any phone theme.
+        val night = Garden.isNight(store.eveningFrom)
+        val shown = listOf(store.avatar, mood, remaining, next?.id, day.completedTasks.sorted(), plants.size, store.daysTended, night).joinToString("|")
         if (!force && shown == lastShown) return
         lastShown = shown
 
@@ -71,6 +73,10 @@ object Widgets {
                 else next?.let { "${it.title} +${it.rewardMinutes}" } ?: "Fresh start tomorrow",
             )
             setOnClickPendingIntent(R.id.root, open)
+            setInt(R.id.root, "setBackgroundResource", if (night) R.drawable.widget_bg_night else R.drawable.widget_bg)
+            setTextColor(R.id.minutes, if (night) NIGHT_TEXT else DAY_TEXT)
+            setTextColor(R.id.status, if (night) NIGHT_TEXT else DAY_TEXT)
+            setTextColor(R.id.caption, if (night) NIGHT_MUTED else DAY_MUTED)
         })
         if (face.isNotEmpty()) manager.updateAppWidget(face, RemoteViews(context.packageName, R.layout.widget_face).apply {
             setImageViewBitmap(R.id.face, CharacterPainter.bitmap(store.avatar, mood, 192, worn))
@@ -80,10 +86,19 @@ object Widgets {
         if (garden.isNotEmpty()) manager.updateAppWidget(garden, RemoteViews(context.packageName, R.layout.widget_garden).apply {
             setImageViewBitmap(R.id.garden, gardenBitmap(
                 store.avatar, plants, Garden.homeStage(store.daysTended), worn, 440, 440,
-                night = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES,
+                night = night,
             ))
             setTextViewText(R.id.minutes, minutes)
             setOnClickPendingIntent(R.id.root, open)
+            setInt(R.id.root, "setBackgroundResource", if (night) R.drawable.widget_bg_night else R.drawable.widget_bg)
+            setInt(R.id.pill, "setBackgroundResource", if (night) R.drawable.widget_pill_night else R.drawable.widget_pill)
+            setTextColor(R.id.minutes, if (night) NIGHT_TEXT else DAY_TEXT)
+            setTextColor(R.id.pill_label, if (night) NIGHT_MUTED else DAY_MUTED)
         })
     }
+
+    private const val DAY_TEXT = 0xFF316849.toInt()
+    private const val DAY_MUTED = 0xFF6B756F.toInt()
+    private const val NIGHT_TEXT = 0xFF8FD3AE.toInt()
+    private const val NIGHT_MUTED = 0xFFA3B0A8.toInt()
 }
