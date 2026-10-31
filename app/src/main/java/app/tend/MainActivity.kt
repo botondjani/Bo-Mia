@@ -198,7 +198,6 @@ class MainActivity : ComponentActivity() {
                 onToggleApp = toggleApp,
                 tasks = store.selectedTasks,
                 onToggleTask = toggleTask,
-                onAddWidget = ::pinWidget,
                 onFinish = {
                     store.onboarded = true
                     if (permissions().usageAccess) MonitorService.start(this)
@@ -311,6 +310,9 @@ class MainActivity : ComponentActivity() {
                 onOpenGarden = { screen = Screen.GARDEN },
                 onOpenRecap = { screen = Screen.RECAP },
                 weekNote = Patterns.week(LocalDate.now(), store.daySummaries(), store.answers()).insight,
+                // Not during onboarding: from the second day on, until placed or seen.
+                showWidgetTip = !store.widgetTipDone && store.daysTended >= 1 && !widgetPlaced(),
+                onWidgetTipDone = { store.widgetTipDone = true; refresh++ },
             )
         }
     }
@@ -398,6 +400,9 @@ class MainActivity : ComponentActivity() {
     }
 
     /** Null when the launcher can't pin widgets from inside the app. */
+    private fun widgetPlaced() = AppWidgetManager.getInstance(this)
+        .getAppWidgetIds(ComponentName(this, TendWidget::class.java)).isNotEmpty()
+
     /** Asks the launcher to place the widget; false when it can't or won't (then the user adds it by hand). */
     private fun pinWidget(): Boolean {
         val manager = AppWidgetManager.getInstance(this)

@@ -106,7 +106,6 @@ fun Onboarding(
     onToggleApp: (String) -> Unit,
     tasks: List<TaskDef>,
     onToggleTask: (TaskDef) -> Unit,
-    onAddWidget: () -> Boolean,
     onFinish: () -> Unit,
 ) {
     var stepIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -196,8 +195,6 @@ fun Onboarding(
                         "${cfg.freeMinutes} free minutes today, up to ${Budget.earnableFrom(cfg, DayState(LocalDate.now()), tasks)} more to earn.",
                         style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = Brand.Muted,
                     )
-                    Spacer(Modifier.height(16.dp))
-                    WidgetButton(avatar, onAddWidget)
                 }
             }
         }
@@ -529,13 +526,20 @@ fun WidgetButton(avatar: Avatar, onAddWidget: () -> Boolean) {
         enabled = !waiting,
     )
 
-    if (guide) androidx.compose.ui.window.Dialog(onDismissRequest = { guide = false }) {
+    if (guide) WidgetGuideDialog(avatar) { guide = false }
+}
+
+/** Three steps to add the widget by hand: most launchers don't let apps place it themselves. */
+@Composable
+fun WidgetGuideDialog(avatar: Avatar, onDone: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDone) {
         Column(
             Modifier.fillMaxWidth().surface(radius = 28.dp).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(Space.m),
         ) {
-            Text("Add ${avatar.displayName} by hand", style = MaterialTheme.typography.titleLarge)
-            Text("Your launcher doesn't let apps place widgets, but it takes ten seconds:", style = MaterialTheme.typography.bodyMedium)
+            Text("Put ${avatar.displayName} on your home screen", style = MaterialTheme.typography.titleLarge)
+            Text("See ${avatar.displayName} and your minutes at a glance. It takes ten seconds:", style = MaterialTheme.typography.bodyMedium)
             listOf(
                 "Long-press an empty spot on your home screen",
                 "Tap \"Widgets\"",
@@ -550,13 +554,13 @@ fun WidgetButton(avatar: Avatar, onAddWidget: () -> Boolean) {
                 }
             }
             PrimaryButton("Go to home screen", {
-                guide = false
+                onDone()
                 context.startActivity(
                     android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(android.content.Intent.CATEGORY_HOME)
                         .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
                 )
             })
-            SecondaryButton("Later", { guide = false })
+            SecondaryButton("Later", onDone)
         }
     }
 }

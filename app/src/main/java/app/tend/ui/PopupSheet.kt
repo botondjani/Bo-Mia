@@ -45,7 +45,7 @@ fun PopupSheet(
         val minHeight = maxHeight * minHeightFraction
         AnimatedVisibility(shown, enter = fadeIn(tween(260))) {
             Box(
-                Modifier.fillMaxSize().background(Brand.Ink.copy(alpha = 0.3f))
+                Modifier.fillMaxSize().background(Brand.Ink.copy(alpha = if (blurOn.value) 0.25f else 0.55f))
                     .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
             )
         }
@@ -81,22 +81,26 @@ fun PopupSheet(
     }
 }
 
+/** Whether the system currently blurs behind our pop-ups; when it doesn't, the scrim gets darker. */
+private val blurOn = androidx.compose.runtime.mutableStateOf(false)
+
 /**
- * Blurs whatever app is underneath a pop-up window (Android 12+, where the phone allows it).
- * The blur fades in over a quarter second instead of snapping on, in step with the card.
+ * Blurs whatever app is underneath a pop-up window (Android 12+). The radius is set once:
+ * changing it frame by frame made the blur flicker on some phones. Android can switch
+ * cross-window blur off at any moment (battery saver, heat, some launchers), so we follow it
+ * and darken the scrim instead, which keeps the pop-up looking the same either way.
  */
 fun android.app.Activity.blurBehind() {
     if (android.os.Build.VERSION.SDK_INT < 31) return
     window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-    window.attributes = window.attributes.also { it.blurBehindRadius = 0 }
-    android.animation.ValueAnimator.ofInt(0, BLUR_RADIUS).apply {
-        duration = 260
-        interpolator = android.view.animation.DecelerateInterpolator()
-        addUpdateListener { a ->
-            if (!isFinishing) window.attributes = window.attributes.also { it.blurBehindRadius = a.animatedValue as Int }
-        }
-        start()
-    }
+    window.attributes = window.attributes.also { it.blurBehindRadius = BLUR_RADIUS }
+    val wm = getSystemService(android.view.WindowManager::class.java)
+    blurOn.value = wm.isCrossWindowBlurEnabled
+    val listener = java.util.function.Consumer<Boolean> { blurOn.value = it }
+    wm.addCrossWindowBlurEnabledListener(mainExecutor, listener)
+    (this as? androidx.lifecycle.LifecycleOwner)?.lifecycle?.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
+        override fun onDestroy(owner: androidx.lifecycle.LifecycleOwner) = wm.removeCrossWindowBlurEnabledListener(listener)
+    })
 }
 
-private const val BLUR_RADIUS = 160
+private const val BLUR_RADIUS = 120

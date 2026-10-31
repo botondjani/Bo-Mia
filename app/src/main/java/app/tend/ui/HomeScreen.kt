@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -71,7 +72,12 @@ fun HomeScreen(
     onOpenGarden: () -> Unit,
     onOpenRecap: () -> Unit,
     weekNote: String?,
+    /** Show the one-time widget tip; called with true when it was handled. */
+    showWidgetTip: Boolean = false,
+    onWidgetTipDone: () -> Unit = {},
 ) {
+    var widgetGuide by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    if (widgetGuide) WidgetGuideDialog(avatar) { widgetGuide = false; onWidgetTipDone() }
     val remaining = Budget.remainingMinutes(cfg, day)
     val mood = Moods.of(cfg, day)
     Column(
@@ -85,6 +91,16 @@ fun HomeScreen(
                 Text(day.date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.ENGLISH)), style = MaterialTheme.typography.bodyMedium)
                 Text(greeting(), style = MaterialTheme.typography.headlineMedium)
             }
+            // The garden is one tap away, right at the top.
+            Row(
+                Modifier.surface(radius = 22.dp).tappable(onClick = onOpenGarden).padding(horizontal = 14.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TendIcons.Glyph("sprout", 18.dp)
+                Spacer(Modifier.width(6.dp))
+                Text("Garden", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+            }
+            Spacer(Modifier.width(Space.s))
             IconButtonSoft(Icons.Filled.Settings, "Settings", onOpenSettings)
         }
 
@@ -119,6 +135,7 @@ fun HomeScreen(
         }
 
         if (onShareCrash != null) Notice("alert", "tend crashed last time", "Sorry! Tap to share the crash report.", onShareCrash)
+        if (showWidgetTip) Notice("sun", "${avatar.displayName} has a widget", "See ${avatar.displayName} and your minutes on your home screen.", { widgetGuide = true })
         if (isEvening) Notice("moon", "Tonight's recap is ready", "See what today gave back", onOpenRecap)
         when {
             !permissions.usageAccess -> Notice("alert", "Limited mode", "${avatar.displayName} can't see screen time. Tap to turn it on.", onFixPermissions)

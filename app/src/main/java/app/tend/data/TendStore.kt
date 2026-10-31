@@ -71,6 +71,11 @@ class TendStore(private val context: Context) {
         get() = prefs.getBoolean("restricted_unlocked", false)
         set(v) = edit { putBoolean("restricted_unlocked", v) }
 
+    /** The one-time "there's a widget" tip was seen. */
+    var widgetTipDone: Boolean
+        get() = prefs.getBoolean("widget_tip_done", false)
+        set(v) = edit { putBoolean("widget_tip_done", v) }
+
     var blockedPackages: Set<String>
         get() = prefs.getStringSet("blocked", emptySet())!!
         set(v) = edit { putStringSet("blocked", v) }
