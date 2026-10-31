@@ -58,6 +58,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.tend.core.Avatar
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import app.tend.core.BudgetConfig
 import app.tend.core.Budget
 import app.tend.core.DayState
@@ -138,10 +140,10 @@ fun Onboarding(
 
                 Step.HOW -> StepPage(cta = "Sounds good", onCta = next) {
                     Title("How it works", "No bans, no lectures. Just a small trade.")
-                    HowRow("🌤", "${cfg.freeMinutes} free minutes a day", "For the apps you pick. The rest you earn.")
-                    HowRow("🌱", "Earn more by living", "Do the things you'd rather do, and get minutes back. You pick them next.")
-                    HowRow("🌻", "Unused minutes grow a garden", "Tonight, what you don't scroll becomes ${avatar.displayName}'s garden.")
-                    HowRow("⏳", "A little pause before you open", "Every extra open today waits 5 seconds longer.")
+                    HowRow("sun", "${cfg.freeMinutes} free minutes a day", "For the apps you pick. The rest you earn.")
+                    HowRow("sprout", "Earn more by living", "Do the things you'd rather do, and get minutes back. You pick them next.")
+                    HowRow("flower", "Unused minutes grow a garden", "Tonight, what you don't scroll becomes ${avatar.displayName}'s garden.")
+                    HowRow("hourglass", "A little pause before you open", "5 seconds at first, a second more each time.")
                 }
 
                 Step.APPS -> StepPage(
@@ -190,7 +192,7 @@ fun Onboarding(
                     )
                     if (onAddWidget != null) {
                         Spacer(Modifier.height(16.dp))
-                        SecondaryButton("＋ Put ${avatar.displayName} on your home screen", onAddWidget)
+                        SecondaryButton("Put ${avatar.displayName} on your home screen", onAddWidget)
                     }
                 }
             }
@@ -239,13 +241,11 @@ private fun Title(title: String, subtitle: String) {
 }
 
 @Composable
-private fun HowRow(emoji: String, title: String, body: String) = Row(
-    Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Brand.Card).padding(16.dp),
+private fun HowRow(icon: String, title: String, body: String) = Row(
+    Modifier.fillMaxWidth().surface(radius = 20.dp).padding(16.dp),
     verticalAlignment = Alignment.CenterVertically,
 ) {
-    Box(Modifier.size(48.dp).clip(CircleShape).background(Brand.Sage), contentAlignment = Alignment.Center) {
-        Text(emoji, style = MaterialTheme.typography.titleLarge)
-    }
+    TendIcons.Badge(icon, 48.dp)
     Spacer(Modifier.width(14.dp))
     Column {
         Text(title, style = MaterialTheme.typography.titleMedium)
@@ -304,7 +304,7 @@ fun AppPicker(catalog: AppCatalog, blocked: Set<String>, onToggle: (String) -> U
         }
     }
 
-    SecondaryButton(if (showOthers) "Hide other apps" else "＋ Add another app", { showOthers = !showOthers })
+    SecondaryButton(if (showOthers) "Hide other apps" else "Add another app", { showOthers = !showOthers })
     AnimatedVisibility(showOthers) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             OutlinedTextField(
@@ -330,10 +330,10 @@ private fun AppTile(catalog: AppCatalog, app: InstalledApp, selected: Boolean, o
 ) {
     Box {
         AppIcon(catalog, app.pkg, 44.dp, Modifier.graphicsLayer { alpha = if (selected) 1f else 0.45f })
-        if (selected) Text(
-            "✓", color = Color.White, style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.align(Alignment.BottomEnd).clip(CircleShape).background(Brand.Moss).padding(horizontal = 5.dp, vertical = 1.dp),
-        )
+        if (selected) Box(
+            Modifier.align(Alignment.BottomEnd).size(18.dp).clip(CircleShape).background(Brand.Moss),
+            contentAlignment = Alignment.Center,
+        ) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(12.dp)) }
     }
     Spacer(Modifier.height(6.dp))
     Text(app.label, style = MaterialTheme.typography.bodyMedium, color = Brand.Ink, maxLines = 1, textAlign = TextAlign.Center)
@@ -347,7 +347,10 @@ private fun AppRow(catalog: AppCatalog, app: InstalledApp, selected: Boolean, on
     AppIcon(catalog, app.pkg, 32.dp)
     Spacer(Modifier.width(12.dp))
     Text(app.label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-    Text(if (selected) "✓" else "＋", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
+    androidx.compose.material3.Icon(
+        if (selected) androidx.compose.material.icons.Icons.Filled.Check else androidx.compose.material.icons.Icons.Filled.Add,
+        null, tint = Brand.Moss,
+    )
 }
 
 @Composable
@@ -451,7 +454,10 @@ private fun PermissionCard(
         Box(
             Modifier.size(32.dp).clip(CircleShape).background(if (granted) Brand.Moss else Brand.Sage),
             contentAlignment = Alignment.Center,
-        ) { Text(if (granted) "✓" else "$number", color = if (granted) Color.White else Brand.Moss, style = MaterialTheme.typography.titleMedium) }
+        ) {
+            if (granted) androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(18.dp))
+            else Text("$number", color = Brand.Moss, style = MaterialTheme.typography.titleMedium)
+        }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleMedium)

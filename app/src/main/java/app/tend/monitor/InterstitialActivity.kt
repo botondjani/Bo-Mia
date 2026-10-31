@@ -168,7 +168,7 @@ class InterstitialActivity : ComponentActivity() {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Header(v)
         Text(
-            next?.let { "${it.emoji} ${it.title} brings back ${it.rewardMinutes} min. Want to do it together?" }
+            next?.let { "${it.title} brings back ${it.rewardMinutes} min. Want to do it together?" }
                 ?: "That's all for today. Tomorrow's a fresh start.",
             style = MaterialTheme.typography.bodyLarge,
         )

@@ -88,7 +88,7 @@ class BudgetTest {
     }
 
     @Test fun `earnable counts only the user's picks, check-offs within the cap`() {
-        val picks = listOf(Tasks.OUTSIDE, Tasks.FRIENDS, Tasks.HOBBY, Tasks.CHORES, Tasks.custom("Guitar", "🎸"))
+        val picks = listOf(Tasks.OUTSIDE, Tasks.FRIENDS, Tasks.HOBBY, Tasks.CHORES, Tasks.custom("Guitar", "music"))
         assertEquals(20 + 45, Budget.earnableFrom(cfg.copy(manualCapMinutes = 45), day, picks))
         val d = Budget.credit(cfg, day, Tasks.OUTSIDE.id, 20, manual = false)
         assertEquals(45, Budget.earnableFrom(cfg.copy(manualCapMinutes = 45), d, picks))
@@ -96,7 +96,7 @@ class BudgetTest {
     }
 
     @Test fun `custom activities get a clean id and a fixed reward`() {
-        val t = Tasks.custom("  Play guitar, loud | ", "🎸")
+        val t = Tasks.custom("  Play guitar, loud | ", "music")
         assertEquals("custom:play-guitar-loud", t.id)
         assertEquals("Play guitar loud", t.title)
         assertEquals(Tasks.CUSTOM_REWARD, t.rewardMinutes)
@@ -104,7 +104,7 @@ class BudgetTest {
     }
 
     @Test fun `companion line follows the user's own picks`() {
-        assertEquals("What shall we do today? 🎨 Hobby sounds nice.", Moods.line(cfg, day, listOf(Tasks.HOBBY)))
+        assertEquals("What shall we do today? Hobby sounds nice.", Moods.line(cfg, day, listOf(Tasks.HOBBY)))
         assertEquals("We haven't been outside in a while. Quick walk?", Moods.line(cfg, day, listOf(Tasks.OUTSIDE)))
     }
 

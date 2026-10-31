@@ -30,6 +30,7 @@ import app.tend.ui.Brand
 import app.tend.ui.CharacterView
 import app.tend.ui.PopupSheet
 import app.tend.ui.blurBehind
+import app.tend.ui.TendIcons
 import app.tend.ui.TendTheme
 
 /** One-tap question after a session in a paused app. Feeds the weekly patterns. */
@@ -55,17 +56,17 @@ class WorthItActivity : ComponentActivity() {
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         listOf(
-                            Triple("😊", "Yes", Brand.Mint),
-                            Triple("😐", "Kind of", Brand.Sunny),
-                            Triple("😕", "Not really", Brand.Coral),
-                        ).forEach { (emoji, answer, tint) ->
+                            Triple("face_yes", "Yes", Brand.Mint),
+                            Triple("face_meh", "Kind of", Brand.Sunny),
+                            Triple("face_no", "Not really", Brand.Coral),
+                        ).forEach { (icon, answer, tint) ->
                             Column(
                                 Modifier.weight(1f).clip(RoundedCornerShape(20.dp)).background(tint.copy(alpha = 0.25f))
                                     .clickable { store.logAnswer("worth_it", pkg, answer, seconds); finish() }
                                     .padding(vertical = 14.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
-                                Text(emoji, fontSize = 30.sp)
+                                TendIcons.Glyph(icon, 34.dp)
                                 Text(answer, style = MaterialTheme.typography.labelLarge, color = Brand.Ink, maxLines = 1)
                             }
                         }

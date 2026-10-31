@@ -22,7 +22,8 @@ This is the MVP skeleton described in the concept doc. Native Android, English o
 | Home screen widget (2×1): face, minutes left (or what earns minutes back when out) and a status like "Bo is happy"; refreshes on every change | `widget/TendWidget.kt` |
 | Onboarding (8 steps incl. "What would you rather do?", suggested apps, in-context permissions), settings, home, focus timer | `ui/` |
 | Character: Rive runtime plays `assets/tend_character.riv` (mood/mia/tap inputs, see `docs/rive-rig.md`); without it a drawn fallback that breathes, blinks and glances around | `ui/Character.kt`, `ui/CharacterPainter.kt` |
-| Brand: Moss/Mint/Coral/Sunny/Sky/Ink/Sage, Fredoka + Nunito (OFL, bundled) | `ui/Theme.kt` |
+| Brand: Moss/Mint/Coral/Sunny/Sky/Ink/Sage, Fredoka + Nunito (OFL, bundled); design tokens and shared components | `ui/Theme.kt`, `ui/Components.kt` |
+| Icons: tend's own line icon set (24 vector drawables, 24 grid, 1.8 stroke, round caps) in tinted circles, no emoji | `res/drawable/ic_t_*.xml`, `ui/TendIcons.kt` |
 
 Logs are written to the app's private storage: `answers.csv` (looking-for and worth-it answers), `history.csv` (one line per closed day) and `misses.csv` (blocking gaps or opens that weren't caught).
 

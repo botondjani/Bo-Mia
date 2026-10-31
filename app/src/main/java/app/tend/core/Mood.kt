@@ -33,8 +33,8 @@ object Moods {
             next == null && done > 0 -> "What a day. Proud of us."
             next == null -> "Pick a few things you'd rather do, and we'll do them together."
             done == 0 && next == Tasks.OUTSIDE -> "We haven't been outside in a while. Quick walk?"
-            done == 0 -> "What shall we do today? ${next.emoji} ${next.title} sounds nice."
-            else -> "Nice one! ${next.emoji} ${next.title} next?"
+            done == 0 -> "What shall we do today? ${next.title} sounds nice."
+            else -> "Nice one! ${next.title} next?"
         }
     }
 }

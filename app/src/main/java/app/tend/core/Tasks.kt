@@ -13,7 +13,8 @@ data class TaskDef(
     val verification: Verification,
     /** Steps for outside, exercise minutes for move, focus minutes for reading; 0 for check-offs. */
     val target: Int,
-    val emoji: String,
+    /** Key into tend's icon set (ui/TendIcons). */
+    val icon: String,
 ) {
     val manual get() = verification == Verification.CHECK_OFF
 }
@@ -23,13 +24,13 @@ object Tasks {
     const val CUSTOM_REWARD = 10
     private const val CUSTOM_PREFIX = "custom:"
 
-    val MOVE = TaskDef("move", "Workout or run", "Automatic · 30 min of exercise", 30, Verification.AUTOMATIC, 30, "🏃")
-    val OUTSIDE = TaskDef("outside", "Walk outside", "Automatic · 4,000 steps", 20, Verification.AUTOMATIC, 4000, "🌳")
-    val READ = TaskDef("read", "Read or learn", "Focus timer · 20 min", 15, Verification.FOCUS_TIMER, 20, "📖")
-    val FRIENDS = TaskDef("friends", "Friends & family", "Check off · time together, a call", 15, Verification.CHECK_OFF, 0, "🤗")
-    val HOBBY = TaskDef("hobby", "Hobby", "Check off · make, play, create", 15, Verification.CHECK_OFF, 0, "🎨")
-    val CHORES = TaskDef("chores", "Tidy up", "Check off · a bit of home care", 10, Verification.CHECK_OFF, 0, "🧺")
-    val COOK = TaskDef("cook", "Cook something good", "Check off · a healthy meal", 10, Verification.CHECK_OFF, 0, "🥗")
+    val MOVE = TaskDef("move", "Workout or run", "Automatic · 30 min of exercise", 30, Verification.AUTOMATIC, 30, "workout")
+    val OUTSIDE = TaskDef("outside", "Walk outside", "Automatic · 4,000 steps", 20, Verification.AUTOMATIC, 4000, "outside")
+    val READ = TaskDef("read", "Read or learn", "Focus timer · 20 min", 15, Verification.FOCUS_TIMER, 20, "read")
+    val FRIENDS = TaskDef("friends", "Friends & family", "Check off · time together, a call", 15, Verification.CHECK_OFF, 0, "friends")
+    val HOBBY = TaskDef("hobby", "Hobby", "Check off · make, play, create", 15, Verification.CHECK_OFF, 0, "hobby")
+    val CHORES = TaskDef("chores", "Tidy up", "Check off · a bit of home care", 10, Verification.CHECK_OFF, 0, "chores")
+    val COOK = TaskDef("cook", "Cook something good", "Check off · a healthy meal", 10, Verification.CHECK_OFF, 0, "cook")
 
     /** What onboarding suggests. Nothing is pre-selected. */
     val presets = listOf(MOVE, OUTSIDE, READ, FRIENDS, HOBBY, CHORES, COOK)
@@ -37,10 +38,10 @@ object Tasks {
     /** What users who onboarded before activities were selectable keep. */
     val legacyDefault = listOf(MOVE, OUTSIDE, READ)
 
-    fun custom(name: String, emoji: String): TaskDef {
+    fun custom(name: String, icon: String): TaskDef {
         val clean = name.replace(Regex("[|\\n,]"), " ").replace(Regex("\\s+"), " ").trim().take(40)
         val slug = clean.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-').ifEmpty { "own" }
-        return TaskDef(CUSTOM_PREFIX + slug, clean, "Check off · your own", CUSTOM_REWARD, Verification.CHECK_OFF, 0, emoji)
+        return TaskDef(CUSTOM_PREFIX + slug, clean, "Check off · your own", CUSTOM_REWARD, Verification.CHECK_OFF, 0, icon)
     }
 
     fun isCustom(task: TaskDef) = task.id.startsWith(CUSTOM_PREFIX)

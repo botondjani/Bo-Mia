@@ -30,6 +30,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.Icon
 import app.tend.core.TaskDef
 import app.tend.core.Tasks
 
@@ -39,7 +43,7 @@ fun ActivityPicker(selected: List<TaskDef>, onToggle: (TaskDef) -> Unit) {
     val full = selected.size >= Tasks.MAX_SELECTED
     var adding by rememberSaveable { mutableStateOf(false) }
     PickCounter(selected.size)
-    if (!full) SecondaryButton("＋ Add your own", { adding = true })
+    if (!full) SecondaryButton("Add your own", { adding = true })
     selected.filter { Tasks.isCustom(it) }.forEach { task -> ActivityRow(task, true, enabled = true) { onToggle(task) } }
     Tasks.presets.forEach { task -> ActivityRow(task, task in selected, enabled = task in selected || !full) { onToggle(task) } }
     if (adding) OwnActivityDialog(onDismiss = { adding = false }) { onToggle(it); adding = false }
@@ -73,27 +77,22 @@ private fun ActivityRow(task: TaskDef, on: Boolean, enabled: Boolean, onClick: (
         .padding(horizontal = 14.dp, vertical = 12.dp),
     verticalAlignment = Alignment.CenterVertically,
 ) {
-    Text(task.emoji, fontSize = 26.sp)
+    TendIcons.Badge(task.icon)
     Spacer(Modifier.width(12.dp))
     Column(Modifier.weight(1f)) {
         Text(task.title, style = MaterialTheme.typography.bodyLarge, color = if (enabled) Brand.Ink else Brand.Muted)
         Text("${task.verification.label} · +${task.rewardMinutes} min", style = MaterialTheme.typography.bodyMedium)
     }
-    Text(
-        if (on) "✓" else "",
-        color = Color.White,
-        style = MaterialTheme.typography.labelLarge,
-        modifier = Modifier.size(26.dp).clip(CircleShape).background(if (on) Brand.Moss else Brand.Sage).padding(top = 3.dp),
-        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-    )
+    Box(Modifier.size(26.dp).clip(CircleShape).background(if (on) Brand.Moss else Brand.Sage), contentAlignment = Alignment.Center) {
+        if (on) Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
+    }
 }
 
-private val EMOJIS = listOf("🎸", "🧘", "✍️", "🐶", "🌱", "🧩", "🎹", "🚲")
 
 @Composable
 private fun OwnActivityDialog(onDismiss: () -> Unit, onAdd: (TaskDef) -> Unit) {
     var name by rememberSaveable { mutableStateOf("") }
-    var emoji by rememberSaveable { mutableStateOf(EMOJIS.first()) }
+    var icon by rememberSaveable { mutableStateOf(TendIcons.ownChoices.first()) }
     Dialog(onDismissRequest = onDismiss) {
         Column(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Brand.Card).padding(20.dp),
@@ -106,16 +105,18 @@ private fun OwnActivityDialog(onDismiss: () -> Unit, onAdd: (TaskDef) -> Unit) {
                 shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(),
             )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                EMOJIS.forEach { e ->
-                    Text(
-                        e, fontSize = 22.sp,
-                        modifier = Modifier.clip(CircleShape).background(if (e == emoji) Brand.Mint.copy(alpha = 0.4f) else Brand.Sage)
-                            .clickable { emoji = e }.padding(8.dp),
-                    )
+                TendIcons.ownChoices.forEach { key ->
+                    Box(
+                        Modifier.size(44.dp).clip(CircleShape)
+                            .background(if (key == icon) Brand.Mint.copy(alpha = 0.45f) else Brand.Sage)
+                            .border(1.5.dp, if (key == icon) Brand.Moss else Color.Transparent, CircleShape)
+                            .clickable { icon = key },
+                        contentAlignment = Alignment.Center,
+                    ) { TendIcons.Glyph(key, 22.dp) }
                 }
             }
             Text("Check off when done · +${Tasks.CUSTOM_REWARD} min", style = MaterialTheme.typography.bodyMedium)
-            PrimaryButton("Add", { onAdd(Tasks.custom(name, emoji)) }, enabled = name.isNotBlank())
+            PrimaryButton("Add", { onAdd(Tasks.custom(name, icon)) }, enabled = name.isNotBlank())
             TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Cancel") }
         }
     }

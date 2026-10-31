@@ -41,11 +41,11 @@ class TendStore(private val context: Context) {
             return ids.split(',').mapNotNull { known[it] }
         }
 
-    /** User-made check-off activities, stored as "id|emoji|title" lines. */
+    /** User-made check-off activities, stored as "id|icon|title" lines. */
     private val customTasks: List<TaskDef>
         get() = prefs.getString("custom_tasks", "")!!.lines().mapNotNull { line ->
             val p = line.split('|')
-            if (p.size == 3) Tasks.custom(p[2], p[1]).copy(id = p[0]) else null
+            if (p.size == 3) Tasks.custom(p[2], LEGACY_EMOJI[p[1]] ?: p[1]).copy(id = p[0]) else null
         }
 
     /** Adds or removes a preset or custom activity; adding is refused beyond the limit. */
@@ -61,7 +61,7 @@ class TendStore(private val context: Context) {
             else customTasks.filterNot { it.id == task.id }
         } else customTasks
         edit {
-            putString("custom_tasks", customs.joinToString("\n") { "${it.id}|${it.emoji}|${it.title}" })
+            putString("custom_tasks", customs.joinToString("\n") { "${it.id}|${it.icon}|${it.title}" })
             putString("tasks", next.joinToString(",") { it.id })
         }
     }
@@ -221,5 +221,11 @@ class TendStore(private val context: Context) {
 
     companion object {
         private const val PASS_VALID_MS = 15_000L
+
+        /** Own activities saved with an emoji before tend had its own icons. */
+        private val LEGACY_EMOJI = mapOf(
+            "🎸" to "music", "🎹" to "music", "🧘" to "sun", "✍️" to "pen", "🐶" to "paw",
+            "🌱" to "sprout", "🧩" to "star", "🚲" to "bike",
+        )
     }
 }

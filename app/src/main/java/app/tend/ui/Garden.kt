@@ -254,7 +254,7 @@ fun HomeStages(daysTended: Int) = Card {
     val stage = Garden.homeStage(daysTended)
     Text("YOUR HOME GROWS WITH YOU", style = MaterialTheme.typography.labelSmall)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-        listOf(Triple("🌱", "Week 1", "first sprouts"), Triple("🪑", "Week 2", "lit window, bench"), Triple("🌳", "Week 4", "a tree of your own"))
+        listOf(Triple("sprout", "Week 1", "first sprouts"), Triple("bench", "Week 2", "lit window, bench"), Triple("outside", "Week 4", "a tree of your own"))
             .forEachIndexed { i, (icon, week, what) ->
                 Column(
                     Modifier.weight(1f).clip(RoundedCornerShape(16.dp))
@@ -263,7 +263,7 @@ fun HomeStages(daysTended: Int) = Card {
                         .padding(10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(icon, style = MaterialTheme.typography.titleLarge, modifier = Modifier.graphicsLayer { alpha = if (i <= stage) 1f else 0.4f })
+                    TendIcons.Glyph(icon, 26.dp, tint = if (i <= stage) Brand.Moss else Brand.Muted)
                     Text(week, style = MaterialTheme.typography.titleMedium, color = if (i <= stage) Brand.Moss else Brand.Muted)
                     Text(what, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
                 }

@@ -107,26 +107,26 @@ fun HomeScreen(
             }
             Row {
                 Text("+${Budget.earnableFrom(cfg, day, tasks)} min still to earn", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                Text(
-                    "🌱 $plantCount in the garden",
-                    style = MaterialTheme.typography.bodyMedium, color = Brand.Moss,
-                    modifier = Modifier.tappable(onClick = onOpenGarden),
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.tappable(onClick = onOpenGarden)) {
+                    TendIcons.Glyph("sprout", 16.dp)
+                    Spacer(Modifier.width(Space.xs))
+                    Text("$plantCount in the garden", style = MaterialTheme.typography.bodyMedium, color = Brand.Moss)
+                }
             }
         }
 
-        if (isEvening) Notice("🌙", "Tonight's recap is ready", "See what today gave back", onOpenRecap, tint = Brand.Sky)
-        if (permissionsMissing) Notice("⚠️", "${avatar.displayName} can't see app opens", "A switch was turned off. Tap to fix.", onFixPermissions, tint = Brand.Coral)
+        if (isEvening) Notice("moon", "Tonight's recap is ready", "See what today gave back", onOpenRecap)
+        if (permissionsMissing) Notice("alert", "${avatar.displayName} can't see app opens", "A switch was turned off. Tap to fix.", onFixPermissions)
         val needsHealth = tasks.any { it.verification == Verification.AUTOMATIC }
         if (needsHealth && (health == HealthConnect.Status.NEEDS_PERMISSION || health == HealthConnect.Status.NEEDS_INSTALL)) {
             Notice(
-                "❤️", if (health == HealthConnect.Status.NEEDS_INSTALL) "Get Health Connect" else "Connect Health Connect",
-                "Count walks and workouts automatically", onConnectHealth, tint = Brand.Coral,
+                "heart", if (health == HealthConnect.Status.NEEDS_INSTALL) "Get Health Connect" else "Connect Health Connect",
+                "Count walks and workouts automatically", onConnectHealth,
             )
         }
 
         SectionHeader("Instead of scrolling", "${tasks.count { it.id in day.completedTasks }} of ${tasks.size} done")
-        if (tasks.isEmpty()) Notice("✨", "Pick what you'd rather do", "A few activities that give minutes back", onOpenSettings)
+        if (tasks.isEmpty()) Notice("sparkle", "Pick what you'd rather do", "A few activities that give minutes back", onOpenSettings)
         tasks.forEach { task -> TaskRow(task, day, health, focusSecondsLeft, onStartFocus, onCheckOff, onUndo) }
     }
 }
@@ -151,13 +151,9 @@ private fun TaskRow(
     val progress = Tasks.progress(task, day)
     val measured = task.verification == Verification.AUTOMATIC && health == HealthConnect.Status.READY
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier.size(44.dp).clip(CircleShape).background(if (done) Brand.Moss else Brand.Sage),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (done) Icon(Icons.Filled.Check, "Done", tint = Color.White, modifier = Modifier.size(22.dp))
-            else Text(task.emoji, fontSize = 22.sp)
-        }
+        if (done) Box(Modifier.size(44.dp).clip(CircleShape).background(Brand.Moss), contentAlignment = Alignment.Center) {
+            Icon(Icons.Filled.Check, "Done", tint = Color.White, modifier = Modifier.size(22.dp))
+        } else TendIcons.Badge(task.icon)
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(task.title, style = MaterialTheme.typography.bodyLarge, color = if (done) Brand.Muted else Brand.Ink)
@@ -208,7 +204,10 @@ fun Celebration(avatar: Avatar, tasks: List<TaskDef>, minutes: Int, onUndo: (() 
         BobbingCharacter(avatar, app.tend.core.Mood.OUTSIDE, 140.dp)
         // The manual cap is an internal rule: past it, no minutes, but the moment still counts.
         if (minutes > 0) Text("+$minutes min", style = MaterialTheme.typography.headlineLarge, color = Brand.Moss)
-        Text(tasks.joinToString(" · ") { "${it.emoji} ${it.title}" }, style = MaterialTheme.typography.titleMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(Space.s), verticalAlignment = Alignment.CenterVertically) {
+            tasks.forEach { TendIcons.Badge(it.icon, 32.dp) }
+            Text(tasks.joinToString(" · ") { it.title }, style = MaterialTheme.typography.titleMedium)
+        }
         Text(
             if (minutes > 0) "${avatar.displayName} loved that. Minutes are yours for today." else "${avatar.displayName} loved that.",
             style = MaterialTheme.typography.bodyMedium,

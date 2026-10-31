@@ -121,13 +121,11 @@ fun IconButtonSoft(icon: ImageVector, description: String, onClick: () -> Unit) 
 
 /** One-line heads-up with an action: recap ready, permission off, connect Health Connect. */
 @Composable
-fun Notice(emoji: String, title: String, body: String, onClick: () -> Unit, tint: Color = Brand.Mint) = Row(
+fun Notice(icon: String, title: String, body: String, onClick: () -> Unit, tint: Color = TendIcons.accentOf(icon)) = Row(
     Modifier.fillMaxWidth().surface().tappable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
     verticalAlignment = Alignment.CenterVertically,
 ) {
-    Box(Modifier.size(44.dp).clip(CircleShape).background(tint.copy(alpha = 0.25f)), contentAlignment = Alignment.Center) {
-        Text(emoji, fontSize = 22.sp)
-    }
+    TendIcons.Badge(icon, accent = tint)
     Spacer(Modifier.width(14.dp))
     Column(Modifier.weight(1f)) {
         Text(title, style = MaterialTheme.typography.titleMedium)
