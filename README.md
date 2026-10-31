@@ -15,7 +15,7 @@ This is the MVP skeleton described in the concept doc. Native Android, English o
 | Delay screen: "What are you looking for?", 3 answers, "I'll take a walk instead", countdown | `monitor/InterstitialActivity.kt` |
 | "Worth it?" (Yes / Kind of / Not really) after sessions of 30 s or more | `monitor/WorthItActivity.kt` |
 | Home screen widget: face, minutes left, next task; refreshes on every change | `widget/TendWidget.kt` |
-| Home, setup (Bo/Mia, budget, permissions, blocked apps), focus timer | `ui/` |
+| Onboarding (7 steps, suggested apps, in-context permissions), settings, home, focus timer | `ui/` |
 | Brand: Moss/Mint/Coral/Sunny/Sky/Ink/Sage, Fredoka + Nunito (OFL, bundled) | `ui/Theme.kt` |
 
 Logs are written to the app's private storage: `answers.csv` (looking-for and worth-it answers) and `misses.csv` (blocking gaps or opens that weren't caught).
@@ -38,8 +38,10 @@ Requires JDK 17+ and the Android SDK (platform 36).
 
 ## Test setup on the phone
 
-1. Install the APK, open it, pick Bo or Mia, set the budget.
-2. Grant **Usage access** and **Display over other apps**. The second one is required: without it Android blocks starting the delay screen from the background.
-3. Allow notifications. The persistent notification keeps the monitor alive.
-4. Choose the apps to pause, then tap Done.
-5. On Xiaomi, Samsung, Huawei and similar phones, turn off battery optimisation for tend, or the monitor gets killed (this shows up in the miss log).
+Install the APK and follow the onboarding: welcome, companion, how it works, apps (common time sinks are pre-selected), budget, then two switches.
+
+- **Display over other apps** comes first. Once it's on, Android lets tend bring itself back to the front, so after the second switch the user returns to the app automatically.
+- **Usage access** comes second.
+- **"App was denied access"**: Android 13+ blocks these switches for side-loaded apps ("restricted settings"). Fix it once under App info → ⋮ → *Allow restricted settings*. The onboarding detects this and shows the steps. For testers using adb: `adb shell appops set app.tend ACCESS_RESTRICTED_SETTINGS allow`.
+- No notification permission is requested. The monitor's foreground service runs without it, its notification just stays hidden.
+- On Xiaomi, Samsung, Huawei and similar phones, turn off battery optimisation for tend, or the monitor gets killed (this shows up in the miss log).

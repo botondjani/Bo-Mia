@@ -40,6 +40,8 @@ fun HomeScreen(
     day: DayState,
     gardenMinutes: Int,
     missCount: Int,
+    permissionsMissing: Boolean,
+    onFixPermissions: () -> Unit,
     onStartFocus: (TaskDef) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -54,6 +56,12 @@ fun HomeScreen(
                 Text(day.date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.ENGLISH)), style = MaterialTheme.typography.bodyMedium)
             }
             Pill("Garden · ${gardenMinutes / GARDEN_MINUTES_PER_PLANT} 🌱")
+        }
+
+        if (permissionsMissing) Card {
+            Text("${avatar.displayName} can't see app opens right now", style = MaterialTheme.typography.titleMedium)
+            Text("A permission was switched off, so there's no pause before scrolling.", style = MaterialTheme.typography.bodyMedium)
+            TextButton(onClick = onFixPermissions) { Text("Fix it →") }
         }
 
         Card {

@@ -21,6 +21,10 @@ class TendStore(private val context: Context) {
         get() = Avatar.valueOf(prefs.getString("avatar", Avatar.BO.name)!!)
         set(v) = edit { putString("avatar", v.name) }
 
+    var onboarded: Boolean
+        get() = prefs.getBoolean("onboarded", false)
+        set(v) = edit { putBoolean("onboarded", v) }
+
     var blockedPackages: Set<String>
         get() = prefs.getStringSet("blocked", emptySet())!!
         set(v) = edit { putStringSet("blocked", v) }
