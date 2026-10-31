@@ -86,7 +86,12 @@ class InterstitialActivity : ComponentActivity() {
         val delaySeconds = Budget.openDelaySeconds(cfg, day)
         if (savedInstanceState == null && !locked) day = store.update { it.copy(opensToday = it.opensToday + 1) }
         view = View(label, locked, day.opensToday, delaySeconds, Budget.remainingMinutes(cfg, day))
-        setContent { TendTheme { view?.let { Sheet(pkg, it) } } }
+        val worn = store.accessories().first
+        setContent {
+            TendTheme {
+                androidx.compose.runtime.CompositionLocalProvider(app.tend.ui.LocalAccessories provides worn) { view?.let { Sheet(pkg, it) } }
+            }
+        }
         // ...then catch up quietly: fresh steps or a finished workout may have just earned minutes.
         lifecycleScope.launch {
             withTimeoutOrNull(SYNC_TIMEOUT_MS) { TaskSync.sync(this@InterstitialActivity) }
@@ -150,7 +155,7 @@ class InterstitialActivity : ComponentActivity() {
         SecondaryButton(
             if (left > 0) "Open ${v.label} in $left s" else "Open ${v.label}",
             onClick = {
-                store.focusStartedAt = 0 // opening a paused app ends the reading session
+                TaskSync.stopTimer(this@InterstitialActivity) // opening a paused app ends a running timer
                 store.grantPass(pkg)
                 packageManager.getLaunchIntentForPackage(pkg)?.let { startActivity(it) }
                 finish()

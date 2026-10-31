@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import app.tend.core.Accessory
 import app.tend.core.Avatar
 import app.tend.core.Mood
 
@@ -32,9 +33,9 @@ object CharacterPainter {
     }
     private val text = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = INK; textSize = 9f; isFakeBoldText = true }
 
-    fun bitmap(avatar: Avatar, mood: Mood, sizePx: Int): Bitmap =
+    fun bitmap(avatar: Avatar, mood: Mood, sizePx: Int, accessories: Set<Accessory> = emptySet()): Bitmap =
         Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888).also {
-            draw(Canvas(it), avatar, mood, sizePx.toFloat())
+            draw(Canvas(it), avatar, mood, sizePx.toFloat(), accessories = accessories)
         }
 
     /** Animation pose for the fallback character; the widget uses the resting pose. */
@@ -50,7 +51,7 @@ object CharacterPainter {
     )
 
     @Synchronized
-    fun draw(c: Canvas, avatar: Avatar, mood: Mood, size: Float, pose: Pose = Pose()) {
+    fun draw(c: Canvas, avatar: Avatar, mood: Mood, size: Float, pose: Pose = Pose(), accessories: Set<Accessory> = emptySet()) {
         c.save()
         c.scale(size / 100f, size / 100f)
         c.scale(1f + 0.025f * pose.breathe, 1f - 0.025f * pose.breathe, 50f, 92f)
@@ -103,6 +104,7 @@ object CharacterPainter {
         drawMouth(c, mood)
         drawExtras(c, mood)
         if (pose.book) drawBook(c)
+        drawAccessories(c, accessories)
         c.restore()
     }
 
@@ -140,6 +142,52 @@ object CharacterPainter {
                 }, fill)
                 fill.color = CORAL; c.drawOval(RectF(45f, 69f, 55f, 75f), fill)
             }
+        }
+    }
+
+    /** One accessory on its own, framed on the head area, for the "things" list. */
+    fun accessoryIcon(a: Accessory, sizePx: Int): Bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888).also {
+        val c = Canvas(it)
+        // Each accessory's own bounds in painter units, so every icon fills its circle the same way.
+        val box = when (a) {
+            Accessory.HEADBAND -> RectF(23f, 23f, 77f, 39f)
+            Accessory.GLASSES -> RectF(28f, 35f, 72f, 57f)
+            Accessory.HAT -> RectF(19f, 7f, 81f, 28f)
+            Accessory.FLOWER -> RectF(64f, 24f, 78f, 38f)
+        }
+        val scale = sizePx * 0.86f / maxOf(box.width(), box.height())
+        c.translate(sizePx / 2f, sizePx / 2f)
+        c.scale(scale, scale)
+        c.translate(-box.centerX(), -box.centerY())
+        drawAccessories(c, setOf(a))
+    }
+
+    /** Same shapes as the Rive rig (tools/rive/make_character.py), drawn back to front. */
+    private fun drawAccessories(c: Canvas, a: Set<Accessory>) {
+        if (Accessory.HEADBAND in a) {
+            stroke.color = CORAL; stroke.strokeWidth = 4.5f
+            c.drawPath(Path().apply { moveTo(25f, 37f); quadTo(50f, 25f, 75f, 37f) }, stroke)
+            stroke.color = INK; stroke.strokeWidth = 2.6f
+        }
+        if (Accessory.GLASSES in a) {
+            stroke.strokeWidth = 1.8f
+            c.drawCircle(39f, 46f, 9.5f, stroke); c.drawCircle(61f, 46f, 9.5f, stroke)
+            c.drawLine(48.5f, 45f, 51.5f, 45f, stroke)
+            stroke.strokeWidth = 2.6f
+        }
+        if (Accessory.FLOWER in a) {
+            fill.color = 0xFFFFFFFF.toInt()
+            for (k in 0 until 5) {
+                val ang = Math.toRadians(k * 72.0 - 90)
+                c.drawCircle(71f + 3.2f * Math.cos(ang).toFloat(), 31f + 3.2f * Math.sin(ang).toFloat(), 2.6f, fill)
+            }
+            fill.color = SUNNY; c.drawCircle(71f, 31f, 2.2f, fill)
+        }
+        if (Accessory.HAT in a) {
+            fill.color = SUNNY
+            c.drawRoundRect(RectF(36f, 8f, 64f, 22f), 6f, 6f, fill)
+            c.drawOval(RectF(20f, 18f, 80f, 27f), fill)
+            fill.color = CORAL; c.drawRect(36f, 16f, 64f, 20f, fill)
         }
     }
 

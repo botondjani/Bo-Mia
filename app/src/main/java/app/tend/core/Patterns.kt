@@ -7,7 +7,14 @@ import java.time.LocalDateTime
 data class Answer(val time: LocalDateTime, val kind: String, val pkg: String, val answer: String)
 
 /** One day, as it was closed (or today, so far). */
-data class DaySummary(val date: LocalDate, val usedMinutes: Int, val unusedMinutes: Int, val tasksDone: Int)
+data class DaySummary(
+    val date: LocalDate,
+    val usedMinutes: Int,
+    val unusedMinutes: Int,
+    val tasksDone: Int,
+    /** Ids of the tasks done that day (empty for days logged before this was kept). */
+    val done: Set<String> = emptySet(),
+)
 
 enum class DayPart(val label: String) {
     MORNING("Morning"), AFTERNOON("Afternoon"), EVENING("Evening"), LATE("Late night");

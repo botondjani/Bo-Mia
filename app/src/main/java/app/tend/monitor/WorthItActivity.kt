@@ -46,8 +46,10 @@ class WorthItActivity : ComponentActivity() {
         val label = runCatching { packageManager.getApplicationInfo(pkg, 0).loadLabel(packageManager).toString() }.getOrNull()
         val what = (if (minutes == 1L) "that minute" else "those $minutes minutes") + (label?.let { " on $it" } ?: "")
 
+        val worn = store.accessories().first
         setContent {
             TendTheme {
+                androidx.compose.runtime.CompositionLocalProvider(app.tend.ui.LocalAccessories provides worn) {
                 PopupSheet(onDismiss = ::finish, centered = true) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CharacterView(store.avatar, Mood.HAPPY, 72.dp, lightweight = true)
@@ -77,6 +79,7 @@ class WorthItActivity : ComponentActivity() {
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                }
                 }
             }
         }

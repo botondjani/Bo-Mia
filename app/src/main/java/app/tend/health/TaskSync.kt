@@ -2,12 +2,13 @@ package app.tend.health
 
 import android.content.Context
 import app.tend.core.Budget
+import app.tend.core.PhoneFree
 import app.tend.core.TaskDef
 import app.tend.core.Tasks
 import app.tend.core.Verification
 import app.tend.data.TendStore
 
-/** Brings today's tasks up to date: Health Connect totals and a finished reading timer. */
+/** Brings today's tasks up to date: Health Connect totals and finished timers. */
 object TaskSync {
 
     /** What a sync or a check-off completed: for the celebration. */
@@ -19,15 +20,16 @@ object TaskSync {
         val selected = store.selectedTasks
 
         if (selected.any { it.verification == Verification.AUTOMATIC }) {
-            val hc = HealthConnect(context)
+            val hc = HealthConnect(context, selected)
             val steps = hc.stepsToday()
             val exercise = hc.exerciseMinutesToday()
-            if (steps != null || exercise != null) {
+            val sleep = hc.sleepMinutesLastNight()
+            if (steps != null || exercise != null || sleep != null) {
                 val cfg = store.config
-                store.update { Budget.applyActivity(cfg, it, steps, exercise, selected) }
+                store.update { Budget.applyActivity(cfg, it, steps, exercise, selected, sleep) }
             }
         }
-        finishFocusIfDue(store)
+        checkTimer(context)
         return diff(before, store.today(), selected)
     }
 
@@ -50,9 +52,69 @@ object TaskSync {
         return (store.focusTask.target * 60L - (now - start) / 1000).coerceAtLeast(0)
     }
 
-    private fun finishFocusIfDue(store: TendStore) {
-        if (focusSecondsLeft(store) != 0L) return
-        store.focusStartedAt = 0
-        store.focusTask.let { store.credit(it.id, it.rewardMinutes, manual = false) }
+    enum class TimerResult { DONE, BROKEN }
+
+    /** Starts a reading/learning or phone-free timer; it also finishes in the background. */
+    fun startTimer(context: Context, task: TaskDef) {
+        val store = TendStore(context)
+        if (store.focusStartedAt > 0) return
+        store.timerBroken = ""
+        store.focusTaskId = task.id
+        store.focusStartedAt = System.currentTimeMillis()
+        TimerAlarm.schedule(context, store.focusStartedAt + task.target * 60_000L + 2_000L)
+    }
+
+    fun stopTimer(context: Context) {
+        TendStore(context).focusStartedAt = 0
+        TimerAlarm.cancel(context)
+    }
+
+    /** Screen-on seconds since the running phone-free session started (0 when it can't be measured). */
+    fun screenOnSeconds(context: Context): Long {
+        val store = TendStore(context)
+        val start = store.focusStartedAt.takeIf { it > 0 } ?: return 0
+        return screenOnMillis(context, start, System.currentTimeMillis()) / 1000
+    }
+
+    /** Credits a timer that has run its course; ends a phone-free one the phone interrupted. */
+    fun checkTimer(context: Context): TimerResult? {
+        val store = TendStore(context)
+        val start = store.focusStartedAt.takeIf { it > 0 } ?: return null
+        val task = store.focusTask
+        val now = System.currentTimeMillis()
+        val outcome = when (task.verification) {
+            Verification.PHONE_FREE -> PhoneFree.outcome(task, start, now, screenOnMillis(context, start, now))
+            else -> if (now - start >= task.target * 60_000L) PhoneFree.Outcome.DONE else PhoneFree.Outcome.RUNNING
+        }
+        return when (outcome) {
+            PhoneFree.Outcome.RUNNING -> null
+            PhoneFree.Outcome.DONE -> {
+                stopTimer(context)
+                store.credit(task.id, task.rewardMinutes, manual = false)
+                TimerResult.DONE
+            }
+            PhoneFree.Outcome.BROKEN -> {
+                stopTimer(context)
+                store.timerBroken = task.id
+                TimerResult.BROKEN
+            }
+        }
+    }
+
+    /** Screen on/off transitions from the system's usage events (Android 9+). */
+    private fun screenOnMillis(context: Context, start: Long, now: Long): Long {
+        if (android.os.Build.VERSION.SDK_INT < 28) return 0
+        val usm = context.getSystemService(android.app.usage.UsageStatsManager::class.java)
+        val events = runCatching { usm.queryEvents(start, now) }.getOrNull() ?: return 0
+        val e = android.app.usage.UsageEvents.Event()
+        val transitions = mutableListOf<Pair<Long, Boolean>>()
+        while (events.hasNextEvent()) {
+            events.getNextEvent(e)
+            when (e.eventType) {
+                android.app.usage.UsageEvents.Event.SCREEN_INTERACTIVE -> transitions += e.timeStamp to true
+                android.app.usage.UsageEvents.Event.SCREEN_NON_INTERACTIVE -> transitions += e.timeStamp to false
+            }
+        }
+        return PhoneFree.screenOnMillis(start, now, transitions)
     }
 }

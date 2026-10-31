@@ -70,6 +70,9 @@ class MainActivity : ComponentActivity() {
     /** Bumped whenever we come back to the app, so the UI re-reads the store. */
     private var refresh by mutableIntStateOf(0)
 
+    /** What the companion wears now, and what waits on the shelf. */
+    private var shelf by mutableStateOf<Pair<Set<app.tend.core.Accessory>, Set<app.tend.core.Accessory>>>(emptySet<app.tend.core.Accessory>() to emptySet())
+
     /** The user went to a settings page and came back without the permission. */
     private var usageAttempted = false
     private var overlayAttempted = false
@@ -105,7 +108,9 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
         setContent {
             TendTheme {
-                Box(Modifier.fillMaxSize().safeDrawingPadding()) { Content(catalog) }
+                androidx.compose.runtime.CompositionLocalProvider(app.tend.ui.LocalAccessories provides shelf.first) {
+                    Box(Modifier.fillMaxSize().safeDrawingPadding()) { Content(catalog) }
+                }
             }
         }
     }
@@ -152,10 +157,11 @@ class MainActivity : ComponentActivity() {
         synced // read so recomposition follows a sync
 
         suspend fun sync() {
-            health = HealthConnect(this@MainActivity).status()
+            health = HealthConnect(this@MainActivity, store.selectedTasks).status()
             val done = TaskSync.sync(this@MainActivity)
             if (done.tasks.isNotEmpty()) celebrate = done
             synced++
+            shelf = store.accessories()
         }
         LaunchedEffect(refresh) { if (store.onboarded) sync() }
         LaunchedEffect(Unit) {
@@ -246,6 +252,7 @@ class MainActivity : ComponentActivity() {
 
             screen == Screen.GARDEN -> GardenScreen(
                 store.avatar, store.plants, store.daysTended, Budget.gardenMinutesAtClose(store.config, store.today()),
+                worn = shelf.first, onShelf = shelf.second,
                 onBack = { screen = Screen.HOME },
             ) {
                 WeekSections(
@@ -257,7 +264,8 @@ class MainActivity : ComponentActivity() {
 
             (TaskSync.focusSecondsLeft(store, now) ?: 0) > 0 -> FocusTimerScreen(
                 store.avatar, store.focusTask, TaskSync.focusSecondsLeft(store, now)!!,
-                onCancel = { store.focusStartedAt = 0; refresh++ },
+                screenOnSeconds = remember(now / 5000) { TaskSync.screenOnSeconds(this@MainActivity) },
+                onCancel = { TaskSync.stopTimer(this@MainActivity); refresh++ },
             )
 
             else -> HomeScreen(
@@ -293,11 +301,11 @@ class MainActivity : ComponentActivity() {
                             Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=${HealthConnect.PROVIDER}")),
                         )
                     } else {
-                        healthPermissions.launch(HealthConnect.PERMISSIONS)
+                        healthPermissions.launch(HealthConnect.permissionsFor(store.selectedTasks))
                     }
                 },
                 onStartFocus = { task ->
-                    if (store.focusStartedAt == 0L) { store.focusTaskId = task.id; store.focusStartedAt = System.currentTimeMillis() }
+                    TaskSync.startTimer(this@MainActivity, task)
                     refresh++
                 },
                 onCheckOff = { task ->
@@ -313,6 +321,8 @@ class MainActivity : ComponentActivity() {
                 // Not during onboarding: from the second day on, until placed or seen.
                 showWidgetTip = !store.widgetTipDone && store.daysTended >= 1 && !widgetPlaced(),
                 onWidgetTipDone = { store.widgetTipDone = true; refresh++ },
+                brokenTimer = Tasks.presets.firstOrNull { it.id == store.timerBroken },
+                onDismissBroken = { store.timerBroken = ""; refresh++ },
             )
         }
     }

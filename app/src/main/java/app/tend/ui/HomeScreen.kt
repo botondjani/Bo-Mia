@@ -74,6 +74,9 @@ fun HomeScreen(
     weekNote: String?,
     /** Show the one-time widget tip; called with true when it was handled. */
     showWidgetTip: Boolean = false,
+    /** A phone-free session the phone interrupted, shown once. */
+    brokenTimer: TaskDef? = null,
+    onDismissBroken: () -> Unit = {},
     onWidgetTipDone: () -> Unit = {},
 ) {
     var widgetGuide by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
@@ -135,6 +138,10 @@ fun HomeScreen(
         }
 
         if (onShareCrash != null) Notice("alert", "tend crashed last time", "Sorry! Tap to share the crash report.", onShareCrash)
+        if (brokenTimer != null) Notice(
+            brokenTimer.icon, "The phone came back a little early",
+            "${brokenTimer.title} needs ${brokenTimer.target} phone-free minutes. Tap to try again later.", onDismissBroken,
+        )
         if (showWidgetTip) Notice("sun", "${avatar.displayName} has a widget", "See ${avatar.displayName} and your minutes on your home screen.", { widgetGuide = true })
         if (isEvening) Notice("moon", "Tonight's recap is ready", "See what today gave back", onOpenRecap)
         when {
@@ -208,7 +215,7 @@ private fun TaskRow(
                 modifier = Modifier.tappable { onUndo(task) }.padding(8.dp),
             )
             done -> Unit
-            task.verification == Verification.FOCUS_TIMER ->
+            task.verification.timed ->
                 ChipButton(focusSecondsLeft?.let { "%d:%02d".format(it / 60, it % 60) } ?: "Start", { onStartFocus(task) })
             task.manual -> ChipButton("Done", { onCheckOff(task) })
             else -> Pill("+${task.rewardMinutes}")
@@ -255,12 +262,20 @@ fun Celebration(avatar: Avatar, tasks: List<TaskDef>, minutes: Int, onUndo: (() 
 }
 
 @Composable
-fun FocusTimerScreen(avatar: Avatar, task: TaskDef, secondsLeft: Long, onCancel: () -> Unit) = Column(
+fun FocusTimerScreen(avatar: Avatar, task: TaskDef, secondsLeft: Long, screenOnSeconds: Long, onCancel: () -> Unit) = Column(
     Modifier.fillMaxSize().background(Brand.Sage).padding(24.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
     verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
 ) {
-    Text(if (task.id == Tasks.LEARN.id) "LEARNING TOGETHER" else "READING TOGETHER", style = MaterialTheme.typography.labelSmall)
+    val phoneFree = task.verification == Verification.PHONE_FREE
+    Text(
+        when {
+            phoneFree -> "PHONE-FREE TIME"
+            task.id == Tasks.LEARN.id -> "LEARNING TOGETHER"
+            else -> "READING TOGETHER"
+        },
+        style = MaterialTheme.typography.labelSmall,
+    )
     Box(contentAlignment = Alignment.Center) {
         val total = task.target * 60f
         androidx.compose.foundation.Canvas(Modifier.size(280.dp)) {
@@ -273,12 +288,20 @@ fun FocusTimerScreen(avatar: Avatar, task: TaskDef, secondsLeft: Long, onCancel:
             drawArc(Brand.Moss, -90f, 360f * (1f - secondsLeft / total), false, topLeft, arc, style = style)
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CharacterView(avatar, app.tend.core.Mood.HAPPY, 150.dp, reading = true)
+            CharacterView(avatar, app.tend.core.Mood.HAPPY, 150.dp, reading = !phoneFree)
             Text("%d:%02d".format(secondsLeft / 60, secondsLeft % 60), style = MaterialTheme.typography.headlineLarge, color = Brand.Moss)
         }
     }
     Text(task.title, style = MaterialTheme.typography.titleLarge)
-    Text(
+    if (phoneFree) {
+        Text(
+            "Lock your phone and put it away. ${avatar.displayName} keeps time and lets you know when it's done: +${task.rewardMinutes} min.",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+        val left = (app.tend.core.PhoneFree.GRACE_SECONDS - screenOnSeconds).coerceAtLeast(0)
+        Pill("Screen time allowed: %d:%02d left".format(left / 60, left % 60), if (left < 60) Brand.Coral.copy(alpha = 0.2f) else Brand.Sage)
+    } else Text(
         "${avatar.displayName} is ${if (task.id == Tasks.LEARN.id) "learning" else "reading"} with you. +${task.rewardMinutes} min when the timer ends. " +
             "You can leave tend; opening a paused app ends the session.",
         style = MaterialTheme.typography.bodyMedium,

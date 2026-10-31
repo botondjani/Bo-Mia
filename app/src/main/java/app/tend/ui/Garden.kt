@@ -41,6 +41,11 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.tend.core.Avatar
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
+import app.tend.core.Accessory
 import app.tend.core.Garden
 import app.tend.core.Mood
 import app.tend.core.Plant
@@ -60,7 +65,22 @@ fun GardenScene(
     mood: Mood = Mood.HAPPY,
     /** Tonight's plant, drawn see-through in the next free spot. */
     preview: Plant? = null,
-) = Canvas(modifier.fillMaxWidth().aspectRatio(1.3f).clip(RoundedCornerShape(28.dp))) {
+) {
+    val accessories = LocalAccessories.current
+    Canvas(modifier.fillMaxWidth().aspectRatio(1.3f).clip(RoundedCornerShape(28.dp))) {
+        drawGarden(avatar, plants, homeStage, mood, preview, accessories)
+    }
+}
+
+/** The garden scene; shared by the garden page and the 2x2 widget. */
+fun DrawScope.drawGarden(
+    avatar: Avatar,
+    plants: List<Plant>,
+    homeStage: Int,
+    mood: Mood = Mood.HAPPY,
+    preview: Plant? = null,
+    accessories: Set<Accessory> = emptySet(),
+) {
     val w = size.width
     val h = size.height
     val groundY = h * 0.5f
@@ -155,7 +175,7 @@ fun GardenScene(
     drawIntoCanvas {
         it.nativeCanvas.save()
         it.nativeCanvas.translate(w * 0.24f, groundY - cs * 0.75f)
-        CharacterPainter.draw(it.nativeCanvas, avatar, mood, cs)
+        CharacterPainter.draw(it.nativeCanvas, avatar, mood, cs, accessories = accessories)
         it.nativeCanvas.restore()
     }
 }
@@ -165,6 +185,18 @@ private fun DrawScope.cloud(c: Offset, r: Float) {
     drawCircle(white, r, c)
     drawCircle(white, r * 0.8f, c + Offset(-r * 1.1f, r * 0.25f))
     drawCircle(white, r * 0.85f, c + Offset(r * 1.1f, r * 0.2f))
+}
+
+/** The garden as a bitmap with rounded corners, for the home screen widget. */
+fun gardenBitmap(avatar: Avatar, plants: List<Plant>, homeStage: Int, accessories: Set<Accessory>, widthPx: Int, heightPx: Int): android.graphics.Bitmap {
+    val image = androidx.compose.ui.graphics.ImageBitmap(widthPx, heightPx)
+    val canvas = androidx.compose.ui.graphics.Canvas(image)
+    val size = Size(widthPx.toFloat(), heightPx.toFloat())
+    canvas.clipPath(Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(androidx.compose.ui.geometry.Rect(Offset.Zero, size), CornerRadius(widthPx * 0.08f))) })
+    androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(
+        androidx.compose.ui.unit.Density(1f), androidx.compose.ui.unit.LayoutDirection.Ltr, canvas, size,
+    ) { drawGarden(avatar, plants, homeStage, accessories = accessories) }
+    return image.asAndroidBitmap()
 }
 
 /** Draws a plant whose base sits at [base]; [s] is its height. */
@@ -209,6 +241,8 @@ fun GardenScreen(
     plants: List<Plant>,
     daysTended: Int,
     unusedToday: Int,
+    worn: Set<Accessory> = emptySet(),
+    onShelf: Set<Accessory> = emptySet(),
     onBack: () -> Unit,
     week: @Composable ColumnScope.() -> Unit,
 ) = Column(
@@ -224,6 +258,7 @@ fun GardenScreen(
     }
     GardenScene(avatar, plants, Garden.homeStage(daysTended), preview = tonight)
     HomeStages(daysTended)
+    Things(avatar, worn, onShelf)
 
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Stat("${plants.size}", if (plants.size == 1) "plant" else "plants", Modifier.weight(1f))
@@ -261,6 +296,35 @@ fun GardenScreen(
         Text("Minutes you don't use become one plant each night.", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
     }
     week()
+}
+
+/** What the companion wears from a week of habits; faded ones wait on the shelf, never taken away. */
+@Composable
+private fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory>) = Card {
+    Text("${avatar.displayName.uppercase()}'S THINGS", style = MaterialTheme.typography.labelSmall)
+    Text(
+        if (worn.isEmpty()) "Keep a habit for a week and ${avatar.displayName} gets something to wear." else "Worn because of your week.",
+        style = MaterialTheme.typography.bodyMedium,
+    )
+    Accessory.entries.forEach { a ->
+        val state = when (a) { in worn -> "Wearing it"; in onShelf -> "On the shelf, back with ${a.how}"; else -> a.how.replaceFirstChar { it.uppercase() } }
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
+            Box(
+                Modifier.size(40.dp).clip(CircleShape).background(if (a in worn) Brand.Mint.copy(alpha = 0.3f) else Brand.Sage),
+                contentAlignment = Alignment.Center,
+            ) {
+                androidx.compose.foundation.Image(
+                    CharacterPainter.accessoryIcon(a, 96).asImageBitmap(), null,
+                    Modifier.size(36.dp).graphicsLayer { alpha = if (a in worn) 1f else if (a in onShelf) 0.6f else 0.3f },
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text(a.title, style = MaterialTheme.typography.bodyLarge, color = if (a in worn) Brand.Ink else Brand.Muted)
+                Text(state, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+    }
 }
 
 /** Week 1 / 2 / 4 milestones of the home, the current one highlighted. */

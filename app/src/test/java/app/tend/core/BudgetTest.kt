@@ -88,10 +88,11 @@ class BudgetTest {
     }
 
     @Test fun `earnable counts only the user's picks, check-offs within the cap`() {
-        val picks = listOf(Tasks.OUTSIDE, Tasks.FRIENDS, Tasks.HOBBY, Tasks.CHORES, Tasks.custom("Guitar", "music"))
-        assertEquals(20 + 45, Budget.earnableFrom(cfg.copy(manualCapMinutes = 45), day, picks))
+        // measured: walk 20 + phone-free 15 + 15; check-offs: two own activities 10 + 10, capped at 15
+        val picks = listOf(Tasks.OUTSIDE, Tasks.FRIENDS, Tasks.HOBBY, Tasks.custom("Guitar", "music"), Tasks.custom("Paint", "pen"))
+        assertEquals(20 + 15 + 15 + 15, Budget.earnableFrom(cfg.copy(manualCapMinutes = 15), day, picks))
         val d = Budget.credit(cfg, day, Tasks.OUTSIDE.id, 20, manual = false)
-        assertEquals(45, Budget.earnableFrom(cfg.copy(manualCapMinutes = 45), d, picks))
+        assertEquals(45, Budget.earnableFrom(cfg.copy(manualCapMinutes = 15), d, picks))
         assertEquals(0, Budget.earnableFrom(cfg, day, emptyList()))
     }
 

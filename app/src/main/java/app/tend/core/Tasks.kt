@@ -1,8 +1,11 @@
 package app.tend.core
 
-/** How a task is verified: measured, timed, or checked off by hand (capped daily). */
+/** How a task is verified: measured, timed, phone-free, or checked off by hand (capped daily). */
 enum class Verification(val label: String) {
-    AUTOMATIC("automatic"), FOCUS_TIMER("timer"), CHECK_OFF("check off")
+    AUTOMATIC("automatic"), FOCUS_TIMER("timer"), PHONE_FREE("phone-free"), CHECK_OFF("check off");
+
+    /** Started with a button and runs for [TaskDef.target] minutes. */
+    val timed get() = this == FOCUS_TIMER || this == PHONE_FREE
 }
 
 data class TaskDef(
@@ -11,7 +14,7 @@ data class TaskDef(
     val subtitle: String,
     val rewardMinutes: Int,
     val verification: Verification,
-    /** Steps for outside, exercise minutes for move, focus minutes for reading; 0 for check-offs. */
+    /** Steps for outside, minutes for exercise, sleep and timers; 0 for check-offs. */
     val target: Int,
     /** Key into tend's icon set (ui/TendIcons). */
     val icon: String,
@@ -28,13 +31,14 @@ object Tasks {
     val OUTSIDE = TaskDef("outside", "Walk outside", "Automatic · 4,000 steps", 20, Verification.AUTOMATIC, 4000, "outside")
     val READ = TaskDef("read", "Read", "Focus timer · 20 min", 15, Verification.FOCUS_TIMER, 20, "read")
     val LEARN = TaskDef("learn", "Learn something", "Focus timer · 30 min", 20, Verification.FOCUS_TIMER, 30, "learn")
-    val FRIENDS = TaskDef("friends", "Friends & family", "Check off · time together, a call", 15, Verification.CHECK_OFF, 0, "friends")
-    val HOBBY = TaskDef("hobby", "Hobby", "Check off · make, play, create", 15, Verification.CHECK_OFF, 0, "hobby")
-    val CHORES = TaskDef("chores", "Tidy up", "Check off · a bit of home care", 10, Verification.CHECK_OFF, 0, "chores")
-    val COOK = TaskDef("cook", "Cook something good", "Check off · a healthy meal", 10, Verification.CHECK_OFF, 0, "cook")
+    val SLEEP = TaskDef("sleep", "Sleep well", "Automatic · 7 h of sleep", 20, Verification.AUTOMATIC, 420, "moon")
+    val FRIENDS = TaskDef("friends", "Friends & family", "Phone-free · 30 min together", 15, Verification.PHONE_FREE, 30, "friends")
+    val HOBBY = TaskDef("hobby", "Hobby", "Phone-free · 30 min", 15, Verification.PHONE_FREE, 30, "hobby")
+    val CHORES = TaskDef("chores", "Tidy up", "Phone-free · 20 min", 10, Verification.PHONE_FREE, 20, "chores")
+    val COOK = TaskDef("cook", "Cook something good", "Phone-free · 20 min", 10, Verification.PHONE_FREE, 20, "cook")
 
     /** What onboarding suggests. Nothing is pre-selected. */
-    val presets = listOf(MOVE, OUTSIDE, READ, LEARN, FRIENDS, HOBBY, CHORES, COOK)
+    val presets = listOf(MOVE, OUTSIDE, SLEEP, READ, LEARN, FRIENDS, HOBBY, CHORES, COOK)
 
     /** What users who onboarded before activities were selectable keep. */
     val legacyDefault = listOf(MOVE, OUTSIDE, READ)
@@ -56,6 +60,7 @@ object Tasks {
     fun pastTense(task: TaskDef): String = when (task.id) {
         MOVE.id -> "moved"
         OUTSIDE.id -> "went outside"
+        SLEEP.id -> "slept well"
         READ.id -> "read"
         LEARN.id -> "learned something"
         FRIENDS.id -> "made time for our people"
@@ -69,6 +74,7 @@ object Tasks {
     fun progress(task: TaskDef, day: DayState): Long? = when (task.id) {
         MOVE.id -> day.exerciseMinutes.toLong()
         OUTSIDE.id -> day.steps
+        SLEEP.id -> day.sleepMinutes.toLong()
         else -> null
     }
 }
@@ -77,10 +83,12 @@ object Tasks {
 interface ActivitySource {
     suspend fun stepsToday(): Long?
     suspend fun exerciseMinutesToday(): Int?
+    suspend fun sleepMinutesLastNight(): Int?
 }
 
 /** Which of the selected automatic tasks the given activity numbers complete. */
-fun completedAutomaticTasks(steps: Long?, exerciseMinutes: Int?, selected: List<TaskDef>): List<TaskDef> = buildList {
+fun completedAutomaticTasks(steps: Long?, exerciseMinutes: Int?, selected: List<TaskDef>, sleepMinutes: Int? = null): List<TaskDef> = buildList {
     if (Tasks.MOVE in selected && exerciseMinutes != null && exerciseMinutes >= Tasks.MOVE.target) add(Tasks.MOVE)
     if (Tasks.OUTSIDE in selected && steps != null && steps >= Tasks.OUTSIDE.target) add(Tasks.OUTSIDE)
+    if (Tasks.SLEEP in selected && sleepMinutes != null && sleepMinutes >= Tasks.SLEEP.target) add(Tasks.SLEEP)
 }

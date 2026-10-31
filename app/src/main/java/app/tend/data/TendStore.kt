@@ -4,6 +4,8 @@ import android.content.Context
 import app.tend.core.Budget
 import app.tend.core.BudgetConfig
 import app.tend.core.Avatar
+import app.tend.core.Accessories
+import app.tend.core.Accessory
 import app.tend.core.Answer
 import app.tend.core.DayState
 import app.tend.core.DaySummary
@@ -92,7 +94,12 @@ class TendStore(private val context: Context) {
         get() = prefs.getLong("focus_started", 0)
         set(v) = edit { putLong("focus_started", v) }
 
-    /** Which timer task is running (read or learn). */
+    /** A phone-free session the phone interrupted (task id), shown once on the home screen. */
+    var timerBroken: String
+        get() = prefs.getString("timer_broken", "")!!
+        set(v) = edit { putString("timer_broken", v) }
+
+    /** Which timer task is running (read, learn or a phone-free one). */
     var focusTaskId: String
         get() = prefs.getString("focus_task", Tasks.READ.id)!!
         set(v) = edit { putString("focus_task", v) }
@@ -122,7 +129,7 @@ class TendStore(private val context: Context) {
         val fresh = DayState(now)
         val plant = stored?.let { Garden.plantFor(Budget.gardenMinutesAtClose(config, it)) }
         val plants = prefs.getString("plants", "")!!
-        stored?.let { d -> summary(d).let { append("history.csv", "${it.date},${it.usedMinutes},${it.unusedMinutes},${it.tasksDone}") } }
+        stored?.let { d -> summary(d).let { append("history.csv", "${it.date},${it.usedMinutes},${it.unusedMinutes},${it.tasksDone},${it.done.joinToString(";")}") } }
         writeDay(fresh) {
             if (plant != null) putString("plants", if (plants.isEmpty()) plant.name else "$plants,${plant.name}")
             if (stored != null) putInt("days_tended", prefs.getInt("days_tended", 0) + 1)
@@ -167,11 +174,28 @@ class TendStore(private val context: Context) {
     /** Closed days from the history log, plus today so far. */
     fun daySummaries(): List<DaySummary> = lines("history.csv").mapNotNull { line ->
         val p = line.split(',')
-        runCatching { DaySummary(LocalDate.parse(p[0]), p[1].toInt(), p[2].toInt(), p[3].toInt()) }.getOrNull()
+        runCatching {
+            DaySummary(LocalDate.parse(p[0]), p[1].toInt(), p[2].toInt(), p[3].toInt(), p.getOrNull(4)?.split(';')?.filter { it.isNotEmpty() }?.toSet().orEmpty())
+        }.getOrNull()
     } + summary(today())
 
+    /**
+     * What the companion wears now (habits held over the last 7 days), and what is on the shelf:
+     * earned before, waiting for the habit to come back.
+     */
+    fun accessories(): Pair<Set<Accessory>, Set<Accessory>> {
+        val today = LocalDate.now()
+        val byDate = daySummaries().associateBy { it.date }
+        val week = (6 downTo 0).map { byDate[today.minusDays(it.toLong())]?.done.orEmpty() }
+        val worn = Accessories.active(week)
+        val seen = prefs.getStringSet("acc_seen", emptySet())!!
+        if (!seen.containsAll(worn.map { it.name })) prefs.edit().putStringSet("acc_seen", seen + worn.map { it.name }).apply()
+        val shelf = Accessory.entries.filter { it.name in seen && it !in worn }.toSet()
+        return worn to shelf
+    }
+
     private fun summary(d: DayState) = DaySummary(
-        d.date, ((d.usedSeconds + 59) / 60).toInt(), Budget.gardenMinutesAtClose(config, d), d.completedTasks.size,
+        d.date, ((d.usedSeconds + 59) / 60).toInt(), Budget.gardenMinutesAtClose(config, d), d.completedTasks.size, d.completedTasks,
     )
 
     private fun lines(name: String): List<String> =
@@ -216,6 +240,7 @@ class TendStore(private val context: Context) {
             }.toMap(),
             steps = prefs.getLong("day_steps", 0),
             exerciseMinutes = prefs.getInt("day_exercise", 0),
+            sleepMinutes = prefs.getInt("day_sleep", 0),
         )
     }
 
@@ -229,12 +254,13 @@ class TendStore(private val context: Context) {
         putString("day_grants", d.grants.entries.joinToString(";") { "${it.key}=${it.value}" })
         putLong("day_steps", d.steps)
         putInt("day_exercise", d.exerciseMinutes)
+        putInt("day_sleep", d.sleepMinutes)
         extra()
     }
 
     private fun edit(block: android.content.SharedPreferences.Editor.() -> Unit) {
         prefs.edit().apply(block).apply()
-        TendWidget.refresh(context)
+        app.tend.widget.Widgets.refresh(context)
     }
 
     companion object {

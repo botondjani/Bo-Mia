@@ -19,6 +19,7 @@ Read by `ui/Character.kt` → `RiveRig`. Names are case-sensitive.
 | Input | `mood` | Number | `0` happy · `1` tired · `2` scrolling · `3` outside · `4` reading |
 | Input | `mia` | Boolean | `false` Bo · `true` Mia |
 | Input | `tap` | Trigger | a short hop |
+| Input | `headband`, `glasses`, `hat`, `flower` | Boolean | accessories earned by a week of habits (200 ms fade) |
 
 A missing input doesn't crash the app; the rig just won't react to it.
 

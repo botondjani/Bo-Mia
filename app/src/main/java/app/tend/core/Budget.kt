@@ -29,6 +29,8 @@ data class DayState(
     /** Today's totals from Health Connect, as of the last sync. */
     val steps: Long = 0,
     val exerciseMinutes: Int = 0,
+    /** Last night's sleep, from Health Connect. */
+    val sleepMinutes: Int = 0,
     /** Minutes actually granted per task today, so a check-off can be undone exactly. */
     val grants: Map<String, Int> = emptyMap(),
 )
@@ -93,12 +95,15 @@ object Budget {
      * Applies today's activity totals and credits the automatic tasks they complete.
      * Totals never go down within a day (a source can briefly report less while syncing).
      */
-    fun applyActivity(cfg: BudgetConfig, day: DayState, steps: Long?, exerciseMinutes: Int?, selected: List<TaskDef>): DayState {
+    fun applyActivity(
+        cfg: BudgetConfig, day: DayState, steps: Long?, exerciseMinutes: Int?, selected: List<TaskDef>, sleepMinutes: Int? = null,
+    ): DayState {
         var d = day.copy(
             steps = maxOf(day.steps, steps ?: 0),
             exerciseMinutes = maxOf(day.exerciseMinutes, exerciseMinutes ?: 0),
+            sleepMinutes = maxOf(day.sleepMinutes, sleepMinutes ?: 0),
         )
-        for (task in completedAutomaticTasks(d.steps, d.exerciseMinutes, selected)) {
+        for (task in completedAutomaticTasks(d.steps, d.exerciseMinutes, selected, d.sleepMinutes)) {
             d = credit(cfg, d, task.id, task.rewardMinutes, manual = false)
         }
         return d

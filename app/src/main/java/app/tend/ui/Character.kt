@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.rive.runtime.kotlin.RiveAnimationView
+import app.tend.core.Accessory
 import app.tend.core.Avatar
 import app.tend.core.Mood
 import kotlinx.coroutines.delay
@@ -52,6 +53,9 @@ object RiveRig {
 
     /** Optional trigger: fired when the character is tapped. */
     const val INPUT_TAP = "tap"
+
+    /** Boolean input per accessory, named like [Accessory] in lower case. */
+    fun inputOf(a: Accessory) = a.name.lowercase()
 
     private var loaded = false
     private var bytes: ByteArray? = null
@@ -110,6 +114,9 @@ object RiveRig {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime }.getOrDefault(0L)
 }
 
+/** What the companion wears; provided once at the top of each screen tree. */
+val LocalAccessories = androidx.compose.runtime.staticCompositionLocalOf<Set<Accessory>> { emptySet() }
+
 @Composable
 fun CharacterView(
     avatar: Avatar,
@@ -122,12 +129,13 @@ fun CharacterView(
 ) {
     val rig = if (lightweight) null else RiveRig.bytes(LocalContext.current)
     var failed by remember { mutableStateOf(false) }
-    if (rig != null && !failed) RiveCharacter(rig, avatar, if (reading) RiveRig.READING else mood.ordinal.toFloat(), size, modifier) { failed = true }
-    else DrawnCharacter(avatar, mood, size, modifier, reading)
+    val accessories = LocalAccessories.current
+    if (rig != null && !failed) RiveCharacter(rig, avatar, if (reading) RiveRig.READING else mood.ordinal.toFloat(), accessories, size, modifier) { failed = true }
+    else DrawnCharacter(avatar, mood, size, modifier, reading, accessories)
 }
 
 @Composable
-private fun RiveCharacter(rig: ByteArray, avatar: Avatar, mood: Float, size: Dp, modifier: Modifier, onFailed: () -> Unit) {
+private fun RiveCharacter(rig: ByteArray, avatar: Avatar, mood: Float, accessories: Set<Accessory>, size: Dp, modifier: Modifier, onFailed: () -> Unit) {
     val view = remember { arrayOfNulls<RiveAnimationView>(1) }
     AndroidView(
         factory = { context ->
@@ -149,6 +157,7 @@ private fun RiveCharacter(rig: ByteArray, avatar: Avatar, mood: Float, size: Dp,
             val rive = v as? RiveAnimationView ?: return@AndroidView
             runCatching { rive.setNumberState(RiveRig.STATE_MACHINE, RiveRig.INPUT_MOOD, mood) }
             runCatching { rive.setBooleanState(RiveRig.STATE_MACHINE, RiveRig.INPUT_MIA, avatar == Avatar.MIA) }
+            for (a in Accessory.entries) runCatching { rive.setBooleanState(RiveRig.STATE_MACHINE, RiveRig.inputOf(a), a in accessories) }
         },
         modifier = modifier.size(size).clickable(remember { MutableInteractionSource() }, indication = null) {
             runCatching { view[0]?.fireState(RiveRig.STATE_MACHINE, RiveRig.INPUT_TAP) }
@@ -158,7 +167,7 @@ private fun RiveCharacter(rig: ByteArray, avatar: Avatar, mood: Float, size: Dp,
 
 /** Fallback until the Rive rig exists: the drawn character breathes, blinks and glances around. */
 @Composable
-private fun DrawnCharacter(avatar: Avatar, mood: Mood, size: Dp, modifier: Modifier, reading: Boolean) {
+private fun DrawnCharacter(avatar: Avatar, mood: Mood, size: Dp, modifier: Modifier, reading: Boolean, accessories: Set<Accessory>) {
     val t = rememberInfiniteTransition(label = "character")
     val breathe by t.animateFloat(
         -1f, 1f, infiniteRepeatable(tween(if (mood == Mood.TIRED) 3600 else 2400, easing = FastOutSlowInEasing), RepeatMode.Reverse),
@@ -187,6 +196,7 @@ private fun DrawnCharacter(avatar: Avatar, mood: Mood, size: Dp, modifier: Modif
             CharacterPainter.draw(
                 it.nativeCanvas, avatar, mood, this.size.minDimension,
                 CharacterPainter.Pose(blink = blink.value, breathe = breathe, look = glance, book = reading),
+                accessories,
             )
         }
     }

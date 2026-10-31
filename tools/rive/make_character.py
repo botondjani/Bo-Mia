@@ -3,7 +3,8 @@ Generates app/src/main/assets/tend_character.riv: Bo and Mia on one rig.
 
 Contract (see docs/rive-rig.md and ui/Character.kt):
   artboard "Character" 500x500, state machine "Mood" with inputs
-    mood (number: 0 happy, 1 tired, 2 scrolling, 3 outside, 4 reading), mia (bool), tap (trigger).
+    mood (number: 0 happy, 1 tired, 2 scrolling, 3 outside, 4 reading), mia (bool), tap (trigger),
+    headband, glasses, hat, flower (bool: accessories earned by a week of habits).
 Layers: mood pose, skin (Bo/Mia), breathing, blinking, glancing, tap hop.
 
 Geometry follows the drawn fallback (ui/CharacterPainter.kt): a 100-unit box scaled x5,
@@ -101,8 +102,25 @@ def build():
     bo = r.node('bo', body)
     mia_front = r.node('mia_front', body)
     mia_back = r.node('mia_back', body)
+    acc = {name: r.node(f'acc_{name}', body) for name in ('hat', 'flower', 'glasses', 'headband')}
 
     # --- Drawables, front to back ---------------------------------------------------------
+    # Accessories sit on top of everything on the head.
+    r.rect('hat_band', acc['hat'], 50, 18, 28, 4, 0, CORAL)
+    r.ellipse('hat_brim', acc['hat'], 50, 22.5, 60, 9, SUNNY)
+    r.rect('hat_crown', acc['hat'], 50, 15, 28, 14, 6, SUNNY)
+    r.ellipse('flower_middle', acc['flower'], 71, 31, 4.4, 4.4, SUNNY)
+    for k in range(5):
+        ang = math.radians(k * 72 - 90)
+        r.ellipse(f'petal_{k}', acc['flower'], 71 + 3.2 * math.cos(ang), 31 + 3.2 * math.sin(ang), 5.2, 5.2, WHITE)
+    for ex in (39, 61):
+        x, y = T(ex, 46)
+        ring = r.add(SHAPE, name=f'lens_{ex}', parentId=acc['glasses'], x=x, y=y)
+        r.add(ELLIPSE, parentId=ring, pWidth=19 * S, pHeight=19 * S)
+        r.paint(ring, stroke=INK, width=1.8)
+    r.path('bridge', acc['glasses'], [(48.5, 45, None, None), (51.5, 45, None, None)], False, stroke=INK, width=1.8)
+    r.path('headband', acc['headband'], [(25, 37, None, (41.67, 29)), (75, 37, (58.33, 29), None)], False, stroke=CORAL, width=4.5)
+
     sun, _ = r.ellipse('sun', ground, 84, 14, 12, 12, SUNNY)
     zz, _ = r.path('zz', hop, [(77, 15, None, None), (82, 15, None, None), (77, 21, None, None), (82, 21, None, None)], False, stroke=INK, width=1.8)
     zz2, _ = r.path('zz_small', zz, [(85, 8, None, None), (88.5, 8, None, None), (85, 12, None, None), (88.5, 12, None, None)], False, stroke=INK, width=1.5)
@@ -233,6 +251,11 @@ def build():
     a_glance = animation('glance', 540, LOOP_LOOP, {pupils: {K_X: [
         (0, 0.0, INTERP_HOLD), (180, 0.0, INTERP_CUBIC), (198, -2 * S, INTERP_HOLD), (288, -2 * S, INTERP_CUBIC),
         (306, 0.0, INTERP_HOLD), (396, 0.0, INTERP_CUBIC), (414, 2 * S, INTERP_HOLD), (486, 2 * S, INTERP_CUBIC), (504, 0.0, INTERP_HOLD)]}})
+    acc_anims = {
+        name: (animation(f'{name}_off', 1, LOOP_ONESHOT, {node: {K_OPACITY: [(0, 0.0, INTERP_HOLD)]}}),
+               animation(f'{name}_on', 1, LOOP_ONESHOT, {node: {K_OPACITY: [(0, 1.0, INTERP_HOLD)]}}))
+        for name, node in acc.items()
+    }
     a_rest = animation('rest', 1, LOOP_ONESHOT, {hop: {K_Y: [(0, feet[1], INTERP_HOLD)]}})
     a_hop = animation('hop', 40, LOOP_ONESHOT, {hop: {K_Y: [
         (0, feet[1], INTERP_CUBIC), (12, feet[1] - 60, INTERP_CUBIC), (24, feet[1], INTERP_CUBIC), (31, feet[1] - 14, INTERP_CUBIC), (40, feet[1], INTERP_HOLD)]}})
@@ -242,6 +265,10 @@ def build():
     w.obj(SM_NUMBER, smName='mood', numberValue=0.0)   # input 0
     w.obj(SM_BOOL, smName='mia')                         # input 1
     w.obj(SM_TRIGGER, smName='tap')                      # input 2
+    acc_inputs = {}
+    for i, name in enumerate(('headband', 'glasses', 'hat', 'flower')):
+        w.obj(SM_BOOL, smName=name)                      # inputs 3..6
+        acc_inputs[name] = 3 + i
     MOOD, MIA, TAP = 0, 1, 2
 
     def layer(name, states, entry_to, any_transitions=(), state_transitions=None):
@@ -272,6 +299,11 @@ def build():
     layer('breathe', [a_breathe], 3)
     layer('blink', [a_blink], 3)
     layer('glance', [a_glance], 3)
+    for name, (off, on) in acc_anims.items():
+        layer(name, [off, on], 3, [
+            (3, [(COND_BOOL, dict(inputId=acc_inputs[name], op=OP_NOT_EQUAL))], 200),
+            (4, [(COND_BOOL, dict(inputId=acc_inputs[name], op=OP_EQUAL))], 200),
+        ])
     layer('tap', [a_rest, a_hop], 3,
           [(4, [(COND_TRIGGER, dict(inputId=TAP))], 0)],
           {4: [(3, dict(flags=FLAG_ENABLE_EXIT_TIME | FLAG_EXIT_TIME_IS_PERCENTAGE, exitTime=100))]})
