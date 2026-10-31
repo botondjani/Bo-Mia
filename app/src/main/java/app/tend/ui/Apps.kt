@@ -53,5 +53,12 @@ class AppCatalog(private val context: Context) {
             "com.tinder", "com.bumble.app",
             "com.ninegag.android.app",
         )
+
+        /** Pre-selected on first start: social media only (where installed). Video, dating and the rest are one tap away. */
+        val SOCIAL = setOf(
+            "com.instagram.android", "com.zhiliaoapp.musically", "com.ss.android.ugc.trill", "com.facebook.katana",
+            "com.twitter.android", "com.instagram.barcelona", "com.snapchat.android", "com.reddit.frontpage",
+            "com.pinterest", "com.bereal.ft", "com.tumblr",
+        )
     }
 }

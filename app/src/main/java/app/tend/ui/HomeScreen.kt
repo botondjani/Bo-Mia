@@ -39,6 +39,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
@@ -177,51 +179,85 @@ fun HomeScreen(
         // The open activities share the space that's left and scroll on their own; the page never does.
         // Cards fade and shrink a little as they slide in or out at the edges.
         val list = androidx.compose.foundation.lazy.rememberLazyListState()
-        // About three cards tall (less if the screen is short); the rest scroll in.
-        EdgeToEdge(Modifier.weight(1f, fill = false).heightIn(max = 300.dp)) {
-            androidx.compose.foundation.lazy.LazyColumn(
-                Modifier.fillMaxWidth(),
-                state = list,
-                flingBehavior = androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior(list),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(Space.m),
-            ) {
-                itemsIndexed(active, key = { _, t -> t.id }) { i, task ->
-                    Box(
-                        Modifier.animateItem()
-                            .then(if (i == 0) Modifier.tourTarget(tour, "activity") else Modifier)
-                            .graphicsLayer {
-                                val info = list.layoutInfo
-                                val item = info.visibleItemsInfo.firstOrNull { it.key == task.id } ?: return@graphicsLayer
-                                val size = item.size.coerceAtLeast(1).toFloat()
-                                val inBottom = ((info.viewportEndOffset - item.offset) / size).coerceIn(0f, 1f)
-                                val inTop = ((item.offset + item.size - info.viewportStartOffset) / size).coerceIn(0f, 1f)
-                                val shown = minOf(inBottom, inTop)
-                                alpha = 0.2f + 0.8f * shown * shown
-                                scaleX = 0.92f + 0.08f * shown
-                                scaleY = scaleX
-                            },
-                    ) {
-                        TaskRow(task, day, health, focusSecondsLeft?.takeIf { task.id == focusTaskId }, onStartFocus, onCheckOff, onUndo, exerciseTracked, sleepEstimated)
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            val reserve = when {
+                done.isNotEmpty() -> 44.dp + 46.dp * minOf(done.size, 3)
+                active.isNotEmpty() -> 104.dp
+                else -> 0.dp
+            }
+            // The open ones fill the space down to "Done today": about three cards on a typical phone.
+            val listMax = (maxHeight - reserve).coerceAtLeast(80.dp)
+            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Space.m)) {
+                EdgeToEdge(Modifier.heightIn(max = listMax)) {
+                androidx.compose.foundation.lazy.LazyColumn(
+                    Modifier.fillMaxWidth(),
+                    state = list,
+                    flingBehavior = androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior(list),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(Space.m),
+                ) {
+                    itemsIndexed(active, key = { _, t -> t.id }) { i, task ->
+                        Box(
+                            Modifier.animateItem()
+                                .then(if (i == 0) Modifier.tourTarget(tour, "activity") else Modifier)
+                                .graphicsLayer {
+                                    val info = list.layoutInfo
+                                    val item = info.visibleItemsInfo.firstOrNull { it.key == task.id } ?: return@graphicsLayer
+                                    val size = item.size.coerceAtLeast(1).toFloat()
+                                    val inBottom = ((info.viewportEndOffset - item.offset) / size).coerceIn(0f, 1f)
+                                    val inTop = ((item.offset + item.size - info.viewportStartOffset) / size).coerceIn(0f, 1f)
+                                    val shown = minOf(inBottom, inTop)
+                                    alpha = 0.2f + 0.8f * shown * shown
+                                    scaleX = 0.92f + 0.08f * shown
+                                    scaleY = scaleX
+                                },
+                        ) {
+                            TaskRow(task, day, health, focusSecondsLeft?.takeIf { task.id == focusTaskId }, onStartFocus, onCheckOff, onUndo, exerciseTracked, sleepEstimated)
+                        }
                     }
-                }
-                if (active.isEmpty() && done.isNotEmpty()) item {
-                    Row(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        TendIcons.Badge("sparkle", 40.dp)
-                        Spacer(Modifier.width(12.dp))
-                        Text("Everything done today. ${avatar.displayName} is proud of you.", style = MaterialTheme.typography.titleMedium)
+                    if (active.isEmpty() && done.isNotEmpty()) item {
+                        Row(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            TendIcons.Badge("sparkle", 40.dp)
+                            Spacer(Modifier.width(12.dp))
+                            Text("Everything done today. ${avatar.displayName} is proud of you.", style = MaterialTheme.typography.titleMedium)
+                        }
                     }
                 }
             }
-        }
-        if (done.isNotEmpty()) {
-            SectionHeader("Done today", "+${done.sumOf { day.grants[it.id] ?: 0 }} min")
-            // Thin rows; more than three scroll inside their own small box.
-            EdgeToEdge(Modifier.heightIn(max = 160.dp).padding(bottom = Space.s)) {
-                Column(
-                    Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 2.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) { done.forEach { DoneRow(it, day, onUndo) } }
+            // "Done today" sits at the bottom of the screen; the open ones get the space above it.
+            Spacer(Modifier.weight(1f))
+            if (done.isEmpty() && active.isNotEmpty()) {
+                // Before the first one: an empty, dashed spot that says where finished things go.
+                SectionHeader("Done today", "0 min")
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = Space.s).drawBehind {
+                        drawRoundRect(
+                            Brand.Muted.copy(alpha = 0.45f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(16.dp.toPx()),
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(
+                                1.5.dp.toPx(), pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 8f)),
+                            ),
+                        )
+                    }.padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(24.dp).clip(CircleShape).border(1.5.dp, Brand.Muted.copy(alpha = 0.5f), CircleShape))
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        "Nothing yet. Your first one lands here.",
+                        style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            if (done.isNotEmpty()) {
+                SectionHeader("Done today", "+${done.sumOf { day.grants[it.id] ?: 0 }} min")
+                // Thin rows; more than three scroll inside their own small box.
+                EdgeToEdge(Modifier.heightIn(max = 160.dp).padding(bottom = Space.s)) {
+                    Column(
+                        Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 2.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) { done.forEach { DoneRow(it, day, onUndo) } }
+                }
+            }
             }
         }
     }

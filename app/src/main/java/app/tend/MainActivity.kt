@@ -110,7 +110,7 @@ class MainActivity : ComponentActivity() {
         val catalog = AppCatalog(this)
         catalog.preload { c ->
             if (!store.onboarded && store.blockedPackages.isEmpty()) {
-                store.blockedPackages = c.suggested.map { it.pkg }.toSet()
+                store.blockedPackages = c.suggested.map { it.pkg }.filter { it in AppCatalog.SOCIAL }.toSet()
                 runOnUiThread { refresh++ } // the app picker must show the pre-selection, not a stale empty set
             }
         }
@@ -436,18 +436,20 @@ class MainActivity : ComponentActivity() {
         tripped = true
         launched = Launched.TRIP
         // Back as soon as Android has said no (or yes, on phones without the lock), where Android lets us.
-        returnWhenGranted { restrictedMode() == AppOpsManager.MODE_IGNORED || permissions().let { it.overlay || it.usageAccess } }
+        returnWhenGranted("Done! Press back to return to tend") {
+            restrictedMode() == AppOpsManager.MODE_IGNORED || permissions().let { it.overlay || it.usageAccess }
+        }
         hint("Tap tend's switch. Android will say it's restricted: tap OK")
-        // Usage access opens right on tend's own switch; the overlay page is a list on Android 11+.
+        // tend's own usage-access switch where the phone supports it, else the list scrolled to tend.
         open(
-            Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:$packageName")),
-            highlightTend(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)),
+            highlightTend(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:$packageName"))),
+            highlightTend(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)),
         )
     }
 
     private fun openUnlock() {
         launched = Launched.APP_INFO
-        returnWhenGranted { restrictedMode() == AppOpsManager.MODE_ALLOWED }
+        returnWhenGranted("Unlocked! Press back to return to tend") { restrictedMode() == AppOpsManager.MODE_ALLOWED }
         hint("Tap ⋮ in the top right, then \"Allow restricted settings\"")
         open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
     }
@@ -484,15 +486,20 @@ class MainActivity : ComponentActivity() {
      * While the user is on a system settings page, watch for the switch and bring tend back
      * as soon as it flips, so they don't have to find their way back.
      */
-    private fun returnWhenGranted(granted: () -> Boolean) {
+    private fun returnWhenGranted(doneHint: String? = null, granted: () -> Boolean) {
         val deadline = SystemClock.uptimeMillis() + 120_000
         handler.removeCallbacksAndMessages(null)
         handler.post(object : Runnable {
             override fun run() = when {
-                granted() -> startActivity(
-                    Intent(this@MainActivity, MainActivity::class.java)
-                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
-                )
+                granted() -> {
+                    // Before the overlay is on, Android may not let tend come forward by itself:
+                    // then a short note on top of Settings says the step is done and how to get back.
+                    doneHint?.let { hint(it) }
+                    startActivity(
+                        Intent(this@MainActivity, MainActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                    )
+                }
                 SystemClock.uptimeMillis() < deadline -> { handler.postDelayed(this, 500); Unit }
                 else -> Unit
             }
@@ -546,6 +553,6 @@ class MainActivity : ComponentActivity() {
     }
 
     private companion object {
-        const val NEXT_STEPS_AFTER_MS = 10 * 60_000L
+        const val NEXT_STEPS_AFTER_MS = 45_000L
     }
 }
