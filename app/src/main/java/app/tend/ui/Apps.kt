@@ -10,17 +10,22 @@ data class InstalledApp(val pkg: String, val label: String)
 
 /** Launchable apps, split into well-known time sinks (suggested) and everything else. */
 class AppCatalog(private val context: Context) {
-    val all: List<InstalledApp> = context.packageManager
+    /** Loaded once, off the main thread when [preload] runs first (it takes a while with many apps). */
+    val all: List<InstalledApp> by lazy {
+        context.packageManager
         .queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
         .map { InstalledApp(it.activityInfo.packageName, it.loadLabel(context.packageManager).toString()) }
         .filter { it.pkg != context.packageName }
         .distinctBy { it.pkg }
         .sortedBy { it.label.lowercase() }
+    }
 
-    val suggested: List<InstalledApp> = all.filter { it.pkg in SUGGESTED }
-        .sortedBy { SUGGESTED.indexOf(it.pkg) }
+    val suggested: List<InstalledApp> by lazy { all.filter { it.pkg in SUGGESTED }.sortedBy { SUGGESTED.indexOf(it.pkg) } }
 
-    val others: List<InstalledApp> = all - suggested.toSet()
+    val others: List<InstalledApp> by lazy { all - suggested.toSet() }
+
+    /** Reads the app list in the background so the first screens don't wait for it. */
+    fun preload(then: (AppCatalog) -> Unit = {}) = Thread({ others; then(this) }, "tend-apps").start()
 
     fun label(pkg: String): String = all.firstOrNull { it.pkg == pkg }?.label ?: pkg
 

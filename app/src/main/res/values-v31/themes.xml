@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+ splash: Bo on sage, the same colours as the first screen, so the start feels like one motion. -->
+    <style name="Theme.Tend" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/sage</item>
+        <item name="android:windowSplashScreenBackground">@color/sage</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/sage</item>
+    </style>
+</resources>

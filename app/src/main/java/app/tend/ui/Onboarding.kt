@@ -82,15 +82,17 @@ class PermissionActions(
     val requestUsage: () -> Unit,
     val requestOverlay: () -> Unit,
     val openAppInfo: () -> Unit,
-    /** Opens App info as the unlock step; coming back counts as done. */
+    /** Android 13+ "restricted settings" for side-loaded installs. */
+    val lock: PermissionLock = PermissionLock.NONE,
+    /** Lets Android refuse a switch once, which makes "Allow restricted settings" appear. */
+    val startUnlock: () -> Unit = {},
+    /** Opens App info for "Allow restricted settings". */
     val unlockAppInfo: () -> Unit = openAppInfo,
-    /** Side-loaded on Android 13+: Android locks both switches until "Allow restricted settings". */
-    val restricted: Boolean = false,
-    /** The user already let Android say no once, so the unlock option now exists in App info. */
-    val unlockTried: Boolean = false,
-    val tryUnlock: () -> Unit = {},
     val skipUnlock: () -> Unit = {},
 )
+
+/** Where Android's restricted-settings lock stands: none, locked, or refused once (the unlock option now shows). */
+enum class PermissionLock { NONE, LOCKED, TRIPPED }
 
 private enum class Step { INTRO, COMPANION, APPS, ACTIVITIES, BUDGET, PERMISSIONS, DONE }
 
@@ -367,11 +369,10 @@ private fun Choices(options: List<Int>, value: Int, onPick: (Int) -> Unit) =
 @Composable
 fun PermissionSteps(perms: PermissionActions) {
     val p = perms.permissions
-    // Once either switch works, the lock is evidently gone.
-    val unlock = perms.restricted && !p.overlay && !p.usageAccess
+    val unlock = perms.lock != PermissionLock.NONE
     if (unlock) UnlockCard(perms)
     val n = if (unlock) 1 else 0
-    // Overlay first: once it's granted, tend may bring itself back to the front after the second switch.
+    // Overlay first: once it's granted, tend can bring itself back to the front after each switch.
     PermissionCard(
         number = n + 1, title = "Display over other apps", why = "So the little pause can appear when you open a picked app.",
         granted = p.overlay, active = !unlock && !p.overlay, blocked = perms.overlayBlocked,
@@ -382,34 +383,55 @@ fun PermissionSteps(perms: PermissionActions) {
         granted = p.usageAccess, active = !unlock && p.overlay && !p.usageAccess, blocked = perms.usageBlocked,
         onAllow = perms.requestUsage, onAppInfo = perms.openAppInfo,
     )
+    if (!p.allGranted) Text(
+        "After each switch tend opens the next one by itself. Just come back when Android asks.",
+        style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
+    )
 }
 
-/** Step 1 for side-loaded installs: lift Android's "restricted settings" lock before asking for anything. */
+/**
+ * Step 1 for side-loaded installs on Android 13+. The unlock option in App info only exists after
+ * Android has refused a switch once, so it's two short moves, each one button.
+ */
 @Composable
 private fun UnlockCard(perms: PermissionActions) = Column(
     Modifier.fillMaxWidth().surface(radius = 22.dp)
-        .border(1.5.dp, Brand.Moss, RoundedCornerShape(22.dp)).padding(16.dp),
-    verticalArrangement = Arrangement.spacedBy(8.dp),
+        .border(2.dp, Brand.Moss, RoundedCornerShape(22.dp)).padding(16.dp),
+    verticalArrangement = Arrangement.spacedBy(10.dp),
 ) {
+    val tripped = perms.lock == PermissionLock.TRIPPED
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(32.dp).clip(CircleShape).background(Brand.Sage), contentAlignment = Alignment.Center) {
             Text("1", color = Brand.Moss, style = MaterialTheme.typography.titleMedium)
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text("Unlock tend's settings", style = MaterialTheme.typography.titleMedium)
-            Text("One time only. Android locks these switches for apps installed outside the Play Store.", style = MaterialTheme.typography.bodyMedium)
+            Text("Unlock tend's switches", style = MaterialTheme.typography.titleMedium)
+            Text("Once. Android locks them for apps from outside the Play Store.", style = MaterialTheme.typography.bodyMedium)
         }
     }
-    Text("In App info: tap ⋮ in the top right corner → Allow restricted settings → confirm. Then come back.", style = MaterialTheme.typography.bodyLarge)
-    PrimaryButton("Open app info", perms.unlockAppInfo)
-    if (!perms.unlockTried) {
-        // Some phones only add the menu item after Android has refused a switch once.
-        LinkText("No \"Allow restricted settings\" in the menu? Tap here first, then open App info again.", perms.tryUnlock)
-    } else {
-        Text("Android said no? Good, the menu item should be there now.", style = MaterialTheme.typography.bodyMedium)
-    }
+    UnlockMove(1, "Tap the switch, Android says it's restricted, tap OK", done = tripped, active = !tripped)
+    UnlockMove(2, "Tap ⋮ top right → Allow restricted settings", done = false, active = tripped)
+    if (tripped) PrimaryButton("Open App info", perms.unlockAppInfo)
+    else PrimaryButton("Start", perms.startUnlock)
     LinkText("Already unlocked? Skip", perms.skipUnlock)
+}
+
+@Composable
+private fun UnlockMove(n: Int, text: String, done: Boolean, active: Boolean) = Row(
+    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if (active) Brand.Mint.copy(alpha = 0.18f) else Color.Transparent)
+        .padding(horizontal = 10.dp, vertical = 8.dp),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    Box(
+        Modifier.size(24.dp).clip(CircleShape).background(if (done) Brand.Moss else Brand.Sage),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (done) androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(14.dp))
+        else Text("$n", color = Brand.Moss, style = MaterialTheme.typography.labelLarge)
+    }
+    Spacer(Modifier.width(10.dp))
+    Text(text, style = MaterialTheme.typography.bodyLarge, color = if (done) Brand.Muted else Brand.Ink)
 }
 
 @Composable

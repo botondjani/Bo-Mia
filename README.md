@@ -39,7 +39,7 @@ Logs are written to the app's private storage: `answers.csv` (looking-for and wo
 
 ## Build
 
-Requires JDK 17+ and the Android SDK (platform 36). The APK contains ARM native code only (Rive), so it runs on phones but not on x86 emulators.
+Requires JDK 17+ and the Android SDK (platform 36). Start-up: Android 12+ shows Bo on sage as the splash, the installed-app list loads on a background thread, and the intro's feed animation draws without recomposing. The APK contains ARM native code only (Rive), so it runs on phones but not on x86 emulators.
 
 ```bash
 ./gradlew testDebugUnitTest   # domain logic tests
@@ -50,9 +50,9 @@ Requires JDK 17+ and the Android SDK (platform 36). The APK contains ARM native 
 
 Install the APK and follow the onboarding: Bo's four intro slides, companion, apps (common time sinks are pre-selected), budget, then two switches.
 
-- **Display over other apps** comes first. Once it's on, Android lets tend bring itself back to the front, so after the second switch the user returns to the app automatically.
+- **Display over other apps** comes first. Once it's on, Android lets tend bring itself back to the front after each switch.
 - **Usage access** comes second.
-- **Unlock first**: Android 13+ locks these switches for side-loaded apps ("restricted settings"). For any install not from an app store, onboarding starts with: App info → ⋮ → *Allow restricted settings*; coming back from App info counts as done. If the menu item is missing, a link lets Android refuse a switch once, after which it appears. Settings pages are opened scrolled to tend where the phone supports it, with a short on-screen hint. For testers using adb: `adb shell appops set app.tend ACCESS_RESTRICTED_SETTINGS allow`.
+- **Unlock first**: Android 13+ locks these switches for side-loaded apps ("restricted settings"), and the unlock option in App info only appears after Android has refused once. tend reads the lock state from the system (`android:access_restricted_settings` app op; falls back to the install source) and walks through it: *Start* opens tend's overlay switch (tap, Android refuses, OK), coming back opens App info by itself (⋮ → *Allow restricted settings*), coming back from there opens the overlay switch, and once that is on, usage access opens by itself. Phones without the lock skip straight to the switches. For testers using adb: `adb shell appops set app.tend ACCESS_RESTRICTED_SETTINGS allow`.
 - **Health Connect** is connected from the home screen ("Connect Health Connect"). On Android 13 and below the button opens the Play Store to install it first.
 - The reading timer keeps running when you leave tend. Opening a paused app from the pause screen ends it.
 - **Limited mode**: "Continue without" skips the switches after explaining what stops working. Without usage access tend can't measure screen time (activities, timer and garden still work). Without the overlay there's no pause pop-up; minutes are still counted and a notification nudges instead (notification permission is asked for that). The home screen shows what's missing.

@@ -57,6 +57,7 @@ import app.tend.ui.FocusTimerScreen
 import app.tend.ui.HomeScreen
 import app.tend.ui.Onboarding
 import app.tend.ui.PermissionActions
+import app.tend.ui.PermissionLock
 import app.tend.ui.Permissions
 import app.tend.ui.PermissionsScreen
 import app.tend.ui.SettingsScreen
@@ -77,8 +78,12 @@ class MainActivity : ComponentActivity() {
     /** The user went to a settings page and came back without the permission. */
     private var usageAttempted = false
     private var overlayAttempted = false
-    private var unlockTried = false
-    private var unlockVisited = false
+    /** What the permission flow last opened, so coming back can take the next step by itself. */
+    private var launched = Launched.NONE
+    /** Android has refused a switch once (fallback when the lock state can't be read). */
+    private var tripped = false
+
+    private enum class Launched { NONE, TRIP, APP_INFO, OVERLAY, USAGE }
 
     private enum class Screen { HOME, SETTINGS, PERMISSIONS, GARDEN, RECAP }
 
@@ -103,8 +108,8 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
         )
         val catalog = AppCatalog(this)
-        if (!store.onboarded && store.blockedPackages.isEmpty()) {
-            store.blockedPackages = catalog.suggested.map { it.pkg }.toSet()
+        catalog.preload { c ->
+            if (!store.onboarded && store.blockedPackages.isEmpty()) store.blockedPackages = c.suggested.map { it.pkg }.toSet()
         }
         RecapReminder.schedule(this)
         app.tend.reminder.WeeklyLetter.schedule(this)
@@ -175,8 +180,9 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         handler.removeCallbacksAndMessages(null)
-        // Back from App info after the unlock step: treat it as done and move on to the switches.
-        if (unlockVisited) { unlockVisited = false; store.restrictedUnlocked = true }
+        // Back from App info: when the lock can't be read, trust the visit and move on.
+        if (launched == Launched.APP_INFO && restrictedMode() == null) store.restrictedUnlocked = true
+        continueSetup()
         refresh++
         // Usage access is enough to count minutes; without the overlay the monitor nudges by notification.
         if (store.onboarded && permissions().usageAccess) MonitorService.start(this)
@@ -377,37 +383,94 @@ class MainActivity : ComponentActivity() {
             permissions = p,
             usageBlocked = usageAttempted && !p.usageAccess,
             overlayBlocked = overlayAttempted && !p.overlay,
-            requestUsage = {
-                usageAttempted = true
-                returnWhenGranted { permissions().usageAccess }
-                hint("Switch on usage access for tend")
-                // Straight to tend's own switch where the phone supports it, else the list scrolled to tend.
-                open(highlightTend(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:$packageName"))), highlightTend(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)))
-            },
-            requestOverlay = {
-                overlayAttempted = true
-                returnWhenGranted { Settings.canDrawOverlays(this) }
-                hint("Find tend and switch on \"Allow display over other apps\"")
-                open(highlightTend(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))), highlightTend(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)))
-            },
-            openAppInfo = {
-                hint("Tap ⋮ in the top right, then \"Allow restricted settings\"")
-                open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
-            },
-            unlockAppInfo = {
-                unlockVisited = true
-                hint("Tap ⋮ in the top right, then \"Allow restricted settings\"")
-                open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
-            },
-            restricted = !store.restrictedUnlocked && installedOutsideStore(),
-            unlockTried = unlockTried,
-            tryUnlock = {
-                unlockTried = true
-                // Android only offers "Allow restricted settings" after it has refused a switch once.
-                open(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:$packageName")), Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-            },
+            requestUsage = ::requestUsage,
+            requestOverlay = ::requestOverlay,
+            openAppInfo = ::openUnlock,
+            lock = lock(),
+            startUnlock = ::tripLock,
+            unlockAppInfo = ::openUnlock,
             skipUnlock = { store.restrictedUnlocked = true; refresh++ },
         )
+    }
+
+    private fun requestUsage() {
+        usageAttempted = true
+        launched = Launched.USAGE
+        returnWhenGranted { permissions().usageAccess }
+        hint("Switch on usage access for tend")
+        // Straight to tend's own switch where the phone supports it, else the list scrolled to tend.
+        open(highlightTend(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:$packageName"))), highlightTend(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)))
+    }
+
+    private fun requestOverlay() {
+        overlayAttempted = true
+        launched = Launched.OVERLAY
+        returnWhenGranted { Settings.canDrawOverlays(this) }
+        hint("Switch on \"Allow display over other apps\"")
+        open(highlightTend(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))), highlightTend(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)))
+    }
+
+    /**
+     * Android only offers "Allow restricted settings" after it has refused a switch once, so the
+     * unlock starts by letting it refuse: tend's own overlay switch, one tap, "OK".
+     */
+    private fun tripLock() {
+        tripped = true
+        launched = Launched.TRIP
+        returnWhenGranted { Settings.canDrawOverlays(this) } // phones without the lock just say yes
+        hint("Tap the switch. Android will say it's restricted: tap OK, then come back")
+        open(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+    }
+
+    private fun openUnlock() {
+        launched = Launched.APP_INFO
+        hint("Tap ⋮ in the top right, then \"Allow restricted settings\"")
+        open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+    }
+
+    /** Back in tend after a system screen: open the next one by itself, so setup is a chain of switches. */
+    private fun continueSetup() {
+        val from = launched
+        launched = Launched.NONE
+        val p = permissions()
+        val lock = lock()
+        val next: (() -> Unit)? = when {
+            from == Launched.NONE || from == Launched.USAGE -> null
+            p.overlay && !p.usageAccess -> ::requestUsage
+            from == Launched.TRIP && lock == PermissionLock.TRIPPED -> ::openUnlock
+            from == Launched.APP_INFO && lock == PermissionLock.NONE && !p.overlay -> ::requestOverlay
+            else -> null
+        }
+        // A short beat so the tick on the card is seen before the next screen opens.
+        if (next != null) handler.postDelayed({ next() }, 650)
+    }
+
+    /**
+     * Android 13+ "restricted settings": side-loaded apps can't get these switches until the user
+     * allows it in App info, and that option only appears after Android has refused once. Read from
+     * the app op itself where the phone allows it, so setup knows exactly which step is next.
+     */
+    private fun lock(): PermissionLock {
+        val p = permissions()
+        if (p.overlay || p.usageAccess) return PermissionLock.NONE // a switch worked, so nothing is locked
+        return when (restrictedMode()) {
+            AppOpsManager.MODE_ERRORED -> PermissionLock.LOCKED
+            AppOpsManager.MODE_IGNORED -> PermissionLock.TRIPPED
+            null -> when {
+                store.restrictedUnlocked || !installedOutsideStore() -> PermissionLock.NONE
+                tripped -> PermissionLock.TRIPPED
+                else -> PermissionLock.LOCKED
+            }
+            else -> PermissionLock.NONE
+        }
+    }
+
+    /** The restricted-settings op for tend, or null when this phone doesn't have it or won't say. */
+    private fun restrictedMode(): Int? {
+        if (Build.VERSION.SDK_INT < 33) return AppOpsManager.MODE_ALLOWED
+        return runCatching {
+            getSystemService(AppOpsManager::class.java).unsafeCheckOpRawNoThrow("android:access_restricted_settings", Process.myUid(), packageName)
+        }.getOrNull()
     }
 
     /**

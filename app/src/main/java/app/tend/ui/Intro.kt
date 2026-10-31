@@ -1,6 +1,7 @@
 package app.tend.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -132,26 +133,38 @@ private fun ticker(active: Boolean, stepMs: Long, steps: Int): Int {
     return t
 }
 
-/** A phone with an endless feed and a clock that keeps going up. */
+/**
+ * A phone with an endless feed and a clock that keeps going up. The feed moves on every frame in the
+ * draw phase only (no recomposition), so it stays smooth while the rest of the screen settles.
+ */
 @Composable
 private fun ScrollDemo(active: Boolean) {
-    val t = ticker(active, 60, 100_000)
+    val feed = androidx.compose.animation.core.rememberInfiniteTransition(label = "feed")
+    val cards by feed.animateFloat(
+        0f, 40f,
+        androidx.compose.animation.core.infiniteRepeatable(tween(40 * 1100, easing = androidx.compose.animation.core.LinearEasing)),
+        label = "cards",
+    )
+    val tints = remember { listOf(Brand.Sky, Brand.Coral, Brand.Sunny, Brand.Mint).map { it.copy(alpha = 0.55f) } }
+    val line = remember { Brand.Muted.copy(alpha = 0.25f) }
+    val t = ticker(active, 1000, 100_000)
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.size(170.dp, 300.dp).clip(RoundedCornerShape(30.dp)).background(Brand.Ink).padding(8.dp)) {
             Canvas(Modifier.fillMaxSize().clip(RoundedCornerShape(24.dp)).background(Color(0xFFF7F8F5))) {
                 val card = 92.dp.toPx()
-                val shift = (t * 3.dp.toPx()) % card
-                var y = -shift
-                var i = (t * 3.dp.toPx() / card).toInt()
+                val pos = if (active) cards else 0f
+                var i = pos.toInt()
+                var y = -(pos - i) * card
+                val inset = 10.dp.toPx()
+                val radius = androidx.compose.ui.geometry.CornerRadius(12.dp.toPx())
                 while (y < size.height) {
-                    val tint = listOf(Brand.Sky, Brand.Coral, Brand.Sunny, Brand.Mint)[i % 4]
-                    drawRoundRect(tint.copy(alpha = 0.55f), Offset(10.dp.toPx(), y + 8.dp.toPx()), androidx.compose.ui.geometry.Size(size.width - 20.dp.toPx(), 52.dp.toPx()), androidx.compose.ui.geometry.CornerRadius(12.dp.toPx()))
-                    drawRoundRect(Brand.Muted.copy(alpha = 0.25f), Offset(10.dp.toPx(), y + 66.dp.toPx()), androidx.compose.ui.geometry.Size((size.width - 20.dp.toPx()) * (0.5f + 0.1f * (i % 4)), 8.dp.toPx()), androidx.compose.ui.geometry.CornerRadius(4.dp.toPx()))
+                    drawRoundRect(tints[i % 4], Offset(inset, y + 8.dp.toPx()), androidx.compose.ui.geometry.Size(size.width - 2 * inset, 52.dp.toPx()), radius)
+                    drawRoundRect(line, Offset(inset, y + 66.dp.toPx()), androidx.compose.ui.geometry.Size((size.width - 2 * inset) * (0.5f + 0.1f * (i % 4)), 8.dp.toPx()), androidx.compose.ui.geometry.CornerRadius(4.dp.toPx()))
                     y += card; i++
                 }
             }
         }
-        val minutes = 160 + t / 10
+        val minutes = 160 + t
         Text("${minutes / 60}h ${"%02d".format(minutes % 60)}m today", style = MaterialTheme.typography.titleMedium, color = Brand.Coral, modifier = Modifier.padding(top = 12.dp))
     }
 }
