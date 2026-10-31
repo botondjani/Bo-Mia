@@ -113,6 +113,8 @@ fun Onboarding(
     var stepIndex by rememberSaveable { mutableIntStateOf(0) }
     val step = Step.entries[stepIndex]
     val next = { stepIndex = (stepIndex + 1).coerceAtMost(Step.entries.lastIndex) }
+    // System back goes one step back instead of leaving the app mid-setup.
+    androidx.activity.compose.BackHandler(enabled = stepIndex > 0) { stepIndex-- }
 
     Column(Modifier.fillMaxSize().background(Brand.Sage)) {
         if (step != Step.INTRO && step != Step.DONE) {

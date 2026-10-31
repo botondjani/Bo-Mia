@@ -128,7 +128,7 @@ class MonitorService : Service() {
             return
         }
         if (old != null && old == sessionPkg) endSession(now, askWorthIt = true)
-        if (new in store.blockedPackages) {
+        if (store.onboarded && new in store.blockedPackages) {
             val pass = if (store.isLocked() || scheduledLock() != null) null else store.consumePass(new)
             if (pass != null) {
                 sessionPkg = new
@@ -268,6 +268,7 @@ class BootReceiver : BroadcastReceiver() {
         app.tend.reminder.WeeklyLetter.schedule(context)
         app.tend.reminder.MorningNote.schedule(context)
         app.tend.reminder.DayClock.schedule(context)
-        if (TendStore(context).blockedPackages.isNotEmpty()) MonitorService.start(context)
+        // Only once setup is done: the apps are pre-selected from the first start, the pause isn't.
+        TendStore(context).let { if (it.onboarded && it.blockedPackages.isNotEmpty()) MonitorService.start(context) }
     }
 }

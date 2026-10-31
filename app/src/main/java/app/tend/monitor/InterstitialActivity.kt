@@ -111,11 +111,13 @@ class InterstitialActivity : ComponentActivity() {
         val locked = Budget.isLocked(cfg, day)
         val evening = Budget.isEvening(if (store.eveningPause) store.eveningFrom else -1, java.time.LocalTime.now().hour)
         val delaySeconds = Budget.openDelaySeconds(cfg, day, evening)
-        if (savedInstanceState == null && !locked) day = store.update { it.copy(opensToday = it.opensToday + 1) }
+        val scheduled = app.tend.core.LockSchedule.activeOf(store.lockSchedules)
+        // A scheduled lock isn't an open: it doesn't make the next pause longer.
+        if (savedInstanceState == null && !locked && scheduled == null) day = store.update { it.copy(opensToday = it.opensToday + 1) }
         view = View(
             label, locked, day.opensToday, delaySeconds, Budget.remainingMinutes(cfg, day), evening,
             timeUp = intent.getBooleanExtra(EXTRA_TIME_UP, false),
-            scheduled = app.tend.core.LockSchedule.activeOf(store.lockSchedules),
+            scheduled = scheduled,
         )
         val worn = store.accessories().first
         setContent {
@@ -291,9 +293,11 @@ class InterstitialActivity : ComponentActivity() {
         val day = store.today()
         val name = store.avatar.displayName
         val open = store.selectedTasks.filter { it.id !in day.completedTasks && (it != app.tend.core.Tasks.SLEEP || evening) }
-        val task = open.firstOrNull { it.verification.timed } ?: open.firstOrNull() ?: return null
+        // Timers first (a workout runs as a phone-off timer too): they start right here, one tap.
+        val startable = { t: app.tend.core.TaskDef -> t.verification.timed || app.tend.core.PhoneFree.runsPhoneFree(t) }
+        val task = open.firstOrNull(startable) ?: open.firstOrNull() ?: return null
         return when {
-            task.verification.timed -> "${task.title} with $name instead" to {
+            startable(task) -> "${task.title} with $name instead" to {
                 TaskSync.startTimer(this, task)
                 startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 finish()
