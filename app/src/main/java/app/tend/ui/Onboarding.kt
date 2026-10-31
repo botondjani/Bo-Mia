@@ -368,29 +368,28 @@ private fun StepButton(label: String, enabled: Boolean, onClick: () -> Unit) = B
 @Composable
 fun PermissionSteps(perms: PermissionActions) {
     val p = perms.permissions
-    val unlock = perms.lock != PermissionLock.NONE
-    if (unlock) UnlockCard(perms)
-    val n = if (unlock) 1 else 0
-    // Overlay first: once it's granted, tend can bring itself back to the front after each switch.
-    PermissionCard(
-        number = n + 1, title = "Display over other apps", why = "So the little pause can appear when you open a picked app.",
-        granted = p.overlay, active = !unlock && !p.overlay, blocked = perms.overlayBlocked,
+    val locked = perms.lock != PermissionLock.NONE
+    // Side-loaded: the unlock and the pause switch are one trip through App info.
+    if (locked) UnlockCard(perms)
+    else PermissionCard(
+        number = 1, title = "Display over other apps", why = "So the little pause can appear when you open a picked app.",
+        granted = p.overlay, active = !p.overlay, blocked = perms.overlayBlocked,
         onAllow = perms.requestOverlay, onAppInfo = perms.openAppInfo,
     )
     PermissionCard(
-        number = n + 2, title = "Usage access", why = "So screen time is measured on your phone, not guessed.",
-        granted = p.usageAccess, active = !unlock && p.overlay && !p.usageAccess, blocked = perms.usageBlocked,
+        number = 2, title = "Usage access", why = "So screen time is measured on your phone, not guessed.",
+        granted = p.usageAccess, active = !locked && p.overlay && !p.usageAccess, blocked = perms.usageBlocked,
         onAllow = perms.requestUsage, onAppInfo = perms.openAppInfo,
     )
     if (!p.allGranted) Text(
-        "After each step tend brings you back here and shows what's next.",
+        "Settings opens right where you need it. A note at the bottom says each next tap, and tend comes back by itself.",
         style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
     )
 }
 
 /**
- * Step 1 for side-loaded installs on Android 13+. The unlock option in App info only exists after
- * Android has refused a switch once, so it's two short moves, each one button.
+ * Side-loaded installs on Android 13+: one trip through App info lifts Android's lock and turns
+ * the pause on. Android only offers the unlock after it has refused once, hence the first move.
  */
 @Composable
 private fun UnlockCard(perms: PermissionActions) = Column(
@@ -405,14 +404,14 @@ private fun UnlockCard(perms: PermissionActions) = Column(
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text("Unlock tend's switches", style = MaterialTheme.typography.titleMedium)
-            Text("Once. Android locks them for apps from outside the Play Store.", style = MaterialTheme.typography.bodyMedium)
+            Text("Let the pause appear", style = MaterialTheme.typography.titleMedium)
+            Text("Android locks this for apps from outside the Play Store. One trip through App info unlocks it.", style = MaterialTheme.typography.bodyMedium)
         }
     }
-    UnlockMove(1, "Tap tend's switch. Android says it's restricted: tap OK and come back", done = tripped, active = !tripped)
-    UnlockMove(2, "In App info: ⋮ top right → Allow restricted settings → confirm, then come back", done = false, active = tripped)
-    if (tripped) PrimaryButton("Open App info", perms.unlockAppInfo)
-    else PrimaryButton("Start", perms.startUnlock)
+    UnlockMove(1, "Tap \"Display over other apps\" and its switch. Android says no: tap OK", done = tripped, active = !tripped)
+    UnlockMove(2, "Go back, tap ⋮ top right → Allow restricted settings", done = false, active = tripped)
+    UnlockMove(3, "Tap \"Display over other apps\" again and switch it on", done = false, active = false)
+    PrimaryButton(if (tripped) "Continue in App info" else "Open App info", perms.startUnlock)
     LinkText("Already unlocked? Skip", perms.skipUnlock)
 }
 

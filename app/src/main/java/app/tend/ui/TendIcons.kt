@@ -30,6 +30,10 @@ object TendIcons {
         "face_yes" to R.drawable.ic_t_face_yes, "face_meh" to R.drawable.ic_t_face_meh, "face_no" to R.drawable.ic_t_face_no,
     )
 
+    /** The icon as a painter, for drawing it on a canvas; null for old emoji keys. */
+    @Composable
+    fun painterFor(key: String): androidx.compose.ui.graphics.painter.Painter? = res[key]?.let { painterResource(it) }
+
     /** Icons offered for the user's own activities. */
     val ownChoices = listOf("music", "pen", "paw", "sprout", "bike", "star", "heart", "sun")
 

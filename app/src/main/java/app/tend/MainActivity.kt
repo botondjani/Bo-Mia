@@ -83,7 +83,7 @@ class MainActivity : ComponentActivity() {
     /** Android has refused a switch once (fallback when the lock state can't be read). */
     private var tripped = false
 
-    private enum class Launched { NONE, TRIP, APP_INFO, OVERLAY, USAGE }
+    private enum class Launched { NONE, APP_INFO, OVERLAY, USAGE }
 
     private enum class Screen { HOME, SETTINGS, PERMISSIONS, GARDEN, RECAP }
 
@@ -405,7 +405,7 @@ class MainActivity : ComponentActivity() {
             requestOverlay = ::requestOverlay,
             openAppInfo = ::openUnlock,
             lock = lock(),
-            startUnlock = ::tripLock,
+            startUnlock = ::requestOverlay,
             unlockAppInfo = ::openUnlock,
             skipUnlock = { store.restrictedUnlocked = true; refresh++ },
         )
@@ -420,32 +420,48 @@ class MainActivity : ComponentActivity() {
         open(highlightTend(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:$packageName"))), highlightTend(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)))
     }
 
+    /**
+     * The pause permission, without hunting through a list: App info opens scrolled to "Display over
+     * other apps". On side-loaded installs the lock is lifted on the way, all inside Settings: tap the
+     * switch (Android refuses), back, ⋮ → Allow restricted settings, tap the switch again. A note on
+     * top of Settings says each next move, and tend comes back by itself once the switch is on.
+     */
     private fun requestOverlay() {
         overlayAttempted = true
-        launched = Launched.OVERLAY
-        returnWhenGranted { Settings.canDrawOverlays(this) }
-        hint("Find tend in the list and switch it on")
-        open(highlightTend(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))), highlightTend(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)))
-    }
-
-    /**
-     * Android only offers "Allow restricted settings" after it has refused a switch once, so the
-     * unlock starts by letting it refuse: tend's own overlay switch, one tap, "OK".
-     */
-    private fun tripLock() {
         tripped = true
-        launched = Launched.TRIP
-        // Back as soon as Android has said no (or yes, on phones without the lock), where Android lets us.
-        returnWhenGranted("Done! Press back to return to tend") {
-            restrictedMode() == AppOpsManager.MODE_IGNORED || permissions().let { it.overlay || it.usageAccess }
-        }
-        hint("Tap tend's switch. Android will say it's restricted: tap OK")
-        // tend's own usage-access switch where the phone supports it, else the list scrolled to tend.
+        launched = Launched.OVERLAY
+        val locked = lock() != PermissionLock.NONE
+        var said = restrictedMode()
+        handler.removeCallbacksAndMessages(null)
+        val deadline = SystemClock.uptimeMillis() + 300_000
+        handler.post(object : Runnable {
+            override fun run() {
+                if (Settings.canDrawOverlays(this@MainActivity)) {
+                    startActivity(Intent(this@MainActivity, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+                    return
+                }
+                val now = restrictedMode()
+                if (locked && now != said) {
+                    when (now) {
+                        AppOpsManager.MODE_IGNORED -> hint("Good. Now go back, tap ⋮ top right → Allow restricted settings")
+                        AppOpsManager.MODE_ALLOWED -> hint("Unlocked! Tap \"Display over other apps\" again and switch it on")
+                    }
+                    said = now
+                }
+                if (SystemClock.uptimeMillis() < deadline) handler.postDelayed(this, 400)
+            }
+        })
+        hint(if (locked) "Tap \"Display over other apps\", then its switch" else "Tap \"Display over other apps\" and switch it on")
         open(
-            highlightTend(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:$packageName"))),
-            highlightTend(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)),
+            appInfoAt("system_alert_window"),
+            highlightTend(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)),
         )
     }
+
+    /** App info for tend, scrolled to (and flashing) one of its rows where the phone supports it. */
+    private fun appInfoAt(key: String) = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
+        .putExtra(":settings:fragment_args_key", key)
+        .putExtra(":settings:show_fragment_args", Bundle().apply { putString(":settings:fragment_args_key", key) })
 
     private fun openUnlock() {
         launched = Launched.APP_INFO

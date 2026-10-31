@@ -31,6 +31,9 @@ object CharacterPainter {
     private const val SHADOW = 0x221D2A23
     private const val COAT = 0xFFFDFDFB.toInt()
     private const val WEIGHT = 0xFF4A5852.toInt()
+    private const val LEAF_GREEN = 0xFF4FA36F.toInt()
+    private const val LEAF_STEM = 0xFF316849.toInt()
+    private const val BOW_KNOT = 0xFF5B8FC0.toInt()
     private const val PALETTE = 0xFFEAD2A8.toInt()
     private const val STRAW = 0xFFD9B45A.toInt()
     private const val COAT_LINE = 0xFFD5DCD6.toInt()
@@ -247,6 +250,8 @@ object CharacterPainter {
             Accessory.GLASSES -> RectF(28f, 35f, 72f, 57f)
             Accessory.HAT -> RectF(19f, 7f, 81f, 28f)
             Accessory.FLOWER -> RectF(64f, 24f, 78f, 38f)
+            Accessory.LEAF -> RectF(51f, 8f, 68f, 22f)
+            Accessory.BOWTIE -> RectF(41f, 67f, 59f, 79f)
         }
         val scale = sizePx * 0.86f / maxOf(box.width(), box.height())
         c.translate(sizePx / 2f, sizePx / 2f)
@@ -275,6 +280,18 @@ object CharacterPainter {
                 c.drawCircle(71f + 3.2f * Math.cos(ang).toFloat(), 31f + 3.2f * Math.sin(ang).toFloat(), 2.6f, fill)
             }
             fill.color = SUNNY; c.drawCircle(71f, 31f, 2.2f, fill)
+        }
+        if (Accessory.BOWTIE in a) {
+            fill.color = SKY
+            c.drawPath(Path().apply { moveTo(50f, 73f); lineTo(42f, 68f); lineTo(42f, 78f); close() }, fill)
+            c.drawPath(Path().apply { moveTo(50f, 73f); lineTo(58f, 68f); lineTo(58f, 78f); close() }, fill)
+            fill.color = BOW_KNOT; c.drawCircle(50f, 73f, 2.4f, fill)
+        }
+        if (Accessory.LEAF in a) {
+            stroke.color = LEAF_STEM; stroke.strokeWidth = 1.6f; c.drawLine(52f, 21f, 55.5f, 18f, stroke)
+            stroke.color = INK; stroke.strokeWidth = 2.6f
+            fill.color = LEAF_GREEN
+            c.drawPath(Path().apply { moveTo(54f, 19f); cubicTo(55f, 11f, 61f, 9f, 67f, 10f); cubicTo(66f, 17f, 60f, 20f, 54f, 19f); close() }, fill)
         }
         if (Accessory.HAT in a) {
             fill.color = SUNNY

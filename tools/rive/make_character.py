@@ -4,7 +4,7 @@ Generates app/src/main/assets/tend_character.riv: Bo and Mia on one rig.
 Contract (see docs/rive-rig.md and ui/Character.kt):
   artboard "Character" 500x500, state machine "Mood" with inputs
     mood (number: 0 happy, 1 tired, 2 scrolling, 3 outside, 4 reading), mia (bool), tap (trigger),
-    headband, glasses, hat, flower (bool: accessories earned by a week of habits),
+    headband, glasses, hat, flower, leaf, bowtie (bool: accessories earned by habits),
     scientist (bool: lab coat, glasses and a waving pointer for onboarding and the tour),
     prop (number: 0 none, 1 dumbbell, 2 hearts, 3 palette and brush, 4 broom, 5 chef's hat; during timers).
 Layers: mood pose, skin (Bo/Mia), breathing, blinking, glancing, tap hop.
@@ -106,7 +106,7 @@ def build():
     bo = r.node('bo', body)
     mia_front = r.node('mia_front', body)
     mia_back = r.node('mia_back', body)
-    acc = {name: r.node(f'acc_{name}', body) for name in ('hat', 'flower', 'glasses', 'headband')}
+    acc = {name: r.node(f'acc_{name}', body) for name in ('hat', 'flower', 'glasses', 'headband', 'leaf', 'bowtie')}
     props = [r.node(f'prop_{k}', body) for k in range(1, 6)]  # dumbbell, hearts, palette, broom, chef hat
     sci = r.node('scientist', body)
     pointer = r.node('pointer', sci, *T(80, 78))  # turns around the hand
@@ -154,6 +154,11 @@ def build():
     r.path('sci_bridge', sci, [(48.5, 45, None, None), (51.5, 45, None, None)], False, stroke=INK, width=1.8)
 
     # Accessories sit on top of everything on the head.
+    r.path('leaf', acc['leaf'], [(54, 19, (60, 20), (55, 11)), (67, 10, (61, 9), (66, 17))], True, fill=0xFF4FA36F)
+    r.path('leaf_stem', acc['leaf'], [(52, 21, None, None), (55.5, 18, None, None)], False, stroke=MOSS, width=1.6)
+    r.ellipse('bow_knot', acc['bowtie'], 50, 73, 4.8, 4.8, 0xFF5B8FC0)
+    r.path('bowtie_l', acc['bowtie'], [(50, 73, None, None), (42, 68, None, None), (42, 78, None, None)], True, fill=SKY)
+    r.path('bowtie_r', acc['bowtie'], [(50, 73, None, None), (58, 68, None, None), (58, 78, None, None)], True, fill=SKY)
     r.rect('hat_band', acc['hat'], 50, 18, 28, 4, 0, CORAL)
     r.ellipse('hat_brim', acc['hat'], 50, 22.5, 60, 9, SUNNY)
     r.rect('hat_crown', acc['hat'], 50, 15, 28, 14, 6, SUNNY)
@@ -332,6 +337,9 @@ def build():
         acc_inputs[name] = 3 + i
     w.obj(SM_BOOL, smName='scientist')                   # input 7
     w.obj(SM_NUMBER, smName='prop', numberValue=0.0)     # input 8
+    for i, name in enumerate(('leaf', 'bowtie')):
+        w.obj(SM_BOOL, smName=name)                      # inputs 9, 10
+        acc_inputs[name] = 9 + i
     MOOD, MIA, TAP, SCIENTIST, PROP = 0, 1, 2, 7, 8
 
     def layer(name, states, entry_to, any_transitions=(), state_transitions=None):

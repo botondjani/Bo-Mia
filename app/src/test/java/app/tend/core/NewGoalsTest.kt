@@ -40,8 +40,11 @@ class NewGoalsTest {
 
     @Test fun `accessories follow a week of habits`() {
         val week = listOf(setOf("move"), setOf("move", "read"), setOf("read"), setOf("move"), setOf("move", "friends"), setOf("hobby"), setOf("friends"))
-        assertEquals(setOf(Accessory.HEADBAND, Accessory.FLOWER), Accessories.active(week))
+        assertEquals(setOf(Accessory.LEAF, Accessory.BOWTIE, Accessory.HEADBAND, Accessory.FLOWER), Accessories.active(week))
         assertEquals(emptySet<Accessory>(), Accessories.active(week.map { emptySet() }))
+        // Quick ones for new users: the leaf after one activity, the bow tie after two active days.
+        assertEquals(setOf(Accessory.LEAF), Accessories.active(listOf(setOf("read"))))
+        assertEquals(setOf(Accessory.LEAF, Accessory.BOWTIE), Accessories.active(listOf(setOf("custom:journal"), emptySet(), setOf("read"))))
     }
 }
 

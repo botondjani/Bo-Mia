@@ -39,6 +39,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.border
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.layout.layout
@@ -342,19 +345,21 @@ private fun NextSteps(
     onDismiss: () -> Unit,
 ) = Column(Modifier.fillMaxWidth().surface(radius = 24.dp).padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("NEXT STEPS", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+        Text("NEXT STEP", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
         Text(
             "Not now", style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
             modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onDismiss).padding(horizontal = 8.dp, vertical = 4.dp),
         )
     }
+    // One step at a time: Health Connect first, then the widget.
+    val total = listOf(health != null, widget).count { it }
     if (health != null) StepRow(
         "heart",
         if (health == HealthConnect.Status.NEEDS_INSTALL) "Get Health Connect" else "Connect Health Connect",
         "Walks count by themselves. Got a smartwatch? Then sleep and workouts do too.",
         onHealth,
-    )
-    if (widget) StepRow("sun", "Put ${avatar.displayName} on your home screen", "Your minutes at a glance, without opening tend.", onWidget)
+    ) else if (widget) StepRow("sun", "Put ${avatar.displayName} on your home screen", "Your minutes at a glance, without opening tend.", onWidget)
+    if (total > 1) Text("1 of $total · then: ${avatar.displayName} on your home screen", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp))
 }
 
 @Composable
@@ -443,6 +448,31 @@ private fun TaskRow(
     }
 }
 
+/** Three copies of an activity's icon drifting up around the character, e.g. notes for music. */
+@Composable
+private fun FloatingIcons(icon: String) {
+    val painter = TendIcons.painterFor(icon) ?: return
+    val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "float")
+    val phase by t.animateFloat(
+        0f, 1f, androidx.compose.animation.core.infiniteRepeatable(tween(3000, easing = androidx.compose.animation.core.LinearEasing)), label = "phase",
+    )
+    val tint = androidx.compose.ui.graphics.ColorFilter.tint(Brand.Moss)
+    androidx.compose.foundation.Canvas(Modifier.size(230.dp)) {
+        val icon = 26.dp.toPx()
+        for ((x, offset, scale) in listOf(Triple(-0.36f, 0f, 1f), Triple(0.36f, 0.33f, 0.8f), Triple(-0.12f, 0.66f, 0.9f))) {
+            val p = (phase + offset) % 1f
+            val cx = size.width / 2 + x * size.width + kotlin.math.sin(p * 6.28f) * 6.dp.toPx()
+            val cy = size.height / 2 + (0.3f - p) * size.height * 0.85f
+            val s = icon * scale
+            translate(cx - s / 2, cy - s / 2) {
+                rotate((p - 0.5f) * 24f, pivot = androidx.compose.ui.geometry.Offset(s / 2, s / 2)) {
+                    with(painter) { draw(androidx.compose.ui.geometry.Size(s, s), alpha = kotlin.math.sin(p * 3.14f), colorFilter = tint) }
+                }
+            }
+        }
+    }
+}
+
 private fun progressLabel(task: TaskDef, progress: Long): String = when (task.id) {
     Tasks.OUTSIDE.id -> "%,d of %,d steps".format(Locale.ENGLISH, progress, task.target)
     Tasks.SLEEP.id -> "%d h %02d of %d h sleep last night".format(Locale.ENGLISH, progress / 60, progress % 60, task.target / 60)
@@ -477,14 +507,34 @@ fun Celebration(avatar: Avatar, tasks: List<TaskDef>, minutes: Int, onUndo: (() 
 }
 
 @Composable
-fun FocusTimerScreen(avatar: Avatar, task: TaskDef, secondsLeft: Long, screenOnSeconds: Long, onCancel: () -> Unit) = Column(
-    Modifier.fillMaxSize().background(Brand.Sage).padding(24.dp),
+fun FocusTimerScreen(avatar: Avatar, task: TaskDef, secondsLeft: Long, screenOnSeconds: Long, onCancel: () -> Unit) {
+    // A short start: the screen settles in, the ring draws itself, Bo pops in and says "Here we go!".
+    val appear = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(0f) }
+    var hello by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(true) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        appear.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.6f, stiffness = 220f))
+        kotlinx.coroutines.delay(900)
+        hello = false
+    }
+    FocusTimerContent(avatar, task, secondsLeft, screenOnSeconds, onCancel, appear.value, hello)
+}
+
+@Composable
+private fun FocusTimerContent(
+    avatar: Avatar, task: TaskDef, secondsLeft: Long, screenOnSeconds: Long, onCancel: () -> Unit, appear: Float, hello: Boolean,
+) = Column(
+    Modifier.fillMaxSize().background(Brand.Sage).graphicsLayer {
+        alpha = appear.coerceIn(0f, 1f)
+        scaleX = 0.94f + 0.06f * appear
+        scaleY = scaleX
+    }.padding(24.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
     verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
 ) {
     val phoneFree = app.tend.core.PhoneFree.runsPhoneFree(task)
     Text(
         when {
+            hello -> "HERE WE GO!"
             task.id == Tasks.MOVE.id -> "WORKOUT, PHONE OFF"
             phoneFree -> "PHONE-FREE TIME"
             task.id == Tasks.LEARN.id -> "LEARNING TOGETHER"
@@ -501,7 +551,7 @@ fun FocusTimerScreen(avatar: Avatar, task: TaskDef, secondsLeft: Long, screenOnS
             val topLeft = androidx.compose.ui.geometry.Offset(inset, inset)
             val style = androidx.compose.ui.graphics.drawscope.Stroke(w, cap = androidx.compose.ui.graphics.StrokeCap.Round)
             drawArc(Brand.Mint.copy(alpha = 0.3f), 0f, 360f, false, topLeft, arc, style = style)
-            drawArc(Brand.Moss, -90f, 360f * (1f - secondsLeft / total), false, topLeft, arc, style = style)
+            drawArc(Brand.Moss, -90f, 360f * (1f - secondsLeft / total) * appear.coerceIn(0f, 1f), false, topLeft, arc, style = style)
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             // Each activity gets its own look: a dumbbell and sweatband, hearts, a palette, a broom, a chef's hat.
@@ -518,8 +568,15 @@ fun FocusTimerScreen(avatar: Avatar, task: TaskDef, secondsLeft: Long, screenOnS
                 Tasks.LEARN.id -> setOf(app.tend.core.Accessory.GLASSES)
                 else -> emptySet()
             }
-            androidx.compose.runtime.CompositionLocalProvider(LocalAccessories provides LocalAccessories.current + extra) {
-                CharacterView(avatar, app.tend.core.Mood.HAPPY, 150.dp, reading = !phoneFree, prop = prop)
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.graphicsLayer {
+                val pop = 0.6f + 0.4f * appear
+                scaleX = pop; scaleY = pop
+            }) {
+                // Activities without a prop of their own (like your own ones) get their icon floating around.
+                if (prop == Prop.NONE && phoneFree) FloatingIcons(task.icon)
+                androidx.compose.runtime.CompositionLocalProvider(LocalAccessories provides LocalAccessories.current + extra) {
+                    CharacterView(avatar, app.tend.core.Mood.HAPPY, 150.dp, reading = !phoneFree, prop = prop)
+                }
             }
             Text("%d:%02d".format(secondsLeft / 60, secondsLeft % 60), style = MaterialTheme.typography.headlineLarge, color = Brand.Moss)
         }

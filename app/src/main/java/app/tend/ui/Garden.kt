@@ -333,9 +333,13 @@ fun GardenScreen(
 private fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory>) = Card {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text("${avatar.displayName.uppercase()}'S THINGS", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
-        Text("a week of habits", style = MaterialTheme.typography.bodyMedium)
+        Text("earned by doing", style = MaterialTheme.typography.bodyMedium)
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
+    androidx.compose.foundation.layout.FlowRow(
+        maxItemsInEachRow = 3,
+        horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.padding(top = 4.dp),
+    ) {
         Accessory.entries.forEach { a ->
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(
