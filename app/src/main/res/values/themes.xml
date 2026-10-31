@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Tend" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/sage</item>
+    </style>
+    <style name="Theme.Tend.Dialog" parent="android:Theme.Material.Light.Dialog.NoActionBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+    </style>
+</resources>

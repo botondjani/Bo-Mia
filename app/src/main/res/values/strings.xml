@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">tend</string>
+    <string name="widget_left_today">left today</string>
+    <string name="widget_description">Your companion, minutes left and the next task</string>
+</resources>
