@@ -29,7 +29,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import android.Manifest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Column
+import app.tend.core.Patterns
 import app.tend.core.Recap
+import app.tend.reminder.RecapReminder
+import app.tend.ui.PatternsScreen
+import app.tend.ui.Tab
+import app.tend.ui.TabBar
+import java.time.LocalDate
 import app.tend.core.TaskDef
 import app.tend.ui.GardenScreen
 import app.tend.ui.RecapScreen
@@ -64,7 +73,16 @@ class MainActivity : ComponentActivity() {
     private var usageAttempted = false
     private var overlayAttempted = false
 
-    private enum class Screen { HOME, SETTINGS, PERMISSIONS, GARDEN, RECAP }
+    private enum class Screen { HOME, SETTINGS, PERMISSIONS, GARDEN, RECAP, PATTERNS }
+
+    /** Set when the evening notification was tapped. */
+    private var openRecap by mutableStateOf(false)
+
+    private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        store.reminderEnabled = granted
+        RecapReminder.schedule(this)
+        refresh++
+    }
 
     private val healthPermissions =
         registerForActivityResult(PermissionController.createRequestPermissionResultContract()) { refresh++ }
@@ -76,11 +94,34 @@ class MainActivity : ComponentActivity() {
         if (!store.onboarded && store.blockedPackages.isEmpty()) {
             store.blockedPackages = catalog.suggested.map { it.pkg }.toSet()
         }
+        RecapReminder.schedule(this)
+        handleIntent(intent)
         setContent {
             TendTheme {
                 Box(Modifier.fillMaxSize().safeDrawingPadding()) { Content(catalog) }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent?.getStringExtra(RecapReminder.EXTRA_OPEN) == RecapReminder.OPEN_RECAP) openRecap = true
+    }
+
+    private fun setReminder(enabled: Boolean, hour: Int) {
+        store.reminderPrompted = true
+        store.reminderHour = hour
+        if (enabled && !RecapReminder.canNotify(this) && Build.VERSION.SDK_INT >= 33) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            return
+        }
+        store.reminderEnabled = enabled
+        RecapReminder.schedule(this)
+        refresh++
     }
 
     override fun onResume() {
@@ -116,6 +157,7 @@ class MainActivity : ComponentActivity() {
                 if (store.onboarded && (++seconds % 60 == 0 || TaskSync.focusSecondsLeft(store, now) == 0L)) sync()
             }
         }
+        LaunchedEffect(openRecap) { if (openRecap) { screen = Screen.RECAP; openRecap = false } }
         if (celebrate.isNotEmpty()) Celebration(store.avatar, celebrate) { celebrate = emptyList() }
 
         val toggleApp: (String) -> Unit = { pkg ->
@@ -146,30 +188,38 @@ class MainActivity : ComponentActivity() {
                 onAvatar = { store.avatar = it; refresh++ },
                 onConfig = { store.config = it; refresh++ },
                 onToggleApp = toggleApp,
+                reminderEnabled = store.reminderEnabled,
+                reminderHour = store.reminderHour,
+                onReminder = ::setReminder,
                 onDone = { screen = Screen.HOME },
             )
 
-            screen == Screen.GARDEN -> GardenScreen(store.avatar, store.plants, store.daysTended) { screen = Screen.HOME }
-
-            screen == Screen.RECAP -> RecapScreen(
-                avatar = store.avatar,
-                recap = Recap.of(store.config, store.today(), store.worthItToday()),
-                plants = store.plants,
-                daysTended = store.daysTended,
-                onGoodNight = { screen = Screen.HOME },
-            )
+            screen == Screen.RECAP -> {
+                LaunchedEffect(Unit) { store.recapSeenOn = LocalDate.now().toString() }
+                RecapScreen(
+                    avatar = store.avatar,
+                    recap = Recap.of(store.config, store.today(), store.worthItToday()),
+                    plants = store.plants,
+                    daysTended = store.daysTended,
+                    reminderHour = store.reminderHour.takeIf { !store.reminderPrompted },
+                    onReminder = { setReminder(it, store.reminderHour) },
+                    onGoodNight = { screen = Screen.HOME },
+                )
+            }
 
             screen == Screen.PERMISSIONS -> PermissionsScreen(store.avatar, permissionActions()) {
                 MonitorService.start(this)
                 screen = Screen.HOME
             }
 
+            screen == Screen.GARDEN || screen == Screen.PATTERNS -> Tabbed(screen, { screen = it })
+
             (TaskSync.focusSecondsLeft(store, now) ?: 0) > 0 -> FocusTimerScreen(
                 store.avatar, Tasks.READ, TaskSync.focusSecondsLeft(store, now)!!,
                 onCancel = { store.focusStartedAt = 0; refresh++ },
             )
 
-            else -> HomeScreen(
+            else -> Tabbed(Screen.HOME, { screen = it }) { HomeScreen(
                 avatar = store.avatar,
                 cfg = store.config,
                 day = store.today(),
@@ -197,9 +247,31 @@ class MainActivity : ComponentActivity() {
                 onOpenSettings = { screen = Screen.SETTINGS },
                 onOpenGarden = { screen = Screen.GARDEN },
                 onOpenRecap = { screen = Screen.RECAP },
-            )
+            ) }
         }
     }
+
+    /** Today, Home & garden and Patterns share a bottom tab bar. */
+    @Composable
+    private fun Tabbed(screen: Screen, onScreen: (Screen) -> Unit, home: @Composable () -> Unit = {}) =
+        Column(Modifier.fillMaxSize()) {
+            Box(Modifier.weight(1f)) {
+                when (screen) {
+                    Screen.GARDEN -> GardenScreen(store.avatar, store.plants, store.daysTended)
+                    Screen.PATTERNS -> PatternsScreen(
+                        store.avatar,
+                        Patterns.week(LocalDate.now(), store.daySummaries(), store.answers()),
+                        appLabel = { pkg ->
+                            runCatching { packageManager.getApplicationInfo(pkg, 0).loadLabel(packageManager).toString() }.getOrDefault(pkg)
+                        },
+                    )
+                    else -> home()
+                }
+            }
+            TabBar(
+                when (screen) { Screen.GARDEN -> Tab.GARDEN; Screen.PATTERNS -> Tab.PATTERNS; else -> Tab.TODAY },
+            ) { tab -> onScreen(when (tab) { Tab.TODAY -> Screen.HOME; Tab.GARDEN -> Screen.GARDEN; Tab.PATTERNS -> Screen.PATTERNS }) }
+        }
 
     private fun permissionActions(): PermissionActions {
         val p = permissions()

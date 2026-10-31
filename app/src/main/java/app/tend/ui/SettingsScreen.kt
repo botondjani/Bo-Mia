@@ -1,6 +1,14 @@
 package app.tend.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Switch
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +33,9 @@ fun SettingsScreen(
     onAvatar: (Avatar) -> Unit,
     onConfig: (BudgetConfig) -> Unit,
     onToggleApp: (String) -> Unit,
+    reminderEnabled: Boolean,
+    reminderHour: Int,
+    onReminder: (enabled: Boolean, hour: Int) -> Unit,
     onDone: () -> Unit,
 ) = Column(
     Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
@@ -37,6 +48,30 @@ fun SettingsScreen(
     AppPicker(catalog, blocked, onToggleApp)
     Text("DAILY BUDGET", style = MaterialTheme.typography.labelSmall)
     BudgetPicker(cfg, onConfig)
+    Text("EVENING RECAP", style = MaterialTheme.typography.labelSmall)
+    Card {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Evening reminder", style = MaterialTheme.typography.bodyLarge)
+                Text("One quiet note when tonight's recap is ready", style = MaterialTheme.typography.bodyMedium)
+            }
+            Switch(checked = reminderEnabled, onCheckedChange = { onReminder(it, reminderHour) })
+        }
+        if (reminderEnabled) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+            listOf(20, 21, 22).forEach { h ->
+                val on = h == reminderHour
+                Text(
+                    "$h:00",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (on) Color.White else Brand.Moss,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
+                        .background(if (on) Brand.Moss else Brand.Sage)
+                        .clickable { onReminder(true, h) }.padding(vertical = 12.dp),
+                )
+            }
+        }
+    }
     PrimaryButton("Done", onDone, enabled = blocked.isNotEmpty(), modifier = Modifier.padding(vertical = 20.dp))
 }
 

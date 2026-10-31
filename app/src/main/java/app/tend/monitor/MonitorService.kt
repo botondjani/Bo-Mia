@@ -166,8 +166,8 @@ class MonitorService : Service() {
 /** Restarts monitoring after a reboot. */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED && TendStore(context).blockedPackages.isNotEmpty()) {
-            MonitorService.start(context)
-        }
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+        app.tend.reminder.RecapReminder.schedule(context) // alarms don't survive a reboot
+        if (TendStore(context).blockedPackages.isNotEmpty()) MonitorService.start(context)
     }
 }

@@ -144,11 +144,10 @@ fun PlantIcon(plant: Plant, size: androidx.compose.ui.unit.Dp) = Canvas(Modifier
 }
 
 @Composable
-fun GardenScreen(avatar: Avatar, plants: List<Plant>, daysTended: Int, onBack: () -> Unit) = Column(
+fun GardenScreen(avatar: Avatar, plants: List<Plant>, daysTended: Int) = Column(
     Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState()).padding(20.dp),
     verticalArrangement = Arrangement.spacedBy(14.dp),
 ) {
-    TextButton(onClick = onBack) { Text("← Today") }
     Text("${avatar.displayName}'s home & garden", style = MaterialTheme.typography.headlineMedium)
     Text(
         if (plants.isEmpty()) "Your first plant grows tonight from the minutes you don't use."
@@ -199,7 +198,15 @@ fun HomeStages(daysTended: Int) = Card {
 }
 
 @Composable
-fun RecapScreen(avatar: Avatar, recap: Recap, plants: List<Plant>, daysTended: Int, onGoodNight: () -> Unit) = Column(
+fun RecapScreen(
+    avatar: Avatar,
+    recap: Recap,
+    plants: List<Plant>,
+    daysTended: Int,
+    reminderHour: Int?,
+    onReminder: (Boolean) -> Unit,
+    onGoodNight: () -> Unit,
+) = Column(
     Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState()).padding(20.dp),
     verticalArrangement = Arrangement.spacedBy(14.dp),
 ) {
@@ -245,6 +252,14 @@ fun RecapScreen(avatar: Avatar, recap: Recap, plants: List<Plant>, daysTended: I
     }
 
     HomeStages(daysTended)
+    if (reminderHour != null) Card {
+        Text("A nudge tomorrow evening?", style = MaterialTheme.typography.titleMedium)
+        Text("${avatar.displayName} can send one quiet note at ${hour(reminderHour)} when the recap is ready.", style = MaterialTheme.typography.bodyMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+            TextButton(onClick = { onReminder(true) }) { Text("Yes, remind me") }
+            TextButton(onClick = { onReminder(false) }) { Text("No thanks") }
+        }
+    }
     PrimaryButton("Good night, ${avatar.displayName}", onGoodNight, modifier = Modifier.padding(vertical = 12.dp))
 }
 

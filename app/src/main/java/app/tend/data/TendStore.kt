@@ -4,7 +4,9 @@ import android.content.Context
 import app.tend.core.Budget
 import app.tend.core.BudgetConfig
 import app.tend.core.Avatar
+import app.tend.core.Answer
 import app.tend.core.DayState
+import app.tend.core.DaySummary
 import app.tend.core.Garden
 import app.tend.core.Plant
 import app.tend.core.WorthIt
@@ -66,6 +68,7 @@ class TendStore(private val context: Context) {
         val fresh = DayState(now)
         val plant = stored?.let { Garden.plantFor(Budget.gardenMinutesAtClose(config, it)) }
         val plants = prefs.getString("plants", "")!!
+        stored?.let { d -> summary(d).let { append("history.csv", "${it.date},${it.usedMinutes},${it.unusedMinutes},${it.tasksDone}") } }
         writeDay(fresh) {
             if (plant != null) putString("plants", if (plants.isEmpty()) plant.name else "$plants,${plant.name}")
             if (stored != null) putInt("days_tended", prefs.getInt("days_tended", 0) + 1)
@@ -96,16 +99,48 @@ class TendStore(private val context: Context) {
     /** Every case where blocking did not run: monitor stopped, or an open was not caught. */
     fun logMiss(reason: String, pkg: String = "") = append("misses.csv", "${LocalDateTime.now()},$reason,$pkg")
 
-    /** Today's "Worth it?" answers, for the evening recap. */
-    fun worthItToday(): List<WorthIt> {
-        val file = File(context.filesDir, "answers.csv").takeIf { it.exists() } ?: return emptyList()
-        val today = LocalDate.now().toString()
-        return file.readLines().mapNotNull { line ->
-            val parts = line.split(',')
-            if (parts.size < 4 || parts[1] != "worth_it" || !parts[0].startsWith(today)) return@mapNotNull null
-            runCatching { WorthIt(LocalDateTime.parse(parts[0]).toLocalTime(), parts[3]) }.getOrNull()
-        }
+    /** All logged answers (looking-for and worth-it), oldest first. */
+    fun answers(): List<Answer> = lines("answers.csv").mapNotNull { line ->
+        val p = line.split(',')
+        if (p.size < 4) null else runCatching { Answer(LocalDateTime.parse(p[0]), p[1], p[2], p[3]) }.getOrNull()
     }
+
+    /** Today's "Worth it?" answers, for the evening recap. */
+    fun worthItToday(): List<WorthIt> = answers()
+        .filter { it.kind == "worth_it" && it.time.toLocalDate() == LocalDate.now() }
+        .map { WorthIt(it.time.toLocalTime(), it.answer) }
+
+    /** Closed days from the history log, plus today so far. */
+    fun daySummaries(): List<DaySummary> = lines("history.csv").mapNotNull { line ->
+        val p = line.split(',')
+        runCatching { DaySummary(LocalDate.parse(p[0]), p[1].toInt(), p[2].toInt(), p[3].toInt()) }.getOrNull()
+    } + summary(today())
+
+    private fun summary(d: DayState) = DaySummary(
+        d.date, ((d.usedSeconds + 59) / 60).toInt(), Budget.gardenMinutesAtClose(config, d), d.completedTasks.size,
+    )
+
+    private fun lines(name: String): List<String> =
+        File(context.filesDir, name).takeIf { it.exists() }?.readLines().orEmpty()
+
+    /** Evening recap reminder. */
+    var reminderEnabled: Boolean
+        get() = prefs.getBoolean("reminder_on", false)
+        set(v) = edit { putBoolean("reminder_on", v) }
+
+    var reminderHour: Int
+        get() = prefs.getInt("reminder_hour", 21)
+        set(v) = edit { putInt("reminder_hour", v) }
+
+    /** The home screen asked once; don't ask again. */
+    var reminderPrompted: Boolean
+        get() = prefs.getBoolean("reminder_prompted", false)
+        set(v) = edit { putBoolean("reminder_prompted", v) }
+
+    /** Opened tonight's recap already: the reminder stays quiet. */
+    var recapSeenOn: String
+        get() = prefs.getString("recap_seen", "")!!
+        set(v) = edit { putString("recap_seen", v) }
 
     fun missCount(): Int = File(context.filesDir, "misses.csv").takeIf { it.exists() }?.readLines()?.size ?: 0
 

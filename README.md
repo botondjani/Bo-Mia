@@ -17,18 +17,19 @@ This is the MVP skeleton described in the concept doc. Native Android, English o
 | "Worth it?" (Yes / Kind of / Not really) after sessions of 30 s or more | `monitor/WorthItActivity.kt` |
 | Evening recap (from 19:00): minutes got back, tonight's plant, steps / exercise / reading, "Worth it?" summary with late-night pattern, home milestones | `core/Garden.kt`, `ui/Garden.kt` |
 | Garden: one plant per day from unused minutes (sprout < 15, tulip < 30, sunflower ≥ 30), planted at midnight; the home grows weekly (lit window + bench in week 2, own tree in week 4) | `core/Garden.kt`, `ui/Garden.kt` |
+| Patterns (last 7 days): screen time per day, minutes got back, "Worth it?" by time of day and by app, what you were looking for, one insight sentence | `core/Patterns.kt`, `ui/Patterns.kt` |
+| Evening reminder: offered once on the recap, toggle + 20/21/22:00 in settings; inexact daily alarm, silent if the recap was already opened, rescheduled after reboot | `reminder/RecapReminder.kt` |
 | Home screen widget: face, minutes left, next task; refreshes on every change | `widget/TendWidget.kt` |
 | Onboarding (7 steps, suggested apps, in-context permissions), settings, home, focus timer | `ui/` |
 | Brand: Moss/Mint/Coral/Sunny/Sky/Ink/Sage, Fredoka + Nunito (OFL, bundled) | `ui/Theme.kt` |
 
-Logs are written to the app's private storage: `answers.csv` (looking-for and worth-it answers) and `misses.csv` (blocking gaps or opens that weren't caught).
+Logs are written to the app's private storage: `answers.csv` (looking-for and worth-it answers), `history.csv` (one line per closed day) and `misses.csv` (blocking gaps or opens that weren't caught).
 
 ## Not done yet
 
 - **Background Health Connect reads**: data is read only while tend is on screen (home or pause screen). The widget can lag until then.
 - **Step source**: Health Connect needs an app that writes steps (Google Fit, Samsung Health, Fitbit, or the phone's built-in step tracking on newer Pixels). Workouts count once a tracker writes an exercise session.
 - **Rive**: the character is drawn by `CharacterPainter` (Canvas) as a placeholder until the Rive rig replaces it.
-- Weekly patterns view, and an evening reminder notification for the recap.
 - Out of MVP scope (from the concept doc): floating character, friends, coins/shop, iOS.
 
 ## Build
@@ -49,5 +50,5 @@ Install the APK and follow the onboarding: welcome, companion, how it works, app
 - **"App was denied access"**: Android 13+ blocks these switches for side-loaded apps ("restricted settings"). Fix it once under App info → ⋮ → *Allow restricted settings*. The onboarding detects this and shows the steps. For testers using adb: `adb shell appops set app.tend ACCESS_RESTRICTED_SETTINGS allow`.
 - **Health Connect** is connected from the home screen ("Connect Health Connect"). On Android 13 and below the button opens the Play Store to install it first.
 - The reading timer keeps running when you leave tend. Opening a paused app from the pause screen ends it.
-- No notification permission is requested. The monitor's foreground service runs without it, its notification just stays hidden.
+- Notification permission is asked only when you turn on the evening reminder. Until then the monitor's notification stays hidden.
 - On Xiaomi, Samsung, Huawei and similar phones, turn off battery optimisation for tend, or the monitor gets killed (this shows up in the miss log).
