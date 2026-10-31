@@ -61,6 +61,7 @@ fun HomeScreen(
     health: HealthConnect.Status?,
     focusSecondsLeft: Long?,
     focusTaskId: String,
+    onShareCrash: (() -> Unit)?,
     onFixPermissions: () -> Unit,
     onConnectHealth: () -> Unit,
     onStartFocus: (TaskDef) -> Unit,
@@ -116,6 +117,7 @@ fun HomeScreen(
             }
         }
 
+        if (onShareCrash != null) Notice("alert", "tend crashed last time", "Sorry! Tap to share the crash report.", onShareCrash)
         if (isEvening) Notice("moon", "Tonight's recap is ready", "See what today gave back", onOpenRecap)
         when {
             !permissions.usageAccess -> Notice("alert", "Limited mode", "${avatar.displayName} can't see screen time. Tap to turn it on.", onFixPermissions)

@@ -4,6 +4,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -41,7 +43,7 @@ fun PopupSheet(
     val shown = remember { MutableTransitionState(false).apply { targetState = true } }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val minHeight = maxHeight * minHeightFraction
-        AnimatedVisibility(shown, enter = fadeIn()) {
+        AnimatedVisibility(shown, enter = fadeIn(tween(260))) {
             Box(
                 Modifier.fillMaxSize().background(Brand.Ink.copy(alpha = 0.3f))
                     .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
@@ -49,7 +51,7 @@ fun PopupSheet(
         }
         if (centered) AnimatedVisibility(
             shown,
-            enter = scaleIn(initialScale = 0.92f) + fadeIn(),
+            enter = scaleIn(spring(dampingRatio = 0.8f, stiffness = 500f), initialScale = 0.9f) + fadeIn(tween(180)),
             modifier = Modifier.align(Alignment.Center),
         ) {
             Column(
@@ -79,9 +81,22 @@ fun PopupSheet(
     }
 }
 
-/** Blurs whatever app is underneath a pop-up window (Android 12+, where the phone allows it). */
+/**
+ * Blurs whatever app is underneath a pop-up window (Android 12+, where the phone allows it).
+ * The blur fades in over a quarter second instead of snapping on, in step with the card.
+ */
 fun android.app.Activity.blurBehind() {
     if (android.os.Build.VERSION.SDK_INT < 31) return
     window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-    window.attributes = window.attributes.also { it.blurBehindRadius = 160 }
+    window.attributes = window.attributes.also { it.blurBehindRadius = 0 }
+    android.animation.ValueAnimator.ofInt(0, BLUR_RADIUS).apply {
+        duration = 260
+        interpolator = android.view.animation.DecelerateInterpolator()
+        addUpdateListener { a ->
+            if (!isFinishing) window.attributes = window.attributes.also { it.blurBehindRadius = a.animatedValue as Int }
+        }
+        start()
+    }
 }
+
+private const val BLUR_RADIUS = 160

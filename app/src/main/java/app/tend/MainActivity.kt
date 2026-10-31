@@ -258,6 +258,20 @@ class MainActivity : ComponentActivity() {
                 plantCount = store.plants.size,
                 isEvening = LocalTime.now().hour >= RECAP_FROM_HOUR,
                 permissions = permissions(),
+                onShareCrash = TendApp.crashFile(this).takeIf { it.exists() }?.let { file ->
+                    {
+                        val report = file.readText()
+                        file.delete()
+                        startActivity(
+                            Intent.createChooser(
+                                Intent(Intent.ACTION_SEND).setType("text/plain")
+                                    .putExtra(Intent.EXTRA_SUBJECT, "tend crash report").putExtra(Intent.EXTRA_TEXT, report),
+                                "Share crash report",
+                            ),
+                        )
+                        refresh++
+                    }
+                },
                 health = health,
                 focusSecondsLeft = TaskSync.focusSecondsLeft(store, now),
                 focusTaskId = store.focusTaskId,

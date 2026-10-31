@@ -55,42 +55,103 @@ object RiveRig {
 
     private var loaded = false
     private var bytes: ByteArray? = null
+    private var armed = false
 
-    /** The rig file, or null while there is none (then the drawn character is used). */
+    /**
+     * The rig file, or null when there is none or Rive failed on this phone (then the drawn
+     * character is used). A native crash can't be caught, so the first Rive start of each run
+     * leaves a marker that is cleared a few seconds later; finding it at the next start means
+     * Rive took the app down, and it stays off until a new APK is installed.
+     */
+    @android.annotation.SuppressLint("ApplySharedPref")
     @Synchronized
     fun bytes(context: Context): ByteArray? {
         if (!loaded) {
-            bytes = runCatching { context.assets.open(ASSET).use { it.readBytes() } }.getOrNull()
             loaded = true
+            val prefs = context.getSharedPreferences("tend_rive", Context.MODE_PRIVATE)
+            val version = appVersion(context)
+            if (prefs.getBoolean("starting", false)) {
+                prefs.edit().putLong("off_for", version).putBoolean("starting", false).commit()
+                val report = app.tend.TendApp.crashFile(context)
+                if (!report.exists()) report.writeText(
+                    "tend stopped while the Rive character was starting (a native crash, no stack trace).\n" +
+                        "Rive is off and the drawn character is used until a new APK is installed.\n" +
+                        "Phone: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}, Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT}), ABI ${android.os.Build.SUPPORTED_ABIS.joinToString()}",
+                )
+            }
+            if (prefs.getLong("off_for", -1) != version) {
+                bytes = runCatching { context.assets.open(ASSET).use { it.readBytes() } }.getOrNull()
+            }
         }
         return bytes
     }
+
+    /** Called before the first Rive view of this run is created. */
+    @android.annotation.SuppressLint("ApplySharedPref") // must reach disk before a possible native crash
+    @Synchronized
+    fun arm(context: Context) {
+        if (armed) return
+        armed = true
+        val prefs = context.getSharedPreferences("tend_rive", Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("starting", true).commit()
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ prefs.edit().putBoolean("starting", false).apply() }, 5000)
+    }
+
+    /** Rive threw while loading: use the drawn character until a new APK is installed. */
+    @Synchronized
+    fun disable(context: Context) {
+        bytes = null
+        context.getSharedPreferences("tend_rive", Context.MODE_PRIVATE).edit()
+            .putLong("off_for", appVersion(context)).putBoolean("starting", false).apply()
+    }
+
+    /** Changes with every install of a new APK, so a fixed build gets Rive back automatically. */
+    private fun appVersion(context: Context): Long =
+        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime }.getOrDefault(0L)
 }
 
 @Composable
-fun CharacterView(avatar: Avatar, mood: Mood, size: Dp, modifier: Modifier = Modifier, reading: Boolean = false) {
-    val rig = RiveRig.bytes(LocalContext.current)
-    if (rig != null) RiveCharacter(rig, avatar, if (reading) RiveRig.READING else mood.ordinal.toFloat(), size, modifier)
+fun CharacterView(
+    avatar: Avatar,
+    mood: Mood,
+    size: Dp,
+    modifier: Modifier = Modifier,
+    reading: Boolean = false,
+    /** Pop-ups over other apps use the drawn character: it's on screen in the very first frame. */
+    lightweight: Boolean = false,
+) {
+    val rig = if (lightweight) null else RiveRig.bytes(LocalContext.current)
+    var failed by remember { mutableStateOf(false) }
+    if (rig != null && !failed) RiveCharacter(rig, avatar, if (reading) RiveRig.READING else mood.ordinal.toFloat(), size, modifier) { failed = true }
     else DrawnCharacter(avatar, mood, size, modifier, reading)
 }
 
 @Composable
-private fun RiveCharacter(rig: ByteArray, avatar: Avatar, mood: Float, size: Dp, modifier: Modifier) {
-    var view by remember { mutableStateOf<RiveAnimationView?>(null) }
+private fun RiveCharacter(rig: ByteArray, avatar: Avatar, mood: Float, size: Dp, modifier: Modifier, onFailed: () -> Unit) {
+    val view = remember { arrayOfNulls<RiveAnimationView>(1) }
     AndroidView(
         factory = { context ->
-            RiveAnimationView(context, null).apply {
-                setRiveBytes(rig, artboardName = RiveRig.ARTBOARD, stateMachineName = RiveRig.STATE_MACHINE, autoplay = true)
-                view = this
+            RiveRig.arm(context)
+            try {
+                RiveAnimationView(context, null).apply {
+                    setRiveBytes(rig, artboardName = RiveRig.ARTBOARD, stateMachineName = RiveRig.STATE_MACHINE, autoplay = true)
+                    view[0] = this
+                }
+            } catch (t: Throwable) {
+                android.util.Log.e("tend", "Rive failed, using the drawn character", t)
+                RiveRig.disable(context)
+                onFailed()
+                android.view.View(context)
             }
         },
         update = { v ->
             // A rig missing an input must not crash the app; it just won't react to it.
-            runCatching { v.setNumberState(RiveRig.STATE_MACHINE, RiveRig.INPUT_MOOD, mood) }
-            runCatching { v.setBooleanState(RiveRig.STATE_MACHINE, RiveRig.INPUT_MIA, avatar == Avatar.MIA) }
+            val rive = v as? RiveAnimationView ?: return@AndroidView
+            runCatching { rive.setNumberState(RiveRig.STATE_MACHINE, RiveRig.INPUT_MOOD, mood) }
+            runCatching { rive.setBooleanState(RiveRig.STATE_MACHINE, RiveRig.INPUT_MIA, avatar == Avatar.MIA) }
         },
         modifier = modifier.size(size).clickable(remember { MutableInteractionSource() }, indication = null) {
-            runCatching { view?.fireState(RiveRig.STATE_MACHINE, RiveRig.INPUT_TAP) }
+            runCatching { view[0]?.fireState(RiveRig.STATE_MACHINE, RiveRig.INPUT_TAP) }
         },
     )
 }

@@ -190,7 +190,8 @@ class MonitorService : Service() {
     companion object {
         private const val CHANNEL = "monitor"
         private const val NUDGE_CHANNEL = "nudge"
-        private const val POLL_MS = 1000L
+        /** How often the foreground app is checked: fast enough that the pause beats the app's first scroll. */
+        private const val POLL_MS = 300L
         private const val MISS_AFTER_MS = 3000L
         private const val GAP_LOG_SECONDS = 120
         private const val WORTH_IT_MIN_SECONDS = 30

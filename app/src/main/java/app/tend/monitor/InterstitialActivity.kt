@@ -65,7 +65,7 @@ import kotlinx.coroutines.delay
 class InterstitialActivity : ComponentActivity() {
     private val store by lazy { TendStore(this) }
 
-    /** Null until the activity sync has run; then what the sheet shows. */
+    /** What the card shows; refreshed once the background sync has run. */
     private var view by mutableStateOf<View?>(null)
 
     private data class View(val label: String, val locked: Boolean, val opensToday: Int, val delaySeconds: Int, val remaining: Int)
@@ -79,23 +79,21 @@ class InterstitialActivity : ComponentActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() = goHome()
         })
-        val firstShow = savedInstanceState == null
-        // The scrim covers the app right away; the sheet appears once we know the budget.
-        setContent { TendTheme { view?.let { Sheet(pkg, it) } ?: Scrim() } }
-        // Fresh steps or a finished workout may have just earned minutes: sync before deciding.
+        // Show the card in the very first frame from what we already know...
+        val cfg = store.config
+        var day = store.today()
+        val locked = Budget.isLocked(cfg, day)
+        val delaySeconds = Budget.openDelaySeconds(cfg, day)
+        if (savedInstanceState == null && !locked) day = store.update { it.copy(opensToday = it.opensToday + 1) }
+        view = View(label, locked, day.opensToday, delaySeconds, Budget.remainingMinutes(cfg, day))
+        setContent { TendTheme { view?.let { Sheet(pkg, it) } } }
+        // ...then catch up quietly: fresh steps or a finished workout may have just earned minutes.
         lifecycleScope.launch {
             withTimeoutOrNull(SYNC_TIMEOUT_MS) { TaskSync.sync(this@InterstitialActivity) }
-            val cfg = store.config
-            val locked = Budget.isLocked(cfg, store.today())
-            var day = store.today()
-            val delaySeconds = Budget.openDelaySeconds(cfg, day)
-            if (firstShow && !locked) day = store.update { it.copy(opensToday = it.opensToday + 1) }
-            view = View(label, locked, day.opensToday, delaySeconds, Budget.remainingMinutes(cfg, day))
+            val now = store.today()
+            view = view?.copy(locked = Budget.isLocked(cfg, now), remaining = Budget.remainingMinutes(cfg, now))
         }
     }
-
-    @Composable
-    private fun Scrim() = Box(Modifier.fillMaxSize().background(Brand.Ink.copy(alpha = 0.35f)))
 
     @Composable
     private fun Sheet(pkg: String, v: View) = PopupSheet(onDismiss = ::goHome, centered = true) {
@@ -105,7 +103,7 @@ class InterstitialActivity : ComponentActivity() {
     @Composable
     private fun Header(v: View) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            CharacterView(store.avatar, if (v.locked) Mood.TIRED else Mood.SCROLLING, 76.dp)
+            CharacterView(store.avatar, if (v.locked) Mood.TIRED else Mood.SCROLLING, 76.dp, lightweight = true)
             Spacer(Modifier.width(12.dp))
             Column {
                 Text(
@@ -197,7 +195,7 @@ class InterstitialActivity : ComponentActivity() {
 
     companion object {
         private const val EXTRA_PKG = "pkg"
-        private const val SYNC_TIMEOUT_MS = 1500L
+        private const val SYNC_TIMEOUT_MS = 3000L
         fun intent(context: Context, pkg: String) = Intent(context, InterstitialActivity::class.java)
             .putExtra(EXTRA_PKG, pkg)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
