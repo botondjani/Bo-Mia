@@ -192,7 +192,7 @@ fun gardenBitmap(avatar: Avatar, plants: List<Plant>, homeStage: Int, accessorie
     val image = androidx.compose.ui.graphics.ImageBitmap(widthPx, heightPx)
     val canvas = androidx.compose.ui.graphics.Canvas(image)
     val size = Size(widthPx.toFloat(), heightPx.toFloat())
-    canvas.clipPath(Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(androidx.compose.ui.geometry.Rect(Offset.Zero, size), CornerRadius(widthPx * 0.08f))) })
+    canvas.clipPath(Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(androidx.compose.ui.geometry.Rect(Offset.Zero, size), CornerRadius(widthPx * 0.16f))) })
     androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(
         androidx.compose.ui.unit.Density(1f), androidx.compose.ui.unit.LayoutDirection.Ltr, canvas, size,
     ) { drawGarden(avatar, plants, homeStage, accessories = accessories) }

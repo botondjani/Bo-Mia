@@ -143,3 +143,14 @@ fun SectionHeader(title: String, note: String? = null) = Row(
     Text(title.uppercase(), style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
     if (note != null) Text(note, style = MaterialTheme.typography.labelSmall, color = Brand.Moss)
 }
+
+/** Every "tend" in a line of copy, in the brand green: the app's name hiding in plain sight. */
+fun brandTend(text: String): androidx.compose.ui.text.AnnotatedString = androidx.compose.ui.text.buildAnnotatedString {
+    var at = 0
+    Regex("""\btend\b""", RegexOption.IGNORE_CASE).findAll(text).forEach { m ->
+        append(text.substring(at, m.range.first))
+        pushStyle(androidx.compose.ui.text.SpanStyle(color = Brand.Moss, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)); append(m.value); pop()
+        at = m.range.last + 1
+    }
+    append(text.substring(at))
+}

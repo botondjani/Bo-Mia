@@ -84,7 +84,11 @@ class InterstitialActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         // Left without a choice (home key, a call): the app wasn't opened from here.
-        if (!isChangingConfigurations) decide("left")
+        if (!isChangingConfigurations) {
+            decide("left")
+            // Never come back with an old countdown: the next open starts a fresh pause.
+            finish()
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -139,11 +143,11 @@ class InterstitialActivity : ComponentActivity() {
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
-                    when {
+                    app.tend.ui.brandTend(when {
                         v.locked -> "Today's budget is used up."
                         v.evening -> "It's late. We tend to regret the late-night scrolls the most."
                         else -> Taglines.forOpen(v.opensToday, store.avatar.displayName)
-                    },
+                    }),
                     style = MaterialTheme.typography.titleLarge,
                 )
             }

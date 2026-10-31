@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 1x1: just the companion. -->
+<!-- 1x1: just the companion, no card behind it. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_bg"
-    android:padding="6dp">
+    android:padding="2dp">
 
     <ImageView
         android:id="@+id/face"

@@ -46,11 +46,17 @@ class WorthItActivity : ComponentActivity() {
         val label = runCatching { packageManager.getApplicationInfo(pkg, 0).loadLabel(packageManager).toString() }.getOrNull()
         val what = (if (minutes == 1L) "that minute" else "those $minutes minutes") + (label?.let { " on $it" } ?: "")
 
+        // Ignore back presses and scrim taps for a moment: they were meant for the app being closed.
+        val shownAt = android.os.SystemClock.uptimeMillis()
+        val dismiss = { if (android.os.SystemClock.uptimeMillis() - shownAt > GUARD_MS) finish() }
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() = dismiss()
+        })
         val worn = store.accessories().first
         setContent {
             TendTheme {
                 androidx.compose.runtime.CompositionLocalProvider(app.tend.ui.LocalAccessories provides worn) {
-                PopupSheet(onDismiss = ::finish, centered = true) {
+                PopupSheet(onDismiss = dismiss, centered = true) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CharacterView(store.avatar, Mood.HAPPY, 72.dp, lightweight = true)
                         Spacer(Modifier.width(12.dp))
@@ -64,7 +70,7 @@ class WorthItActivity : ComponentActivity() {
                         ).forEach { (icon, answer, tint) ->
                             Column(
                                 Modifier.weight(1f).clip(RoundedCornerShape(20.dp)).background(tint.copy(alpha = 0.25f))
-                                    .clickable { store.logAnswer("worth_it", pkg, answer, seconds); finish() }
+                                    .clickable { if (android.os.SystemClock.uptimeMillis() - shownAt > GUARD_MS) { store.logAnswer("worth_it", pkg, answer, seconds); finish() } }
                                     .padding(vertical = 14.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
@@ -87,6 +93,7 @@ class WorthItActivity : ComponentActivity() {
 
     companion object {
         private const val EXTRA_PKG = "pkg"
+        private const val GUARD_MS = 1000L
         private const val EXTRA_SECONDS = "seconds"
         fun intent(context: Context, pkg: String, seconds: Long) = Intent(context, WorthItActivity::class.java)
             .putExtra(EXTRA_PKG, pkg)

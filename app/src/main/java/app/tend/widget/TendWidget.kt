@@ -57,17 +57,18 @@ object Widgets {
 
         val worn = store.accessories().first
         val open = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
-        val minutes = if (remaining > 0) "$remaining min" else "0 min"
+        val minutes = "${remaining.coerceAtLeast(0)}"
+        val available = (cfg.freeMinutes + day.earnedMinutes).coerceAtLeast(1)
 
         if (wide.isNotEmpty()) manager.updateAppWidget(wide, RemoteViews(context.packageName, R.layout.widget).apply {
-            setImageViewBitmap(R.id.face, CharacterPainter.bitmap(store.avatar, mood, 176, worn))
-            setTextViewText(R.id.status, Moods.status(store.avatar.displayName, mood))
+            setImageViewBitmap(R.id.face, CharacterPainter.bitmap(store.avatar, mood, 160, worn))
             setTextViewText(R.id.minutes, minutes)
+            setProgressBar(R.id.progress, 100, (remaining * 100 / available).coerceIn(0, 100), false)
             // Out of minutes: point to what earns them back instead.
             setTextViewText(
-                R.id.caption,
-                if (remaining > 0) context.getString(R.string.widget_left_today)
-                else next?.let { "${it.title.lowercase()} +${it.rewardMinutes}" } ?: "fresh start tomorrow",
+                R.id.status,
+                if (remaining > 0) Moods.status(store.avatar.displayName, mood)
+                else next?.let { "${it.title} +${it.rewardMinutes}" } ?: "Fresh start tomorrow",
             )
             setOnClickPendingIntent(R.id.root, open)
         })
@@ -78,7 +79,7 @@ object Widgets {
         })
         if (garden.isNotEmpty()) manager.updateAppWidget(garden, RemoteViews(context.packageName, R.layout.widget_garden).apply {
             setImageViewBitmap(R.id.garden, gardenBitmap(store.avatar, plants, Garden.homeStage(store.daysTended), worn, 440, 440))
-            setTextViewText(R.id.minutes, "$minutes left")
+            setTextViewText(R.id.minutes, minutes)
             setOnClickPendingIntent(R.id.root, open)
         })
     }

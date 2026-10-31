@@ -165,7 +165,13 @@ class MonitorService : Service() {
         val pkg = sessionPkg ?: return
         val seconds = (now - sessionStart) / 1000
         sessionPkg = null
-        if (askWorthIt && seconds >= WORTH_IT_MIN_SECONDS) startActivity(WorthItActivity.intent(this, pkg, seconds))
+        if (askWorthIt && seconds >= WORTH_IT_MIN_SECONDS) {
+            // A moment later, so the closing swipes and back presses don't land on the question;
+            // skipped if a paused app is open again by then.
+            handler.postDelayed({
+                if (sessionPkg == null && foreground !in store.blockedPackages) startActivity(WorthItActivity.intent(this, pkg, seconds))
+            }, WORTH_IT_DELAY_MS)
+        }
     }
 
     private fun TendStore.isLocked() = app.tend.core.Budget.isLocked(config, today())
@@ -194,7 +200,8 @@ class MonitorService : Service() {
         private const val POLL_MS = 300L
         private const val MISS_AFTER_MS = 3000L
         private const val GAP_LOG_SECONDS = 120
-        private const val WORTH_IT_MIN_SECONDS = 30
+        private const val WORTH_IT_DELAY_MS = 1500L
+        const val WORTH_IT_MIN_SECONDS = 30
 
         fun start(context: Context) {
             context.startForegroundService(Intent(context, MonitorService::class.java))

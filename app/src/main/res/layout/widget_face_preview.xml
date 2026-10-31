@@ -1,16 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Widget picker preview: same layout, sample content. -->
+<!-- Widget picker preview of the 1x1: just the companion, no card behind it. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_bg"
-    android:padding="6dp">
+    android:padding="2dp">
 
     <ImageView
         android:id="@+id/face"
-        android:src="@drawable/widget_preview_face"
-    android:layout_width="match_parent"
+        android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:contentDescription="@string/app_name"
-        android:scaleType="fitCenter" />
+        android:scaleType="fitCenter"
+        android:src="@drawable/widget_preview_face" />
 </FrameLayout>
