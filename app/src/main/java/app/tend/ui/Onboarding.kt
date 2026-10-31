@@ -94,7 +94,7 @@ class PermissionActions(
 /** Where Android's restricted-settings lock stands: none, locked, or refused once (the unlock option now shows). */
 enum class PermissionLock { NONE, LOCKED, TRIPPED }
 
-private enum class Step { INTRO, COMPANION, APPS, ACTIVITIES, BUDGET, PERMISSIONS, DONE }
+private enum class Step { INTRO, COMPANION, APPS, ACTIVITIES, PERMISSIONS, DONE }
 
 @Composable
 fun Onboarding(
@@ -153,11 +153,6 @@ fun Onboarding(
                     ActivityPicker(tasks, onToggleTask)
                 }
 
-                Step.BUDGET -> StepPage(cta = "Continue", onCta = next) {
-                    Title("How much feels okay?", "Be kind to yourself. You can tune it any time.")
-                    BudgetPicker(cfg, onConfig)
-                }
-
                 Step.PERMISSIONS -> StepPage(
                     cta = if (perms.permissions.allGranted) "Continue" else "A few taps to go",
                     ctaEnabled = perms.permissions.allGranted,
@@ -179,7 +174,7 @@ fun Onboarding(
                     Spacer(Modifier.height(20.dp))
                     Text("You're all set!", style = MaterialTheme.typography.headlineLarge)
                     Text(
-                        "${cfg.freeMinutes} free minutes today, up to ${Budget.earnableFrom(cfg, DayState(LocalDate.now()), tasks)} more to earn.",
+                        "${cfg.freeMinutes} free minutes today, up to ${Budget.earnableFrom(cfg, DayState(LocalDate.now()), tasks)} more to earn. You can change the budget any time in settings.",
                         style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = Brand.Muted,
                     )
                 }

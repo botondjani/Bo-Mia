@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -168,35 +170,93 @@ fun HomeScreen(
             )
         }
 
-        SectionHeader("Instead of scrolling", "${tasks.count { it.id in day.completedTasks }} of ${tasks.size} done")
+        val active = tasks.filter { it.id !in day.completedTasks }
+        val done = tasks.filter { it.id in day.completedTasks }
+        SectionHeader("Instead of scrolling", "${done.size} of ${tasks.size} done")
         if (tasks.isEmpty()) Notice("sparkle", "Pick what you'd rather do", "A few activities that give minutes back", onOpenSettings)
-        val list = rememberScrollState()
-        // The list reaches the screen edges so the cards' shadows aren't cut off at the sides.
-        Box(Modifier.weight(1f).fillMaxWidth().layout { m, c ->
-            val extra = 20.dp.roundToPx()
-            val p = m.measure(c.copy(minWidth = c.minWidth + 2 * extra, maxWidth = c.maxWidth + 2 * extra))
-            layout(c.maxWidth, p.height) { p.place(-extra, 0) }
-        }) {
-            Column(
-                // Done ones sink to the bottom.
-                Modifier.fillMaxSize().verticalScroll(list).padding(horizontal = 20.dp).padding(top = 4.dp, bottom = Space.xl),
+        // The open activities share the space that's left and scroll on their own; the page never does.
+        // Cards fade and shrink a little as they slide in or out at the edges.
+        val list = androidx.compose.foundation.lazy.rememberLazyListState()
+        EdgeToEdge(Modifier.weight(1f)) {
+            androidx.compose.foundation.lazy.LazyColumn(
+                Modifier.fillMaxSize(),
+                state = list,
+                flingBehavior = androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior(list),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(Space.m),
             ) {
-                Tasks.ordered(day, tasks).forEachIndexed { i, task ->
-                    Box(if (i == 0) Modifier.tourTarget(tour, "activity") else Modifier) {
+                itemsIndexed(active, key = { _, t -> t.id }) { i, task ->
+                    Box(
+                        Modifier.animateItem()
+                            .then(if (i == 0) Modifier.tourTarget(tour, "activity") else Modifier)
+                            .graphicsLayer {
+                                val info = list.layoutInfo
+                                val item = info.visibleItemsInfo.firstOrNull { it.key == task.id } ?: return@graphicsLayer
+                                val size = item.size.coerceAtLeast(1).toFloat()
+                                val inBottom = ((info.viewportEndOffset - item.offset) / size).coerceIn(0f, 1f)
+                                val inTop = ((item.offset + item.size - info.viewportStartOffset) / size).coerceIn(0f, 1f)
+                                val shown = minOf(inBottom, inTop)
+                                alpha = 0.2f + 0.8f * shown * shown
+                                scaleX = 0.92f + 0.08f * shown
+                                scaleY = scaleX
+                            },
+                    ) {
                         TaskRow(task, day, health, focusSecondsLeft?.takeIf { task.id == focusTaskId }, onStartFocus, onCheckOff, onUndo, exerciseTracked, sleepEstimated)
                     }
                 }
+                if (active.isEmpty() && done.isNotEmpty()) item {
+                    Row(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        TendIcons.Badge("sparkle", 40.dp)
+                        Spacer(Modifier.width(12.dp))
+                        Text("Everything done today. ${avatar.displayName} is proud of you.", style = MaterialTheme.typography.titleMedium)
+                    }
+                }
             }
-            // A soft fade at the bottom says there's more below.
-            if (list.canScrollForward) Box(
-                Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(36.dp)
-                    .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Brand.Sage.copy(alpha = 0f), Brand.Sage))),
-            )
+        }
+        if (done.isNotEmpty()) {
+            SectionHeader("Done today", "+${done.sumOf { day.grants[it.id] ?: 0 }} min")
+            // Thin rows; more than three scroll inside their own small box.
+            EdgeToEdge(Modifier.heightIn(max = 160.dp).padding(bottom = Space.s)) {
+                Column(
+                    Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 2.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) { done.forEach { DoneRow(it, day, onUndo) } }
+            }
         }
     }
     if (showTour) TourOverlay(avatar, tour, homeTour(avatar.displayName, cfg.freeMinutes), onTourDone)
     }
+}
+
+/** Lets a list reach the screen edges, so the cards' shadows aren't cut off at the sides. */
+@Composable
+private fun EdgeToEdge(modifier: Modifier, content: @Composable () -> Unit) = Box(
+    modifier.fillMaxWidth().layout { m, c ->
+        val extra = 20.dp.roundToPx()
+        val p = m.measure(c.copy(minWidth = c.minWidth + 2 * extra, maxWidth = c.maxWidth + 2 * extra))
+        layout(c.maxWidth, p.height) { p.place(-extra, 0) }
+    },
+) { content() }
+
+/** A finished activity: one thin, quiet line. */
+@Composable
+private fun DoneRow(task: TaskDef, day: DayState, onUndo: (TaskDef) -> Unit) = Row(
+    Modifier.fillMaxWidth().graphicsLayer { alpha = 0.75f }.surface(radius = 16.dp).padding(horizontal = 14.dp, vertical = 8.dp),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    Box(Modifier.size(24.dp).clip(CircleShape).background(Brand.Moss), contentAlignment = Alignment.Center) {
+        Icon(Icons.Filled.Check, "Done", tint = Color.White, modifier = Modifier.size(14.dp))
+    }
+    Spacer(Modifier.width(10.dp))
+    Text(
+        task.title, style = MaterialTheme.typography.bodyLarge, color = Brand.Muted, maxLines = 1,
+        textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough, modifier = Modifier.weight(1f),
+    )
+    day.grants[task.id]?.takeIf { it > 0 }?.let { Text("+$it", style = MaterialTheme.typography.labelLarge, color = Brand.Moss) }
+    if (task.manual) Text(
+        "Undo", style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
+        modifier = Modifier.padding(start = 8.dp).clip(RoundedCornerShape(8.dp)).tappable { onUndo(task) }.padding(horizontal = 6.dp, vertical = 2.dp),
+    )
 }
 
 private fun homeTour(name: String, free: Int) = listOf(

@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.tend.core.Avatar
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.CircleShape
@@ -310,30 +311,34 @@ fun GardenScreen(
     week()
 }
 
-/** What the companion wears from a week of habits; faded ones wait on the shelf, never taken away. */
+/** What the companion wears from a week of habits, as four small tiles; faded ones wait on the shelf. */
 @Composable
 private fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory>) = Card {
-    Text("${avatar.displayName.uppercase()}'S THINGS", style = MaterialTheme.typography.labelSmall)
-    Text(
-        if (worn.isEmpty()) "Keep a habit for a week and ${avatar.displayName} gets something to wear." else "Worn because of your week.",
-        style = MaterialTheme.typography.bodyMedium,
-    )
-    Accessory.entries.forEach { a ->
-        val state = when (a) { in worn -> "Wearing it"; in onShelf -> "On the shelf, back with ${a.how}"; else -> a.how.replaceFirstChar { it.uppercase() } }
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
-            Box(
-                Modifier.size(40.dp).clip(CircleShape).background(if (a in worn) Brand.Mint.copy(alpha = 0.3f) else if (Brand.dark) Brand.Mint.copy(alpha = 0.18f) else Brand.Sage),
-                contentAlignment = Alignment.Center,
-            ) {
-                androidx.compose.foundation.Image(
-                    CharacterPainter.accessoryIcon(a, 96).asImageBitmap(), null,
-                    Modifier.size(36.dp).graphicsLayer { alpha = if (a in worn) 1f else if (a in onShelf) 0.6f else 0.3f },
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("${avatar.displayName.uppercase()}'S THINGS", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+        Text("a week of habits", style = MaterialTheme.typography.bodyMedium)
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
+        Accessory.entries.forEach { a ->
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    Modifier.size(48.dp).clip(CircleShape)
+                        .background(if (a in worn) Brand.Mint.copy(alpha = 0.3f) else if (Brand.dark) Brand.Mint.copy(alpha = 0.18f) else Brand.Sage),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    androidx.compose.foundation.Image(
+                        CharacterPainter.accessoryIcon(a, 96).asImageBitmap(), a.title,
+                        Modifier.size(40.dp).graphicsLayer { alpha = if (a in worn) 1f else if (a in onShelf) 0.6f else 0.3f },
+                    )
+                }
+                Text(
+                    a.title.removePrefix("Reading "), style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), maxLines = 1, textAlign = TextAlign.Center,
+                    color = if (a in worn) Brand.Ink else Brand.Muted, modifier = Modifier.padding(top = 4.dp),
                 )
-            }
-            Spacer(Modifier.width(12.dp))
-            Column {
-                Text(a.title, style = MaterialTheme.typography.bodyLarge, color = if (a in worn) Brand.Ink else Brand.Muted)
-                Text(state, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    when (a) { in worn -> "Wearing it"; in onShelf -> "On the shelf"; else -> a.short },
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp), textAlign = TextAlign.Center,
+                )
             }
         }
     }
