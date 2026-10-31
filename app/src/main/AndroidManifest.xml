@@ -97,6 +97,10 @@
             android:exported="false" />
 
         <receiver
+            android:name=".reminder.WeeklyLetterReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".reminder.RecapReminderReceiver"
             android:exported="false" />
 

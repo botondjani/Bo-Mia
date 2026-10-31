@@ -78,6 +78,16 @@ class TendStore(private val context: Context) {
         get() = prefs.getBoolean("widget_tip_done", false)
         set(v) = edit { putBoolean("widget_tip_done", v) }
 
+    /** Evening mode starts at this hour (until 5 am); -1 = off. */
+    var eveningFrom: Int
+        get() = prefs.getInt("evening_from", 22)
+        set(v) = edit { putInt("evening_from", v) }
+
+    /** A short note every Sunday evening about the week. */
+    var weeklyLetter: Boolean
+        get() = prefs.getBoolean("weekly_letter", true)
+        set(v) = edit { putBoolean("weekly_letter", v) }
+
     var blockedPackages: Set<String>
         get() = prefs.getStringSet("blocked", emptySet())!!
         set(v) = edit { putStringSet("blocked", v) }

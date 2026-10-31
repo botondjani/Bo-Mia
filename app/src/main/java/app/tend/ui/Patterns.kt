@@ -52,6 +52,16 @@ fun ColumnScope.WeekSections(avatar: Avatar, patterns: WeeklyPatterns, appLabel:
         }
     }
 
+    if (patterns.pauses > 0) Card {
+        Text("THE PAUSE", style = MaterialTheme.typography.labelSmall)
+        Text("You let it go ${patterns.letGo} of ${patterns.pauses} times", style = MaterialTheme.typography.titleLarge, color = Brand.Moss)
+        Text("Times a paused app stayed closed after the pause: not now, or something else instead.", style = MaterialTheme.typography.bodyMedium)
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp).height(12.dp).clip(CircleShape)) {
+            if (patterns.letGo > 0) Box(Modifier.weight(patterns.letGo.toFloat()).fillMaxHeight().background(Brand.Moss))
+            if (patterns.pauses - patterns.letGo > 0) Box(Modifier.weight((patterns.pauses - patterns.letGo).toFloat()).fillMaxHeight().background(Brand.Mint.copy(alpha = 0.35f)))
+        }
+    }
+
     Card {
         Text("THIS WEEK", style = MaterialTheme.typography.labelSmall)
         Text("You got back ${hoursMinutes(patterns.gotBackMinutes)}", style = MaterialTheme.typography.titleLarge, color = Brand.Moss)

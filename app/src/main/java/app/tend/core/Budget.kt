@@ -16,6 +16,8 @@ data class BudgetConfig(
     val delayStepSeconds: Int = 1,
     /** The wait never grows beyond this. */
     val maxDelaySeconds: Int = 10,
+    /** In evening mode every open waits this long: late scrolls are the ones we regret most. */
+    val eveningDelaySeconds: Int = 15,
 )
 
 /** Everything that resets at midnight. Earned minutes expire with it. */
@@ -60,8 +62,13 @@ object Budget {
     fun isLocked(cfg: BudgetConfig, day: DayState): Boolean = remainingMinutes(cfg, day) <= 0
 
     /** Wait before the next open; grows with every open today. */
-    fun openDelaySeconds(cfg: BudgetConfig, day: DayState): Int =
-        minOf(cfg.baseDelaySeconds + cfg.delayStepSeconds * day.opensToday, cfg.maxDelaySeconds)
+    fun openDelaySeconds(cfg: BudgetConfig, day: DayState, evening: Boolean = false): Int {
+        val normal = minOf(cfg.baseDelaySeconds + cfg.delayStepSeconds * day.opensToday, cfg.maxDelaySeconds)
+        return if (evening) maxOf(normal, cfg.eveningDelaySeconds) else normal
+    }
+
+    /** Evening mode runs from [fromHour] until 5 am; a negative hour means it's off. */
+    fun isEvening(fromHour: Int, hour: Int): Boolean = fromHour >= 0 && (hour >= fromHour || hour < 5)
 
     /**
      * Credits a completed task. Each task counts once per day; the credit is clamped

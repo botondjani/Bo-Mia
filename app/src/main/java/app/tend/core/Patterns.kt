@@ -50,6 +50,9 @@ data class WeeklyPatterns(
     val lookingFor: Map<String, Int>,
     /** One honest sentence about when scrolling felt worth it least (or most), if the data says so. */
     val insight: String?,
+    /** Pause pop-ups this week, and how many ended without opening the app. */
+    val pauses: Int = 0,
+    val letGo: Int = 0,
 )
 
 object Patterns {
@@ -71,7 +74,11 @@ object Patterns {
             .take(TOP_APPS)
         val lookingFor = recent.filter { it.kind == "looking_for" }.groupingBy { it.answer }.eachCount()
 
-        return WeeklyPatterns(week, week.sumOf { it.unusedMinutes }, byPart, byApp, lookingFor, insight(byPart))
+        val pauses = recent.filter { it.kind == "pause" }
+        return WeeklyPatterns(
+            week, week.sumOf { it.unusedMinutes }, byPart, byApp, lookingFor, insight(byPart),
+            pauses = pauses.size, letGo = pauses.count { it.answer != "open" },
+        )
     }
 
     private fun insight(byPart: Map<DayPart, WorthSplit>): String? {

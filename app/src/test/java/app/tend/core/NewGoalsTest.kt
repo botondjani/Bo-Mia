@@ -44,3 +44,23 @@ class NewGoalsTest {
         assertEquals(emptySet<Accessory>(), Accessories.active(week.map { emptySet() }))
     }
 }
+
+class PauseAndEveningTest {
+    private val today = java.time.LocalDate.of(2026, 11, 1)
+
+    @Test fun `pause decisions are counted for the week`() {
+        fun pause(d: Long, a: String) = Answer(today.minusDays(d).atTime(21, 0), "pause", "insta", a)
+        val p = Patterns.week(today, emptyList(), listOf(pause(0, "open"), pause(1, "not_now"), pause(2, "instead"), pause(3, "open"), pause(9, "not_now")))
+        assertEquals(4, p.pauses)
+        assertEquals(2, p.letGo)
+    }
+
+    @Test fun `evening mode waits longer and runs past midnight`() {
+        val cfg = BudgetConfig()
+        val day = DayState(today, opensToday = 1)
+        assertEquals(6, Budget.openDelaySeconds(cfg, day))
+        assertEquals(15, Budget.openDelaySeconds(cfg, day, evening = true))
+        assertTrue(Budget.isEvening(22, 23) && Budget.isEvening(22, 1))
+        assertTrue(!Budget.isEvening(22, 12) && !Budget.isEvening(-1, 23))
+    }
+}

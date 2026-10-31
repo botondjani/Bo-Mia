@@ -38,6 +38,7 @@ import app.tend.core.Budget
 import app.tend.core.Patterns
 import app.tend.core.Recap
 import app.tend.reminder.RecapReminder
+import app.tend.reminder.WeeklyLetter
 import app.tend.ui.WeekSections
 import java.time.LocalDate
 import app.tend.core.TaskDef
@@ -83,6 +84,7 @@ class MainActivity : ComponentActivity() {
 
     /** Set when the evening notification was tapped. */
     private var openRecap by mutableStateOf(false)
+    private var openGarden by mutableStateOf(false)
 
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (store.reminderPrompted) store.reminderEnabled = granted // asked for the evening reminder, not for nudges
@@ -105,6 +107,7 @@ class MainActivity : ComponentActivity() {
             store.blockedPackages = catalog.suggested.map { it.pkg }.toSet()
         }
         RecapReminder.schedule(this)
+        app.tend.reminder.WeeklyLetter.schedule(this)
         handleIntent(intent)
         setContent {
             TendTheme {
@@ -121,7 +124,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
-        if (intent?.getStringExtra(RecapReminder.EXTRA_OPEN) == RecapReminder.OPEN_RECAP) openRecap = true
+        when (intent?.getStringExtra(RecapReminder.EXTRA_OPEN)) {
+            RecapReminder.OPEN_RECAP -> openRecap = true
+            app.tend.reminder.WeeklyLetter.OPEN_GARDEN -> openGarden = true
+        }
     }
 
     private fun setReminder(enabled: Boolean, hour: Int) {
@@ -134,6 +140,36 @@ class MainActivity : ComponentActivity() {
         store.reminderEnabled = enabled
         RecapReminder.schedule(this)
         refresh++
+    }
+
+    private fun setWeeklyLetter(on: Boolean) {
+        store.weeklyLetter = on
+        if (on && !RecapReminder.canNotify(this) && Build.VERSION.SDK_INT >= 33) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        WeeklyLetter.schedule(this)
+        refresh++
+    }
+
+    /** Shares everything tend logged on this phone as one text, for testing. */
+    private fun exportTestData() {
+        val text = buildString {
+            appendLine("tend test data · ${java.time.LocalDateTime.now()}")
+            appendLine("${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})")
+            appendLine("app ${packageManager.getPackageInfo(packageName, 0).versionName}")
+            appendLine("activities: ${store.selectedTasks.joinToString { it.id }} · evening from ${store.eveningFrom}")
+            for (name in listOf("answers.csv", "history.csv", "misses.csv", "last_crash.txt")) {
+                val f = java.io.File(filesDir, name)
+                appendLine()
+                appendLine("== $name ==")
+                // Last lines only: a share intent carries well under 1 MB.
+                appendLine(if (f.exists()) f.readLines().takeLast(1500).joinToString("\n") else "(none)")
+            }
+        }
+        val send = Intent(Intent.ACTION_SEND).setType("text/plain")
+            .putExtra(Intent.EXTRA_SUBJECT, "tend test data")
+            .putExtra(Intent.EXTRA_TEXT, text)
+        startActivity(Intent.createChooser(send, "Export test data"))
     }
 
     override fun onResume() {
@@ -176,6 +212,7 @@ class MainActivity : ComponentActivity() {
         // System back always leads home from inner pages.
         androidx.activity.compose.BackHandler(enabled = store.onboarded && screen != Screen.HOME) { screen = Screen.HOME }
         LaunchedEffect(openRecap) { if (openRecap) { screen = Screen.RECAP; openRecap = false } }
+        LaunchedEffect(openGarden) { if (openGarden) { screen = Screen.GARDEN; openGarden = false } }
         celebrate?.let { done ->
             // Only a single hand check-off can be undone; measured tasks are facts.
             val undoable = done.tasks.singleOrNull()?.takeIf { it.manual }
@@ -229,6 +266,11 @@ class MainActivity : ComponentActivity() {
                 reminderEnabled = store.reminderEnabled,
                 reminderHour = store.reminderHour,
                 onReminder = ::setReminder,
+                eveningFrom = store.eveningFrom,
+                onEvening = { store.eveningFrom = it; refresh++ },
+                weeklyLetter = store.weeklyLetter,
+                onWeeklyLetter = ::setWeeklyLetter,
+                onExport = ::exportTestData,
                 onDone = { screen = Screen.HOME },
             )
 

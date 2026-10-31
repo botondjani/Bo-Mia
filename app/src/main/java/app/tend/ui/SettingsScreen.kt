@@ -44,6 +44,11 @@ fun SettingsScreen(
     reminderEnabled: Boolean,
     reminderHour: Int,
     onReminder: (enabled: Boolean, hour: Int) -> Unit,
+    eveningFrom: Int,
+    onEvening: (Int) -> Unit,
+    weeklyLetter: Boolean,
+    onWeeklyLetter: (Boolean) -> Unit,
+    onExport: () -> Unit,
     onDone: () -> Unit,
 ) = Column(
     Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
@@ -64,27 +69,16 @@ fun SettingsScreen(
     BudgetPicker(cfg, onConfig)
     Text("EVENING RECAP", style = MaterialTheme.typography.labelSmall)
     Card {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Evening reminder", style = MaterialTheme.typography.bodyLarge)
-                Text("One quiet note when tonight's recap is ready", style = MaterialTheme.typography.bodyMedium)
-            }
-            Switch(checked = reminderEnabled, onCheckedChange = { onReminder(it, reminderHour) })
+        SwitchRow("Evening reminder", "One quiet note when tonight's recap is ready", reminderEnabled) { onReminder(it, reminderHour) }
+        if (reminderEnabled) HourChips(listOf(20, 21, 22), reminderHour) { onReminder(true, it) }
+        SwitchRow("Sunday letter", "A short note on Sunday evening about your week", weeklyLetter, onWeeklyLetter)
+    }
+    Text("EVENING MODE", style = MaterialTheme.typography.labelSmall)
+    Card {
+        SwitchRow("Slower evenings", "Late at night the pause waits 15 s and ${avatar.displayName} gets sleepy", eveningFrom >= 0) {
+            onEvening(if (it) 22 else -1)
         }
-        if (reminderEnabled) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
-            listOf(20, 21, 22).forEach { h ->
-                val on = h == reminderHour
-                Text(
-                    "$h:00",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (on) Color.White else Brand.Moss,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
-                        .background(if (on) Brand.Moss else Brand.Sage)
-                        .clickable { onReminder(true, h) }.padding(vertical = 12.dp),
-                )
-            }
-        }
+        if (eveningFrom >= 0) HourChips(listOf(21, 22, 23), eveningFrom, onEvening)
     }
     Text("HOME SCREEN", style = MaterialTheme.typography.labelSmall)
     WidgetButton(avatar, onAddWidget)
@@ -92,8 +86,36 @@ fun SettingsScreen(
         if (missCount == 0) "Diagnostics · no blocking misses logged" else "Diagnostics · $missCount blocking misses logged",
         style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = Space.s),
     )
+    SecondaryButton("Export test data", onExport)
     PrimaryButton("Done", onDone, enabled = blocked.isNotEmpty(), modifier = Modifier.padding(vertical = 20.dp))
 }
+
+@Composable
+private fun SwitchRow(title: String, body: String, checked: Boolean, onChange: (Boolean) -> Unit) =
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(body, style = MaterialTheme.typography.bodyMedium)
+        }
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
+
+@Composable
+private fun HourChips(hours: List<Int>, selected: Int, onPick: (Int) -> Unit) =
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+        hours.forEach { h ->
+            val on = h == selected
+            Text(
+                "$h:00",
+                style = MaterialTheme.typography.labelLarge,
+                color = if (on) Color.White else Brand.Moss,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
+                    .background(if (on) Brand.Moss else Brand.Sage)
+                    .clickable { onPick(h) }.padding(vertical = 12.dp),
+            )
+        }
+    }
 
 /** Shown when a permission was revoked after onboarding. */
 @Composable

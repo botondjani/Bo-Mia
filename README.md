@@ -13,11 +13,13 @@ This is the MVP skeleton described in the concept doc. Native Android, English o
 | Health Connect: reads today's steps + exercise minutes (read-only) on app open, every minute while open, and before every pause screen; progress bars and a celebration when a task completes | `health/HealthConnect.kt`, `health/TaskSync.kt` |
 | Moods (happy / tired / scrolling / outside); the companion line looks back at what we did today ("Today we already went outside and learned something. Look at us!"); finished tasks sink to the bottom | `core/Mood.kt`, `core/Tasks.kt` |
 | Monitoring: UsageStats polled every 0.3 s, opens a delay screen, counts time used, locks at zero, logs every miss | `monitor/MonitorService.kt` |
-| Pause pop-up: a card in the middle of the screen, shown in the first frame (sync runs behind it), the app blurred behind (Android 12+; when the system turns blur off, a darker scrim keeps the look), a "We tend to…" line, "What are you looking for?" chips, "Not now" and a counted-down "Open" | `monitor/InterstitialActivity.kt` |
+| Pause pop-up: a card in the middle of the screen, shown in the first frame (sync runs behind it), the app blurred behind (Android 12+; when the system turns blur off, a darker scrim keeps the look), a "We tend to…" line, "What are you looking for?" chips; the main button is "Do this instead" (the next unfinished activity: starts its timer, or a walk / move / bed suggestion), then "Not now", with "Open" as a countdown link. Every pause logs its outcome (instead / not now / open / earn / left) | `monitor/InterstitialActivity.kt` |
+| Evening mode: from 21, 22 or 23:00 (until 5:00) the pause waits at least 15 s and the companion is sleepy ("It's late…"); on by default from 22:00, toggle in settings | `core/Budget.kt`, `monitor/InterstitialActivity.kt` |
+| Sunday letter: Sunday 18:30 notification ("You got back X and N plants grew. You let the scroll go K of M times."), tap opens the garden & week page; toggle in settings | `reminder/WeeklyLetter.kt` |
 | "Worth it?" pop-up over the home screen, three emoji tiles, after sessions of 30 s or more | `monitor/WorthItActivity.kt` |
 | Evening recap (from 19:00): minutes got back, tonight's plant, steps / exercise / reading, "Worth it?" summary with late-night pattern, home milestones | `core/Garden.kt`, `ui/Garden.kt` |
 | Garden: one plant per day from unused minutes (sprout < 15, tulip < 30, sunflower ≥ 30), planted at midnight; the home grows weekly (lit window + bench in week 2, own tree in week 4) | `core/Garden.kt`, `ui/Garden.kt` |
-| Garden & week page (no tab bar; reached from the "Garden" button at the top of home or the card below the activities, system back returns home): garden scene, "Your home grows with you", tonight's plant, then the last 7 days: screen time per day, minutes got back, "Worth it?" by time of day and by app, looking-for answers, one insight sentence | `ui/Garden.kt`, `core/Patterns.kt`, `ui/Patterns.kt` |
+| Garden & week page (no tab bar; reached from the "Garden" button at the top of home or the card below the activities, system back returns home): garden scene, "Your home grows with you", tonight's plant, then the last 7 days: screen time per day, minutes got back, "The pause" (how often you let the scroll go), "Worth it?" by time of day and by app, looking-for answers, one insight sentence | `ui/Garden.kt`, `core/Patterns.kt`, `ui/Patterns.kt` |
 | Evening reminder: offered once on the recap, toggle + 20/21/22:00 in settings; inexact daily alarm, silent if the recap was already opened, rescheduled after reboot | `reminder/RecapReminder.kt` |
 | Home screen widgets: 1×1 (the companion), 2×1 (face, minutes left or what earns them back, "Bo is happy"), 2×2 (the garden with minutes left); redrawn only when something visible changes | `widget/TendWidget.kt` |
 | Onboarding (8 steps incl. "What would you rather do?", suggested apps, in-context permissions), settings, home, focus timer | `ui/` |
@@ -26,7 +28,7 @@ This is the MVP skeleton described in the concept doc. Native Android, English o
 | Brand: Moss/Mint/Coral/Sunny/Sky/Ink/Sage, Fredoka + Nunito (OFL, bundled); design tokens and shared components | `ui/Theme.kt`, `ui/Components.kt` |
 | Icons: tend's own line icon set (24 vector drawables, 24 grid, 1.8 stroke, round caps) in tinted circles, no emoji | `res/drawable/ic_t_*.xml`, `ui/TendIcons.kt` |
 
-Logs are written to the app's private storage: `answers.csv` (looking-for and worth-it answers), `history.csv` (one line per closed day) and `misses.csv` (blocking gaps or opens that weren't caught).
+Logs are written to the app's private storage: `answers.csv` (looking-for and worth-it answers), `history.csv` (one line per closed day) and `misses.csv` (blocking gaps or opens that weren't caught). Settings → **Export test data** shares all of them (plus the last crash and device info) as one text.
 
 ## Not done yet
 
