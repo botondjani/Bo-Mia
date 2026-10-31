@@ -10,7 +10,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
@@ -160,16 +159,19 @@ class InterstitialActivity : ComponentActivity() {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Header(v)
         Text("WHAT ARE YOU LOOKING FOR?", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Messages", "Something specific", "Just bored").forEach { a ->
+        // One row: short labels, equal widths. The logged answer keeps the original wording.
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Messages" to "Messages", "Something" to "Something specific", "Just bored" to "Just bored").forEach { (label, a) ->
                 val on = answer == a
                 Text(
-                    a,
+                    label,
                     style = MaterialTheme.typography.labelLarge,
                     color = if (on) Color.White else Brand.Moss,
-                    modifier = Modifier.clip(RoundedCornerShape(50)).background(if (on) Brand.Moss else Brand.Card)
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(50)).background(if (on) Brand.Moss else Brand.Card)
                         .clickable { if (answer == null) store.logAnswer("looking_for", pkg, a); answer = a }
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                        .padding(horizontal = 4.dp, vertical = 10.dp),
                 )
             }
         }

@@ -71,7 +71,6 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     onOpenGarden: () -> Unit,
     onOpenRecap: () -> Unit,
-    weekNote: String?,
     /** Show the one-time widget tip; called with true when it was handled. */
     showWidgetTip: Boolean = false,
     /** A phone-free session the phone interrupted, shown once. */
@@ -94,16 +93,6 @@ fun HomeScreen(
                 Text(day.date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.ENGLISH)), style = MaterialTheme.typography.bodyMedium)
                 Text(greeting(), style = MaterialTheme.typography.headlineMedium)
             }
-            // The garden is one tap away, right at the top.
-            Row(
-                Modifier.surface(radius = 22.dp).tappable(onClick = onOpenGarden).padding(horizontal = 14.dp, vertical = 11.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TendIcons.Glyph("sprout", 18.dp)
-                Spacer(Modifier.width(6.dp))
-                Text("Garden", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
-            }
-            Spacer(Modifier.width(Space.s))
             IconButtonSoft(Icons.Filled.Settings, "Settings", onOpenSettings)
         }
 
@@ -120,21 +109,24 @@ fun HomeScreen(
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(if (remaining > 0) "$remaining" else "0", style = MaterialTheme.typography.displayLarge, color = if (remaining > 0) Brand.Moss else Brand.Coral)
                 Spacer(Modifier.width(Space.s))
-                Text("min left today", style = MaterialTheme.typography.titleMedium, color = Brand.Muted, modifier = Modifier.padding(bottom = 10.dp))
+                Text("min left today", style = MaterialTheme.typography.titleMedium, color = Brand.Muted, modifier = Modifier.weight(1f).padding(bottom = 10.dp))
+                // The garden is one tap away, next to today's minutes.
+                Row(
+                    Modifier.padding(bottom = 6.dp).clip(RoundedCornerShape(50)).background(Brand.Sage)
+                        .tappable(onClick = onOpenGarden).padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TendIcons.Glyph("sprout", 18.dp)
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (plantCount > 0) "Garden · $plantCount" else "Garden", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+                }
             }
             val available = (cfg.freeMinutes + day.earnedMinutes).coerceAtLeast(1)
             val left by animateFloatAsState((remaining.toFloat() / available).coerceIn(0f, 1f), tween(700), label = "left")
             Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(50)).background(Brand.Sage)) {
                 Box(Modifier.fillMaxWidth(left).height(8.dp).clip(RoundedCornerShape(50)).background(if (remaining > 0) Brand.Mint else Brand.Coral))
             }
-            Row {
-                Text("+${Budget.earnableFrom(cfg, day, tasks)} min still to earn", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.tappable(onClick = onOpenGarden)) {
-                    TendIcons.Glyph("sprout", 16.dp)
-                    Spacer(Modifier.width(Space.xs))
-                    Text("$plantCount in the garden", style = MaterialTheme.typography.bodyMedium, color = Brand.Moss)
-                }
-            }
+            Text("+${Budget.earnableFrom(cfg, day, tasks)} min still to earn", style = MaterialTheme.typography.bodyMedium)
         }
 
         if (onShareCrash != null) Notice("alert", "tend crashed last time", "Sorry! Tap to share the crash report.", onShareCrash)
@@ -161,14 +153,6 @@ fun HomeScreen(
         Tasks.ordered(day, tasks).forEach { task ->
             TaskRow(task, day, health, focusSecondsLeft?.takeIf { task.id == focusTaskId }, onStartFocus, onCheckOff, onUndo)
         }
-
-        SectionHeader("Garden & week")
-        Notice(
-            "sprout",
-            if (plantCount == 0) "Your garden is waiting" else "$plantCount ${if (plantCount == 1) "plant" else "plants"} in the garden",
-            weekNote ?: "Your home grows with you. See how the week went.",
-            onOpenGarden,
-        )
     }
 }
 
@@ -231,6 +215,7 @@ private fun TaskRow(
 
 private fun progressLabel(task: TaskDef, progress: Long): String = when (task.id) {
     Tasks.OUTSIDE.id -> "%,d of %,d steps".format(Locale.ENGLISH, progress, task.target)
+    Tasks.SLEEP.id -> "%d h %02d of %d h sleep last night".format(Locale.ENGLISH, progress / 60, progress % 60, task.target / 60)
     else -> "$progress of ${task.target} min of exercise"
 }
 

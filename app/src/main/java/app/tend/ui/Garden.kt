@@ -257,7 +257,6 @@ fun GardenScreen(
         Text("${avatar.displayName}'s garden & week", style = MaterialTheme.typography.headlineMedium)
     }
     GardenScene(avatar, plants, Garden.homeStage(daysTended), preview = tonight)
-    HomeStages(daysTended)
     Things(avatar, worn, onShelf)
 
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -295,6 +294,7 @@ fun GardenScreen(
         }
         Text("Minutes you don't use become one plant each night.", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
     }
+    HomeStages(daysTended)
     week()
 }
 
@@ -327,27 +327,47 @@ private fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory>
     }
 }
 
-/** Week 1 / 2 / 4 milestones of the home, the current one highlighted. */
+/** Week 1 / 2 / 4 milestones of the home on one track, with what comes next. */
 @Composable
 fun HomeStages(daysTended: Int) = Card {
     val stage = Garden.homeStage(daysTended)
-    Text("YOUR HOME GROWS WITH YOU", style = MaterialTheme.typography.labelSmall)
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-        listOf(Triple("sprout", "Week 1", "first sprouts"), Triple("bench", "Week 2", "lit window, bench"), Triple("outside", "Week 4", "a tree of your own"))
-            .forEachIndexed { i, (icon, week, what) ->
-                Column(
-                    Modifier.weight(1f).clip(RoundedCornerShape(16.dp))
-                        .background(if (i <= stage) Brand.Mint.copy(alpha = 0.3f) else Brand.Sage)
-                        .border(2.dp, if (i == stage) Brand.Moss else Color.Transparent, RoundedCornerShape(16.dp))
-                        .padding(10.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    TendIcons.Glyph(icon, 26.dp, tint = if (i <= stage) Brand.Moss else Brand.Muted)
-                    Text(week, style = MaterialTheme.typography.titleMedium, color = if (i <= stage) Brand.Moss else Brand.Muted)
-                    Text(what, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
-                }
-            }
+    val milestones = listOf(Triple("sprout", 0, "First sprouts"), Triple("bench", 7, "Lit window & bench"), Triple("outside", 21, "A tree of your own"))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("YOUR HOME GROWS WITH YOU", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+        Text("Day ${daysTended + 1}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
     }
+    // Track: halfway at day 7, full at day 21.
+    val fill = if (daysTended < 7) daysTended / 14f else (0.5f + (daysTended - 7) / 28f).coerceAtMost(1f)
+    Box(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 4.dp).height(44.dp)) {
+        Box(Modifier.align(Alignment.CenterStart).padding(horizontal = 22.dp).fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)).background(Brand.Sage)) {
+            Box(Modifier.fillMaxWidth(fill).height(6.dp).clip(RoundedCornerShape(50)).background(Brand.Mint))
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            milestones.forEachIndexed { i, (icon, _, _) ->
+                Box(
+                    Modifier.size(44.dp).clip(CircleShape).background(if (i <= stage) Brand.Moss else Brand.Card)
+                        .border(2.dp, if (i <= stage) Brand.Moss else Brand.Sage, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) { TendIcons.Glyph(icon, 22.dp, tint = if (i <= stage) Color.White else Brand.Muted) }
+            }
+        }
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        milestones.forEachIndexed { i, (_, day, what) ->
+            Column(
+                Modifier.width(96.dp),
+                horizontalAlignment = when (i) { 0 -> Alignment.Start; 2 -> Alignment.End; else -> Alignment.CenterHorizontally },
+            ) {
+                Text(if (day == 0) "Week 1" else "Week ${day / 7 + 1}", style = MaterialTheme.typography.labelLarge, color = if (i <= stage) Brand.Moss else Brand.Muted)
+                Text(what, style = MaterialTheme.typography.bodyMedium, textAlign = when (i) { 0 -> TextAlign.Start; 2 -> TextAlign.End; else -> TextAlign.Center })
+            }
+        }
+    }
+    val next = milestones.getOrNull(stage + 1)
+    Text(
+        next?.let { "${it.third} in ${it.second - daysTended} ${if (it.second - daysTended == 1) "day" else "days"}." } ?: "Your home is all grown. Keep tending it.",
+        style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 10.dp),
+    )
 }
 
 @Composable

@@ -359,7 +359,6 @@ class MainActivity : ComponentActivity() {
                 onOpenSettings = { screen = Screen.SETTINGS },
                 onOpenGarden = { screen = Screen.GARDEN },
                 onOpenRecap = { screen = Screen.RECAP },
-                weekNote = Patterns.week(LocalDate.now(), store.daySummaries(), store.answers()).insight,
                 // Not during onboarding: from the second day on, until placed or seen.
                 showWidgetTip = !store.widgetTipDone && store.daysTended >= 1 && !widgetPlaced(),
                 onWidgetTipDone = { store.widgetTipDone = true; refresh++ },
