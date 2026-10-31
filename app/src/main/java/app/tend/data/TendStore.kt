@@ -36,6 +36,11 @@ class TendStore(private val context: Context) {
         )
         set(v) = edit { putInt("cfg_total", v.totalMinutes); putInt("cfg_free", v.freeMinutes) }
 
+    /** Start of the running reading session (wall clock), 0 when none. Survives the app being closed. */
+    var focusStartedAt: Long
+        get() = prefs.getLong("focus_started", 0)
+        set(v) = edit { putLong("focus_started", v) }
+
     val gardenMinutes: Int get() { today(); return prefs.getInt("garden", 0) }
 
     @Synchronized
@@ -87,6 +92,8 @@ class TendStore(private val context: Context) {
             usedSeconds = prefs.getLong("day_used", 0),
             opensToday = prefs.getInt("day_opens", 0),
             completedTasks = prefs.getStringSet("day_tasks", emptySet())!!,
+            steps = prefs.getLong("day_steps", 0),
+            exerciseMinutes = prefs.getInt("day_exercise", 0),
         )
     }
 
@@ -97,6 +104,8 @@ class TendStore(private val context: Context) {
         putLong("day_used", d.usedSeconds)
         putInt("day_opens", d.opensToday)
         putStringSet("day_tasks", d.completedTasks)
+        putLong("day_steps", d.steps)
+        putInt("day_exercise", d.exerciseMinutes)
         extra()
     }
 

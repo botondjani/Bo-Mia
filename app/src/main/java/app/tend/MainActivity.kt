@@ -29,7 +29,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import app.tend.core.TaskDef
 import app.tend.core.Tasks
+import app.tend.health.HealthConnect
+import app.tend.health.TaskSync
+import app.tend.ui.Celebration
+import androidx.health.connect.client.PermissionController
 import app.tend.data.TendStore
 import app.tend.monitor.MonitorService
 import app.tend.ui.AppCatalog
@@ -57,6 +62,9 @@ class MainActivity : ComponentActivity() {
 
     private enum class Screen { HOME, SETTINGS, PERMISSIONS }
 
+    private val healthPermissions =
+        registerForActivityResult(PermissionController.createRequestPermissionResultContract()) { refresh++ }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -82,9 +90,29 @@ class MainActivity : ComponentActivity() {
     private fun Content(catalog: AppCatalog) {
         refresh // read so recomposition follows onResume
         var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
-        var focusStartedAt by rememberSaveable { mutableLongStateOf(0L) }
         var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-        LaunchedEffect(Unit) { while (true) { delay(1000); now = System.currentTimeMillis() } }
+        var health by remember { mutableStateOf<HealthConnect.Status?>(null) }
+        var celebrate by remember { mutableStateOf<List<TaskDef>>(emptyList()) }
+        var synced by remember { mutableIntStateOf(0) }
+        synced // read so recomposition follows a sync
+
+        suspend fun sync() {
+            health = HealthConnect(this@MainActivity).status()
+            val done = TaskSync.sync(this@MainActivity)
+            if (done.isNotEmpty()) celebrate = celebrate + done
+            synced++
+        }
+        LaunchedEffect(refresh) { if (store.onboarded) sync() }
+        LaunchedEffect(Unit) {
+            var seconds = 0
+            while (true) {
+                delay(1000)
+                now = System.currentTimeMillis()
+                // Steps every minute while tend is open; the reading timer the moment it ends.
+                if (store.onboarded && (++seconds % 60 == 0 || TaskSync.focusSecondsLeft(store, now) == 0L)) sync()
+            }
+        }
+        if (celebrate.isNotEmpty()) Celebration(store.avatar, celebrate) { celebrate = emptyList() }
 
         val toggleApp: (String) -> Unit = { pkg ->
             val b = store.blockedPackages
@@ -122,18 +150,10 @@ class MainActivity : ComponentActivity() {
                 screen = Screen.HOME
             }
 
-            focusStartedAt > 0 -> {
-                val task = Tasks.READ
-                val left = task.target * 60L - (now - focusStartedAt) / 1000
-                if (left <= 0) {
-                    LaunchedEffect(Unit) {
-                        store.credit(task.id, task.rewardMinutes, manual = false)
-                        focusStartedAt = 0
-                    }
-                } else {
-                    FocusTimerScreen(store.avatar, task, left, onCancel = { focusStartedAt = 0 })
-                }
-            }
+            (TaskSync.focusSecondsLeft(store, now) ?: 0) > 0 -> FocusTimerScreen(
+                store.avatar, Tasks.READ, TaskSync.focusSecondsLeft(store, now)!!,
+                onCancel = { store.focusStartedAt = 0; refresh++ },
+            )
 
             else -> HomeScreen(
                 avatar = store.avatar,
@@ -142,8 +162,23 @@ class MainActivity : ComponentActivity() {
                 gardenMinutes = store.gardenMinutes,
                 missCount = store.missCount(),
                 permissionsMissing = !permissions().allGranted,
+                health = health,
+                focusSecondsLeft = TaskSync.focusSecondsLeft(store, now),
                 onFixPermissions = { screen = Screen.PERMISSIONS },
-                onStartFocus = { focusStartedAt = System.currentTimeMillis() },
+                onConnectHealth = {
+                    if (health == HealthConnect.Status.NEEDS_INSTALL) {
+                        open(
+                            HealthConnect.installIntent(),
+                            Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=${HealthConnect.PROVIDER}")),
+                        )
+                    } else {
+                        healthPermissions.launch(HealthConnect.PERMISSIONS)
+                    }
+                },
+                onStartFocus = {
+                    if (store.focusStartedAt == 0L) store.focusStartedAt = System.currentTimeMillis()
+                    refresh++
+                },
                 onOpenSettings = { screen = Screen.SETTINGS },
             )
         }

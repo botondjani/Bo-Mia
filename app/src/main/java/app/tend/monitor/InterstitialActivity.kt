@@ -33,7 +33,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import app.tend.MainActivity
 import app.tend.core.Budget
+import app.tend.health.TaskSync
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import app.tend.core.Mood
 import app.tend.core.Tasks
 import app.tend.data.TendStore
@@ -52,16 +57,24 @@ class InterstitialActivity : ComponentActivity() {
         enableEdgeToEdge()
         val pkg = intent.getStringExtra(EXTRA_PKG) ?: return finish()
         val label = runCatching { packageManager.getApplicationInfo(pkg, 0).loadLabel(packageManager).toString() }.getOrDefault(pkg)
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() = goHome()
+        })
+        val firstShow = savedInstanceState == null
+        // Fresh steps or a finished workout may have just earned minutes: sync before deciding.
+        lifecycleScope.launch {
+            withTimeoutOrNull(SYNC_TIMEOUT_MS) { TaskSync.sync(this@InterstitialActivity) }
+            show(pkg, label, firstShow)
+        }
+    }
+
+    private fun show(pkg: String, label: String, firstShow: Boolean) {
         val cfg = store.config
         val locked = Budget.isLocked(cfg, store.today())
 
         var day = store.today()
         val delaySeconds = Budget.openDelaySeconds(cfg, day)
-        if (savedInstanceState == null && !locked) day = store.update { it.copy(opensToday = it.opensToday + 1) }
-
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() = goHome()
-        })
+        if (firstShow && !locked) day = store.update { it.copy(opensToday = it.opensToday + 1) }
 
         setContent {
             TendTheme {
@@ -100,6 +113,7 @@ class InterstitialActivity : ComponentActivity() {
         Button(onClick = ::goHome, modifier = Modifier.fillMaxWidth()) { Text("I'll take a walk instead") }
         OutlinedButton(
             onClick = {
+                store.focusStartedAt = 0 // opening a paused app ends the reading session
                 store.grantPass(pkg)
                 packageManager.getLaunchIntentForPackage(pkg)?.let { startActivity(it) }
                 finish()
@@ -107,7 +121,10 @@ class InterstitialActivity : ComponentActivity() {
             enabled = left == 0,
             modifier = Modifier.fillMaxWidth(),
         ) { Text(if (left > 0) "Open in $left s" else "Open") }
-        Text("Every extra open today waits 5 s longer.", style = MaterialTheme.typography.bodyMedium)
+        Text(
+            if (store.focusStartedAt > 0) "Opening it ends your reading session." else "Every extra open today waits 5 s longer.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 
     @Composable
@@ -120,7 +137,14 @@ class InterstitialActivity : ComponentActivity() {
             style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(8.dp))
-        Button(onClick = ::goHome, modifier = Modifier.fillMaxWidth()) { Text("Okay") }
+        Button(
+            onClick = {
+                startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                finish()
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Let's earn some") }
+        OutlinedButton(onClick = ::goHome, modifier = Modifier.fillMaxWidth()) { Text("Not now") }
     }
 
     private fun goHome() {
@@ -138,6 +162,7 @@ class InterstitialActivity : ComponentActivity() {
 
     companion object {
         private const val EXTRA_PKG = "pkg"
+        private const val SYNC_TIMEOUT_MS = 1500L
         fun intent(context: Context, pkg: String) = Intent(context, InterstitialActivity::class.java)
             .putExtra(EXTRA_PKG, pkg)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)

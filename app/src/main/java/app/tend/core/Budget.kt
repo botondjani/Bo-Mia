@@ -24,6 +24,9 @@ data class DayState(
     val usedSeconds: Long = 0,
     val opensToday: Int = 0,
     val completedTasks: Set<String> = emptySet(),
+    /** Today's totals from Health Connect, as of the last sync. */
+    val steps: Long = 0,
+    val exerciseMinutes: Int = 0,
 )
 
 object Budget {
@@ -56,6 +59,21 @@ object Budget {
             manualEarnedMinutes = day.manualEarnedMinutes + if (manual) granted else 0,
             completedTasks = day.completedTasks + taskId,
         )
+    }
+
+    /**
+     * Applies today's activity totals and credits the automatic tasks they complete.
+     * Totals never go down within a day (a source can briefly report less while syncing).
+     */
+    fun applyActivity(cfg: BudgetConfig, day: DayState, steps: Long?, exerciseMinutes: Int?): DayState {
+        var d = day.copy(
+            steps = maxOf(day.steps, steps ?: 0),
+            exerciseMinutes = maxOf(day.exerciseMinutes, exerciseMinutes ?: 0),
+        )
+        for (task in completedAutomaticTasks(d.steps, d.exerciseMinutes)) {
+            d = credit(cfg, d, task.id, task.rewardMinutes, manual = false)
+        }
+        return d
     }
 
     /** Unused minutes at the end of the day grow the garden. Overuse never carries over. */

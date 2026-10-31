@@ -13,6 +13,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.ui.window.Dialog
+import app.tend.health.HealthConnect
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -41,7 +44,10 @@ fun HomeScreen(
     gardenMinutes: Int,
     missCount: Int,
     permissionsMissing: Boolean,
+    health: HealthConnect.Status?,
+    focusSecondsLeft: Long?,
     onFixPermissions: () -> Unit,
+    onConnectHealth: () -> Unit,
     onStartFocus: (TaskDef) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -84,7 +90,18 @@ fun HomeScreen(
         }
 
         Text("TODAY", style = MaterialTheme.typography.labelSmall)
-        Tasks.all.forEach { task -> TaskRow(task, done = task.id in day.completedTasks, onStartFocus) }
+        if (health == HealthConnect.Status.NEEDS_PERMISSION || health == HealthConnect.Status.NEEDS_INSTALL) Card {
+            Text("Count walks and workouts automatically", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Health Connect shares today's steps and exercise with tend. Read only, stays on your phone.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            PrimaryButton(
+                if (health == HealthConnect.Status.NEEDS_INSTALL) "Get Health Connect" else "Connect Health Connect",
+                onConnectHealth, modifier = Modifier.padding(top = 8.dp),
+            )
+        }
+        Tasks.all.forEach { task -> TaskRow(task, day, health, focusSecondsLeft, onStartFocus) }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -97,21 +114,64 @@ fun HomeScreen(
 }
 
 @Composable
-private fun TaskRow(task: TaskDef, done: Boolean, onStartFocus: (TaskDef) -> Unit) = Card {
+private fun TaskRow(
+    task: TaskDef,
+    day: DayState,
+    health: HealthConnect.Status?,
+    focusSecondsLeft: Long?,
+    onStartFocus: (TaskDef) -> Unit,
+) = Card {
+    val done = task.id in day.completedTasks
+    val progress = Tasks.progress(task, day)
+    val measured = task.verification == Verification.AUTOMATIC && health == HealthConnect.Status.READY
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(task.title, style = MaterialTheme.typography.bodyLarge)
             Text(
-                if (task.verification == Verification.AUTOMATIC) "${task.subtitle} · not connected yet" else task.subtitle,
+                when {
+                    task.verification == Verification.FOCUS_TIMER -> task.subtitle
+                    measured && progress != null -> progressLabel(task, progress)
+                    health == HealthConnect.Status.UNSUPPORTED -> "Needs Health Connect, not available on this phone"
+                    else -> "${task.subtitle} · connect Health Connect"
+                },
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
         when {
             done -> Pill("✓ +${task.rewardMinutes} min")
-            task.verification == Verification.FOCUS_TIMER ->
-                Button(onClick = { onStartFocus(task) }) { Text("Start") }
+            task.verification == Verification.FOCUS_TIMER -> Button(onClick = { onStartFocus(task) }) {
+                Text(focusSecondsLeft?.let { "Continue · ${it / 60}:%02d".format(it % 60) } ?: "Start", color = Color.White)
+            }
             else -> Pill("+${task.rewardMinutes} min")
         }
+    }
+    if (measured && progress != null && !done) {
+        LinearProgressIndicator(
+            progress = { (progress.toFloat() / task.target).coerceIn(0f, 1f) },
+            color = Brand.Moss, trackColor = Brand.Sage,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(8.dp).clip(RoundedCornerShape(50)),
+        )
+    }
+}
+
+private fun progressLabel(task: TaskDef, progress: Long): String = when (task.id) {
+    Tasks.OUTSIDE.id -> "%,d of %,d steps".format(Locale.ENGLISH, progress, task.target)
+    else -> "$progress of ${task.target} min of exercise"
+}
+
+/** Short moment of joy when a task completes: the character goes outside, minutes are credited. */
+@Composable
+fun Celebration(avatar: Avatar, tasks: List<TaskDef>, onDismiss: () -> Unit) = Dialog(onDismissRequest = onDismiss) {
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Brand.Card).padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        BobbingCharacter(avatar, app.tend.core.Mood.OUTSIDE, 140.dp)
+        Text("+${tasks.sumOf { it.rewardMinutes }} min", style = MaterialTheme.typography.headlineLarge, color = Brand.Moss)
+        Text(tasks.joinToString(" · ") { it.title }, style = MaterialTheme.typography.titleMedium)
+        Text("${avatar.displayName} loved that. Minutes are yours for today.", style = MaterialTheme.typography.bodyMedium)
+        PrimaryButton("Nice", onDismiss, modifier = Modifier.padding(top = 8.dp))
     }
 }
 

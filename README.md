@@ -9,7 +9,8 @@ This is the MVP skeleton described in the concept doc. Native Android, English o
 | Part | Where |
 |---|---|
 | Budget logic: free base, earned minutes that expire each day, manual-credit cap, lock at ≤ 0, +5 s delay on every open, unused minutes go to the garden | `core/Budget.kt` (unit-tested) |
-| 3 task types: move, outside (automatic), reading (focus timer) | `core/Tasks.kt` |
+| 3 task types: move (30 min of exercise) and outside (4,000 steps) via Health Connect, reading via a 20 min focus timer | `core/Tasks.kt`, `health/` |
+| Health Connect: reads today's steps + exercise minutes (read-only) on app open, every minute while open, and before every pause screen; progress bars and a celebration when a task completes | `health/HealthConnect.kt`, `health/TaskSync.kt` |
 | Moods (happy / tired / scrolling / outside) and companion lines | `core/Mood.kt` |
 | Monitoring: UsageStats polled every second, opens a delay screen, counts time used, locks at zero, logs every miss | `monitor/MonitorService.kt` |
 | Delay screen: "What are you looking for?", 3 answers, "I'll take a walk instead", countdown | `monitor/InterstitialActivity.kt` |
@@ -22,7 +23,8 @@ Logs are written to the app's private storage: `answers.csv` (looking-for and wo
 
 ## Not done yet
 
-- **Health Connect**: the `ActivitySource` interface is there, but only a stub (`NotConnectedActivitySource`) implements it, so automatic tasks don't credit yet. Reading (the focus timer) is the only way to earn minutes for now.
+- **Background Health Connect reads**: data is read only while tend is on screen (home or pause screen). The widget can lag until then.
+- **Step source**: Health Connect needs an app that writes steps (Google Fit, Samsung Health, Fitbit, or the phone's built-in step tracking on newer Pixels). Workouts count once a tracker writes an exercise session.
 - **Rive**: the character is drawn by `CharacterPainter` (Canvas) as a placeholder until the Rive rig replaces it.
 - Evening recap screen, weekly patterns view, and the house growing week by week (the garden count is already tracked).
 - Out of MVP scope (from the concept doc): floating character, friends, coins/shop, iOS.
@@ -43,5 +45,7 @@ Install the APK and follow the onboarding: welcome, companion, how it works, app
 - **Display over other apps** comes first. Once it's on, Android lets tend bring itself back to the front, so after the second switch the user returns to the app automatically.
 - **Usage access** comes second.
 - **"App was denied access"**: Android 13+ blocks these switches for side-loaded apps ("restricted settings"). Fix it once under App info → ⋮ → *Allow restricted settings*. The onboarding detects this and shows the steps. For testers using adb: `adb shell appops set app.tend ACCESS_RESTRICTED_SETTINGS allow`.
+- **Health Connect** is connected from the home screen ("Connect Health Connect"). On Android 13 and below the button opens the Play Store to install it first.
+- The reading timer keeps running when you leave tend. Opening a paused app from the pause screen ends it.
 - No notification permission is requested. The monitor's foreground service runs without it, its notification just stays hidden.
 - On Xiaomi, Samsung, Huawei and similar phones, turn off battery optimisation for tend, or the monitor gets killed (this shows up in the miss log).

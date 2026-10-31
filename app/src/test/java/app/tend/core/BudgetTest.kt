@@ -71,4 +71,16 @@ class BudgetTest {
         assertEquals(listOf(Tasks.OUTSIDE), completedAutomaticTasks(steps = 4200, exerciseMinutes = 10))
         assertEquals(emptyList<TaskDef>(), completedAutomaticTasks(null, null))
     }
+
+    @Test fun `activity sync credits automatic tasks once and never lowers totals`() {
+        var d = Budget.applyActivity(cfg, day, steps = 3100, exerciseMinutes = 0)
+        assertEquals(3100, d.steps)
+        assertEquals(emptySet<String>(), d.completedTasks)
+        d = Budget.applyActivity(cfg, d, steps = 4100, exerciseMinutes = 35)
+        assertEquals(setOf("outside", "move"), d.completedTasks)
+        assertEquals(50, d.earnedMinutes)
+        d = Budget.applyActivity(cfg, d, steps = 200, exerciseMinutes = null)
+        assertEquals(4100, d.steps)
+        assertEquals(50, d.earnedMinutes)
+    }
 }
