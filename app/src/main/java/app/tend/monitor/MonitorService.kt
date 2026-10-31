@@ -217,6 +217,7 @@ class BootReceiver : BroadcastReceiver() {
         app.tend.reminder.RecapReminder.schedule(context) // alarms don't survive a reboot
         app.tend.reminder.WeeklyLetter.schedule(context)
         app.tend.reminder.MorningNote.schedule(context)
+        app.tend.reminder.DayClock.schedule(context)
         if (TendStore(context).blockedPackages.isNotEmpty()) MonitorService.start(context)
     }
 }

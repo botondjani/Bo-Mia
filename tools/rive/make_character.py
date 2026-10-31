@@ -3,7 +3,7 @@ Generates app/src/main/assets/tend_character.riv: Bo and Mia on one rig.
 
 Contract (see docs/rive-rig.md and ui/Character.kt):
   artboard "Character" 500x500, state machine "Mood" with inputs
-    mood (number: 0 happy, 1 tired, 2 scrolling, 3 outside, 4 reading, 5 sleeping), mia (bool), tap (trigger),
+    mood (number: 0 happy, 1 tired, 2 scrolling, 3 outside, 4 reading, 5 sleeping, 6 sleepy), mia (bool), tap (trigger),
     headband, glasses, hat, flower, leaf, bowtie, nightcap (bool: accessories earned by habits),
     scientist (bool: lab coat, glasses and a waving pointer for onboarding and the tour),
     prop (number: 0 none, 1 dumbbell, 2 hearts, 3 palette and brush, 4 broom, 5 chef's hat; during timers).
@@ -298,6 +298,7 @@ def build():
     a_outside = pose('outside', mouth=mouth_open, outside=True)
     a_reading = pose('reading', look_down=True, mouth=mouth_happy, book_on=True)
     a_sleeping = pose('sleeping', lid=1.0, mouth=mouth_happy, zz_on=True)
+    a_sleepy = pose('sleepy', lid=9 / 17, mouth=mouth_happy, zz_on=True)
 
     def skin(name, mia):
         return animation(name, 1, LOOP_ONESHOT, {
@@ -365,8 +366,8 @@ def build():
     def num_eq(v):
         return (COND_NUMBER, dict(inputId=MOOD, op=OP_EQUAL, condValue=float(v)))
 
-    layer('mood', [a_happy, a_tired, a_scroll, a_outside, a_reading, a_sleeping], 3,
-          [(3 + m, [num_eq(m)], 250) for m in range(6)])
+    layer('mood', [a_happy, a_tired, a_scroll, a_outside, a_reading, a_sleeping, a_sleepy], 3,
+          [(3 + m, [num_eq(m)], 250) for m in range(7)])
     layer('skin', [a_bo, a_mia], 3, [
         (3, [(COND_BOOL, dict(inputId=MIA, op=OP_NOT_EQUAL))], 0),
         (4, [(COND_BOOL, dict(inputId=MIA, op=OP_EQUAL))], 0),

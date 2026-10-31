@@ -48,11 +48,11 @@ object Widgets {
         val cfg = store.config
         val day = store.today()
         val remaining = Budget.remainingMinutes(cfg, day)
-        val mood = Moods.of(cfg, day)
+        val night = Garden.isNight(store.eveningFrom)
+        val mood = Moods.atNight(Moods.of(cfg, day), night)
         val next = Tasks.next(day, store.selectedTasks)
         val plants = store.plants
-        // Evening (from the evening hour until 5:00): night garden and a dark card, in any phone theme.
-        val night = Garden.isNight(store.eveningFrom)
+        // Evening (from the evening hour until 5:00): night garden, a dark card and a sleepy companion.
         val shown = listOf(store.avatar, mood, remaining, next?.id, day.completedTasks.sorted(), plants.size, store.daysTended, night).joinToString("|")
         if (!force && shown == lastShown) return
         lastShown = shown

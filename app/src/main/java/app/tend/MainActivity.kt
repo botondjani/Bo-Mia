@@ -117,6 +117,7 @@ class MainActivity : ComponentActivity() {
         RecapReminder.schedule(this)
         app.tend.reminder.WeeklyLetter.schedule(this)
         app.tend.reminder.MorningNote.schedule(this)
+        app.tend.reminder.DayClock.schedule(this)
         handleIntent(intent)
         setContent {
             TendTheme {
@@ -314,7 +315,7 @@ class MainActivity : ComponentActivity() {
                 reminderEnabled = store.reminderEnabled,
                 onReminder = ::setReminder,
                 eveningFrom = store.eveningFrom,
-                onEvening = { store.eveningFrom = it; RecapReminder.schedule(this); refresh++ },
+                onEvening = { store.eveningFrom = it; RecapReminder.schedule(this); app.tend.reminder.DayClock.schedule(this); refresh++ },
                 eveningPause = store.eveningPause,
                 onEveningPause = { store.eveningPause = it; refresh++ },
                 weeklyLetter = store.weeklyLetter,

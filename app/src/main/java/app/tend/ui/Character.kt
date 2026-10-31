@@ -51,6 +51,9 @@ object RiveRig {
     /** Mood value for asleep (after "Good night"). */
     const val SLEEPING = 5f
 
+    /** Mood value for sleepy (evening): heavy lids, a smile, not grey. */
+    const val SLEEPY = 6f
+
     /** Boolean input: false = Bo, true = Mia. */
     const val INPUT_MIA = "mia"
 
@@ -143,7 +146,7 @@ fun CharacterView(
     val rig = if (lightweight) null else RiveRig.bytes(LocalContext.current)
     var failed by remember { mutableStateOf(false) }
     val accessories = LocalAccessories.current
-    if (rig != null && !failed) RiveCharacter(rig, avatar, when { reading -> RiveRig.READING; mood == Mood.SLEEPING -> RiveRig.SLEEPING; else -> mood.ordinal.toFloat() }, accessories, scientist, prop, size, modifier) { failed = true }
+    if (rig != null && !failed) RiveCharacter(rig, avatar, when { reading -> RiveRig.READING; mood == Mood.SLEEPING -> RiveRig.SLEEPING; mood == Mood.SLEEPY -> RiveRig.SLEEPY; else -> mood.ordinal.toFloat() }, accessories, scientist, prop, size, modifier) { failed = true }
     else DrawnCharacter(avatar, mood, size, modifier, reading, accessories, scientist, prop)
 }
 

@@ -1,5 +1,6 @@
 package app.tend.ui
 
+import androidx.compose.runtime.getValue
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.fadeIn
@@ -41,11 +42,13 @@ fun PopupSheet(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val shown = remember { MutableTransitionState(false).apply { targetState = true } }
+    // A change in the system blur eases the scrim over instead of jumping.
+    val scrim by androidx.compose.animation.core.animateFloatAsState(if (blurOn.value) 0.25f else 0.55f, tween(450), label = "scrim")
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val minHeight = maxHeight * minHeightFraction
         AnimatedVisibility(shown, enter = fadeIn(tween(260))) {
             Box(
-                Modifier.fillMaxSize().background(Brand.Shade.copy(alpha = if (blurOn.value) 0.25f else 0.55f))
+                Modifier.fillMaxSize().background(Brand.Shade.copy(alpha = scrim))
                     .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
             )
         }
@@ -91,12 +94,28 @@ private val blurOn = androidx.compose.runtime.mutableStateOf(false)
  * and darken the scrim instead, which keeps the pop-up looking the same either way.
  */
 fun android.app.Activity.blurBehind() {
+    blurOn.value = false
     if (android.os.Build.VERSION.SDK_INT < 31) return
+    val prefs = getSharedPreferences("tend_ui", android.content.Context.MODE_PRIVATE)
+    // This phone switched blur on and off under a pop-up before (a video playing, battery saver):
+    // a steady dark scrim looks better than a flickering blur.
+    if (prefs.getBoolean("blur_unsteady", false)) return
     window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
     window.attributes = window.attributes.also { it.blurBehindRadius = BLUR_RADIUS }
     val wm = getSystemService(android.view.WindowManager::class.java)
     blurOn.value = wm.isCrossWindowBlurEnabled
-    val listener = java.util.function.Consumer<Boolean> { blurOn.value = it }
+    var flips = 0
+    lateinit var listener: java.util.function.Consumer<Boolean>
+    listener = java.util.function.Consumer<Boolean> { on ->
+        if (++flips >= 2) {
+            // Twice in one pop-up: stop blurring here and from now on.
+            prefs.edit().putBoolean("blur_unsteady", true).apply()
+            window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+            window.attributes = window.attributes.also { it.blurBehindRadius = 0 }
+            blurOn.value = false
+            wm.removeCrossWindowBlurEnabledListener(listener)
+        } else blurOn.value = on
+    }
     wm.addCrossWindowBlurEnabledListener(mainExecutor, listener)
     (this as? androidx.lifecycle.LifecycleOwner)?.lifecycle?.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
         override fun onDestroy(owner: androidx.lifecycle.LifecycleOwner) = wm.removeCrossWindowBlurEnabledListener(listener)

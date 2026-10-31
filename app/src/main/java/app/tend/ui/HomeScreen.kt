@@ -103,7 +103,8 @@ fun HomeScreen(
     var widgetGuide by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     if (widgetGuide) WidgetGuideDialog(avatar) { widgetGuide = false }
     val remaining = Budget.remainingMinutes(cfg, day)
-    val mood = Moods.of(cfg, day)
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val mood = Moods.atNight(Moods.of(cfg, day), app.tend.core.Garden.isNight(app.tend.data.TendStore(context).eveningFrom))
     Box(Modifier.fillMaxSize()) {
     // The page itself stays put; only the activity list scrolls, in the space that's left.
     Column(

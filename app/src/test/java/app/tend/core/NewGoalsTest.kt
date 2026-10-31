@@ -119,3 +119,13 @@ class SharedRewardsTest {
         org.junit.Assert.assertEquals(picked.first { it == Tasks.OUTSIDE }.rewardMinutes, done.single().rewardMinutes)
     }
 }
+
+class EveningMoodTest {
+    @org.junit.Test fun contentCompanionIsSleepyAtNight() {
+        org.junit.Assert.assertEquals(Mood.SLEEPY, Moods.atNight(Mood.HAPPY, night = true))
+        org.junit.Assert.assertEquals(Mood.SLEEPY, Moods.atNight(Mood.OUTSIDE, night = true))
+        org.junit.Assert.assertEquals(Mood.SCROLLING, Moods.atNight(Mood.SCROLLING, night = true)) // still says what's going on
+        org.junit.Assert.assertEquals(Mood.HAPPY, Moods.atNight(Mood.HAPPY, night = false))
+        org.junit.Assert.assertEquals("Bo is sleepy", Moods.status("Bo", Mood.SLEEPY))
+    }
+}

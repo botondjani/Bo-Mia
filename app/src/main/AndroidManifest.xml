@@ -102,6 +102,9 @@
         <receiver
             android:name=".reminder.MorningNoteReceiver"
             android:exported="false" />
+        <receiver
+            android:name=".reminder.DayClockReceiver"
+            android:exported="false" />
 
         <receiver
             android:name=".reminder.RecapReminderReceiver"

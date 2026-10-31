@@ -254,10 +254,11 @@ object CharacterPainter {
                 c.drawArc(RectF(x - 6f, 44f, x + 6f, 52f), 20f, 140f, false, stroke)
                 continue
             }
-            if (mood == Mood.TIRED || mood == Mood.SCROLLING) { // heavy lids
+            if (mood == Mood.TIRED || mood == Mood.SCROLLING || mood == Mood.SLEEPY) { // heavy lids
                 fill.color = body
-                c.drawRect(x - 9f, 37f, x + 9f, if (mood == Mood.TIRED) 46f else 44f, fill)
-                c.drawLine(x - 7f, if (mood == Mood.TIRED) 46f else 44f, x + 7f, if (mood == Mood.TIRED) 46f else 44f, stroke)
+                val lid = if (mood == Mood.SCROLLING) 44f else 46f
+                c.drawRect(x - 9f, 37f, x + 9f, lid, fill)
+                c.drawLine(x - 7f, lid, x + 7f, lid, stroke)
             }
             if (pose.blink > 0.05f) { // lid comes down over the eye
                 val lid = 37f + 17f * pose.blink
@@ -272,7 +273,7 @@ object CharacterPainter {
         when (mood) {
             Mood.HAPPY -> c.drawArc(RectF(42f, 56f, 58f, 68f), 20f, 140f, false, stroke)
             Mood.TIRED -> c.drawArc(RectF(43f, 66f, 57f, 74f), 200f, 140f, false, stroke)
-            Mood.SLEEPING -> c.drawArc(RectF(45f, 58f, 55f, 66f), 20f, 140f, false, stroke)
+            Mood.SLEEPING, Mood.SLEEPY -> c.drawArc(RectF(45f, 58f, 55f, 66f), 20f, 140f, false, stroke)
             Mood.SCROLLING -> c.drawLine(45f, 68f, 55f, 68f, stroke)
             Mood.OUTSIDE -> {
                 fill.color = INK
@@ -365,7 +366,7 @@ object CharacterPainter {
 
     private fun drawExtras(c: Canvas, mood: Mood) {
         when (mood) {
-            Mood.TIRED, Mood.SLEEPING -> { c.drawText("z", 78f, 22f, text); text.textSize = 7f; c.drawText("z", 85f, 15f, text); text.textSize = 9f }
+            Mood.TIRED, Mood.SLEEPING, Mood.SLEEPY -> { c.drawText("z", 78f, 22f, text); text.textSize = 7f; c.drawText("z", 85f, 15f, text); text.textSize = 9f }
             Mood.SCROLLING -> { // phone
                 fill.color = INK; c.drawRoundRect(RectF(66f, 58f, 80f, 82f), 3f, 3f, fill)
                 fill.color = SKY; c.drawRoundRect(RectF(68f, 61f, 78f, 78f), 1.5f, 1.5f, fill)

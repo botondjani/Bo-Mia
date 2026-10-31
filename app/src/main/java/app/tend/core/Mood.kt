@@ -1,7 +1,7 @@
 package app.tend.core
 
 /** The four character states. A mirror of the day, never a punishment. */
-enum class Mood { HAPPY, TIRED, SCROLLING, OUTSIDE, /** Asleep after "Good night": eyes closed, a smile, z z. */ SLEEPING }
+enum class Mood { HAPPY, TIRED, SCROLLING, OUTSIDE, /** Asleep after "Good night": eyes closed, a smile, z z. */ SLEEPING, /** The evening: heavy lids, still smiling. */ SLEEPY }
 
 /** Bo and Mia: one shared rig, differing only in hair and colour. */
 enum class Avatar(val displayName: String) { BO("Bo"), MIA("Mia") }
@@ -16,6 +16,10 @@ object Moods {
         else -> Mood.HAPPY
     }
 
+    /** In the evening a content companion is sleepy instead (the widget and home say so). */
+    fun atNight(mood: Mood, night: Boolean): Mood =
+        if (night && (mood == Mood.HAPPY || mood == Mood.OUTSIDE)) Mood.SLEEPY else mood
+
     /** A two-word status for the widget: "Bo is happy". */
     fun status(name: String, mood: Mood): String = "$name is " + when (mood) {
         Mood.HAPPY -> "happy"
@@ -23,6 +27,7 @@ object Moods {
         Mood.SCROLLING -> "scrolling"
         Mood.OUTSIDE -> "glowing"
         Mood.SLEEPING -> "asleep"
+        Mood.SLEEPY -> "sleepy"
     }
 
     /**
