@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -202,13 +204,26 @@ fun PlantIcon(plant: Plant, size: androidx.compose.ui.unit.Dp) = Canvas(Modifier
 }
 
 @Composable
-fun GardenScreen(avatar: Avatar, plants: List<Plant>, daysTended: Int, unusedToday: Int) = Column(
-    Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState()).padding(20.dp),
+fun GardenScreen(
+    avatar: Avatar,
+    plants: List<Plant>,
+    daysTended: Int,
+    unusedToday: Int,
+    onBack: () -> Unit,
+    week: @Composable ColumnScope.() -> Unit,
+) = Column(
+    Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState())
+        .padding(horizontal = 20.dp).padding(top = Space.s, bottom = Space.xxl),
     verticalArrangement = Arrangement.spacedBy(14.dp),
 ) {
     val tonight = Garden.plantFor(unusedToday)
-    Text("${avatar.displayName}'s home & garden", style = MaterialTheme.typography.headlineMedium)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, "Back", onBack)
+        Spacer(Modifier.width(Space.m))
+        Text("${avatar.displayName}'s garden & week", style = MaterialTheme.typography.headlineMedium)
+    }
     GardenScene(avatar, plants, Garden.homeStage(daysTended), preview = tonight)
+    HomeStages(daysTended)
 
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Stat("${plants.size}", if (plants.size == 1) "plant" else "plants", Modifier.weight(1f))
@@ -245,7 +260,7 @@ fun GardenScreen(avatar: Avatar, plants: List<Plant>, daysTended: Int, unusedTod
         }
         Text("Minutes you don't use become one plant each night.", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
     }
-    HomeStages(daysTended)
+    week()
 }
 
 /** Week 1 / 2 / 4 milestones of the home, the current one highlighted. */

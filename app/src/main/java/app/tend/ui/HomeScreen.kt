@@ -70,6 +70,7 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     onOpenGarden: () -> Unit,
     onOpenRecap: () -> Unit,
+    weekNote: String?,
 ) {
     val remaining = Budget.remainingMinutes(cfg, day)
     val mood = Moods.of(cfg, day)
@@ -136,6 +137,14 @@ fun HomeScreen(
         Tasks.ordered(day, tasks).forEach { task ->
             TaskRow(task, day, health, focusSecondsLeft?.takeIf { task.id == focusTaskId }, onStartFocus, onCheckOff, onUndo)
         }
+
+        SectionHeader("Garden & week")
+        Notice(
+            "sprout",
+            if (plantCount == 0) "Your garden is waiting" else "$plantCount ${if (plantCount == 1) "plant" else "plants"} in the garden",
+            weekNote ?: "Your home grows with you. See how the week went.",
+            onOpenGarden,
+        )
     }
 }
 

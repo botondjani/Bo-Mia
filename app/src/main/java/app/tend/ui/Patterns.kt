@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -36,12 +37,9 @@ import java.time.format.TextStyle
 import java.util.Locale
 
 @Composable
-fun PatternsScreen(avatar: Avatar, patterns: WeeklyPatterns, appLabel: (String) -> String) = Column(
-    Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState()).padding(20.dp),
-    verticalArrangement = Arrangement.spacedBy(14.dp),
-) {
-    Text("Patterns", style = MaterialTheme.typography.headlineMedium)
-    Text("The last 7 days, as they were. No judgement.", style = MaterialTheme.typography.bodyMedium)
+/** The last 7 days, as sections of the garden page. */
+fun ColumnScope.WeekSections(avatar: Avatar, patterns: WeeklyPatterns, appLabel: (String) -> String) {
+    SectionHeader("Your week", "last 7 days")
 
     Card {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -139,26 +137,3 @@ private fun Legend() = Row(Modifier.padding(top = 10.dp), horizontalArrangement 
 }
 
 private fun hoursMinutes(m: Int) = if (m >= 60) "${m / 60} h ${m % 60} min" else "$m min"
-
-enum class Tab(val label: String) { TODAY("Today"), GARDEN("Garden"), PATTERNS("Patterns") }
-
-@Composable
-fun TabBar(selected: Tab, onSelect: (Tab) -> Unit) = Row(
-    Modifier.fillMaxWidth().background(Brand.Sage).padding(horizontal = 16.dp, vertical = 10.dp)
-        .surface(radius = 28.dp).padding(6.dp),
-    horizontalArrangement = Arrangement.spacedBy(6.dp),
-) {
-    Tab.entries.forEach { tab ->
-        val on = tab == selected
-        Text(
-            tab.label,
-            style = MaterialTheme.typography.labelLarge,
-            color = if (on) Color.White else Brand.Muted,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            modifier = Modifier.weight(1f).clip(RoundedCornerShape(22.dp))
-                .background(if (on) Brand.Moss else Color.Transparent)
-                .tappable { onSelect(tab) }.padding(vertical = 12.dp),
-        )
-    }
-}

@@ -38,9 +38,7 @@ import app.tend.core.Budget
 import app.tend.core.Patterns
 import app.tend.core.Recap
 import app.tend.reminder.RecapReminder
-import app.tend.ui.PatternsScreen
-import app.tend.ui.Tab
-import app.tend.ui.TabBar
+import app.tend.ui.WeekSections
 import java.time.LocalDate
 import app.tend.core.TaskDef
 import app.tend.ui.GardenScreen
@@ -76,9 +74,9 @@ class MainActivity : ComponentActivity() {
     private var usageAttempted = false
     private var overlayAttempted = false
     private var unlockTried = false
-    private var unlockSkipped = false
+    private var unlockVisited = false
 
-    private enum class Screen { HOME, SETTINGS, PERMISSIONS, GARDEN, RECAP, PATTERNS }
+    private enum class Screen { HOME, SETTINGS, PERMISSIONS, GARDEN, RECAP }
 
     /** Set when the evening notification was tapped. */
     private var openRecap by mutableStateOf(false)
@@ -136,6 +134,8 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         handler.removeCallbacksAndMessages(null)
+        // Back from App info after the unlock step: treat it as done and move on to the switches.
+        if (unlockVisited) { unlockVisited = false; store.restrictedUnlocked = true }
         refresh++
         // Usage access is enough to count minutes; without the overlay the monitor nudges by notification.
         if (store.onboarded && permissions().usageAccess) MonitorService.start(this)
@@ -167,6 +167,8 @@ class MainActivity : ComponentActivity() {
                 if (store.onboarded && (++seconds % 60 == 0 || TaskSync.focusSecondsLeft(store, now) == 0L)) sync()
             }
         }
+        // System back always leads home from inner pages.
+        androidx.activity.compose.BackHandler(enabled = store.onboarded && screen != Screen.HOME) { screen = Screen.HOME }
         LaunchedEffect(openRecap) { if (openRecap) { screen = Screen.RECAP; openRecap = false } }
         celebrate?.let { done ->
             // Only a single hand check-off can be undone; measured tasks are facts.
@@ -243,14 +245,23 @@ class MainActivity : ComponentActivity() {
                 screen = Screen.HOME
             }
 
-            screen == Screen.GARDEN || screen == Screen.PATTERNS -> Tabbed(screen, { screen = it })
+            screen == Screen.GARDEN -> GardenScreen(
+                store.avatar, store.plants, store.daysTended, Budget.gardenMinutesAtClose(store.config, store.today()),
+                onBack = { screen = Screen.HOME },
+            ) {
+                WeekSections(
+                    store.avatar,
+                    Patterns.week(LocalDate.now(), store.daySummaries(), store.answers()),
+                    appLabel = { pkg -> runCatching { packageManager.getApplicationInfo(pkg, 0).loadLabel(packageManager).toString() }.getOrDefault(pkg) },
+                )
+            }
 
             (TaskSync.focusSecondsLeft(store, now) ?: 0) > 0 -> FocusTimerScreen(
                 store.avatar, store.focusTask, TaskSync.focusSecondsLeft(store, now)!!,
                 onCancel = { store.focusStartedAt = 0; refresh++ },
             )
 
-            else -> Tabbed(Screen.HOME, { screen = it }) { HomeScreen(
+            else -> HomeScreen(
                 avatar = store.avatar,
                 cfg = store.config,
                 day = store.today(),
@@ -299,31 +310,10 @@ class MainActivity : ComponentActivity() {
                 onOpenSettings = { screen = Screen.SETTINGS },
                 onOpenGarden = { screen = Screen.GARDEN },
                 onOpenRecap = { screen = Screen.RECAP },
-            ) }
+                weekNote = Patterns.week(LocalDate.now(), store.daySummaries(), store.answers()).insight,
+            )
         }
     }
-
-    /** Today, Home & garden and Patterns share a bottom tab bar. */
-    @Composable
-    private fun Tabbed(screen: Screen, onScreen: (Screen) -> Unit, home: @Composable () -> Unit = {}) =
-        Column(Modifier.fillMaxSize()) {
-            Box(Modifier.weight(1f)) {
-                when (screen) {
-                    Screen.GARDEN -> GardenScreen(store.avatar, store.plants, store.daysTended, Budget.gardenMinutesAtClose(store.config, store.today()))
-                    Screen.PATTERNS -> PatternsScreen(
-                        store.avatar,
-                        Patterns.week(LocalDate.now(), store.daySummaries(), store.answers()),
-                        appLabel = { pkg ->
-                            runCatching { packageManager.getApplicationInfo(pkg, 0).loadLabel(packageManager).toString() }.getOrDefault(pkg)
-                        },
-                    )
-                    else -> home()
-                }
-            }
-            TabBar(
-                when (screen) { Screen.GARDEN -> Tab.GARDEN; Screen.PATTERNS -> Tab.PATTERNS; else -> Tab.TODAY },
-            ) { tab -> onScreen(when (tab) { Tab.TODAY -> Screen.HOME; Tab.GARDEN -> Screen.GARDEN; Tab.PATTERNS -> Screen.PATTERNS }) }
-        }
 
     private fun permissionActions(): PermissionActions {
         val p = permissions()
@@ -348,14 +338,19 @@ class MainActivity : ComponentActivity() {
                 hint("Tap ⋮ in the top right, then \"Allow restricted settings\"")
                 open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
             },
-            restricted = !unlockSkipped && restrictedSettingsLocked(),
+            unlockAppInfo = {
+                unlockVisited = true
+                hint("Tap ⋮ in the top right, then \"Allow restricted settings\"")
+                open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+            },
+            restricted = !store.restrictedUnlocked && installedOutsideStore(),
             unlockTried = unlockTried,
             tryUnlock = {
                 unlockTried = true
                 // Android only offers "Allow restricted settings" after it has refused a switch once.
                 open(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:$packageName")), Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
             },
-            skipUnlock = { unlockSkipped = true; refresh++ },
+            skipUnlock = { store.restrictedUnlocked = true; refresh++ },
         )
     }
 
@@ -388,15 +383,12 @@ class MainActivity : ComponentActivity() {
 
     /**
      * Android 13+ locks some switches for side-loaded apps until the user allows "restricted
-     * settings" in App info. The op is readable for our own app; if it isn't, assume unlocked.
+     * settings" in App info. Anything not installed by an app store counts as side-loaded.
      */
-    private fun restrictedSettingsLocked(): Boolean {
+    private fun installedOutsideStore(): Boolean {
         if (Build.VERSION.SDK_INT < 33) return false
-        val mode = runCatching {
-            getSystemService(AppOpsManager::class.java)
-                .unsafeCheckOpNoThrow("android:access_restricted_settings", Process.myUid(), packageName)
-        }.getOrNull() ?: return false
-        return mode != AppOpsManager.MODE_ALLOWED && mode != AppOpsManager.MODE_DEFAULT
+        val source = runCatching { packageManager.getInstallSourceInfo(packageName).packageSource }.getOrNull()
+        return source != android.content.pm.PackageInstaller.PACKAGE_SOURCE_STORE
     }
 
     private fun open(vararg intents: Intent) {

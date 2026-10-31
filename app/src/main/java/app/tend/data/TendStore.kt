@@ -66,6 +66,11 @@ class TendStore(private val context: Context) {
         }
     }
 
+    /** The user went through App info → Allow restricted settings (or said it's already done). */
+    var restrictedUnlocked: Boolean
+        get() = prefs.getBoolean("restricted_unlocked", false)
+        set(v) = edit { putBoolean("restricted_unlocked", v) }
+
     var blockedPackages: Set<String>
         get() = prefs.getStringSet("blocked", emptySet())!!
         set(v) = edit { putStringSet("blocked", v) }

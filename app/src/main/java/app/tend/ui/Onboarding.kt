@@ -42,6 +42,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -81,6 +82,8 @@ class PermissionActions(
     val requestUsage: () -> Unit,
     val requestOverlay: () -> Unit,
     val openAppInfo: () -> Unit,
+    /** Opens App info as the unlock step; coming back counts as done. */
+    val unlockAppInfo: () -> Unit = openAppInfo,
     /** Side-loaded on Android 13+: Android locks both switches until "Allow restricted settings". */
     val restricted: Boolean = false,
     /** The user already let Android say no once, so the unlock option now exists in App info. */
@@ -395,7 +398,8 @@ private fun Choices(options: List<Int>, value: Int, onPick: (Int) -> Unit) =
 @Composable
 fun PermissionSteps(perms: PermissionActions) {
     val p = perms.permissions
-    val unlock = perms.restricted && !p.allGranted
+    // Once either switch works, the lock is evidently gone.
+    val unlock = perms.restricted && !p.overlay && !p.usageAccess
     if (unlock) UnlockCard(perms)
     val n = if (unlock) 1 else 0
     // Overlay first: once it's granted, tend may bring itself back to the front after the second switch.
@@ -429,7 +433,7 @@ private fun UnlockCard(perms: PermissionActions) = Column(
         }
     }
     Text("In App info: tap ⋮ in the top right corner → Allow restricted settings → confirm. Then come back.", style = MaterialTheme.typography.bodyLarge)
-    PrimaryButton("Open app info", perms.openAppInfo)
+    PrimaryButton("Open app info", perms.unlockAppInfo)
     if (!perms.unlockTried) {
         // Some phones only add the menu item after Android has refused a switch once.
         LinkText("No \"Allow restricted settings\" in the menu? Tap here first, then open App info again.", perms.tryUnlock)
@@ -491,20 +495,69 @@ private fun RestrictedHelp(onAppInfo: () -> Unit) = Column(
 }
 
 /**
- * Asks the launcher to pin the widget. Launchers differ (some ignore the request, some need a
- * second tap), so after the tap we always show the manual way too.
+ * Asks the launcher to pin the widget. Some launchers say yes and then show nothing, so if the
+ * widget isn't on the home screen a few seconds later, a short guide takes over. Once it's
+ * placed, the button turns into a confirmation.
  */
 @Composable
 fun WidgetButton(avatar: Avatar, onAddWidget: () -> Boolean) {
-    var asked by rememberSaveable { mutableStateOf<Boolean?>(null) }
-    SecondaryButton("Put ${avatar.displayName} on your home screen", { asked = onAddWidget() })
-    asked?.let { accepted ->
-        Text(
-            (if (accepted) "Confirm in the pop-up. Nothing showed up? " else "Your launcher wants you to add it yourself: ") +
-                "long-press an empty spot on your home screen → Widgets → tend.",
-            style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(top = Space.s),
-        )
+    val context = androidx.compose.ui.platform.LocalContext.current
+    fun placed() = android.appwidget.AppWidgetManager.getInstance(context)
+        .getAppWidgetIds(android.content.ComponentName(context, app.tend.widget.TendWidget::class.java)).isNotEmpty()
+    var isPlaced by remember { mutableStateOf(placed()) }
+    var waiting by remember { mutableStateOf(false) }
+    var guide by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(waiting) {
+        if (!waiting) return@LaunchedEffect
+        repeat(8) { kotlinx.coroutines.delay(500); if (placed()) { isPlaced = true; waiting = false; return@LaunchedEffect } }
+        waiting = false
+        guide = true
+    }
+    LaunchedEffect(Unit) { while (!isPlaced) { kotlinx.coroutines.delay(1500); isPlaced = placed() } }
+
+    if (isPlaced) Row(
+        Modifier.fillMaxWidth().surface(radius = 18.dp).padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, tint = Brand.Moss)
+        Spacer(Modifier.width(Space.s))
+        Text("${avatar.displayName} is on your home screen", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
+    } else SecondaryButton(
+        if (waiting) "Waiting for your launcher…" else "Put ${avatar.displayName} on your home screen",
+        { if (onAddWidget()) waiting = true else guide = true },
+        enabled = !waiting,
+    )
+
+    if (guide) androidx.compose.ui.window.Dialog(onDismissRequest = { guide = false }) {
+        Column(
+            Modifier.fillMaxWidth().surface(radius = 28.dp).padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(Space.m),
+        ) {
+            Text("Add ${avatar.displayName} by hand", style = MaterialTheme.typography.titleLarge)
+            Text("Your launcher doesn't let apps place widgets, but it takes ten seconds:", style = MaterialTheme.typography.bodyMedium)
+            listOf(
+                "Long-press an empty spot on your home screen",
+                "Tap \"Widgets\"",
+                "Find tend and drag ${avatar.displayName} onto the screen",
+            ).forEachIndexed { i, step ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(28.dp).clip(CircleShape).background(Brand.Mint.copy(alpha = 0.3f)), contentAlignment = Alignment.Center) {
+                        Text("${i + 1}", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
+                    }
+                    Spacer(Modifier.width(Space.m))
+                    Text(step, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+            PrimaryButton("Go to home screen", {
+                guide = false
+                context.startActivity(
+                    android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(android.content.Intent.CATEGORY_HOME)
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            })
+            SecondaryButton("Later", { guide = false })
+        }
     }
 }
 
