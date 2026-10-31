@@ -48,7 +48,7 @@ class WorthItActivity : ComponentActivity() {
 
         setContent {
             TendTheme {
-                PopupSheet(onDismiss = ::finish) {
+                PopupSheet(onDismiss = ::finish, centered = true) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CharacterView(store.avatar, Mood.HAPPY, 72.dp)
                         Spacer(Modifier.width(12.dp))

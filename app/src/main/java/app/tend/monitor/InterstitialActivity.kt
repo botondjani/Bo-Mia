@@ -98,7 +98,7 @@ class InterstitialActivity : ComponentActivity() {
     private fun Scrim() = Box(Modifier.fillMaxSize().background(Brand.Ink.copy(alpha = 0.35f)))
 
     @Composable
-    private fun Sheet(pkg: String, v: View) = PopupSheet(onDismiss = ::goHome, minHeightFraction = 0.5f) {
+    private fun Sheet(pkg: String, v: View) = PopupSheet(onDismiss = ::goHome, centered = true) {
         if (v.locked) Locked(v) else Delay(pkg, v)
     }
 
@@ -143,7 +143,7 @@ class InterstitialActivity : ComponentActivity() {
             }
         }
         }
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 20.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp)) {
         Text(
             if (store.focusStartedAt > 0) "${v.remaining} min left today · opening ends your reading session" else "${v.remaining} min left today",
             style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
@@ -173,7 +173,7 @@ class InterstitialActivity : ComponentActivity() {
             style = MaterialTheme.typography.bodyLarge,
         )
         }
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 20.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp)) {
         PrimaryButton("Let's earn some", {
             startActivity(Intent(this@InterstitialActivity, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             finish()

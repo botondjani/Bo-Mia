@@ -3,6 +3,7 @@ package app.tend.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -30,17 +31,35 @@ import androidx.compose.ui.unit.dp
  * Tapping the scrim calls [onDismiss].
  */
 @Composable
-fun PopupSheet(onDismiss: () -> Unit, minHeightFraction: Float = 0f, content: @Composable ColumnScope.() -> Unit) {
+fun PopupSheet(
+    onDismiss: () -> Unit,
+    minHeightFraction: Float = 0f,
+    /** A floating card in the middle of the screen instead of a sheet from the bottom. */
+    centered: Boolean = false,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     val shown = remember { MutableTransitionState(false).apply { targetState = true } }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val minHeight = maxHeight * minHeightFraction
         AnimatedVisibility(shown, enter = fadeIn()) {
             Box(
-                Modifier.fillMaxSize().background(Brand.Ink.copy(alpha = 0.35f))
+                Modifier.fillMaxSize().background(Brand.Ink.copy(alpha = 0.3f))
                     .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
             )
         }
-        AnimatedVisibility(
+        if (centered) AnimatedVisibility(
+            shown,
+            enter = scaleIn(initialScale = 0.92f) + fadeIn(),
+            modifier = Modifier.align(Alignment.Center),
+        ) {
+            Column(
+                Modifier.padding(horizontal = 20.dp).fillMaxWidth().surface(radius = 32.dp, color = Brand.Sage)
+                    .clickable(remember { MutableInteractionSource() }, indication = null) {}
+                    .padding(22.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                content = content,
+            )
+        } else AnimatedVisibility(
             shown,
             enter = slideInVertically { it } + fadeIn(),
             modifier = Modifier.align(Alignment.BottomCenter),
@@ -64,5 +83,5 @@ fun PopupSheet(onDismiss: () -> Unit, minHeightFraction: Float = 0f, content: @C
 fun android.app.Activity.blurBehind() {
     if (android.os.Build.VERSION.SDK_INT < 31) return
     window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-    window.attributes = window.attributes.also { it.blurBehindRadius = 60 }
+    window.attributes = window.attributes.also { it.blurBehindRadius = 160 }
 }
