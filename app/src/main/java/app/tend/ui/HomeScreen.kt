@@ -165,7 +165,10 @@ fun HomeScreen(
             brokenTimer.icon, "The phone came back a little early",
             "${brokenTimer.title} needs ${brokenTimer.target} phone-free minutes. Tap to try again later.", onDismissBroken,
         )
-        if (isEvening) Notice("moon", "Tonight's recap is ready", "See what today gave back", onOpenRecap)
+        if (isEvening) {
+            val seen = app.tend.data.TendStore(context).recapSeenOn == day.date.toString()
+            Notice("moon", if (seen) "Tonight's recap" else "Tonight's recap is ready", if (seen) "See it again" else "See what today gave back", onOpenRecap)
+        }
         when {
             !permissions.usageAccess -> Notice("alert", "Limited mode", "${avatar.displayName} can't see screen time. Tap to turn it on.", onFixPermissions)
             !permissions.overlay -> Notice("alert", "No pause before scrolling", "Only a notification for now. Tap to fix.", onFixPermissions)

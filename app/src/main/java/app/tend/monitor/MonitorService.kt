@@ -263,12 +263,17 @@ class MonitorService : Service() {
 /** Restarts monitoring after a reboot. */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
-        app.tend.reminder.RecapReminder.schedule(context) // alarms don't survive a reboot
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
+        app.tend.reminder.RecapReminder.schedule(context) // alarms don't survive a reboot or an update
         app.tend.reminder.WeeklyLetter.schedule(context)
         app.tend.reminder.MorningNote.schedule(context)
         app.tend.reminder.DayClock.schedule(context)
+        val store = TendStore(context)
+        // A timer that was running keeps its end alarm.
+        if (store.focusStartedAt > 0) {
+            app.tend.health.TimerAlarm.schedule(context, store.focusStartedAt + store.focusTask.target * 60_000L + 2_000L)
+        }
         // Only once setup is done: the apps are pre-selected from the first start, the pause isn't.
-        TendStore(context).let { if (it.onboarded && it.blockedPackages.isNotEmpty()) MonitorService.start(context) }
+        if (store.onboarded && store.blockedPackages.isNotEmpty()) MonitorService.start(context)
     }
 }
