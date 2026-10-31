@@ -23,7 +23,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -130,13 +130,14 @@ fun HomeScreen(
                 Text("min left today", style = MaterialTheme.typography.titleMedium, color = Brand.Muted, modifier = Modifier.weight(1f).padding(bottom = 10.dp))
                 // The garden is one tap away, next to today's minutes.
                 Row(
-                    Modifier.padding(bottom = 6.dp).tourTarget(tour, "garden").clip(RoundedCornerShape(50)).background(Brand.Sage)
+                    Modifier.padding(bottom = 6.dp).tourTarget(tour, "garden").clip(RoundedCornerShape(50)).background(Brand.Mint.copy(alpha = 0.32f))
+                        .border(1.dp, Brand.Mint, RoundedCornerShape(50))
                         .tappable(onClick = onOpenGarden).padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    TendIcons.Glyph("sprout", 18.dp)
+                    TendIcons.Glyph("sprout", 20.dp)
                     Spacer(Modifier.width(6.dp))
-                    Text(if (plantCount > 0) "Garden · $plantCount" else "Garden", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+                    Text(if (plantCount > 0) "Garden · $plantCount" else "Garden", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
                 }
             }
             val available = (cfg.freeMinutes + day.earnedMinutes).coerceAtLeast(1)
@@ -178,37 +179,53 @@ fun HomeScreen(
         if (tasks.isEmpty()) Notice("sparkle", "Pick what you'd rather do", "A few activities that give minutes back", onOpenSettings)
         // The open activities share the space that's left and scroll on their own; the page never does.
         // Cards fade and shrink a little as they slide in or out at the edges.
-        val list = androidx.compose.foundation.lazy.rememberLazyListState()
+        // Three or more open: an endless loop, so the list goes round and round.
+        val n = active.size
+        val loop = n >= 3
+        val count = if (loop) n * 1000 else n
+        val start = if (loop) count / 2 - (count / 2) % n else 0
+        val list = androidx.compose.runtime.remember(n) { androidx.compose.foundation.lazy.LazyListState(if (loop) start - 1 else 0) }
+        val centered by androidx.compose.runtime.remember(list) {
+            androidx.compose.runtime.derivedStateOf {
+                val info = list.layoutInfo
+                val mid = (info.viewportStartOffset + info.viewportEndOffset) / 2
+                info.visibleItemsInfo.minByOrNull { kotlin.math.abs(it.offset + it.size / 2 - mid) }?.index ?: 0
+            }
+        }
         androidx.compose.foundation.layout.BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             val reserve = when {
-                done.isNotEmpty() -> 44.dp + 46.dp * minOf(done.size, 3)
-                active.isNotEmpty() -> 104.dp
+                done.isNotEmpty() -> 60.dp + 50.dp * minOf(done.size, 3)
+                active.isNotEmpty() -> 116.dp
                 else -> 0.dp
             }
             // The open ones fill the space down to "Done today": about three cards on a typical phone.
-            val listMax = (maxHeight - reserve).coerceAtLeast(80.dp)
+            val listMax = (maxHeight - reserve - if (loop) 18.dp else 0.dp).coerceAtLeast(80.dp)
             Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Space.m)) {
                 EdgeToEdge(Modifier.heightIn(max = listMax)) {
                 androidx.compose.foundation.lazy.LazyColumn(
                     Modifier.fillMaxWidth(),
                     state = list,
-                    flingBehavior = androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior(list),
+                    flingBehavior = androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior(
+                        list, androidx.compose.foundation.gestures.snapping.SnapPosition.Center,
+                    ),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(Space.m),
                 ) {
-                    itemsIndexed(active, key = { _, t -> t.id }) { i, task ->
+                    items(count) { idx ->
+                        val task = active[idx % n]
                         Box(
-                            Modifier.animateItem()
-                                .then(if (i == 0) Modifier.tourTarget(tour, "activity") else Modifier)
+                            Modifier
+                                .then(if (idx == start) Modifier.tourTarget(tour, "activity") else Modifier)
                                 .graphicsLayer {
+                                    if (!loop) return@graphicsLayer
+                                    // Sharp in the middle; cards fade and shrink towards the top and bottom.
                                     val info = list.layoutInfo
-                                    val item = info.visibleItemsInfo.firstOrNull { it.key == task.id } ?: return@graphicsLayer
-                                    val size = item.size.coerceAtLeast(1).toFloat()
-                                    val inBottom = ((info.viewportEndOffset - item.offset) / size).coerceIn(0f, 1f)
-                                    val inTop = ((item.offset + item.size - info.viewportStartOffset) / size).coerceIn(0f, 1f)
-                                    val shown = minOf(inBottom, inTop)
-                                    alpha = 0.2f + 0.8f * shown * shown
-                                    scaleX = 0.92f + 0.08f * shown
+                                    val item = info.visibleItemsInfo.firstOrNull { it.index == idx } ?: return@graphicsLayer
+                                    val mid = (info.viewportStartOffset + info.viewportEndOffset) / 2f
+                                    val half = ((info.viewportEndOffset - info.viewportStartOffset) / 2f).coerceAtLeast(1f)
+                                    val d = (kotlin.math.abs(item.offset + item.size / 2f - mid) / half).coerceIn(0f, 1f)
+                                    alpha = 1f - 0.75f * d * d
+                                    scaleX = 1f - 0.07f * d
                                     scaleY = scaleX
                                 },
                         ) {
@@ -224,6 +241,16 @@ fun HomeScreen(
                     }
                 }
             }
+                // One dot per open activity: there are more than the ones in view.
+                if (loop) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    repeat(n) { i ->
+                        val on = i == centered % n
+                        Box(
+                            Modifier.padding(horizontal = 3.dp).size(if (on) 8.dp else 6.dp).clip(CircleShape)
+                                .background(if (on) Brand.Moss else Brand.Mint.copy(alpha = 0.45f)),
+                        )
+                    }
+                }
             // "Done today" sits at the bottom of the screen; the open ones get the space above it.
             Spacer(Modifier.weight(1f))
             if (done.isEmpty() && active.isNotEmpty()) {
@@ -368,9 +395,10 @@ private fun TaskRow(
     val done = task.id in day.completedTasks
     val progress = Tasks.progress(task, day)
     // Without a workout tracker the workout is a 30-minute phone-off timer; without a sleep tracker sleep is estimated.
-    val workoutTimer = task.id == Tasks.MOVE.id && !exerciseTracked
+    // A workout can always be done as a 30-minute phone-off session; a tracker counts it too.
+    val workoutTimer = task.id == Tasks.MOVE.id
     val estimated = task.id == Tasks.SLEEP.id && sleepEstimated
-    val measured = !workoutTimer && task.verification == Verification.AUTOMATIC && (health == HealthConnect.Status.READY || estimated)
+    val measured = !(workoutTimer && !exerciseTracked) && task.verification == Verification.AUTOMATIC && (health == HealthConnect.Status.READY || estimated)
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (done) Box(Modifier.size(44.dp).clip(CircleShape).background(Brand.Moss), contentAlignment = Alignment.Center) {
             Icon(Icons.Filled.Check, "Done", tint = Color.White, modifier = Modifier.size(22.dp))
@@ -384,7 +412,7 @@ private fun TaskRow(
             Text(
                 when {
                     done -> day.grants[task.id]?.takeIf { it > 0 }?.let { "+$it min earned" } ?: "Done for today"
-                    workoutTimer -> "+${task.rewardMinutes} min · ${task.target} min, phone off"
+                    workoutTimer && !(measured && progress != null) -> "+${task.rewardMinutes} min · ${task.target} min, phone off"
                     task.verification != Verification.AUTOMATIC -> "+${task.rewardMinutes} min · ${task.subtitle.substringAfter("· ")}"
                     estimated && progress != null -> "About " + progressLabel(task, progress).replace(" sleep last night", ", from your screen")
                     measured && progress != null -> progressLabel(task, progress)
@@ -476,7 +504,23 @@ fun FocusTimerScreen(avatar: Avatar, task: TaskDef, secondsLeft: Long, screenOnS
             drawArc(Brand.Moss, -90f, 360f * (1f - secondsLeft / total), false, topLeft, arc, style = style)
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CharacterView(avatar, app.tend.core.Mood.HAPPY, 150.dp, reading = !phoneFree)
+            // Each activity gets its own look: a dumbbell and sweatband, hearts, a palette, a broom, a chef's hat.
+            val prop = when (task.id) {
+                Tasks.MOVE.id -> Prop.DUMBBELL
+                Tasks.FRIENDS.id -> Prop.HEARTS
+                Tasks.HOBBY.id -> Prop.PALETTE
+                Tasks.CHORES.id -> Prop.BROOM
+                Tasks.COOK.id -> Prop.CHEF_HAT
+                else -> Prop.NONE
+            }
+            val extra = when (task.id) {
+                Tasks.MOVE.id -> setOf(app.tend.core.Accessory.HEADBAND)
+                Tasks.LEARN.id -> setOf(app.tend.core.Accessory.GLASSES)
+                else -> emptySet()
+            }
+            androidx.compose.runtime.CompositionLocalProvider(LocalAccessories provides LocalAccessories.current + extra) {
+                CharacterView(avatar, app.tend.core.Mood.HAPPY, 150.dp, reading = !phoneFree, prop = prop)
+            }
             Text("%d:%02d".format(secondsLeft / 60, secondsLeft % 60), style = MaterialTheme.typography.headlineLarge, color = Brand.Moss)
         }
     }

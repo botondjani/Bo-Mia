@@ -21,6 +21,7 @@ Read by `ui/Character.kt` → `RiveRig`. Names are case-sensitive.
 | Input | `tap` | Trigger | a short hop |
 | Input | `headband`, `glasses`, `hat`, `flower` | Boolean | accessories earned by a week of habits (200 ms fade) |
 | Input | `scientist` | Boolean | lab coat, glasses and a pointer (onboarding slides, home tour) |
+| Input | `prop` | Number | during timers: `0` none · `1` dumbbell · `2` hearts · `3` palette and brush · `4` broom · `5` chef's hat |
 
 A missing input doesn't crash the app; the rig just won't react to it.
 
@@ -35,6 +36,7 @@ A missing input doesn't crash the app; the rig just won't react to it.
 | glance | Looks left, then right, every 9 s |
 | scientist | Shows or hides the lab coat, glasses and pointer (200 ms) |
 | point | The pointer waves around the hand, 1.6 s each way |
+| prop | Shows the one prop the `prop` input names |
 | tap | Hop with a little bounce; the shadow, grass and sun stay on the ground |
 
 ## Look

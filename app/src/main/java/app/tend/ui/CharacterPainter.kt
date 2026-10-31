@@ -14,6 +14,9 @@ import app.tend.core.Mood
  * android.graphics.Canvas, so the same drawing serves Compose and the home screen widget.
  * Coordinates are in a 100x100 box.
  */
+/** What the companion holds or wears during a timer; the number is the rig's "prop" input. */
+enum class Prop { NONE, DUMBBELL, HEARTS, PALETTE, BROOM, CHEF_HAT }
+
 object CharacterPainter {
     private const val MINT = 0xFF7ECAA3.toInt()
     private const val MINT_LIGHT = 0xFFA9DDC1.toInt()
@@ -27,6 +30,9 @@ object CharacterPainter {
     private const val SKY = 0xFF8EC4E8.toInt()
     private const val SHADOW = 0x221D2A23
     private const val COAT = 0xFFFDFDFB.toInt()
+    private const val WEIGHT = 0xFF4A5852.toInt()
+    private const val PALETTE = 0xFFEAD2A8.toInt()
+    private const val STRAW = 0xFFD9B45A.toInt()
     private const val COAT_LINE = 0xFFD5DCD6.toInt()
 
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
@@ -54,6 +60,8 @@ object CharacterPainter {
         val scientist: Boolean = false,
         /** Pointer angle in degrees around the hand, for a little wave while explaining. */
         val point: Float = 0f,
+        /** Something to hold or wear during a timer: [Prop]. */
+        val prop: Prop = Prop.NONE,
     )
 
     @Synchronized
@@ -113,7 +121,54 @@ object CharacterPainter {
         if (pose.book) drawBook(c)
         drawAccessories(c, if (pose.scientist) accessories + Accessory.GLASSES else accessories)
         if (pose.scientist) drawPointer(c, pose.point)
+        drawProp(c, pose.prop, body)
         c.restore()
+    }
+
+    /** Same shapes as the Rive rig's props (tools/rive/make_character.py). */
+    private fun drawProp(c: Canvas, prop: Prop, body: Int) {
+        when (prop) {
+            Prop.NONE -> Unit
+            Prop.DUMBBELL -> {
+                stroke.strokeWidth = 2.4f; c.drawLine(70f, 74f, 92f, 74f, stroke); stroke.strokeWidth = 2.6f
+                fill.color = WEIGHT
+                c.drawRoundRect(RectF(66f, 66f, 72f, 82f), 2f, 2f, fill); c.drawRoundRect(RectF(90f, 66f, 96f, 82f), 2f, 2f, fill)
+                fill.color = body; c.drawCircle(81f, 76f, 4.2f, fill)
+            }
+            Prop.HEARTS -> { heart(c, 80f, 20f, 10f, CORAL); heart(c, 90f, 33f, 6f, CORAL) }
+            Prop.PALETTE -> {
+                fill.color = PALETTE; c.drawOval(RectF(8f, 64f, 32f, 82f), fill)
+                for ((x, y, col) in listOf(Triple(14f, 70f, CORAL), Triple(20f, 68f, SKY), Triple(26f, 70f, SUNNY), Triple(14f, 76f, MINT))) {
+                    fill.color = col; c.drawCircle(x, y, 2f, fill)
+                }
+                stroke.color = HAIR; stroke.strokeWidth = 2.2f; c.drawLine(80f, 78f, 92f, 58f, stroke)
+                stroke.color = INK; stroke.strokeWidth = 2.6f
+                fill.color = SKY; c.drawCircle(92f, 58f, 2.2f, fill)
+                fill.color = body; c.drawCircle(80f, 78f, 4.2f, fill)
+            }
+            Prop.BROOM -> {
+                stroke.color = HAIR; stroke.strokeWidth = 2.4f; c.drawLine(88f, 40f, 76f, 84f, stroke)
+                fill.color = STRAW
+                c.drawPath(Path().apply { moveTo(70f, 82f); lineTo(82f, 82f); lineTo(86f, 96f); lineTo(66f, 96f); close() }, fill)
+                stroke.color = CORAL; stroke.strokeWidth = 1.6f; c.drawLine(70f, 84f, 82f, 84f, stroke)
+                stroke.color = INK; stroke.strokeWidth = 2.6f
+                fill.color = body; c.drawCircle(82f, 64f, 4.2f, fill)
+            }
+            Prop.CHEF_HAT -> {
+                fill.color = COAT
+                c.drawCircle(40f, 15f, 8f, fill); c.drawCircle(50f, 11f, 9f, fill); c.drawCircle(60f, 15f, 8f, fill)
+                c.drawRoundRect(RectF(37f, 16f, 63f, 26f), 2f, 2f, fill)
+                stroke.color = COAT_LINE; stroke.strokeWidth = 1.2f; c.drawLine(37f, 21f, 63f, 21f, stroke)
+                stroke.color = INK; stroke.strokeWidth = 2.6f
+            }
+        }
+    }
+
+    private fun heart(c: Canvas, cx: Float, cy: Float, s: Float, color: Int) {
+        fill.color = color
+        c.drawCircle(cx - 0.25f * s, cy - 0.1f * s, 0.3f * s, fill)
+        c.drawCircle(cx + 0.25f * s, cy - 0.1f * s, 0.3f * s, fill)
+        c.drawPath(Path().apply { moveTo(cx - 0.53f * s, cy + 0.02f * s); lineTo(cx + 0.53f * s, cy + 0.02f * s); lineTo(cx, cy + 0.62f * s); close() }, fill)
     }
 
     /** White lab coat over the lower body, open at the front, with lapels and a pen in the pocket. */

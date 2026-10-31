@@ -86,3 +86,29 @@ class FallbackTrackingTest {
         org.junit.Assert.assertEquals(PhoneFree.Outcome.DONE, PhoneFree.outcome(Tasks.FRIENDS, start, end, 90_000))
     }
 }
+
+class SharedRewardsTest {
+    @org.junit.Test fun earnableMinutesAreSharedByEffort() {
+        val cfg = BudgetConfig() // 45 free, 180 max: 135 to share
+        val few = Tasks.withRewards(cfg, listOf(Tasks.MOVE, Tasks.CHORES))
+        org.junit.Assert.assertEquals(listOf(100, 35), few.map { it.rewardMinutes }) // 30:10 weights of 135, rounded to 5
+        val many = Tasks.withRewards(cfg, Tasks.presets + Tasks.custom("Journal", "pen"))
+        org.junit.Assert.assertTrue(many.sumOf { it.rewardMinutes } in 125..145)
+        org.junit.Assert.assertTrue(many.all { it.rewardMinutes >= 5 && it.rewardMinutes % 5 == 0 })
+        // A copy with another reward is still the same activity.
+        org.junit.Assert.assertTrue(Tasks.MOVE in few)
+    }
+
+    @org.junit.Test fun ownActivityCanBeATimer() {
+        val t = Tasks.custom("Play music", "music", 30)
+        org.junit.Assert.assertEquals(Verification.PHONE_FREE, t.verification)
+        org.junit.Assert.assertEquals(30, t.target)
+        org.junit.Assert.assertEquals(Verification.CHECK_OFF, Tasks.custom("Journal", "pen").verification)
+    }
+
+    @org.junit.Test fun automaticTasksCreditTheSharedReward() {
+        val picked = Tasks.withRewards(BudgetConfig(), listOf(Tasks.MOVE, Tasks.OUTSIDE))
+        val done = completedAutomaticTasks(steps = 5000, exerciseMinutes = 0, selected = picked)
+        org.junit.Assert.assertEquals(picked.first { it == Tasks.OUTSIDE }.rewardMinutes, done.single().rewardMinutes)
+    }
+}

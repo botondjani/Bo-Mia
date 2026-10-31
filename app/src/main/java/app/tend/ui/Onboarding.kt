@@ -149,7 +149,7 @@ fun Onboarding(
                     ctaEnabled = tasks.isNotEmpty(),
                     onCta = next,
                 ) {
-                    Title("What would you rather do?", "Pick up to ${Tasks.MAX_SELECTED} things that make your day better. Each one gives screen time back.")
+                    Title("What would you rather do?", "Pick a few things that make your day better, or add your own. Each one gives screen time back.")
                     ActivityPicker(tasks, onToggleTask)
                 }
 

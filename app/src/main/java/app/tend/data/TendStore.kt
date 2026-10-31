@@ -40,14 +40,14 @@ class TendStore(private val context: Context) {
             val ids = prefs.getString("tasks", null)
                 ?: return if (onboarded) Tasks.legacyDefault else emptyList() // onboarded before picking existed
             val known = (Tasks.presets + customTasks).associateBy { it.id }
-            return ids.split(',').mapNotNull { known[it] }
+            return Tasks.withRewards(config, ids.split(',').mapNotNull { known[it] })
         }
 
-    /** User-made check-off activities, stored as "id|icon|title" lines. */
+    /** User-made activities, stored as "id|icon|title|minutes" lines (minutes 0 or missing: tick off). */
     private val customTasks: List<TaskDef>
         get() = prefs.getString("custom_tasks", "")!!.lines().mapNotNull { line ->
             val p = line.split('|')
-            if (p.size == 3) Tasks.custom(p[2], LEGACY_EMOJI[p[1]] ?: p[1]).copy(id = p[0]) else null
+            if (p.size >= 3) Tasks.custom(p[2], LEGACY_EMOJI[p[1]] ?: p[1], p.getOrNull(3)?.toIntOrNull() ?: 0).copy(id = p[0]) else null
         }
 
     /** Adds or removes a preset or custom activity; adding is refused beyond the limit. */
@@ -63,7 +63,7 @@ class TendStore(private val context: Context) {
             else customTasks.filterNot { it.id == task.id }
         } else customTasks
         edit {
-            putString("custom_tasks", customs.joinToString("\n") { "${it.id}|${it.icon}|${it.title}" })
+            putString("custom_tasks", customs.joinToString("\n") { "${it.id}|${it.icon}|${it.title}|${it.target}" })
             putString("tasks", next.joinToString(",") { it.id })
         }
     }
@@ -146,7 +146,7 @@ class TendStore(private val context: Context) {
         set(v) = edit { putString("focus_task", v) }
 
     val focusTask: TaskDef
-        get() = Tasks.presets.firstOrNull { it.id == focusTaskId } ?: Tasks.READ
+        get() = selectedTasks.firstOrNull { it.id == focusTaskId } ?: Tasks.presets.firstOrNull { it.id == focusTaskId } ?: Tasks.READ
 
     /** One plant per closed day that had unused minutes, oldest first. */
     val plants: List<Plant>

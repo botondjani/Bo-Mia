@@ -20,10 +20,14 @@ data class TaskDef(
     val icon: String,
 ) {
     val manual get() = verification == Verification.CHECK_OFF
+
+    // The same activity whatever its reward today (rewards are shared out from the budget).
+    override fun equals(other: Any?) = other is TaskDef && other.id == id
+    override fun hashCode() = id.hashCode()
 }
 
 object Tasks {
-    const val MAX_SELECTED = 6
+    const val MAX_SELECTED = 10
     const val CUSTOM_REWARD = 10
     private const val CUSTOM_PREFIX = "custom:"
 
@@ -43,10 +47,35 @@ object Tasks {
     /** What users who onboarded before activities were selectable keep. */
     val legacyDefault = listOf(MOVE, OUTSIDE, READ)
 
-    fun custom(name: String, icon: String): TaskDef {
+    /** The user's own activity: ticked off by hand, or with [minutes] a phone-free timer. */
+    fun custom(name: String, icon: String, minutes: Int = 0): TaskDef {
         val clean = name.replace(Regex("[|\\n,]"), " ").replace(Regex("\\s+"), " ").trim().take(40)
         val slug = clean.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-').ifEmpty { "own" }
-        return TaskDef(CUSTOM_PREFIX + slug, clean, "Check off · your own", CUSTOM_REWARD, Verification.CHECK_OFF, 0, icon)
+        return if (minutes > 0) TaskDef(CUSTOM_PREFIX + slug, clean, "Phone-free · $minutes min", maxOf(CUSTOM_REWARD, minutes / 2), Verification.PHONE_FREE, minutes, icon)
+        else TaskDef(CUSTOM_PREFIX + slug, clean, "Check off · your own", CUSTOM_REWARD, Verification.CHECK_OFF, 0, icon)
+    }
+
+    /** One-tap ideas for your own activities: name, icon, minutes (0 = tick off). */
+    val ownIdeas = listOf(
+        Triple("Meditate", "sparkle", 10), Triple("Journal", "pen", 0), Triple("Play music", "music", 30),
+        Triple("Walk the dog", "paw", 0), Triple("Stretch", "sun", 0), Triple("Bike ride", "bike", 30),
+        Triple("Garden", "sprout", 0), Triple("Call someone", "heart", 0),
+    )
+
+    /**
+     * Shares the earnable minutes (max minus free) out over the picked activities, weighted by effort
+     * (a workout counts double a tidy-up). Doing all of them reaches the daily max; picking more
+     * activities makes each one worth a little less. Rounded to 5, at least 5 each.
+     */
+    fun withRewards(cfg: BudgetConfig, picked: List<TaskDef>): List<TaskDef> {
+        if (picked.isEmpty()) return picked
+        val weight = { t: TaskDef -> (presets.firstOrNull { it == t }?.rewardMinutes ?: t.rewardMinutes).coerceAtLeast(1) }
+        val total = picked.sumOf(weight).toDouble()
+        val pool = (cfg.totalMinutes - cfg.freeMinutes).coerceAtLeast(0)
+        return picked.map { t ->
+            val share = pool * weight(t) / total
+            t.copy(rewardMinutes = (Math.round(share / 5) * 5).toInt().coerceAtLeast(5))
+        }
     }
 
     fun isCustom(task: TaskDef) = task.id.startsWith(CUSTOM_PREFIX)
@@ -88,7 +117,9 @@ interface ActivitySource {
 
 /** Which of the selected automatic tasks the given activity numbers complete. */
 fun completedAutomaticTasks(steps: Long?, exerciseMinutes: Int?, selected: List<TaskDef>, sleepMinutes: Int? = null): List<TaskDef> = buildList {
-    if (Tasks.MOVE in selected && exerciseMinutes != null && exerciseMinutes >= Tasks.MOVE.target) add(Tasks.MOVE)
-    if (Tasks.OUTSIDE in selected && steps != null && steps >= Tasks.OUTSIDE.target) add(Tasks.OUTSIDE)
-    if (Tasks.SLEEP in selected && sleepMinutes != null && sleepMinutes >= Tasks.SLEEP.target) add(Tasks.SLEEP)
+    // The picked instances, so today's shared-out reward is what gets credited.
+    fun picked(t: TaskDef) = selected.firstOrNull { it == t }
+    if (exerciseMinutes != null && exerciseMinutes >= Tasks.MOVE.target) picked(Tasks.MOVE)?.let(::add)
+    if (steps != null && steps >= Tasks.OUTSIDE.target) picked(Tasks.OUTSIDE)?.let(::add)
+    if (sleepMinutes != null && sleepMinutes >= Tasks.SLEEP.target) picked(Tasks.SLEEP)?.let(::add)
 }

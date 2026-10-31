@@ -5,7 +5,8 @@ Contract (see docs/rive-rig.md and ui/Character.kt):
   artboard "Character" 500x500, state machine "Mood" with inputs
     mood (number: 0 happy, 1 tired, 2 scrolling, 3 outside, 4 reading), mia (bool), tap (trigger),
     headband, glasses, hat, flower (bool: accessories earned by a week of habits),
-    scientist (bool: lab coat, glasses and a waving pointer for onboarding and the tour).
+    scientist (bool: lab coat, glasses and a waving pointer for onboarding and the tour),
+    prop (number: 0 none, 1 dumbbell, 2 hearts, 3 palette and brush, 4 broom, 5 chef's hat; during timers).
 Layers: mood pose, skin (Bo/Mia), breathing, blinking, glancing, tap hop.
 
 Geometry follows the drawn fallback (ui/CharacterPainter.kt): a 100-unit box scaled x5,
@@ -23,6 +24,7 @@ MINT, MINT_LIGHT = 0xFF7ECAA3, 0xFFA9DDC1
 GREY, GREY_LIGHT = 0xFFAEB8B0, 0xFFC8D0CA
 INK, WHITE, BLUE = 0xFF1D2A23, 0xFFFFFFFF, 0xFF3B5BDB
 COAT, COAT_LINE = 0xFFFDFDFB, 0xFFD5DCD6
+WEIGHT, PALETTE, STRAW = 0xFF4A5852, 0xFFEAD2A8, 0xFFD9B45A
 CHEEK, HAIR, CORAL, SUNNY, SKY, MOSS, SHADOW = 0x96C9937A, 0xFF5A3A2A, 0xFFE76649, 0xFFF6D673, 0xFF8EC4E8, 0xFF316849, 0x221D2A23
 S = 5.0  # painter unit -> artboard px
 
@@ -105,6 +107,7 @@ def build():
     mia_front = r.node('mia_front', body)
     mia_back = r.node('mia_back', body)
     acc = {name: r.node(f'acc_{name}', body) for name in ('hat', 'flower', 'glasses', 'headband')}
+    props = [r.node(f'prop_{k}', body) for k in range(1, 6)]  # dumbbell, hearts, palette, broom, chef hat
     sci = r.node('scientist', body)
     pointer = r.node('pointer', sci, *T(80, 78))  # turns around the hand
 
@@ -113,6 +116,32 @@ def build():
         return x - 30, y + 14
 
     # --- Drawables, front to back ---------------------------------------------------------
+    # Props held or worn during timers (same shapes as CharacterPainter.drawProp), in front of everything.
+    dumbbell, hearts, palette, broom, chef = props
+    r.ellipse('db_hand', dumbbell, 81, 76, 8.4, 8.4, MINT)
+    r.rect('db_weight_l', dumbbell, 69, 74, 6, 16, 2, WEIGHT)
+    r.rect('db_weight_r', dumbbell, 93, 74, 6, 16, 2, WEIGHT)
+    r.path('db_bar', dumbbell, [(70, 74, None, None), (92, 74, None, None)], False, stroke=INK, width=2.4)
+    for name, cx, cy, sz in (('heart_big', 80, 20, 10), ('heart_small', 90, 33, 6)):
+        r.ellipse(f'{name}_l', hearts, cx - 0.25 * sz, cy - 0.1 * sz, 0.6 * sz, 0.6 * sz, CORAL)
+        r.ellipse(f'{name}_r', hearts, cx + 0.25 * sz, cy - 0.1 * sz, 0.6 * sz, 0.6 * sz, CORAL)
+        r.path(f'{name}_tip', hearts, [(cx - 0.53 * sz, cy + 0.02 * sz, None, None), (cx + 0.53 * sz, cy + 0.02 * sz, None, None), (cx, cy + 0.62 * sz, None, None)], True, fill=CORAL)
+    r.ellipse('brush_hand', palette, 80, 78, 8.4, 8.4, MINT)
+    r.ellipse('brush_tip', palette, 92, 58, 4.4, 4.4, SKY)
+    r.path('brush', palette, [(80, 78, None, None), (92, 58, None, None)], False, stroke=HAIR, width=2.2)
+    for i, (x, y, col) in enumerate(((14, 70, CORAL), (20, 68, SKY), (26, 70, SUNNY), (14, 76, MINT))):
+        r.ellipse(f'paint_{i}', palette, x, y, 4, 4, col)
+    r.ellipse('palette', palette, 20, 73, 24, 18, PALETTE)
+    r.ellipse('broom_hand', broom, 82, 64, 8.4, 8.4, MINT)
+    r.path('broom_band', broom, [(70, 84, None, None), (82, 84, None, None)], False, stroke=CORAL, width=1.6)
+    r.path('broom_straw', broom, [(70, 82, None, None), (82, 82, None, None), (86, 96, None, None), (66, 96, None, None)], True, fill=STRAW)
+    r.path('broom_stick', broom, [(88, 40, None, None), (76, 84, None, None)], False, stroke=HAIR, width=2.4)
+    r.path('chef_line', chef, [(37, 21, None, None), (63, 21, None, None)], False, stroke=COAT_LINE, width=1.2)
+    r.rect('chef_band', chef, 50, 21, 26, 10, 2, COAT)
+    r.ellipse('chef_puff_l', chef, 40, 15, 16, 16, COAT)
+    r.ellipse('chef_puff_r', chef, 60, 15, 16, 16, COAT)
+    r.ellipse('chef_puff_m', chef, 50, 11, 18, 18, COAT)
+
     # Scientist: the hand over the pointer, glasses over the eyes (the coat comes further back).
     r.ellipse('sci_hand', sci, 80, 78, 8.4, 8.4, MINT)
     r.ellipse('pointer_tip', pointer, *at_hand(92, 49), 4.8, 4.8, CORAL)
@@ -285,6 +314,8 @@ def build():
     }
     a_sci_off = animation('scientist_off', 1, LOOP_ONESHOT, {sci: {K_OPACITY: [(0, 0.0, INTERP_HOLD)]}})
     a_sci_on = animation('scientist_on', 1, LOOP_ONESHOT, {sci: {K_OPACITY: [(0, 1.0, INTERP_HOLD)]}})
+    a_props = [animation(f'prop_{k}', 1, LOOP_ONESHOT, {node: {K_OPACITY: [(0, 1.0 if i + 1 == k else 0.0, INTERP_HOLD)]} for i, node in enumerate(props)})
+               for k in range(0, 6)]
     a_point = animation('point', 96, LOOP_PINGPONG, {pointer: {K_ROTATION: [(0, -0.14, INTERP_CUBIC), (96, 0.14, INTERP_CUBIC)]}})
     a_rest = animation('rest', 1, LOOP_ONESHOT, {hop: {K_Y: [(0, feet[1], INTERP_HOLD)]}})
     a_hop = animation('hop', 40, LOOP_ONESHOT, {hop: {K_Y: [
@@ -300,7 +331,8 @@ def build():
         w.obj(SM_BOOL, smName=name)                      # inputs 3..6
         acc_inputs[name] = 3 + i
     w.obj(SM_BOOL, smName='scientist')                   # input 7
-    MOOD, MIA, TAP, SCIENTIST = 0, 1, 2, 7
+    w.obj(SM_NUMBER, smName='prop', numberValue=0.0)     # input 8
+    MOOD, MIA, TAP, SCIENTIST, PROP = 0, 1, 2, 7, 8
 
     def layer(name, states, entry_to, any_transitions=(), state_transitions=None):
         """states: animation indices -> layer states 3, 4, ... (0 entry, 1 any, 2 exit)."""
@@ -340,6 +372,7 @@ def build():
         (4, [(COND_BOOL, dict(inputId=SCIENTIST, op=OP_EQUAL))], 200),
     ])
     layer('point', [a_point], 3)
+    layer('prop', a_props, 3, [(3 + k, [(COND_NUMBER, dict(inputId=PROP, op=OP_EQUAL, condValue=float(k)))], 0) for k in range(6)])
     layer('tap', [a_rest, a_hop], 3,
           [(4, [(COND_TRIGGER, dict(inputId=TAP))], 0)],
           {4: [(3, dict(flags=FLAG_ENABLE_EXIT_TIME | FLAG_EXIT_TIME_IS_PERCENTAGE, exitTime=100))]})
