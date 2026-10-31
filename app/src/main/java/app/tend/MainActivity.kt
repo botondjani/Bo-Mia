@@ -135,9 +135,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun setReminder(enabled: Boolean, hour: Int) {
+    private fun setReminder(enabled: Boolean) {
         store.reminderPrompted = true
-        store.reminderHour = hour
         if (enabled && !RecapReminder.canNotify(this) && Build.VERSION.SDK_INT >= 33) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
             return
@@ -270,10 +269,11 @@ class MainActivity : ComponentActivity() {
                 missCount = store.missCount(),
                 onAddWidget = ::pinWidget,
                 reminderEnabled = store.reminderEnabled,
-                reminderHour = store.reminderHour,
                 onReminder = ::setReminder,
                 eveningFrom = store.eveningFrom,
-                onEvening = { store.eveningFrom = it; refresh++ },
+                onEvening = { store.eveningFrom = it; RecapReminder.schedule(this); refresh++ },
+                eveningPause = store.eveningPause,
+                onEveningPause = { store.eveningPause = it; refresh++ },
                 weeklyLetter = store.weeklyLetter,
                 onWeeklyLetter = ::setWeeklyLetter,
                 onExport = ::exportTestData,
@@ -288,8 +288,8 @@ class MainActivity : ComponentActivity() {
                     recap = Recap.of(store.config, store.today(), store.worthItToday()),
                     plants = store.plants,
                     daysTended = store.daysTended,
-                    reminderHour = store.reminderHour.takeIf { !store.reminderPrompted },
-                    onReminder = { setReminder(it, store.reminderHour) },
+                    reminderHour = store.eveningFrom.takeIf { !store.reminderPrompted },
+                    onReminder = ::setReminder,
                     onGoodNight = { screen = Screen.HOME },
                 )
             }
@@ -323,7 +323,7 @@ class MainActivity : ComponentActivity() {
                 day = store.today(),
                 tasks = store.selectedTasks,
                 plantCount = store.plants.size,
-                isEvening = LocalTime.now().hour >= RECAP_FROM_HOUR,
+                isEvening = LocalTime.now().hour >= store.eveningFrom,
                 permissions = permissions(),
                 onShareCrash = TendApp.crashFile(this).takeIf { it.exists() }?.let { file ->
                     {
@@ -538,7 +538,5 @@ class MainActivity : ComponentActivity() {
         return Permissions(usage, Settings.canDrawOverlays(this))
     }
 
-    private companion object {
-        const val RECAP_FROM_HOUR = 19
-    }
+
 }

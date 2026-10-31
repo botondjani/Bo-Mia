@@ -335,36 +335,40 @@ private fun AppIcon(catalog: AppCatalog, pkg: String, size: Dp, modifier: Modifi
     else Box(modifier.size(size).clip(RoundedCornerShape(10.dp)).background(Brand.Mint))
 }
 
+/** Free and maximum minutes in one card, each a compact stepper. */
 @Composable
-fun BudgetPicker(cfg: BudgetConfig, onConfig: (BudgetConfig) -> Unit) {
-    Card {
-        Text("FREE EVERY DAY", style = MaterialTheme.typography.labelSmall)
-        Choices(listOf(15, 30, 45, 60), cfg.freeMinutes) { onConfig(cfg.copy(freeMinutes = it, totalMinutes = maxOf(cfg.totalMinutes, it))) }
-        Text("No effort needed. Short and honest works best.", style = MaterialTheme.typography.bodyMedium)
+fun BudgetPicker(cfg: BudgetConfig, onConfig: (BudgetConfig) -> Unit) = Card {
+    Stepper("Free every day", "No effort needed", listOf(15, 30, 45, 60), cfg.freeMinutes) {
+        onConfig(cfg.copy(freeMinutes = it, totalMinutes = maxOf(cfg.totalMinutes, it)))
     }
-    Card {
-        Text("MAX PER DAY, WITH EARNED MINUTES", style = MaterialTheme.typography.labelSmall)
-        Choices(listOf(90, 120, 180, 240), cfg.totalMinutes) { onConfig(cfg.copy(totalMinutes = it, freeMinutes = minOf(cfg.freeMinutes, it))) }
-        Text("The ceiling, even on your most active day.", style = MaterialTheme.typography.bodyMedium)
+    Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp).background(Brand.Sage))
+    Stepper("Max per day", "With earned minutes", listOf(90, 120, 180, 240), cfg.totalMinutes) {
+        onConfig(cfg.copy(totalMinutes = it, freeMinutes = minOf(cfg.freeMinutes, it)))
     }
 }
 
 @Composable
-private fun Choices(options: List<Int>, value: Int, onPick: (Int) -> Unit) =
-    Row(Modifier.padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        options.forEach { o ->
-            val selected = o == value
-            Text(
-                "$o min",
-                style = MaterialTheme.typography.labelLarge,
-                color = if (selected) Color.White else Brand.Moss,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
-                    .background(if (selected) Brand.Moss else Brand.Sage)
-                    .clickable { onPick(o) }.padding(vertical = 12.dp),
-            )
+private fun Stepper(title: String, hint: String, options: List<Int>, value: Int, onPick: (Int) -> Unit) =
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(hint, style = MaterialTheme.typography.bodyMedium)
         }
+        val i = options.indexOf(value).let { if (it < 0) options.indexOfFirst { o -> o >= value }.coerceAtLeast(0) else it }
+        StepButton("−", i > 0) { onPick(options[i - 1]) }
+        Text(
+            "$value min", style = MaterialTheme.typography.titleMedium, color = Brand.Moss, textAlign = TextAlign.Center,
+            modifier = Modifier.width(76.dp),
+        )
+        StepButton("+", i < options.lastIndex) { onPick(options[i + 1]) }
     }
+
+@Composable
+private fun StepButton(label: String, enabled: Boolean, onClick: () -> Unit) = Box(
+    Modifier.size(38.dp).clip(CircleShape).background(if (enabled) Brand.Mint.copy(alpha = 0.25f) else Brand.Sage)
+        .clickable(enabled = enabled, onClick = onClick),
+    contentAlignment = Alignment.Center,
+) { Text(label, style = MaterialTheme.typography.titleLarge, color = if (enabled) Brand.Moss else Brand.Muted.copy(alpha = 0.4f)) }
 
 @Composable
 fun PermissionSteps(perms: PermissionActions) {

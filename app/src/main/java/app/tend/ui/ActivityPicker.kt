@@ -49,6 +49,34 @@ fun ActivityPicker(selected: List<TaskDef>, onToggle: (TaskDef) -> Unit) {
     if (adding) OwnActivityDialog(onDismiss = { adding = false }) { onToggle(it); adding = false }
 }
 
+/**
+ * Settings view: the picked activities as one compact card; "Change" opens the full picker in place.
+ */
+@Composable
+fun ActivitySummary(selected: List<TaskDef>, onToggle: (TaskDef) -> Unit) {
+    var editing by rememberSaveable { mutableStateOf(false) }
+    if (editing) {
+        ActivityPicker(selected, onToggle)
+        PrimaryButton("Done", { editing = false }, enabled = selected.isNotEmpty())
+        return
+    }
+    Card {
+        if (selected.isEmpty()) Text("Nothing picked yet.", style = MaterialTheme.typography.bodyLarge)
+        selected.forEach { task ->
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
+                TendIcons.Badge(task.icon, 32.dp)
+                Spacer(Modifier.width(10.dp))
+                Text(task.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                Text("+${task.rewardMinutes}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
+            Text("${selected.size} of ${Tasks.MAX_SELECTED} picked", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            ChipButton("Change", { editing = true })
+        }
+    }
+}
+
 /** "3 of 5" with five dots, so the limit is obvious before anyone hits it. */
 @Composable
 private fun PickCounter(count: Int) = Row(

@@ -36,6 +36,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -87,9 +89,10 @@ fun HomeScreen(
     val remaining = Budget.remainingMinutes(cfg, day)
     val mood = Moods.of(cfg, day)
     Box(Modifier.fillMaxSize()) {
+    // The page itself stays put; only the activity list scrolls, in the space that's left.
     Column(
-        Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp).padding(top = Space.xs, bottom = Space.xxl),
+        Modifier.fillMaxSize().background(Brand.Sage)
+            .padding(horizontal = 20.dp).padding(top = Space.xs),
         verticalArrangement = Arrangement.spacedBy(Space.m),
     ) {
         // Header: greeting + settings
@@ -155,10 +158,29 @@ fun HomeScreen(
 
         SectionHeader("Instead of scrolling", "${tasks.count { it.id in day.completedTasks }} of ${tasks.size} done")
         if (tasks.isEmpty()) Notice("sparkle", "Pick what you'd rather do", "A few activities that give minutes back", onOpenSettings)
-        Tasks.ordered(day, tasks).forEachIndexed { i, task ->
-            Box(if (i == 0) Modifier.tourTarget(tour, "activity") else Modifier) {
-                TaskRow(task, day, health, focusSecondsLeft?.takeIf { task.id == focusTaskId }, onStartFocus, onCheckOff, onUndo)
+        val list = rememberScrollState()
+        // The list reaches the screen edges so the cards' shadows aren't cut off at the sides.
+        Box(Modifier.weight(1f).fillMaxWidth().layout { m, c ->
+            val extra = 20.dp.roundToPx()
+            val p = m.measure(c.copy(minWidth = c.minWidth + 2 * extra, maxWidth = c.maxWidth + 2 * extra))
+            layout(c.maxWidth, p.height) { p.place(-extra, 0) }
+        }) {
+            Column(
+                // Done ones sink to the bottom.
+                Modifier.fillMaxSize().verticalScroll(list).padding(horizontal = 20.dp).padding(top = 4.dp, bottom = Space.xl),
+                verticalArrangement = Arrangement.spacedBy(Space.m),
+            ) {
+                Tasks.ordered(day, tasks).forEachIndexed { i, task ->
+                    Box(if (i == 0) Modifier.tourTarget(tour, "activity") else Modifier) {
+                        TaskRow(task, day, health, focusSecondsLeft?.takeIf { task.id == focusTaskId }, onStartFocus, onCheckOff, onUndo)
+                    }
+                }
             }
+            // A soft fade at the bottom says there's more below.
+            if (list.canScrollForward) Box(
+                Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(36.dp)
+                    .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Brand.Sage.copy(alpha = 0f), Brand.Sage))),
+            )
         }
     }
     if (showTour) TourOverlay(avatar, tour, homeTour(avatar.displayName, cfg.freeMinutes), onTourDone)
@@ -187,7 +209,10 @@ private fun TaskRow(
     onStartFocus: (TaskDef) -> Unit,
     onCheckOff: (TaskDef) -> Unit,
     onUndo: (TaskDef) -> Unit,
-) = Column(Modifier.fillMaxWidth().surface().padding(horizontal = 16.dp, vertical = 14.dp)) {
+) = Column(
+    Modifier.fillMaxWidth().graphicsLayer { alpha = if (task.id in day.completedTasks) 0.55f else 1f }
+        .surface().padding(horizontal = 16.dp, vertical = 14.dp),
+) {
     val done = task.id in day.completedTasks
     val progress = Tasks.progress(task, day)
     val measured = task.verification == Verification.AUTOMATIC && health == HealthConnect.Status.READY
@@ -197,7 +222,10 @@ private fun TaskRow(
         } else TendIcons.Badge(task.icon)
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text(task.title, style = MaterialTheme.typography.bodyLarge, color = if (done) Brand.Muted else Brand.Ink)
+            Text(
+                task.title, style = MaterialTheme.typography.bodyLarge, color = if (done) Brand.Muted else Brand.Ink,
+                textDecoration = if (done) androidx.compose.ui.text.style.TextDecoration.LineThrough else null,
+            )
             Text(
                 when {
                     done -> day.grants[task.id]?.takeIf { it > 0 }?.let { "+$it min earned" } ?: "Done for today"

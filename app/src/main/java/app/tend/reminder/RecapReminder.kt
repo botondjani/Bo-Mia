@@ -35,7 +35,7 @@ object RecapReminder {
         val pi = alarmIntent(context)
         alarms.cancel(pi)
         if (!store.reminderEnabled) return
-        var at = LocalDate.now().atTime(store.reminderHour, 0)
+        var at = LocalDate.now().atTime(store.eveningFrom, 0)
         if (!at.isAfter(LocalDateTime.now())) at = at.plusDays(1)
         val millis = at.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         alarms.setWindow(AlarmManager.RTC_WAKEUP, millis, WINDOW_MS, pi)

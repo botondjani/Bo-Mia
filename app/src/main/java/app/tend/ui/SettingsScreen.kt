@@ -42,10 +42,11 @@ fun SettingsScreen(
     missCount: Int,
     onAddWidget: () -> Boolean,
     reminderEnabled: Boolean,
-    reminderHour: Int,
-    onReminder: (enabled: Boolean, hour: Int) -> Unit,
+    onReminder: (enabled: Boolean) -> Unit,
     eveningFrom: Int,
     onEvening: (Int) -> Unit,
+    eveningPause: Boolean,
+    onEveningPause: (Boolean) -> Unit,
     weeklyLetter: Boolean,
     onWeeklyLetter: (Boolean) -> Unit,
     onExport: () -> Unit,
@@ -65,21 +66,17 @@ fun SettingsScreen(
     Text("APPS TO PAUSE", style = MaterialTheme.typography.labelSmall)
     AppPicker(catalog, blocked, onToggleApp)
     Text("INSTEAD OF SCROLLING", style = MaterialTheme.typography.labelSmall)
-    ActivityPicker(tasks, onToggleTask)
+    ActivitySummary(tasks, onToggleTask)
     Text("DAILY BUDGET", style = MaterialTheme.typography.labelSmall)
     BudgetPicker(cfg, onConfig)
-    Text("EVENING RECAP", style = MaterialTheme.typography.labelSmall)
+    Text("EVENING", style = MaterialTheme.typography.labelSmall)
     Card {
-        SwitchRow("Evening reminder", "One quiet note when tonight's recap is ready", reminderEnabled) { onReminder(it, reminderHour) }
-        if (reminderEnabled) HourChips(listOf(20, 21, 22), reminderHour) { onReminder(true, it) }
+        Text("Evening starts at", style = MaterialTheme.typography.bodyLarge)
+        Text("Tonight's recap is ready from then.", style = MaterialTheme.typography.bodyMedium)
+        HourChips(listOf(21, 22, 23), eveningFrom, onEvening)
+        SwitchRow("Recap reminder", "One quiet note when the evening starts", reminderEnabled, onReminder)
+        SwitchRow("Sleepy pauses", "From then until 5:00 the pause waits 15 s and ${avatar.displayName} gets sleepy", eveningPause, onEveningPause)
         SwitchRow("Sunday letter", "A short note on Sunday evening about your week", weeklyLetter, onWeeklyLetter)
-    }
-    Text("EVENING MODE", style = MaterialTheme.typography.labelSmall)
-    Card {
-        SwitchRow("Slower evenings", "Late at night the pause waits 15 s and ${avatar.displayName} gets sleepy", eveningFrom >= 0) {
-            onEvening(if (it) 22 else -1)
-        }
-        if (eveningFrom >= 0) HourChips(listOf(21, 22, 23), eveningFrom, onEvening)
     }
     Text("HOME SCREEN", style = MaterialTheme.typography.labelSmall)
     WidgetButton(avatar, onAddWidget)

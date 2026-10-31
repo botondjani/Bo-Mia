@@ -105,7 +105,7 @@ class InterstitialActivity : ComponentActivity() {
         val cfg = store.config
         var day = store.today()
         val locked = Budget.isLocked(cfg, day)
-        val evening = Budget.isEvening(store.eveningFrom, java.time.LocalTime.now().hour)
+        val evening = Budget.isEvening(if (store.eveningPause) store.eveningFrom else -1, java.time.LocalTime.now().hour)
         val delaySeconds = Budget.openDelaySeconds(cfg, day, evening)
         if (savedInstanceState == null && !locked) day = store.update { it.copy(opensToday = it.opensToday + 1) }
         view = View(label, locked, day.opensToday, delaySeconds, Budget.remainingMinutes(cfg, day), evening)

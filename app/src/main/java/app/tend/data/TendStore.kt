@@ -84,9 +84,15 @@ class TendStore(private val context: Context) {
         set(v) = edit { putBoolean("widget_tip_done", v) }
 
     /** Evening mode starts at this hour (until 5 am); -1 = off. */
+    /** When the evening starts (21, 22 or 23): tonight's recap, its reminder and, if on, the sleepy pause. */
     var eveningFrom: Int
-        get() = prefs.getInt("evening_from", 22)
+        get() = prefs.getInt("evening_from", 22).let { if (it < 0) 22 else it } // -1 was "evening mode off"
         set(v) = edit { putInt("evening_from", v) }
+
+    /** In the evening the pause waits longer and the companion is sleepy. */
+    var eveningPause: Boolean
+        get() = prefs.getBoolean("evening_pause", prefs.getInt("evening_from", 22) >= 0)
+        set(v) = edit { putBoolean("evening_pause", v) }
 
     /** A short note every Sunday evening about the week. */
     var weeklyLetter: Boolean
@@ -220,10 +226,6 @@ class TendStore(private val context: Context) {
     var reminderEnabled: Boolean
         get() = prefs.getBoolean("reminder_on", false)
         set(v) = edit { putBoolean("reminder_on", v) }
-
-    var reminderHour: Int
-        get() = prefs.getInt("reminder_hour", 21)
-        set(v) = edit { putInt("reminder_hour", v) }
 
     /** The home screen asked once; don't ask again. */
     var reminderPrompted: Boolean
