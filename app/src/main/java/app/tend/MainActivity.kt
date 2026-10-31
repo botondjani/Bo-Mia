@@ -29,7 +29,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import app.tend.core.Recap
 import app.tend.core.TaskDef
+import app.tend.ui.GardenScreen
+import app.tend.ui.RecapScreen
+import java.time.LocalTime
 import app.tend.core.Tasks
 import app.tend.health.HealthConnect
 import app.tend.health.TaskSync
@@ -60,7 +64,7 @@ class MainActivity : ComponentActivity() {
     private var usageAttempted = false
     private var overlayAttempted = false
 
-    private enum class Screen { HOME, SETTINGS, PERMISSIONS }
+    private enum class Screen { HOME, SETTINGS, PERMISSIONS, GARDEN, RECAP }
 
     private val healthPermissions =
         registerForActivityResult(PermissionController.createRequestPermissionResultContract()) { refresh++ }
@@ -145,6 +149,16 @@ class MainActivity : ComponentActivity() {
                 onDone = { screen = Screen.HOME },
             )
 
+            screen == Screen.GARDEN -> GardenScreen(store.avatar, store.plants, store.daysTended) { screen = Screen.HOME }
+
+            screen == Screen.RECAP -> RecapScreen(
+                avatar = store.avatar,
+                recap = Recap.of(store.config, store.today(), store.worthItToday()),
+                plants = store.plants,
+                daysTended = store.daysTended,
+                onGoodNight = { screen = Screen.HOME },
+            )
+
             screen == Screen.PERMISSIONS -> PermissionsScreen(store.avatar, permissionActions()) {
                 MonitorService.start(this)
                 screen = Screen.HOME
@@ -159,7 +173,8 @@ class MainActivity : ComponentActivity() {
                 avatar = store.avatar,
                 cfg = store.config,
                 day = store.today(),
-                gardenMinutes = store.gardenMinutes,
+                plantCount = store.plants.size,
+                isEvening = LocalTime.now().hour >= RECAP_FROM_HOUR,
                 missCount = store.missCount(),
                 permissionsMissing = !permissions().allGranted,
                 health = health,
@@ -180,6 +195,8 @@ class MainActivity : ComponentActivity() {
                     refresh++
                 },
                 onOpenSettings = { screen = Screen.SETTINGS },
+                onOpenGarden = { screen = Screen.GARDEN },
+                onOpenRecap = { screen = Screen.RECAP },
             )
         }
     }
@@ -246,5 +263,9 @@ class MainActivity : ComponentActivity() {
             ops.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), packageName)
         } == AppOpsManager.MODE_ALLOWED
         return Permissions(usage, Settings.canDrawOverlays(this))
+    }
+
+    private companion object {
+        const val RECAP_FROM_HOUR = 19
     }
 }

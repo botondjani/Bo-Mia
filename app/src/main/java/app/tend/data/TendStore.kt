@@ -5,6 +5,9 @@ import app.tend.core.Budget
 import app.tend.core.BudgetConfig
 import app.tend.core.Avatar
 import app.tend.core.DayState
+import app.tend.core.Garden
+import app.tend.core.Plant
+import app.tend.core.WorthIt
 import app.tend.widget.TendWidget
 import java.io.File
 import java.time.LocalDate
@@ -41,16 +44,32 @@ class TendStore(private val context: Context) {
         get() = prefs.getLong("focus_started", 0)
         set(v) = edit { putLong("focus_started", v) }
 
-    val gardenMinutes: Int get() { today(); return prefs.getInt("garden", 0) }
+    /** One plant per closed day that had unused minutes, oldest first. */
+    val plants: List<Plant>
+        get() {
+            today()
+            return prefs.getString("plants", "")!!.split(',').filter { it.isNotEmpty() }.map { Plant.valueOf(it) }
+        }
 
+    /** Days closed since install: drives the weekly home growth. */
+    val daysTended: Int get() { today(); return prefs.getInt("days_tended", 0) }
+
+    /**
+     * Today's state. At the first read of a new day, yesterday is closed: its unused minutes
+     * become a plant, the home's day count goes up, everything else resets.
+     */
     @Synchronized
     fun today(): DayState {
         val now = LocalDate.now()
         val stored = readDay()
         if (stored != null && stored.date == now) return stored
-        val garden = prefs.getInt("garden", 0) + (stored?.let { Budget.gardenMinutesAtClose(config, it) } ?: 0)
         val fresh = DayState(now)
-        writeDay(fresh) { putInt("garden", garden) }
+        val plant = stored?.let { Garden.plantFor(Budget.gardenMinutesAtClose(config, it)) }
+        val plants = prefs.getString("plants", "")!!
+        writeDay(fresh) {
+            if (plant != null) putString("plants", if (plants.isEmpty()) plant.name else "$plants,${plant.name}")
+            if (stored != null) putInt("days_tended", prefs.getInt("days_tended", 0) + 1)
+        }
         return fresh
     }
 
@@ -76,6 +95,17 @@ class TendStore(private val context: Context) {
 
     /** Every case where blocking did not run: monitor stopped, or an open was not caught. */
     fun logMiss(reason: String, pkg: String = "") = append("misses.csv", "${LocalDateTime.now()},$reason,$pkg")
+
+    /** Today's "Worth it?" answers, for the evening recap. */
+    fun worthItToday(): List<WorthIt> {
+        val file = File(context.filesDir, "answers.csv").takeIf { it.exists() } ?: return emptyList()
+        val today = LocalDate.now().toString()
+        return file.readLines().mapNotNull { line ->
+            val parts = line.split(',')
+            if (parts.size < 4 || parts[1] != "worth_it" || !parts[0].startsWith(today)) return@mapNotNull null
+            runCatching { WorthIt(LocalDateTime.parse(parts[0]).toLocalTime(), parts[3]) }.getOrNull()
+        }
+    }
 
     fun missCount(): Int = File(context.filesDir, "misses.csv").takeIf { it.exists() }?.readLines()?.size ?: 0
 

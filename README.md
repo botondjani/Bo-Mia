@@ -15,6 +15,8 @@ This is the MVP skeleton described in the concept doc. Native Android, English o
 | Monitoring: UsageStats polled every second, opens a delay screen, counts time used, locks at zero, logs every miss | `monitor/MonitorService.kt` |
 | Delay screen: "What are you looking for?", 3 answers, "I'll take a walk instead", countdown | `monitor/InterstitialActivity.kt` |
 | "Worth it?" (Yes / Kind of / Not really) after sessions of 30 s or more | `monitor/WorthItActivity.kt` |
+| Evening recap (from 19:00): minutes got back, tonight's plant, steps / exercise / reading, "Worth it?" summary with late-night pattern, home milestones | `core/Garden.kt`, `ui/Garden.kt` |
+| Garden: one plant per day from unused minutes (sprout < 15, tulip < 30, sunflower ≥ 30), planted at midnight; the home grows weekly (lit window + bench in week 2, own tree in week 4) | `core/Garden.kt`, `ui/Garden.kt` |
 | Home screen widget: face, minutes left, next task; refreshes on every change | `widget/TendWidget.kt` |
 | Onboarding (7 steps, suggested apps, in-context permissions), settings, home, focus timer | `ui/` |
 | Brand: Moss/Mint/Coral/Sunny/Sky/Ink/Sage, Fredoka + Nunito (OFL, bundled) | `ui/Theme.kt` |
@@ -26,7 +28,7 @@ Logs are written to the app's private storage: `answers.csv` (looking-for and wo
 - **Background Health Connect reads**: data is read only while tend is on screen (home or pause screen). The widget can lag until then.
 - **Step source**: Health Connect needs an app that writes steps (Google Fit, Samsung Health, Fitbit, or the phone's built-in step tracking on newer Pixels). Workouts count once a tracker writes an exercise session.
 - **Rive**: the character is drawn by `CharacterPainter` (Canvas) as a placeholder until the Rive rig replaces it.
-- Evening recap screen, weekly patterns view, and the house growing week by week (the garden count is already tracked).
+- Weekly patterns view, and an evening reminder notification for the recap.
 - Out of MVP scope (from the concept doc): floating character, friends, coins/shop, iOS.
 
 ## Build

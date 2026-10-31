@@ -1,6 +1,7 @@
 package app.tend.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,7 +42,8 @@ fun HomeScreen(
     avatar: Avatar,
     cfg: BudgetConfig,
     day: DayState,
-    gardenMinutes: Int,
+    plantCount: Int,
+    isEvening: Boolean,
     missCount: Int,
     permissionsMissing: Boolean,
     health: HealthConnect.Status?,
@@ -50,6 +52,8 @@ fun HomeScreen(
     onConnectHealth: () -> Unit,
     onStartFocus: (TaskDef) -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenGarden: () -> Unit,
+    onOpenRecap: () -> Unit,
 ) {
     val remaining = Budget.remainingMinutes(cfg, day)
     Column(
@@ -61,7 +65,13 @@ fun HomeScreen(
                 Text("Hey there!", style = MaterialTheme.typography.headlineMedium)
                 Text(day.date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.ENGLISH)), style = MaterialTheme.typography.bodyMedium)
             }
-            Pill("Garden · ${gardenMinutes / GARDEN_MINUTES_PER_PLANT} 🌱")
+            Pill("Garden · $plantCount 🌱", modifier = Modifier.clickable(onClick = onOpenGarden))
+        }
+
+        if (isEvening) Card {
+            Text("TONIGHT'S RECAP", style = MaterialTheme.typography.labelSmall)
+            Text("See what today gave back", style = MaterialTheme.typography.titleMedium)
+            PrimaryButton("Open recap", onOpenRecap, modifier = Modifier.padding(top = 8.dp))
         }
 
         if (permissionsMissing) Card {
@@ -182,11 +192,11 @@ fun Card(content: @Composable () -> Unit) = Column(
 ) { content() }
 
 @Composable
-fun Pill(text: String, color: Color = Brand.Sage) = Text(
+fun Pill(text: String, color: Color = Brand.Sage, modifier: Modifier = Modifier) = Text(
     text,
     style = MaterialTheme.typography.labelLarge,
     color = Brand.Moss,
-    modifier = Modifier.clip(RoundedCornerShape(50)).background(color).padding(horizontal = 12.dp, vertical = 6.dp),
+    modifier = modifier.clip(RoundedCornerShape(50)).background(color).padding(horizontal = 12.dp, vertical = 6.dp),
 )
 
 @Composable
@@ -204,4 +214,3 @@ fun FocusTimerScreen(avatar: Avatar, task: TaskDef, secondsLeft: Long, onCancel:
     TextButton(onClick = onCancel) { Text("Stop for now") }
 }
 
-const val GARDEN_MINUTES_PER_PLANT = 30
