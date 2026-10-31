@@ -25,7 +25,7 @@ object Tasks {
 
     val MOVE = TaskDef("move", "Workout or run", "Automatic · 30 min of exercise", 30, Verification.AUTOMATIC, 30, "🏃")
     val OUTSIDE = TaskDef("outside", "Walk outside", "Automatic · 4,000 steps", 20, Verification.AUTOMATIC, 4000, "🌳")
-    val READ = TaskDef("read", "Read or learn", "Focus timer · 20 min, reads with you", 15, Verification.FOCUS_TIMER, 20, "📖")
+    val READ = TaskDef("read", "Read or learn", "Focus timer · 20 min", 15, Verification.FOCUS_TIMER, 20, "📖")
     val FRIENDS = TaskDef("friends", "Friends & family", "Check off · time together, a call", 15, Verification.CHECK_OFF, 0, "🤗")
     val HOBBY = TaskDef("hobby", "Hobby", "Check off · make, play, create", 15, Verification.CHECK_OFF, 0, "🎨")
     val CHORES = TaskDef("chores", "Tidy up", "Check off · a bit of home care", 10, Verification.CHECK_OFF, 0, "🧺")

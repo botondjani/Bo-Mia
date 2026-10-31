@@ -1,6 +1,16 @@
 package app.tend.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,7 +57,6 @@ fun HomeScreen(
     tasks: List<TaskDef>,
     plantCount: Int,
     isEvening: Boolean,
-    missCount: Int,
     permissionsMissing: Boolean,
     health: HealthConnect.Status?,
     focusSecondsLeft: Long?,
@@ -61,76 +70,71 @@ fun HomeScreen(
     onOpenRecap: () -> Unit,
 ) {
     val remaining = Budget.remainingMinutes(cfg, day)
+    val mood = Moods.of(cfg, day)
     Column(
-        Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState()).padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp).padding(top = Space.l, bottom = Space.xxl),
+        verticalArrangement = Arrangement.spacedBy(Space.m),
     ) {
+        // Header: greeting + settings
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Hey there!", style = MaterialTheme.typography.headlineMedium)
                 Text(day.date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.ENGLISH)), style = MaterialTheme.typography.bodyMedium)
+                Text(greeting(), style = MaterialTheme.typography.headlineMedium)
             }
-            Pill("Garden · $plantCount 🌱", modifier = Modifier.clickable(onClick = onOpenGarden))
+            IconButtonSoft(Icons.Filled.Settings, "Settings", onOpenSettings)
         }
 
-        if (isEvening) Card {
-            Text("TONIGHT'S RECAP", style = MaterialTheme.typography.labelSmall)
-            Text("See what today gave back", style = MaterialTheme.typography.titleMedium)
-            PrimaryButton("Open recap", onOpenRecap, modifier = Modifier.padding(top = 8.dp))
-        }
-
-        if (permissionsMissing) Card {
-            Text("${avatar.displayName} can't see app opens right now", style = MaterialTheme.typography.titleMedium)
-            Text("A permission was switched off, so there's no pause before scrolling.", style = MaterialTheme.typography.bodyMedium)
-            TextButton(onClick = onFixPermissions) { Text("Fix it →") }
-        }
-
-        Card {
+        // Hero: the companion and today's minutes
+        Column(Modifier.fillMaxWidth().surface(radius = 28.dp).padding(20.dp), verticalArrangement = Arrangement.spacedBy(Space.m)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                CharacterView(avatar, Moods.of(cfg, day), 96.dp)
-                Spacer(Modifier.padding(6.dp))
-                Text(Moods.line(cfg, day, tasks), style = MaterialTheme.typography.titleMedium)
+                CharacterView(avatar, mood, 104.dp)
+                Spacer(Modifier.width(Space.l))
+                Column(Modifier.weight(1f)) {
+                    Text(Moods.status(avatar.displayName, mood).uppercase(), style = MaterialTheme.typography.labelSmall, color = Brand.Moss)
+                    Text(Moods.line(cfg, day, tasks), style = MaterialTheme.typography.titleMedium)
+                }
+            }
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(if (remaining > 0) "$remaining" else "0", style = MaterialTheme.typography.displayLarge, color = if (remaining > 0) Brand.Moss else Brand.Coral)
+                Spacer(Modifier.width(Space.s))
+                Text("min left today", style = MaterialTheme.typography.titleMedium, color = Brand.Muted, modifier = Modifier.padding(bottom = 10.dp))
+            }
+            val available = (cfg.freeMinutes + day.earnedMinutes).coerceAtLeast(1)
+            val left by animateFloatAsState((remaining.toFloat() / available).coerceIn(0f, 1f), tween(700), label = "left")
+            Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(50)).background(Brand.Sage)) {
+                Box(Modifier.fillMaxWidth(left).height(8.dp).clip(RoundedCornerShape(50)).background(if (remaining > 0) Brand.Mint else Brand.Coral))
+            }
+            Row {
+                Text("+${Budget.earnableFrom(cfg, day, tasks)} min still to earn", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                Text(
+                    "🌱 $plantCount in the garden",
+                    style = MaterialTheme.typography.bodyMedium, color = Brand.Moss,
+                    modifier = Modifier.tappable(onClick = onOpenGarden),
+                )
             }
         }
 
-        Card {
-            Text("SCREEN TIME TODAY", style = MaterialTheme.typography.labelSmall)
-            Text(
-                if (remaining > 0) "$remaining min left" else "Budget's empty",
-                style = MaterialTheme.typography.headlineLarge,
-                color = if (remaining > 0) Brand.Moss else Brand.Coral,
-            )
-            Text("Up to ${Budget.earnableFrom(cfg, day, tasks)} more to earn", style = MaterialTheme.typography.bodyLarge)
-            Text("What you don't use tonight grows the garden.", style = MaterialTheme.typography.bodyMedium)
-        }
-
-        Text("TODAY", style = MaterialTheme.typography.labelSmall)
+        if (isEvening) Notice("🌙", "Tonight's recap is ready", "See what today gave back", onOpenRecap, tint = Brand.Sky)
+        if (permissionsMissing) Notice("⚠️", "${avatar.displayName} can't see app opens", "A switch was turned off. Tap to fix.", onFixPermissions, tint = Brand.Coral)
         val needsHealth = tasks.any { it.verification == Verification.AUTOMATIC }
-        if (needsHealth && (health == HealthConnect.Status.NEEDS_PERMISSION || health == HealthConnect.Status.NEEDS_INSTALL)) Card {
-            Text("Count walks and workouts automatically", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Health Connect shares today's steps and exercise with tend. Read only, stays on your phone.",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            PrimaryButton(
-                if (health == HealthConnect.Status.NEEDS_INSTALL) "Get Health Connect" else "Connect Health Connect",
-                onConnectHealth, modifier = Modifier.padding(top = 8.dp),
+        if (needsHealth && (health == HealthConnect.Status.NEEDS_PERMISSION || health == HealthConnect.Status.NEEDS_INSTALL)) {
+            Notice(
+                "❤️", if (health == HealthConnect.Status.NEEDS_INSTALL) "Get Health Connect" else "Connect Health Connect",
+                "Count walks and workouts automatically", onConnectHealth, tint = Brand.Coral,
             )
         }
-        if (tasks.isEmpty()) Card {
-            Text("No activities picked yet", style = MaterialTheme.typography.titleMedium)
-            TextButton(onClick = onOpenSettings) { Text("Pick what you'd rather do →") }
-        }
-        tasks.forEach { task -> TaskRow(task, day, health, focusSecondsLeft, onStartFocus, onCheckOff, onUndo) }
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                if (missCount == 0) "Blocking: no misses logged" else "Blocking misses logged: $missCount",
-                style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f),
-            )
-            TextButton(onClick = onOpenSettings) { Text("Settings") }
-        }
+        SectionHeader("Instead of scrolling", "${tasks.count { it.id in day.completedTasks }} of ${tasks.size} done")
+        if (tasks.isEmpty()) Notice("✨", "Pick what you'd rather do", "A few activities that give minutes back", onOpenSettings)
+        tasks.forEach { task -> TaskRow(task, day, health, focusSecondsLeft, onStartFocus, onCheckOff, onUndo) }
     }
+}
+
+private fun greeting(): String = when (java.time.LocalTime.now().hour) {
+    in 5..11 -> "Good morning"
+    in 12..17 -> "Good afternoon"
+    else -> "Good evening"
 }
 
 @Composable
@@ -142,42 +146,49 @@ private fun TaskRow(
     onStartFocus: (TaskDef) -> Unit,
     onCheckOff: (TaskDef) -> Unit,
     onUndo: (TaskDef) -> Unit,
-) = Card {
+) = Column(Modifier.fillMaxWidth().surface().padding(horizontal = 16.dp, vertical = 14.dp)) {
     val done = task.id in day.completedTasks
     val progress = Tasks.progress(task, day)
     val measured = task.verification == Verification.AUTOMATIC && health == HealthConnect.Status.READY
     Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier.size(44.dp).clip(CircleShape).background(if (done) Brand.Moss else Brand.Sage),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (done) Icon(Icons.Filled.Check, "Done", tint = Color.White, modifier = Modifier.size(22.dp))
+            else Text(task.emoji, fontSize = 22.sp)
+        }
+        Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text("${task.emoji}  ${task.title}", style = MaterialTheme.typography.bodyLarge)
+            Text(task.title, style = MaterialTheme.typography.bodyLarge, color = if (done) Brand.Muted else Brand.Ink)
             Text(
                 when {
-                    task.verification != Verification.AUTOMATIC -> task.subtitle
+                    done -> day.grants[task.id]?.takeIf { it > 0 }?.let { "+$it min earned" } ?: "Done for today"
+                    task.verification != Verification.AUTOMATIC -> "+${task.rewardMinutes} min · ${task.subtitle.substringAfter("· ")}"
                     measured && progress != null -> progressLabel(task, progress)
-                    health == HealthConnect.Status.UNSUPPORTED -> "Needs Health Connect, not available on this phone"
-                    else -> "${task.subtitle} · connect Health Connect"
+                    health == HealthConnect.Status.UNSUPPORTED -> "Health Connect isn't available on this phone"
+                    else -> "+${task.rewardMinutes} min · counts automatically"
                 },
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
         when {
-            done && task.manual -> Column(horizontalAlignment = Alignment.End) {
-                Pill(day.grants[task.id]?.takeIf { it > 0 }?.let { "✓ +$it min" } ?: "✓")
-                TextButton(onClick = { onUndo(task) }) { Text("Undo") }
-            }
-            done -> Pill("✓ +${day.grants[task.id] ?: task.rewardMinutes} min")
-            task.verification == Verification.FOCUS_TIMER -> Button(onClick = { onStartFocus(task) }) {
-                Text(focusSecondsLeft?.let { "Continue · ${it / 60}:%02d".format(it % 60) } ?: "Start", color = Color.White)
-            }
-            task.manual -> Button(onClick = { onCheckOff(task) }) { Text("Done", color = Color.White) }
-            else -> Pill("+${task.rewardMinutes} min")
+            done && task.manual -> Text(
+                "Undo", style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
+                modifier = Modifier.tappable { onUndo(task) }.padding(8.dp),
+            )
+            done -> Unit
+            task.verification == Verification.FOCUS_TIMER ->
+                ChipButton(focusSecondsLeft?.let { "%d:%02d".format(it / 60, it % 60) } ?: "Start", { onStartFocus(task) })
+            task.manual -> ChipButton("Done", { onCheckOff(task) })
+            else -> Pill("+${task.rewardMinutes}")
         }
     }
     if (measured && progress != null && !done) {
-        LinearProgressIndicator(
-            progress = { (progress.toFloat() / task.target).coerceIn(0f, 1f) },
-            color = Brand.Moss, trackColor = Brand.Sage,
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(8.dp).clip(RoundedCornerShape(50)),
-        )
+        val p by animateFloatAsState((progress.toFloat() / task.target).coerceIn(0f, 1f), tween(700), label = "progress")
+        Box(Modifier.fillMaxWidth().padding(top = Space.m).height(6.dp).clip(RoundedCornerShape(50)).background(Brand.Sage)) {
+            Box(Modifier.fillMaxWidth(p).height(6.dp).clip(RoundedCornerShape(50)).background(Brand.Moss))
+        }
     }
 }
 
@@ -190,7 +201,7 @@ private fun progressLabel(task: TaskDef, progress: Long): String = when (task.id
 @Composable
 fun Celebration(avatar: Avatar, tasks: List<TaskDef>, minutes: Int, onUndo: (() -> Unit)?, onDismiss: () -> Unit) = Dialog(onDismissRequest = onDismiss) {
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Brand.Card).padding(24.dp),
+        Modifier.fillMaxWidth().surface(radius = 28.dp).padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -203,23 +214,12 @@ fun Celebration(avatar: Avatar, tasks: List<TaskDef>, minutes: Int, onUndo: (() 
             style = MaterialTheme.typography.bodyMedium,
         )
         PrimaryButton("Nice", onDismiss, modifier = Modifier.padding(top = 8.dp))
-        if (onUndo != null) TextButton(onClick = onUndo) { Text("Oops, undo") }
+        if (onUndo != null) Text(
+            "Oops, undo", style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
+            modifier = Modifier.tappable(onClick = onUndo).padding(8.dp),
+        )
     }
 }
-
-@Composable
-fun Card(content: @Composable () -> Unit) = Column(
-    Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Brand.Card).padding(16.dp),
-    verticalArrangement = Arrangement.spacedBy(4.dp),
-) { content() }
-
-@Composable
-fun Pill(text: String, color: Color = Brand.Sage, modifier: Modifier = Modifier) = Text(
-    text,
-    style = MaterialTheme.typography.labelLarge,
-    color = Brand.Moss,
-    modifier = modifier.clip(RoundedCornerShape(50)).background(color).padding(horizontal = 12.dp, vertical = 6.dp),
-)
 
 @Composable
 fun FocusTimerScreen(avatar: Avatar, task: TaskDef, secondsLeft: Long, onCancel: () -> Unit) = Column(
@@ -251,6 +251,6 @@ fun FocusTimerScreen(avatar: Avatar, task: TaskDef, secondsLeft: Long, onCancel:
         style = MaterialTheme.typography.bodyMedium,
         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
     )
-    androidx.compose.material3.OutlinedButton(onClick = onCancel, shape = RoundedCornerShape(20.dp)) { Text("Stop for now") }
+    SecondaryButton("Stop for now", onCancel, modifier = Modifier.padding(horizontal = Space.xxl))
 }
 

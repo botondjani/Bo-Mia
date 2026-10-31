@@ -57,6 +57,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.tend.core.Avatar
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import app.tend.core.BudgetConfig
 import app.tend.core.Budget
 import app.tend.core.DayState
@@ -189,7 +190,7 @@ fun Onboarding(
                     )
                     if (onAddWidget != null) {
                         Spacer(Modifier.height(16.dp))
-                        TextButton(onClick = onAddWidget) { Text("＋ Put ${avatar.displayName} on your home screen") }
+                        SecondaryButton("＋ Put ${avatar.displayName} on your home screen", onAddWidget)
                     }
                 }
             }
@@ -200,7 +201,8 @@ fun Onboarding(
 @Composable
 private fun Progress(step: Int, total: Int, onBack: () -> Unit) =
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        TextButton(onClick = onBack) { Text("←", style = MaterialTheme.typography.titleLarge) }
+        IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, "Back", onBack)
+        Spacer(Modifier.width(Space.m))
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             for (i in 1 until total) {
                 val fill by animateFloatAsState(if (i <= step) 1f else 0f, label = "progress")
@@ -209,7 +211,7 @@ private fun Progress(step: Int, total: Int, onBack: () -> Unit) =
                 }
             }
         }
-        Spacer(Modifier.width(48.dp))
+        Spacer(Modifier.width(Space.l))
     }
 
 @Composable
@@ -228,15 +230,6 @@ private fun StepPage(
     )
     PrimaryButton(cta, onCta, ctaEnabled, Modifier.padding(vertical = 20.dp))
 }
-
-@Composable
-fun PrimaryButton(text: String, onClick: () -> Unit, enabled: Boolean = true, modifier: Modifier = Modifier) = Button(
-    onClick = onClick,
-    enabled = enabled,
-    shape = RoundedCornerShape(20.dp),
-    colors = ButtonDefaults.buttonColors(containerColor = Brand.Moss, disabledContainerColor = Brand.Moss.copy(alpha = 0.25f)),
-    modifier = modifier.fillMaxWidth().height(58.dp),
-) { Text(text, style = MaterialTheme.typography.titleMedium, color = Color.White) }
 
 @Composable
 private fun Title(title: String, subtitle: String) {
@@ -311,7 +304,7 @@ fun AppPicker(catalog: AppCatalog, blocked: Set<String>, onToggle: (String) -> U
         }
     }
 
-    TextButton(onClick = { showOthers = !showOthers }) { Text(if (showOthers) "Hide other apps" else "＋ Add another app") }
+    SecondaryButton(if (showOthers) "Hide other apps" else "＋ Add another app", { showOthers = !showOthers })
     AnimatedVisibility(showOthers) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             OutlinedTextField(

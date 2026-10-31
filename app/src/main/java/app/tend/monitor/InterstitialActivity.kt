@@ -19,6 +19,7 @@ import app.tend.ui.PopupSheet
 import app.tend.ui.blurBehind
 import androidx.compose.material3.ButtonDefaults
 import app.tend.ui.PrimaryButton
+import app.tend.ui.SecondaryButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -148,7 +149,8 @@ class InterstitialActivity : ComponentActivity() {
             style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
         )
         PrimaryButton("Not now", ::goHome)
-        OutlinedButton(
+        SecondaryButton(
+            if (left > 0) "Open ${v.label} in $left s" else "Open ${v.label}",
             onClick = {
                 store.focusStartedAt = 0 // opening a paused app ends the reading session
                 store.grantPass(pkg)
@@ -156,11 +158,7 @@ class InterstitialActivity : ComponentActivity() {
                 finish()
             },
             enabled = left == 0,
-            shape = RoundedCornerShape(20.dp),
-            border = androidx.compose.foundation.BorderStroke(1.5.dp, Brand.Muted.copy(alpha = if (left > 0) 0.35f else 0.8f)),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = Brand.Ink, disabledContentColor = Brand.Muted),
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-        ) { Text(if (left > 0) "Open ${v.label} in $left s" else "Open ${v.label}") }
+        )
         }
     }
 
@@ -180,9 +178,7 @@ class InterstitialActivity : ComponentActivity() {
             startActivity(Intent(this@InterstitialActivity, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             finish()
         })
-        OutlinedButton(
-            onClick = ::goHome, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth().height(52.dp),
-        ) { Text("Not now") }
+        SecondaryButton("Not now", ::goHome)
         }
     }
 

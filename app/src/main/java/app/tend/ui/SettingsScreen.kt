@@ -3,6 +3,9 @@ package app.tend.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Switch
 import androidx.compose.ui.Alignment
@@ -36,6 +39,7 @@ fun SettingsScreen(
     onToggleApp: (String) -> Unit,
     tasks: List<TaskDef>,
     onToggleTask: (TaskDef) -> Unit,
+    missCount: Int,
     reminderEnabled: Boolean,
     reminderHour: Int,
     onReminder: (enabled: Boolean, hour: Int) -> Unit,
@@ -44,7 +48,11 @@ fun SettingsScreen(
     Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
     verticalArrangement = Arrangement.spacedBy(12.dp),
 ) {
-    Text("Settings", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(top = 20.dp))
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = Space.l)) {
+        IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, "Back", onDone)
+        Spacer(Modifier.width(Space.m))
+        Text("Settings", style = MaterialTheme.typography.headlineMedium)
+    }
     Text("COMPANION", style = MaterialTheme.typography.labelSmall)
     CompanionPicker(avatar, onAvatar)
     Text("APPS TO PAUSE", style = MaterialTheme.typography.labelSmall)
@@ -77,6 +85,10 @@ fun SettingsScreen(
             }
         }
     }
+    Text(
+        if (missCount == 0) "Diagnostics · no blocking misses logged" else "Diagnostics · $missCount blocking misses logged",
+        style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = Space.s),
+    )
     PrimaryButton("Done", onDone, enabled = blocked.isNotEmpty(), modifier = Modifier.padding(vertical = 20.dp))
 }
 

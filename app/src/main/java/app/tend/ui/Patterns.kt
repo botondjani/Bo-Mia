@@ -140,23 +140,25 @@ private fun Legend() = Row(Modifier.padding(top = 10.dp), horizontalArrangement 
 
 private fun hoursMinutes(m: Int) = if (m >= 60) "${m / 60} h ${m % 60} min" else "$m min"
 
-enum class Tab(val label: String) { TODAY("Today"), GARDEN("Home & garden"), PATTERNS("Patterns") }
+enum class Tab(val label: String) { TODAY("Today"), GARDEN("Garden"), PATTERNS("Patterns") }
 
 @Composable
 fun TabBar(selected: Tab, onSelect: (Tab) -> Unit) = Row(
-    Modifier.fillMaxWidth().background(Brand.Card).padding(horizontal = 12.dp, vertical = 8.dp),
-    horizontalArrangement = Arrangement.spacedBy(8.dp),
+    Modifier.fillMaxWidth().background(Brand.Sage).padding(horizontal = 16.dp, vertical = 10.dp)
+        .surface(radius = 28.dp).padding(6.dp),
+    horizontalArrangement = Arrangement.spacedBy(6.dp),
 ) {
     Tab.entries.forEach { tab ->
         val on = tab == selected
         Text(
             tab.label,
             style = MaterialTheme.typography.labelLarge,
-            color = if (on) Brand.Moss else Brand.Muted,
+            color = if (on) Color.White else Brand.Muted,
             textAlign = TextAlign.Center,
-            modifier = Modifier.weight(1f).clip(RoundedCornerShape(16.dp))
-                .background(if (on) Brand.Mint.copy(alpha = 0.3f) else Color.Transparent)
-                .clickable { onSelect(tab) }.padding(vertical = 12.dp),
+            maxLines = 1,
+            modifier = Modifier.weight(1f).clip(RoundedCornerShape(22.dp))
+                .background(if (on) Brand.Moss else Color.Transparent)
+                .tappable { onSelect(tab) }.padding(vertical = 12.dp),
         )
     }
 }

@@ -39,14 +39,16 @@ val Fredoka = FontFamily(variable(R.font.fredoka, 500), variable(R.font.fredoka,
 val Nunito = FontFamily(variable(R.font.nunito, 400), variable(R.font.nunito, 600), variable(R.font.nunito, 700))
 
 private val typography = Typography(
-    headlineLarge = TextStyle(fontFamily = Fredoka, fontWeight = FontWeight(600), fontSize = 32.sp, color = Brand.Ink),
-    headlineMedium = TextStyle(fontFamily = Fredoka, fontWeight = FontWeight(600), fontSize = 26.sp, color = Brand.Ink),
-    titleLarge = TextStyle(fontFamily = Fredoka, fontWeight = FontWeight(600), fontSize = 20.sp, color = Brand.Ink),
+    // Hero numbers: minutes left, big stats.
+    displayLarge = TextStyle(fontFamily = Fredoka, fontWeight = FontWeight(600), fontSize = 56.sp, lineHeight = 60.sp, letterSpacing = (-1).sp, color = Brand.Moss),
+    headlineLarge = TextStyle(fontFamily = Fredoka, fontWeight = FontWeight(600), fontSize = 32.sp, lineHeight = 38.sp, letterSpacing = (-0.4).sp, color = Brand.Ink),
+    headlineMedium = TextStyle(fontFamily = Fredoka, fontWeight = FontWeight(600), fontSize = 26.sp, lineHeight = 32.sp, letterSpacing = (-0.3).sp, color = Brand.Ink),
+    titleLarge = TextStyle(fontFamily = Fredoka, fontWeight = FontWeight(600), fontSize = 20.sp, lineHeight = 26.sp, letterSpacing = (-0.2).sp, color = Brand.Ink),
     titleMedium = TextStyle(fontFamily = Fredoka, fontWeight = FontWeight(500), fontSize = 17.sp, color = Brand.Ink),
     // No colour here: MaterialTheme uses bodyLarge as the default text style, and a colour would
     // override button content colours (dark text on green buttons). Ink comes from LocalContentColor.
     bodyLarge = TextStyle(fontFamily = Nunito, fontWeight = FontWeight(600), fontSize = 16.sp),
-    bodyMedium = TextStyle(fontFamily = Nunito, fontWeight = FontWeight(400), fontSize = 14.sp, color = Brand.Muted),
+    bodyMedium = TextStyle(fontFamily = Nunito, fontWeight = FontWeight(400), fontSize = 14.sp, lineHeight = 20.sp, color = Brand.Muted),
     labelLarge = TextStyle(fontFamily = Nunito, fontWeight = FontWeight(700), fontSize = 15.sp),
     labelSmall = TextStyle(fontFamily = Nunito, fontWeight = FontWeight(700), fontSize = 11.sp, letterSpacing = 1.2.sp, color = Brand.Muted),
 )

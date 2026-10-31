@@ -330,8 +330,8 @@ fun RecapScreen(
         Text("A nudge tomorrow evening?", style = MaterialTheme.typography.titleMedium)
         Text("${avatar.displayName} can send one quiet note at ${hour(reminderHour)} when the recap is ready.", style = MaterialTheme.typography.bodyMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
-            TextButton(onClick = { onReminder(true) }) { Text("Yes, remind me") }
-            TextButton(onClick = { onReminder(false) }) { Text("No thanks") }
+            ChipButton("Yes, remind me", { onReminder(true) })
+            ChipButton("No thanks", { onReminder(false) }, filled = false)
         }
     }
     PrimaryButton("Good night, ${avatar.displayName}", onGoodNight, modifier = Modifier.padding(vertical = 12.dp))

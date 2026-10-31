@@ -39,7 +39,7 @@ fun ActivityPicker(selected: List<TaskDef>, onToggle: (TaskDef) -> Unit) {
     val full = selected.size >= Tasks.MAX_SELECTED
     var adding by rememberSaveable { mutableStateOf(false) }
     PickCounter(selected.size)
-    if (!full) TextButton(onClick = { adding = true }) { Text("＋ Add your own") }
+    if (!full) SecondaryButton("＋ Add your own", { adding = true })
     selected.filter { Tasks.isCustom(it) }.forEach { task -> ActivityRow(task, true, enabled = true) { onToggle(task) } }
     Tasks.presets.forEach { task -> ActivityRow(task, task in selected, enabled = task in selected || !full) { onToggle(task) } }
     if (adding) OwnActivityDialog(onDismiss = { adding = false }) { onToggle(it); adding = false }
@@ -48,7 +48,7 @@ fun ActivityPicker(selected: List<TaskDef>, onToggle: (TaskDef) -> Unit) {
 /** "3 of 5" with five dots, so the limit is obvious before anyone hits it. */
 @Composable
 private fun PickCounter(count: Int) = Row(
-    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Brand.Card).padding(horizontal = 14.dp, vertical = 10.dp),
+    Modifier.fillMaxWidth().surface(radius = 20.dp).padding(horizontal = 16.dp, vertical = 12.dp),
     verticalAlignment = Alignment.CenterVertically,
 ) {
     Column(Modifier.weight(1f)) {
@@ -67,10 +67,9 @@ private fun PickCounter(count: Int) = Row(
 
 @Composable
 private fun ActivityRow(task: TaskDef, on: Boolean, enabled: Boolean, onClick: () -> Unit) = Row(
-    Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
-        .background(if (on) Brand.Mint.copy(alpha = 0.3f) else Brand.Card)
-        .border(2.dp, if (on) Brand.Moss else Color.Transparent, RoundedCornerShape(20.dp))
-        .clickable(enabled = enabled, onClick = onClick)
+    Modifier.fillMaxWidth().surface(radius = 20.dp, color = if (on) Color(0xFFE8F5EE) else Brand.Card)
+        .border(1.5.dp, if (on) Brand.Moss else Color.Transparent, RoundedCornerShape(20.dp))
+        .then(if (enabled) Modifier.tappable(onClick = onClick) else Modifier)
         .padding(horizontal = 14.dp, vertical = 12.dp),
     verticalAlignment = Alignment.CenterVertically,
 ) {

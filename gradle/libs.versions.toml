@@ -16,6 +16,7 @@ compose-ui = { module = "androidx.compose.ui:ui" }
 compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 compose-material3 = { module = "androidx.compose.material3:material3" }
+compose-icons = { module = "androidx.compose.material:material-icons-core" }
 health-connect = { module = "androidx.health.connect:connect-client", version.ref = "healthConnect" }
 rive = { module = "app.rive:rive-android", version.ref = "rive" }
 junit = { module = "junit:junit", version.ref = "junit" }

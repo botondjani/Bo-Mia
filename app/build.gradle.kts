@@ -45,6 +45,7 @@ dependencies {
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
+    implementation(libs.compose.icons)
     implementation(libs.health.connect)
     implementation(libs.rive)
     debugImplementation(libs.compose.ui.tooling)
