@@ -80,6 +80,8 @@ class MainActivity : ComponentActivity() {
     private var overlayAttempted = false
     /** What the permission flow last opened, so coming back can take the next step by itself. */
     private var launched = Launched.NONE
+    /** Health Connect here can read in the background: asked together with the rest. */
+    private var healthBackground = false
     /** Android has refused a switch once (fallback when the lock state can't be read). */
     private var tripped = false
 
@@ -148,6 +150,15 @@ class MainActivity : ComponentActivity() {
         }
         store.reminderEnabled = enabled
         RecapReminder.schedule(this)
+        refresh++
+    }
+
+    /** Asks Android to let tend run in the background: one "Allow" in a system dialog. */
+    private fun keepAwake() {
+        store.monitorSlept = false
+        @android.annotation.SuppressLint("BatteryLife") // side-loaded companion app; the pause depends on it
+        val ask = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))
+        open(ask, Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
         refresh++
     }
 
@@ -237,7 +248,9 @@ class MainActivity : ComponentActivity() {
         synced // read so recomposition follows a sync
 
         suspend fun sync() {
-            health = HealthConnect(this@MainActivity, store.selectedTasks).status()
+            val hc = HealthConnect(this@MainActivity, store.selectedTasks)
+            health = hc.status()
+            healthBackground = hc.backgroundAvailable()
             val done = TaskSync.sync(this@MainActivity)
             if (done.tasks.isNotEmpty()) celebrate = done
             synced++
@@ -327,6 +340,8 @@ class MainActivity : ComponentActivity() {
                 onNotes = ::setNotes,
                 theme = app.tend.ui.ThemeChoice.mode ?: store.themeMode,
                 onTheme = { store.themeMode = it; app.tend.ui.ThemeChoice.mode = it },
+                lockSchedules = store.lockSchedules,
+                onLockSchedule = { store.setLockSchedule(it); refresh++ },
                 onDone = { screen = Screen.HOME },
             )
 
@@ -402,7 +417,9 @@ class MainActivity : ComponentActivity() {
                             Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=${HealthConnect.PROVIDER}")),
                         )
                     } else {
-                        healthPermissions.launch(HealthConnect.permissionsFor(store.selectedTasks))
+                        healthPermissions.launch(
+                            HealthConnect.permissionsFor(store.selectedTasks) + if (healthBackground) setOf(HealthConnect.BACKGROUND) else emptySet(),
+                        )
                     }
                 },
                 onStartFocus = { task ->
@@ -425,6 +442,9 @@ class MainActivity : ComponentActivity() {
                 showNextSteps = store.tourDone && !store.widgetTipDone && now - store.onboardedAt > NEXT_STEPS_AFTER_MS,
                 widgetPlaced = widgetPlaced(),
                 onNextStepsDone = { store.widgetTipDone = true; refresh++ },
+                batteryRisk = !getSystemService(android.os.PowerManager::class.java).isIgnoringBatteryOptimizations(packageName),
+                monitorSlept = store.monitorSlept,
+                onKeepAwake = ::keepAwake,
                 notesOff = !store.reminderPrompted && !(store.reminderEnabled && RecapReminder.canNotify(this@MainActivity)),
                 onAllowNotes = ::allowNotes,
                 showTour = !store.tourDone,

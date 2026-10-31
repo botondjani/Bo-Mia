@@ -56,6 +56,8 @@ fun SettingsScreen(
     onNotes: (kind: String, on: Boolean) -> Unit,
     theme: String,
     onTheme: (String) -> Unit,
+    lockSchedules: List<app.tend.core.LockSchedule> = emptyList(),
+    onLockSchedule: (app.tend.core.LockSchedule) -> Unit = {},
     onDone: () -> Unit,
 ) = Column(
     Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
@@ -80,6 +82,21 @@ fun SettingsScreen(
         Text("Tonight's recap is ready from then.", style = MaterialTheme.typography.bodyMedium)
         HourChips(listOf(21, 22, 23), eveningFrom, onEvening)
         SwitchRow("Sleepy pauses", "From then until 5:00 the pause waits 15 s and ${avatar.displayName} gets sleepy", eveningPause, onEveningPause)
+    }
+    Text("SCHEDULED LOCK", style = MaterialTheme.typography.labelSmall)
+    Card {
+        Text("The picked apps stay closed, whatever the minutes say. Only \"Not now\" or something better.", style = MaterialTheme.typography.bodyMedium)
+        lockSchedules.forEach { lock ->
+            SwitchRow(
+                lock.label,
+                "%d:00 – %d:00 · %s".format(lock.from, lock.to, if (lock.weekdaysOnly) "weekdays" else "every day"),
+                lock.on,
+            ) { onLockSchedule(lock.copy(on = it)) }
+            if (lock.on) Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(bottom = 6.dp)) {
+                HourStepper("From", lock.from, Modifier.weight(1f)) { onLockSchedule(lock.copy(from = it)) }
+                HourStepper("To", lock.to, Modifier.weight(1f)) { onLockSchedule(lock.copy(to = it)) }
+            }
+        }
     }
     Text("NOTIFICATIONS", style = MaterialTheme.typography.labelSmall)
     Card {
@@ -117,6 +134,17 @@ fun SettingsScreen(
     SecondaryButton("Export test data", onExport)
     PrimaryButton("Done", onDone, enabled = blocked.isNotEmpty(), modifier = Modifier.padding(vertical = 20.dp))
 }
+
+@Composable
+private fun HourStepper(label: String, hour: Int, modifier: Modifier, onChange: (Int) -> Unit) =
+    Row(modifier.clip(RoundedCornerShape(14.dp)).background(Brand.Sage).padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 6.dp).weight(1f))
+        Text("−", style = MaterialTheme.typography.titleLarge, color = Brand.Moss,
+            modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { onChange((hour + 23) % 24) }.padding(horizontal = 10.dp, vertical = 2.dp))
+        Text("%d:00".format(hour), style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
+        Text("+", style = MaterialTheme.typography.titleLarge, color = Brand.Moss,
+            modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { onChange((hour + 1) % 24) }.padding(horizontal = 10.dp, vertical = 2.dp))
+    }
 
 @Composable
 private fun SwitchRow(title: String, body: String, checked: Boolean, onChange: (Boolean) -> Unit) =

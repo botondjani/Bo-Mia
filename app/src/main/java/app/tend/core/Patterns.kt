@@ -77,7 +77,7 @@ object Patterns {
         val pauses = recent.filter { it.kind == "pause" }
         return WeeklyPatterns(
             week, week.sumOf { it.unusedMinutes }, byPart, byApp, lookingFor, insight(byPart),
-            pauses = pauses.size, letGo = pauses.count { it.answer != "open" },
+            pauses = pauses.size, letGo = pauses.count { !it.answer.startsWith("open") }, // "open", "open_5", "open_15"
         )
     }
 

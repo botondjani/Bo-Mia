@@ -1,5 +1,7 @@
 package app.tend.monitor
 
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -36,6 +38,11 @@ class MonitorService : Service() {
     private var foreground: String? = null
     private var sessionPkg: String? = null
     private var sessionStart = 0L
+    /** When a time-boxed open ("Open for 5 min") runs out. */
+    private var sessionEnds = Long.MAX_VALUE
+    /** Last background Health Connect read. */
+    private var lastSync = 0L
+    private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main) // store writes stay on the main thread, like the poll
     private var interceptedPkg: String? = null
     private var interceptedAt = 0L
 
@@ -52,6 +59,8 @@ class MonitorService : Service() {
         val lastBeat = prefs.getLong("heartbeat", 0)
         val gap = (System.currentTimeMillis() - lastBeat) / 1000
         if (lastBeat > 0 && gap > GAP_LOG_SECONDS) store.logMiss("monitor_not_running_${gap}s")
+        // Stopped for over 10 minutes while the phone was on: likely a battery saver. Home offers a fix.
+        if (lastBeat > 0 && gap > 600 && store.onboarded) store.monitorSlept = true
         startInForeground()
         lastQuery = System.currentTimeMillis() - 5_000
         lastTick = System.currentTimeMillis()
@@ -61,6 +70,7 @@ class MonitorService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
 
     override fun onDestroy() {
+        scope.cancel()
         handler.removeCallbacks(tick)
         store.logMiss("monitor_destroyed")
         super.onDestroy()
@@ -70,6 +80,10 @@ class MonitorService : Service() {
 
     private fun poll() {
         val now = System.currentTimeMillis()
+        if (now - lastSync > SYNC_EVERY_MS) {
+            lastSync = now
+            scope.launch { backgroundSync() }
+        }
         getSharedPreferences("tend_monitor", MODE_PRIVATE).edit().putLong("heartbeat", now).apply()
 
         val events = usm.queryEvents(lastQuery, now)
@@ -85,7 +99,12 @@ class MonitorService : Service() {
 
         val blocked = store.blockedPackages
         val fg = foreground
-        if (fg != null && fg == sessionPkg) {
+        if (fg != null && fg == sessionPkg && (now > sessionEnds || scheduledLock() != null)) {
+            // The chosen minutes are up, or a scheduled lock just began: check in again, kindly.
+            val timeUp = now > sessionEnds
+            endSession(now, askWorthIt = false)
+            intercept(fg, now, timeUp = timeUp)
+        } else if (fg != null && fg == sessionPkg) {
             store.update { it.copy(usedSeconds = it.usedSeconds + (now - lastTick) / 1000) }
             app.tend.reminder.Notes.checkLowMinutes(this)
             if (store.isLocked()) {
@@ -110,20 +129,24 @@ class MonitorService : Service() {
         }
         if (old != null && old == sessionPkg) endSession(now, askWorthIt = true)
         if (new in store.blockedPackages) {
-            if (!store.isLocked() && store.consumePass(new)) {
+            val pass = if (store.isLocked() || scheduledLock() != null) null else store.consumePass(new)
+            if (pass != null) {
                 sessionPkg = new
                 sessionStart = now
+                sessionEnds = app.tend.core.TimeBox.endsAt(now, pass)
             } else {
                 intercept(new, now)
             }
         }
     }
 
-    private fun intercept(pkg: String, now: Long) {
+    private fun scheduledLock() = app.tend.core.LockSchedule.activeOf(store.lockSchedules)
+
+    private fun intercept(pkg: String, now: Long, timeUp: Boolean = false) {
         if (!android.provider.Settings.canDrawOverlays(this)) return nudge(pkg)
         interceptedPkg = pkg
         interceptedAt = now
-        startActivity(InterstitialActivity.intent(this, pkg))
+        startActivity(InterstitialActivity.intent(this, pkg, timeUp))
     }
 
     /**
@@ -162,10 +185,35 @@ class MonitorService : Service() {
         }
     }
 
+    /**
+     * Every 15 minutes: Health Connect totals, so a walk or a workout counts without opening tend,
+     * with a note when one completes (and when it brings a new accessory).
+     */
+    private suspend fun backgroundSync() {
+        if (!store.onboarded || store.selectedTasks.none { it.verification == app.tend.core.Verification.AUTOMATIC }) return
+        val done = runCatching { app.tend.health.TaskSync.sync(this) }.getOrNull() ?: return
+        if (done.tasks.isEmpty() || !app.tend.reminder.RecapReminder.canNotify(this)) return
+        val name = store.avatar.displayName
+        val fresh = store.takeNewAccessories()
+        val text = "+${done.minutes} min. $name is proud of you." + fresh.joinToString("") { " And $name got a ${it.title.lowercase()}!" }
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(NotificationChannel(DONE_CHANNEL, "Activities done", NotificationManager.IMPORTANCE_DEFAULT))
+        val open = PendingIntent.getActivity(this, 9, Intent(this, app.tend.MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_IMMUTABLE)
+        nm.notify(
+            13,
+            Notification.Builder(this, DONE_CHANNEL).setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(done.tasks.joinToString(" and ") { it.title } + " done!")
+                .setContentText(text).setStyle(Notification.BigTextStyle().bigText(text))
+                .setContentIntent(open).setAutoCancel(true).build(),
+        )
+        app.tend.widget.Widgets.refresh(this)
+    }
+
     private fun endSession(now: Long, askWorthIt: Boolean) {
         val pkg = sessionPkg ?: return
         val seconds = (now - sessionStart) / 1000
         sessionPkg = null
+        sessionEnds = Long.MAX_VALUE
         if (askWorthIt && seconds >= WORTH_IT_MIN_SECONDS) {
             // A moment later, so the closing swipes and back presses don't land on the question;
             // skipped if a paused app is open again by then.
@@ -202,6 +250,8 @@ class MonitorService : Service() {
         private const val MISS_AFTER_MS = 3000L
         private const val GAP_LOG_SECONDS = 120
         private const val WORTH_IT_DELAY_MS = 1500L
+        private const val SYNC_EVERY_MS = 15 * 60_000L
+        private const val DONE_CHANNEL = "done"
         const val WORTH_IT_MIN_SECONDS = 30
 
         fun start(context: Context) {

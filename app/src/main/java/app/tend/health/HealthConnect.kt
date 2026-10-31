@@ -58,6 +58,13 @@ class HealthConnect(private val context: Context, private val selected: List<Tas
             ?.toMinutes()?.toInt() ?: 0
     }
 
+    /** Whether this phone's Health Connect supports background reads. */
+    suspend fun backgroundAvailable(): Boolean = runCatching {
+        HealthConnectClient.getSdkStatus(context, PROVIDER) == HealthConnectClient.SDK_AVAILABLE &&
+            client.features.getFeatureStatus(androidx.health.connect.client.HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_IN_BACKGROUND) ==
+            androidx.health.connect.client.HealthConnectFeatures.FEATURE_STATUS_AVAILABLE
+    }.getOrDefault(false)
+
     private suspend fun <T> readIf(permission: String, read: suspend () -> T): T? {
         if (permission !in permissionsFor(selected)) return null
         if (HealthConnectClient.getSdkStatus(context, PROVIDER) != HealthConnectClient.SDK_AVAILABLE) return null
@@ -76,6 +83,12 @@ class HealthConnect(private val context: Context, private val selected: List<Tas
         private val SLEEP = HealthPermission.getReadPermission(SleepSessionRecord::class)
 
         /** Only what the picked activities need. */
+        /**
+         * Lets the monitor read in the background (walks count without opening tend). Asked on the
+         * same Health Connect screen as the rest, and optional: nothing breaks without it.
+         */
+        const val BACKGROUND = "android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND"
+
         fun permissionsFor(selected: List<TaskDef>): Set<String> = buildSet {
             if (Tasks.OUTSIDE in selected) add(STEPS)
             if (Tasks.MOVE in selected) add(EXERCISE)

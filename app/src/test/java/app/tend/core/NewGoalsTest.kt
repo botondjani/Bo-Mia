@@ -129,3 +129,29 @@ class EveningMoodTest {
         org.junit.Assert.assertEquals("Bo is sleepy", Moods.status("Bo", Mood.SLEEPY))
     }
 }
+
+class ScheduleTest {
+    private fun at(day: Int, hour: Int) = java.time.LocalDateTime.of(2026, 11, day, hour, 30) // Nov 2 2026 is a Monday
+
+    @org.junit.Test fun bedtimeWrapsPastMidnight() {
+        val bed = LockSchedule.BEDTIME.copy(on = true)
+        org.junit.Assert.assertTrue(bed.activeAt(at(2, 23)))
+        org.junit.Assert.assertTrue(bed.activeAt(at(3, 6)))
+        org.junit.Assert.assertFalse(bed.activeAt(at(3, 7)))
+        org.junit.Assert.assertFalse(bed.activeAt(at(3, 22)))
+        org.junit.Assert.assertFalse(LockSchedule.BEDTIME.activeAt(at(2, 23))) // off by default
+    }
+
+    @org.junit.Test fun workHoursOnWeekdaysOnly() {
+        val work = LockSchedule.WORK.copy(on = true)
+        org.junit.Assert.assertTrue(work.activeAt(at(2, 10)))   // Monday
+        org.junit.Assert.assertFalse(work.activeAt(at(2, 17)))  // 17:30, after
+        org.junit.Assert.assertFalse(work.activeAt(at(7, 10)))  // Saturday
+        org.junit.Assert.assertEquals("Work hours", LockSchedule.activeOf(listOf(LockSchedule.BEDTIME, work), at(4, 11))?.label)
+    }
+
+    @org.junit.Test fun timeBoxEnds() {
+        org.junit.Assert.assertEquals(300_000L, TimeBox.endsAt(0, 5))
+        org.junit.Assert.assertEquals(Long.MAX_VALUE, TimeBox.endsAt(0, 0))
+    }
+}

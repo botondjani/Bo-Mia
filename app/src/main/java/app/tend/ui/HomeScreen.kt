@@ -88,6 +88,11 @@ fun HomeScreen(
     brokenTimer: TaskDef? = null,
     onDismissBroken: () -> Unit = {},
     onNextStepsDone: () -> Unit = {},
+    /** The phone may stop tend in the background (battery optimisation is on for it). */
+    batteryRisk: Boolean = false,
+    /** It did stop it for a while: say so on home, with the fix. */
+    monitorSlept: Boolean = false,
+    onKeepAwake: () -> Unit = {},
     /** Notes haven't been offered yet: the last of the next steps. */
     notesOff: Boolean = false,
     onAllowNotes: () -> Unit = {},
@@ -167,12 +172,14 @@ fun HomeScreen(
         }
         val needsHealth = tasks.any { it.verification == Verification.AUTOMATIC } &&
             (health == HealthConnect.Status.NEEDS_PERMISSION || health == HealthConnect.Status.NEEDS_INSTALL)
-        val nextSteps = showNextSteps && (needsHealth || !widgetPlaced || notesOff)
+        if (monitorSlept && batteryRisk) Notice("alert", "${avatar.displayName} fell asleep in the background", "Your phone paused tend for a while. Tap to keep ${avatar.displayName} awake.", onKeepAwake)
+        val nextSteps = showNextSteps && (needsHealth || !widgetPlaced || notesOff || batteryRisk)
         if (nextSteps) NextSteps(
             avatar,
             widget = !widgetPlaced, onWidget = { widgetGuide = true },
             health = if (needsHealth) health else null, onHealth = onConnectHealth,
             notes = notesOff, onNotes = onAllowNotes,
+            battery = batteryRisk && !monitorSlept, onBattery = onKeepAwake,
             onDismiss = onNextStepsDone,
         ) else if (needsHealth) {
             Notice(
@@ -348,6 +355,7 @@ private fun NextSteps(
     widget: Boolean, onWidget: () -> Unit,
     health: HealthConnect.Status?, onHealth: () -> Unit,
     notes: Boolean, onNotes: () -> Unit,
+    battery: Boolean, onBattery: () -> Unit,
     onDismiss: () -> Unit,
 ) = Column(Modifier.fillMaxWidth().surface(radius = 24.dp).padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -360,6 +368,8 @@ private fun NextSteps(
     // One step at a time: Health Connect, then the widget, then notes.
     class Step(val icon: String, val title: String, val body: String, val action: () -> Unit)
     val steps = listOfNotNull(
+        // First, so the pause keeps working: one "Allow" in a system dialog.
+        if (battery) Step("sparkle", "Keep ${avatar.displayName} awake", "Phones pause apps in the background to save battery. One tap keeps the pause working.", onBattery) else null,
         health?.let {
             Step(
                 "heart", if (it == HealthConnect.Status.NEEDS_INSTALL) "Get Health Connect" else "Connect Health Connect",

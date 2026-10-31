@@ -69,6 +69,10 @@ class InterstitialActivity : ComponentActivity() {
 
     private data class View(
         val label: String, val locked: Boolean, val opensToday: Int, val delaySeconds: Int, val remaining: Int, val evening: Boolean,
+        /** The chosen minutes ran out ("Your 5 minutes are up"). */
+        val timeUp: Boolean = false,
+        /** A scheduled lock is on (bedtime, work hours): only "Not now" and something better. */
+        val scheduled: app.tend.core.LockSchedule? = null,
     )
 
     /** How this pause ended: open, not_now, instead or earn. Logged once; it's what the test measures. */
@@ -108,7 +112,11 @@ class InterstitialActivity : ComponentActivity() {
         val evening = Budget.isEvening(if (store.eveningPause) store.eveningFrom else -1, java.time.LocalTime.now().hour)
         val delaySeconds = Budget.openDelaySeconds(cfg, day, evening)
         if (savedInstanceState == null && !locked) day = store.update { it.copy(opensToday = it.opensToday + 1) }
-        view = View(label, locked, day.opensToday, delaySeconds, Budget.remainingMinutes(cfg, day), evening)
+        view = View(
+            label, locked, day.opensToday, delaySeconds, Budget.remainingMinutes(cfg, day), evening,
+            timeUp = intent.getBooleanExtra(EXTRA_TIME_UP, false),
+            scheduled = app.tend.core.LockSchedule.activeOf(store.lockSchedules),
+        )
         val worn = store.accessories().first
         setContent {
             TendTheme {
@@ -125,18 +133,24 @@ class InterstitialActivity : ComponentActivity() {
 
     @Composable
     private fun Sheet(pkg: String, v: View) = PopupSheet(onDismiss = ::notNow, centered = true) {
-        if (v.locked) Locked(v) else Delay(pkg, v)
+        when {
+            v.scheduled != null -> Scheduled(v, v.scheduled)
+            v.locked -> Locked(v)
+            else -> Delay(pkg, v)
+        }
     }
 
     @Composable
     private fun Header(v: View) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            CharacterView(store.avatar, if (v.locked || v.evening) Mood.TIRED else Mood.SCROLLING, 76.dp, lightweight = true)
+            CharacterView(store.avatar, if (v.locked || v.evening || v.scheduled != null) Mood.TIRED else Mood.SCROLLING, 76.dp, lightweight = true)
             Spacer(Modifier.width(12.dp))
             Column {
                 Text(
                     when {
+                        v.scheduled != null -> "${v.label} · ${v.scheduled.label.lowercase()}"
                         v.locked -> "${v.label} · out of minutes"
+                        v.timeUp -> "${v.label} · time's up"
                         v.evening -> "${v.label} · evening mode"
                         else -> "${v.label} · ${ordinal(v.opensToday)} open today"
                     },
@@ -144,7 +158,9 @@ class InterstitialActivity : ComponentActivity() {
                 )
                 Text(
                     app.tend.ui.brandTend(when {
+                        v.scheduled != null -> "Closed until ${"%d:00".format(v.scheduled.to)}. That's the deal we made."
                         v.locked -> "Today's budget is used up."
+                        v.timeUp -> "Those were your minutes. Still worth it?"
                         v.evening -> "It's late. We tend to regret the late-night scrolls the most."
                         else -> Taglines.forOpen(v.opensToday, store.avatar.displayName)
                     }),
@@ -185,10 +201,10 @@ class InterstitialActivity : ComponentActivity() {
             if (store.focusStartedAt > 0) "${v.remaining} min left today · opening ends your reading session" else "${v.remaining} min left today",
             style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
         )
-        val open = {
-            decide("open")
+        val openFor = { minutes: Int ->
+            decide("open_$minutes")
             TaskSync.stopTimer(this@InterstitialActivity) // opening a paused app ends a running timer
-            store.grantPass(pkg)
+            store.grantPass(pkg, minutes)
             packageManager.getLaunchIntentForPackage(pkg)?.let { startActivity(it) }
             finish()
         }
@@ -197,18 +213,50 @@ class InterstitialActivity : ComponentActivity() {
             // The pause turns into the thing you'd rather do, one tap away.
             PrimaryButton(instead.first, { decide("instead"); instead.second() })
             SecondaryButton("Not now", ::notNow)
-            Text(
-                if (left > 0) "Open ${v.label} in $left s" else "Open ${v.label}",
-                style = MaterialTheme.typography.labelLarge,
-                color = if (left > 0) Brand.Muted else Brand.Moss,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-                    .clickable(enabled = left == 0, onClick = open).padding(vertical = 10.dp),
-            )
+            OpenLinks(v, left, openFor)
         } else {
             PrimaryButton("Not now", ::notNow)
-            SecondaryButton(if (left > 0) "Open ${v.label} in $left s" else "Open ${v.label}", onClick = open, enabled = left == 0)
+            OpenLinks(v, left, openFor)
         }
+        }
+    }
+
+    /**
+     * Opening is one tap, as before, but for a set time: "Open for 5 min" (or 15). When it runs
+     * out, tend checks in again. Counting down first, like always.
+     */
+    @Composable
+    private fun OpenLinks(v: View, left: Int, openFor: (Int) -> Unit) {
+        if (left > 0) {
+            Text(
+                "Open ${v.label} in $left s", style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
+                textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+            )
+            return
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            app.tend.core.TimeBox.CHOICES.forEachIndexed { i, minutes ->
+                if (i > 0) Text("·", style = MaterialTheme.typography.labelLarge, color = Brand.Muted)
+                Text(
+                    if (i == 0) "Open for $minutes min" else "$minutes min",
+                    style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+                    modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { openFor(minutes) }.padding(horizontal = 10.dp, vertical = 10.dp),
+                )
+            }
+        }
+    }
+
+    /** A scheduled lock: no way in until it ends, only something better or "Not now". */
+    @Composable
+    private fun Scheduled(v: View, lock: app.tend.core.LockSchedule) {
+        val instead = insteadSuggestion(v.evening)
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Header(v)
+            Text("You can change ${lock.label.lowercase()} in tend's settings.", style = MaterialTheme.typography.bodyMedium)
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp)) {
+            if (instead != null) PrimaryButton(instead.first, { decide("instead"); instead.second() })
+            SecondaryButton("Not now", ::notNow)
         }
     }
 
@@ -276,8 +324,11 @@ class InterstitialActivity : ComponentActivity() {
     companion object {
         private const val EXTRA_PKG = "pkg"
         private const val SYNC_TIMEOUT_MS = 3000L
-        fun intent(context: Context, pkg: String) = Intent(context, InterstitialActivity::class.java)
+        private const val EXTRA_TIME_UP = "time_up"
+
+        fun intent(context: Context, pkg: String, timeUp: Boolean = false) = Intent(context, InterstitialActivity::class.java)
             .putExtra(EXTRA_PKG, pkg)
+            .putExtra(EXTRA_TIME_UP, timeUp)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
     }
 }

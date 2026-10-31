@@ -10,6 +10,7 @@ import app.tend.core.Answer
 import app.tend.core.DayState
 import app.tend.core.DaySummary
 import app.tend.core.Garden
+import app.tend.core.LockSchedule
 import app.tend.core.Plant
 import app.tend.core.TaskDef
 import app.tend.core.Tasks
@@ -216,14 +217,35 @@ class TendStore(private val context: Context) {
         update { Budget.credit(config, it, taskId, minutes, manual) }
 
     /** Short-lived permission to open a package after the delay screen. */
-    fun grantPass(pkg: String) = edit { putString("pass_pkg", pkg); putLong("pass_at", System.currentTimeMillis()) }
+    /** [minutes] > 0: the open lasts that long, then tend checks in again ("Open for 5 min"). */
+    fun grantPass(pkg: String, minutes: Int = 0) =
+        edit { putString("pass_pkg", pkg); putLong("pass_at", System.currentTimeMillis()); putInt("pass_minutes", minutes) }
 
-    fun consumePass(pkg: String): Boolean {
+    /** The minutes of a fresh pass for [pkg] (0 = open-ended), or null when there is none. */
+    fun consumePass(pkg: String): Int? {
         val ok = prefs.getString("pass_pkg", null) == pkg &&
             System.currentTimeMillis() - prefs.getLong("pass_at", 0) < PASS_VALID_MS
-        if (ok) edit { remove("pass_pkg") }
-        return ok
+        if (!ok) return null
+        edit { remove("pass_pkg") }
+        return prefs.getInt("pass_minutes", 0)
     }
+
+    /** Scheduled locks: bedtime and work hours, both off until turned on. */
+    val lockSchedules: List<LockSchedule>
+        get() = listOf(readLock("lock_bed", LockSchedule.BEDTIME), readLock("lock_work", LockSchedule.WORK))
+
+    fun setLockSchedule(s: LockSchedule) =
+        edit { putString(if (s.label == LockSchedule.BEDTIME.label) "lock_bed" else "lock_work", "${s.on}|${s.from}|${s.to}") }
+
+    private fun readLock(key: String, default: LockSchedule): LockSchedule {
+        val p = prefs.getString(key, null)?.split('|') ?: return default
+        return runCatching { default.copy(on = p[0].toBoolean(), from = p[1].toInt(), to = p[2].toInt()) }.getOrDefault(default)
+    }
+
+    /** The background monitor was found stopped for a while (battery savers do that). */
+    var monitorSlept: Boolean
+        get() = prefs.getBoolean("monitor_slept", false)
+        set(v) = edit { putBoolean("monitor_slept", v) }
 
     /** Answers to "What are you looking for?" and "Worth it?" — source of the weekly patterns. */
     fun logAnswer(kind: String, pkg: String, answer: String, sessionSeconds: Long = 0) =
