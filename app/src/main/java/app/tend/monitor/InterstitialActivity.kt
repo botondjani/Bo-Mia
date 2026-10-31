@@ -49,6 +49,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import app.tend.core.Mood
+import app.tend.core.Taglines
 import app.tend.core.Tasks
 import app.tend.data.TendStore
 import app.tend.ui.Brand
@@ -130,10 +131,8 @@ class InterstitialActivity : ComponentActivity() {
                 )
             }
         }
-        Text(
-            "${v.remaining} min left today · ${store.avatar.displayName}'s scrolling too, not sure why either.",
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        Text(Taglines.forOpen(v.opensToday, store.avatar.displayName), style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
+        Text("${v.remaining} min left today", style = MaterialTheme.typography.bodyMedium)
         PrimaryButton("I'll take a walk instead", ::goHome)
         OutlinedButton(
             onClick = {
