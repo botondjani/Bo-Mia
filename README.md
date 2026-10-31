@@ -51,7 +51,7 @@ Requires JDK 17+ and the Android SDK (platform 36). Start-up: Android 12+ shows 
 
 ## Test setup on the phone
 
-Install the APK and follow the onboarding: Bo's four intro slides, companion, apps (common time sinks are pre-selected), budget, then two switches.
+Install the APK and follow the onboarding: Bo's four intro slides, companion, apps (common time sinks are pre-selected), activities, then two switches.
 
 - **Display over other apps** comes first. Once it's on, Android lets tend bring itself back to the front after each switch.
 - **Usage access** comes second.
