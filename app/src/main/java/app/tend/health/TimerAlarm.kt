@@ -37,7 +37,7 @@ object TimerAlarm {
         val (title, text) = when {
             result == TaskSync.TimerResult.BROKEN ->
                 "The phone came back a little early" to "No worries. ${task.title} is there whenever you want another go."
-            task.verification == Verification.PHONE_FREE -> "${task.title} done, phone-free" to "+${task.rewardMinutes} min. $name is proud of you."
+            app.tend.core.PhoneFree.runsPhoneFree(task) -> "${task.title} done, phone-free" to "+${task.rewardMinutes} min. $name is proud of you."
             else -> "${task.title} done" to "+${task.rewardMinutes} min. $name enjoyed that."
         }
         val nm = context.getSystemService(NotificationManager::class.java)

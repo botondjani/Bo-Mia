@@ -35,6 +35,7 @@ Logs are written to the app's private storage: `answers.csv` (looking-for and wo
 ## Not done yet
 
 - **Background Health Connect reads**: data is read only while tend is on screen (home or pause screen). The widget can lag until then.
+- **Without a tracker**: when nothing writes sleep to Health Connect (or it isn't connected), last night's sleep is the longest screen-off stretch between 20:00 and noon, shown as "About … from your screen". When Health Connect has seen no workout in 30 days, "Workout or run" becomes a 30-minute timer with the screen fully off (60 s allowed for starting and a quick check).
 - **Step source**: Health Connect needs an app that writes steps (Google Fit, Samsung Health, Fitbit, or the phone's built-in step tracking on newer Pixels). Workouts count once a tracker writes an exercise session.
 - Out of MVP scope (from the concept doc): floating character, friends, coins/shop, iOS.
 

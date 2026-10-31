@@ -73,6 +73,16 @@ class TendStore(private val context: Context) {
         get() = prefs.getBoolean("restricted_unlocked", false)
         set(v) = edit { putBoolean("restricted_unlocked", v) }
 
+    /** Health Connect has seen a workout lately; otherwise the workout runs as a phone-off timer. */
+    var exerciseTracked: Boolean
+        get() = prefs.getBoolean("exercise_tracked", false)
+        set(v) = edit { putBoolean("exercise_tracked", v) }
+
+    /** The date whose sleep was estimated from the screen, not read from a tracker. */
+    var sleepEstimatedOn: String
+        get() = prefs.getString("sleep_estimated_on", "") ?: ""
+        set(v) = edit { putString("sleep_estimated_on", v) }
+
     /** The first-run tour of the home screen has been shown (or skipped). */
     var tourDone: Boolean
         get() = prefs.getBoolean("tour_done", false)

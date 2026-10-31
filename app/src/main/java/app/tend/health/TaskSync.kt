@@ -23,7 +23,13 @@ object TaskSync {
             val hc = HealthConnect(context, selected)
             val steps = hc.stepsToday()
             val exercise = hc.exerciseMinutesToday()
-            val sleep = hc.sleepMinutesLastNight()
+            var sleep = hc.sleepMinutesLastNight()
+            // No sleep tracker (or nothing written last night): the longest screen-off stretch stands in.
+            if (Tasks.SLEEP in selected && (sleep == null || sleep == 0)) {
+                sleep = (estimatedSleepMillis(context) / 60_000).toInt().takeIf { it > 0 }
+                if (sleep != null) store.sleepEstimatedOn = java.time.LocalDate.now().toString()
+            }
+            if (Tasks.MOVE in selected) store.exerciseTracked = (hc.exerciseMinutesLately() ?: 0) > 0
             if (steps != null || exercise != null || sleep != null) {
                 val cfg = store.config
                 store.update { Budget.applyActivity(cfg, it, steps, exercise, selected, sleep) }
@@ -82,9 +88,10 @@ object TaskSync {
         val start = store.focusStartedAt.takeIf { it > 0 } ?: return null
         val task = store.focusTask
         val now = System.currentTimeMillis()
-        val outcome = when (task.verification) {
-            Verification.PHONE_FREE -> PhoneFree.outcome(task, start, now, screenOnMillis(context, start, now))
-            else -> if (now - start >= task.target * 60_000L) PhoneFree.Outcome.DONE else PhoneFree.Outcome.RUNNING
+        val outcome = when {
+            PhoneFree.runsPhoneFree(task) -> PhoneFree.outcome(task, start, now, screenOnMillis(context, start, now))
+            now - start >= task.target * 60_000L -> PhoneFree.Outcome.DONE
+            else -> PhoneFree.Outcome.RUNNING
         }
         return when (outcome) {
             PhoneFree.Outcome.RUNNING -> null
@@ -101,11 +108,20 @@ object TaskSync {
         }
     }
 
+    /** Last night's longest screen-off stretch, 8 pm to noon. */
+    private fun estimatedSleepMillis(context: Context): Long {
+        val zone = java.time.ZoneId.systemDefault()
+        val from = java.time.LocalDate.now().minusDays(1).atTime(20, 0).atZone(zone).toInstant().toEpochMilli()
+        val noon = java.time.LocalDate.now().atTime(12, 0).atZone(zone).toInstant().toEpochMilli()
+        val to = minOf(System.currentTimeMillis(), noon)
+        return PhoneFree.longestOffMillis(from, to, screenTransitions(context, from, to) ?: return 0)
+    }
+
     /** Screen on/off transitions from the system's usage events (Android 9+). */
-    private fun screenOnMillis(context: Context, start: Long, now: Long): Long {
-        if (android.os.Build.VERSION.SDK_INT < 28) return 0
+    private fun screenTransitions(context: Context, start: Long, now: Long): List<Pair<Long, Boolean>>? {
+        if (android.os.Build.VERSION.SDK_INT < 28) return null
         val usm = context.getSystemService(android.app.usage.UsageStatsManager::class.java)
-        val events = runCatching { usm.queryEvents(start, now) }.getOrNull() ?: return 0
+        val events = runCatching { usm.queryEvents(start, now) }.getOrNull() ?: return null
         val e = android.app.usage.UsageEvents.Event()
         val transitions = mutableListOf<Pair<Long, Boolean>>()
         while (events.hasNextEvent()) {
@@ -115,6 +131,9 @@ object TaskSync {
                 android.app.usage.UsageEvents.Event.SCREEN_NON_INTERACTIVE -> transitions += e.timeStamp to false
             }
         }
-        return PhoneFree.screenOnMillis(start, now, transitions)
+        return transitions
     }
+
+    private fun screenOnMillis(context: Context, start: Long, now: Long): Long =
+        screenTransitions(context, start, now)?.let { PhoneFree.screenOnMillis(start, now, it) } ?: 0
 }

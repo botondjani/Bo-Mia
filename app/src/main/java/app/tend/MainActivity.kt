@@ -370,6 +370,8 @@ class MainActivity : ComponentActivity() {
                 showWidgetTip = !store.widgetTipDone && store.daysTended >= 1 && !widgetPlaced(),
                 onWidgetTipDone = { store.widgetTipDone = true; refresh++ },
                 showTour = !store.tourDone,
+                exerciseTracked = store.exerciseTracked,
+                sleepEstimated = store.sleepEstimatedOn == LocalDate.now().toString(),
                 onTourDone = { store.tourDone = true; refresh++ },
                 brokenTimer = Tasks.presets.firstOrNull { it.id == store.timerBroken },
                 onDismissBroken = { store.timerBroken = ""; refresh++ },

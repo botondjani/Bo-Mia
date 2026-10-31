@@ -82,6 +82,10 @@ fun HomeScreen(
     /** First run: Bo walks through the screen once. */
     showTour: Boolean = false,
     onTourDone: () -> Unit = {},
+    /** Something writes workouts to Health Connect; otherwise the workout is a phone-off timer. */
+    exerciseTracked: Boolean = true,
+    /** Last night's sleep came from the screen, not a tracker. */
+    sleepEstimated: Boolean = false,
 ) {
     val tour = androidx.compose.runtime.remember { TourTargets() }
     var widgetGuide by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
@@ -172,7 +176,7 @@ fun HomeScreen(
             ) {
                 Tasks.ordered(day, tasks).forEachIndexed { i, task ->
                     Box(if (i == 0) Modifier.tourTarget(tour, "activity") else Modifier) {
-                        TaskRow(task, day, health, focusSecondsLeft?.takeIf { task.id == focusTaskId }, onStartFocus, onCheckOff, onUndo)
+                        TaskRow(task, day, health, focusSecondsLeft?.takeIf { task.id == focusTaskId }, onStartFocus, onCheckOff, onUndo, exerciseTracked, sleepEstimated)
                     }
                 }
             }
@@ -209,13 +213,18 @@ private fun TaskRow(
     onStartFocus: (TaskDef) -> Unit,
     onCheckOff: (TaskDef) -> Unit,
     onUndo: (TaskDef) -> Unit,
+    exerciseTracked: Boolean = true,
+    sleepEstimated: Boolean = false,
 ) = Column(
     Modifier.fillMaxWidth().graphicsLayer { alpha = if (task.id in day.completedTasks) 0.55f else 1f }
         .surface().padding(horizontal = 16.dp, vertical = 14.dp),
 ) {
     val done = task.id in day.completedTasks
     val progress = Tasks.progress(task, day)
-    val measured = task.verification == Verification.AUTOMATIC && health == HealthConnect.Status.READY
+    // Without a workout tracker the workout is a 30-minute phone-off timer; without a sleep tracker sleep is estimated.
+    val workoutTimer = task.id == Tasks.MOVE.id && !exerciseTracked
+    val estimated = task.id == Tasks.SLEEP.id && sleepEstimated
+    val measured = !workoutTimer && task.verification == Verification.AUTOMATIC && (health == HealthConnect.Status.READY || estimated)
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (done) Box(Modifier.size(44.dp).clip(CircleShape).background(Brand.Moss), contentAlignment = Alignment.Center) {
             Icon(Icons.Filled.Check, "Done", tint = Color.White, modifier = Modifier.size(22.dp))
@@ -229,8 +238,11 @@ private fun TaskRow(
             Text(
                 when {
                     done -> day.grants[task.id]?.takeIf { it > 0 }?.let { "+$it min earned" } ?: "Done for today"
+                    workoutTimer -> "+${task.rewardMinutes} min · ${task.target} min, phone off"
                     task.verification != Verification.AUTOMATIC -> "+${task.rewardMinutes} min · ${task.subtitle.substringAfter("· ")}"
+                    estimated && progress != null -> "About " + progressLabel(task, progress).replace(" sleep last night", ", from your screen")
                     measured && progress != null -> progressLabel(task, progress)
+                    task.id == Tasks.SLEEP.id -> "+${task.rewardMinutes} min · from your tracker or your screen at night"
                     health == HealthConnect.Status.UNSUPPORTED -> "Health Connect isn't available on this phone"
                     else -> "+${task.rewardMinutes} min · counts automatically"
                 },
@@ -243,7 +255,7 @@ private fun TaskRow(
                 modifier = Modifier.tappable { onUndo(task) }.padding(8.dp),
             )
             done -> Unit
-            task.verification.timed ->
+            task.verification.timed || workoutTimer ->
                 ChipButton(focusSecondsLeft?.let { "%d:%02d".format(it / 60, it % 60) } ?: "Start", { onStartFocus(task) })
             task.manual -> ChipButton("Done", { onCheckOff(task) })
             else -> Pill("+${task.rewardMinutes}")
@@ -296,9 +308,10 @@ fun FocusTimerScreen(avatar: Avatar, task: TaskDef, secondsLeft: Long, screenOnS
     horizontalAlignment = Alignment.CenterHorizontally,
     verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
 ) {
-    val phoneFree = task.verification == Verification.PHONE_FREE
+    val phoneFree = app.tend.core.PhoneFree.runsPhoneFree(task)
     Text(
         when {
+            task.id == Tasks.MOVE.id -> "WORKOUT, PHONE OFF"
             phoneFree -> "PHONE-FREE TIME"
             task.id == Tasks.LEARN.id -> "LEARNING TOGETHER"
             else -> "READING TOGETHER"
@@ -328,7 +341,7 @@ fun FocusTimerScreen(avatar: Avatar, task: TaskDef, secondsLeft: Long, screenOnS
             style = MaterialTheme.typography.bodyMedium,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
-        val left = (app.tend.core.PhoneFree.GRACE_SECONDS - screenOnSeconds).coerceAtLeast(0)
+        val left = (app.tend.core.PhoneFree.graceSeconds(task) - screenOnSeconds).coerceAtLeast(0)
         Pill("Screen time allowed: %d:%02d left".format(left / 60, left % 60), if (left < 60) Brand.Coral.copy(alpha = 0.2f) else Brand.Sage)
     } else Text(
         "${avatar.displayName} is ${if (task.id == Tasks.LEARN.id) "learning" else "reading"} with you. +${task.rewardMinutes} min when the timer ends. " +

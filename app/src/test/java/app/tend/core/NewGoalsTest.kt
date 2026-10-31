@@ -64,3 +64,25 @@ class PauseAndEveningTest {
         assertTrue(!Budget.isEvening(22, 12) && !Budget.isEvening(-1, 23))
     }
 }
+
+class FallbackTrackingTest {
+    @org.junit.Test fun longestOffStretchStandsInForSleep() {
+        val h = 3_600_000L
+        // On at 20:00 (0), off 23:00, on 23:10, off 23:30, on 06:45 -> longest 7h15m.
+        val t = listOf(3 * h to false, 3 * h + 600_000 to true, 3 * h + 1_800_000 to false, 10 * h + 2_700_000 to true)
+        org.junit.Assert.assertEquals(7 * h + 15 * 60_000, PhoneFree.longestOffMillis(0, 16 * h, t))
+        // Still off at the end of the window: counts up to it.
+        org.junit.Assert.assertEquals(2 * h, PhoneFree.longestOffMillis(0, 5 * h, listOf(3 * h to false)))
+        org.junit.Assert.assertEquals(0L, PhoneFree.longestOffMillis(0, 5 * h, emptyList()))
+    }
+
+    @org.junit.Test fun workoutWithoutTrackerIsStrictlyPhoneOff() {
+        org.junit.Assert.assertTrue(PhoneFree.runsPhoneFree(Tasks.MOVE))
+        org.junit.Assert.assertFalse(PhoneFree.runsPhoneFree(Tasks.READ))
+        val start = 0L; val end = 30 * 60_000L
+        org.junit.Assert.assertEquals(PhoneFree.Outcome.DONE, PhoneFree.outcome(Tasks.MOVE, start, end, 50_000))
+        org.junit.Assert.assertEquals(PhoneFree.Outcome.BROKEN, PhoneFree.outcome(Tasks.MOVE, start, end, 90_000))
+        // Friends & family keeps its 3 minutes.
+        org.junit.Assert.assertEquals(PhoneFree.Outcome.DONE, PhoneFree.outcome(Tasks.FRIENDS, start, end, 90_000))
+    }
+}

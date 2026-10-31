@@ -44,6 +44,13 @@ class HealthConnect(private val context: Context, private val selected: List<Tas
         total[ExerciseSessionRecord.EXERCISE_DURATION_TOTAL]?.toMinutes()?.toInt() ?: 0
     }
 
+    /** Workout minutes over the last [days] days: zero means nothing writes workouts here. */
+    suspend fun exerciseMinutesLately(days: Long = 30): Int? = readIf(EXERCISE) {
+        val range = TimeRangeFilter.between(LocalDate.now().minusDays(days).atStartOfDay(), LocalDateTime.now())
+        client.aggregate(AggregateRequest(setOf(ExerciseSessionRecord.EXERCISE_DURATION_TOTAL), range))[ExerciseSessionRecord.EXERCISE_DURATION_TOTAL]
+            ?.toMinutes()?.toInt() ?: 0
+    }
+
     /** Sleep that ended this morning: sessions between 6 pm yesterday and 2 pm today. */
     override suspend fun sleepMinutesLastNight(): Int? = readIf(SLEEP) {
         val night = TimeRangeFilter.between(LocalDate.now().minusDays(1).atTime(18, 0), LocalDate.now().atTime(14, 0))
