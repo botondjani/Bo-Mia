@@ -3,8 +3,8 @@ Generates app/src/main/assets/tend_character.riv: Bo and Mia on one rig.
 
 Contract (see docs/rive-rig.md and ui/Character.kt):
   artboard "Character" 500x500, state machine "Mood" with inputs
-    mood (number: 0 happy, 1 tired, 2 scrolling, 3 outside, 4 reading), mia (bool), tap (trigger),
-    headband, glasses, hat, flower, leaf, bowtie (bool: accessories earned by habits),
+    mood (number: 0 happy, 1 tired, 2 scrolling, 3 outside, 4 reading, 5 sleeping), mia (bool), tap (trigger),
+    headband, glasses, hat, flower, leaf, bowtie, nightcap (bool: accessories earned by habits),
     scientist (bool: lab coat, glasses and a waving pointer for onboarding and the tour),
     prop (number: 0 none, 1 dumbbell, 2 hearts, 3 palette and brush, 4 broom, 5 chef's hat; during timers).
 Layers: mood pose, skin (Bo/Mia), breathing, blinking, glancing, tap hop.
@@ -106,7 +106,7 @@ def build():
     bo = r.node('bo', body)
     mia_front = r.node('mia_front', body)
     mia_back = r.node('mia_back', body)
-    acc = {name: r.node(f'acc_{name}', body) for name in ('hat', 'flower', 'glasses', 'headband', 'leaf', 'bowtie')}
+    acc = {name: r.node(f'acc_{name}', body) for name in ('hat', 'flower', 'glasses', 'headband', 'leaf', 'bowtie', 'nightcap')}
     props = [r.node(f'prop_{k}', body) for k in range(1, 6)]  # dumbbell, hearts, palette, broom, chef hat
     sci = r.node('scientist', body)
     pointer = r.node('pointer', sci, *T(80, 78))  # turns around the hand
@@ -154,6 +154,9 @@ def build():
     r.path('sci_bridge', sci, [(48.5, 45, None, None), (51.5, 45, None, None)], False, stroke=INK, width=1.8)
 
     # Accessories sit on top of everything on the head.
+    r.ellipse('nightcap_pom', acc['nightcap'], 71, 13, 7.2, 7.2, COAT)
+    r.rect('nightcap_band', acc['nightcap'], 50, 22, 36, 6, 3, COAT)
+    r.path('nightcap', acc['nightcap'], [(34, 22, None, (41, 11)), (70, 12, (59, 6), None), (64, 17, None, (60, 14.5)), (66, 22, (60, 17), None)], True, fill=0xFF5B7FC0)
     r.path('leaf', acc['leaf'], [(54, 19, (60, 20), (55, 11)), (67, 10, (61, 9), (66, 17))], True, fill=0xFF4FA36F)
     r.path('leaf_stem', acc['leaf'], [(52, 21, None, None), (55.5, 18, None, None)], False, stroke=MOSS, width=1.6)
     r.ellipse('bow_knot', acc['bowtie'], 50, 73, 4.8, 4.8, 0xFF5B8FC0)
@@ -294,6 +297,7 @@ def build():
     a_scroll = pose('scrolling', lid=7 / 17, look_down=True, blue_eyes=True, mouth=mouth_flat, phone_on=True)
     a_outside = pose('outside', mouth=mouth_open, outside=True)
     a_reading = pose('reading', look_down=True, mouth=mouth_happy, book_on=True)
+    a_sleeping = pose('sleeping', lid=1.0, mouth=mouth_happy, zz_on=True)
 
     def skin(name, mia):
         return animation(name, 1, LOOP_ONESHOT, {
@@ -337,8 +341,8 @@ def build():
         acc_inputs[name] = 3 + i
     w.obj(SM_BOOL, smName='scientist')                   # input 7
     w.obj(SM_NUMBER, smName='prop', numberValue=0.0)     # input 8
-    for i, name in enumerate(('leaf', 'bowtie')):
-        w.obj(SM_BOOL, smName=name)                      # inputs 9, 10
+    for i, name in enumerate(('leaf', 'bowtie', 'nightcap')):
+        w.obj(SM_BOOL, smName=name)                      # inputs 9, 10, 11
         acc_inputs[name] = 9 + i
     MOOD, MIA, TAP, SCIENTIST, PROP = 0, 1, 2, 7, 8
 
@@ -361,8 +365,8 @@ def build():
     def num_eq(v):
         return (COND_NUMBER, dict(inputId=MOOD, op=OP_EQUAL, condValue=float(v)))
 
-    layer('mood', [a_happy, a_tired, a_scroll, a_outside, a_reading], 3,
-          [(3 + m, [num_eq(m)], 250) for m in range(5)])
+    layer('mood', [a_happy, a_tired, a_scroll, a_outside, a_reading, a_sleeping], 3,
+          [(3 + m, [num_eq(m)], 250) for m in range(6)])
     layer('skin', [a_bo, a_mia], 3, [
         (3, [(COND_BOOL, dict(inputId=MIA, op=OP_NOT_EQUAL))], 0),
         (4, [(COND_BOOL, dict(inputId=MIA, op=OP_EQUAL))], 0),

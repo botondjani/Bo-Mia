@@ -85,7 +85,7 @@ class MainActivity : ComponentActivity() {
 
     private enum class Launched { NONE, TRIP, APP_INFO, OVERLAY, USAGE }
 
-    private enum class Screen { HOME, SETTINGS, PERMISSIONS, GARDEN, RECAP }
+    private enum class Screen { HOME, SETTINGS, PERMISSIONS, GARDEN, RECAP, SLEEP }
 
     /** Set when the evening notification was tapped. */
     private var openRecap by mutableStateOf(false)
@@ -288,8 +288,6 @@ class MainActivity : ComponentActivity() {
                 onToggleApp = toggleApp,
                 tasks = store.selectedTasks,
                 onToggleTask = toggleTask,
-                notesAllowed = store.reminderEnabled && RecapReminder.canNotify(this),
-                onAllowNotes = ::allowNotes,
                 onFinish = {
                     store.onboarded = true
                     store.onboardedAt = System.currentTimeMillis()
@@ -331,6 +329,8 @@ class MainActivity : ComponentActivity() {
                 onDone = { screen = Screen.HOME },
             )
 
+            screen == Screen.SLEEP -> app.tend.ui.SleepScreen(store.avatar) { screen = Screen.HOME }
+
             screen == Screen.RECAP -> {
                 LaunchedEffect(Unit) { store.recapSeenOn = LocalDate.now().toString() }
                 RecapScreen(
@@ -340,7 +340,7 @@ class MainActivity : ComponentActivity() {
                     daysTended = store.daysTended,
                     reminderHour = store.eveningFrom.takeIf { !store.reminderPrompted },
                     onReminder = ::setReminder,
-                    onGoodNight = { screen = Screen.HOME },
+                    onGoodNight = { screen = Screen.SLEEP },
                 )
             }
 
@@ -406,6 +406,8 @@ class MainActivity : ComponentActivity() {
                 },
                 onStartFocus = { task ->
                     TaskSync.startTimer(this@MainActivity, task)
+                    // The moment notes make sense: "Bo will tell you when it's done". Asked once.
+                    if (!store.reminderPrompted && !RecapReminder.canNotify(this@MainActivity)) allowNotes()
                     refresh++
                 },
                 onCheckOff = { task ->
@@ -422,6 +424,8 @@ class MainActivity : ComponentActivity() {
                 showNextSteps = store.tourDone && !store.widgetTipDone && now - store.onboardedAt > NEXT_STEPS_AFTER_MS,
                 widgetPlaced = widgetPlaced(),
                 onNextStepsDone = { store.widgetTipDone = true; refresh++ },
+                notesOff = !store.reminderPrompted && !(store.reminderEnabled && RecapReminder.canNotify(this@MainActivity)),
+                onAllowNotes = ::allowNotes,
                 showTour = !store.tourDone,
                 exerciseTracked = store.exerciseTracked,
                 sleepEstimated = store.sleepEstimatedOn == LocalDate.now().toString(),

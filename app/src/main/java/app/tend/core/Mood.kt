@@ -1,7 +1,7 @@
 package app.tend.core
 
 /** The four character states. A mirror of the day, never a punishment. */
-enum class Mood { HAPPY, TIRED, SCROLLING, OUTSIDE }
+enum class Mood { HAPPY, TIRED, SCROLLING, OUTSIDE, /** Asleep after "Good night": eyes closed, a smile, z z. */ SLEEPING }
 
 /** Bo and Mia: one shared rig, differing only in hair and colour. */
 enum class Avatar(val displayName: String) { BO("Bo"), MIA("Mia") }
@@ -22,6 +22,7 @@ object Moods {
         Mood.TIRED -> "sleepy"
         Mood.SCROLLING -> "scrolling"
         Mood.OUTSIDE -> "glowing"
+        Mood.SLEEPING -> "asleep"
     }
 
     /**

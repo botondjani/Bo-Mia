@@ -31,6 +31,7 @@ object CharacterPainter {
     private const val SHADOW = 0x221D2A23
     private const val COAT = 0xFFFDFDFB.toInt()
     private const val WEIGHT = 0xFF4A5852.toInt()
+    private const val NIGHTCAP = 0xFF5B7FC0.toInt()
     private const val LEAF_GREEN = 0xFF4FA36F.toInt()
     private const val LEAF_STEM = 0xFF316849.toInt()
     private const val BOW_KNOT = 0xFF5B8FC0.toInt()
@@ -167,6 +168,41 @@ object CharacterPainter {
         }
     }
 
+    /** Icons for the garden things, in the 100 box (the garden itself draws them in ui/Garden.kt). */
+    private fun drawGardenThing(c: Canvas, a: Accessory) {
+        when (a) {
+            Accessory.BUNTING -> {
+                stroke.color = HAIR; stroke.strokeWidth = 1.6f
+                c.drawPath(Path().apply { moveTo(12f, 34f); quadTo(50f, 50f, 88f, 34f) }, stroke)
+                stroke.color = INK; stroke.strokeWidth = 2.6f
+                for ((i, col) in listOf(CORAL, SUNNY, SKY, MINT, CORAL).withIndex()) {
+                    val x = 20f + i * 15f
+                    val y = 38f + 6f * (1f - kotlin.math.abs(i - 2) / 2f)
+                    fill.color = col
+                    c.drawPath(Path().apply { moveTo(x - 6f, y); lineTo(x + 6f, y); lineTo(x, y + 16f); close() }, fill)
+                }
+            }
+            Accessory.BIRDHOUSE -> {
+                fill.color = HAIR; c.drawRect(47f, 52f, 53f, 90f, fill)
+                fill.color = 0xFFF2E3C6.toInt(); c.drawRect(32f, 30f, 68f, 60f, fill)
+                fill.color = CORAL; c.drawPath(Path().apply { moveTo(26f, 32f); lineTo(50f, 12f); lineTo(74f, 32f); close() }, fill)
+                fill.color = INK; c.drawCircle(50f, 44f, 5f, fill)
+            }
+            Accessory.LANTERNS -> {
+                stroke.color = HAIR; stroke.strokeWidth = 1.6f
+                c.drawPath(Path().apply { moveTo(10f, 30f); quadTo(50f, 56f, 90f, 30f) }, stroke)
+                stroke.color = INK; stroke.strokeWidth = 2.6f
+                for (i in 0 until 4) {
+                    val x = 22f + i * 19f
+                    val y = 40f + 8f * (1f - kotlin.math.abs(i - 1.5f) / 1.5f)
+                    fill.color = 0x55F6D673; c.drawCircle(x, y + 8f, 9f, fill)
+                    fill.color = SUNNY; c.drawCircle(x, y + 8f, 5f, fill)
+                }
+            }
+            else -> Unit
+        }
+    }
+
     private fun heart(c: Canvas, cx: Float, cy: Float, s: Float, color: Int) {
         fill.color = color
         c.drawCircle(cx - 0.25f * s, cy - 0.1f * s, 0.3f * s, fill)
@@ -212,6 +248,12 @@ object CharacterPainter {
             val px = x + 1f + 2f * pose.look
             c.drawCircle(px, py, 4.6f, fill)
             fill.color = 0xFFFFFFFF.toInt(); c.drawCircle(px + 1.5f, py - 2f, 1.5f, fill)
+            if (mood == Mood.SLEEPING) { // closed: lid all the way down
+                fill.color = body
+                c.drawRect(x - 9f, 37f, x + 9f, 54f, fill)
+                c.drawArc(RectF(x - 6f, 44f, x + 6f, 52f), 20f, 140f, false, stroke)
+                continue
+            }
             if (mood == Mood.TIRED || mood == Mood.SCROLLING) { // heavy lids
                 fill.color = body
                 c.drawRect(x - 9f, 37f, x + 9f, if (mood == Mood.TIRED) 46f else 44f, fill)
@@ -230,6 +272,7 @@ object CharacterPainter {
         when (mood) {
             Mood.HAPPY -> c.drawArc(RectF(42f, 56f, 58f, 68f), 20f, 140f, false, stroke)
             Mood.TIRED -> c.drawArc(RectF(43f, 66f, 57f, 74f), 200f, 140f, false, stroke)
+            Mood.SLEEPING -> c.drawArc(RectF(45f, 58f, 55f, 66f), 20f, 140f, false, stroke)
             Mood.SCROLLING -> c.drawLine(45f, 68f, 55f, 68f, stroke)
             Mood.OUTSIDE -> {
                 fill.color = INK
@@ -252,12 +295,14 @@ object CharacterPainter {
             Accessory.FLOWER -> RectF(64f, 24f, 78f, 38f)
             Accessory.LEAF -> RectF(51f, 8f, 68f, 22f)
             Accessory.BOWTIE -> RectF(41f, 67f, 59f, 79f)
+            Accessory.NIGHTCAP -> RectF(30f, 2f, 76f, 26f)
+            Accessory.BUNTING, Accessory.BIRDHOUSE, Accessory.LANTERNS -> RectF(10f, 10f, 90f, 90f)
         }
         val scale = sizePx * 0.86f / maxOf(box.width(), box.height())
         c.translate(sizePx / 2f, sizePx / 2f)
         c.scale(scale, scale)
         c.translate(-box.centerX(), -box.centerY())
-        drawAccessories(c, setOf(a))
+        if (a.garden) drawGardenThing(c, a) else drawAccessories(c, setOf(a))
     }
 
     /** Same shapes as the Rive rig (tools/rive/make_character.py), drawn back to front. */
@@ -293,6 +338,12 @@ object CharacterPainter {
             fill.color = LEAF_GREEN
             c.drawPath(Path().apply { moveTo(54f, 19f); cubicTo(55f, 11f, 61f, 9f, 67f, 10f); cubicTo(66f, 17f, 60f, 20f, 54f, 19f); close() }, fill)
         }
+        if (Accessory.NIGHTCAP in a) { // a soft blue cone flopping to the right, with a pom-pom
+            fill.color = NIGHTCAP
+            c.drawPath(Path().apply { moveTo(34f, 22f); quadTo(48f, 0f, 70f, 12f); lineTo(64f, 17f); quadTo(54f, 12f, 66f, 22f); close() }, fill)
+            fill.color = COAT; c.drawRoundRect(RectF(32f, 19f, 68f, 25f), 3f, 3f, fill)
+            c.drawCircle(71f, 13f, 3.6f, fill)
+        }
         if (Accessory.HAT in a) {
             fill.color = SUNNY
             c.drawRoundRect(RectF(36f, 8f, 64f, 22f), 6f, 6f, fill)
@@ -314,7 +365,7 @@ object CharacterPainter {
 
     private fun drawExtras(c: Canvas, mood: Mood) {
         when (mood) {
-            Mood.TIRED -> { c.drawText("z", 78f, 22f, text); text.textSize = 7f; c.drawText("z", 85f, 15f, text); text.textSize = 9f }
+            Mood.TIRED, Mood.SLEEPING -> { c.drawText("z", 78f, 22f, text); text.textSize = 7f; c.drawText("z", 85f, 15f, text); text.textSize = 9f }
             Mood.SCROLLING -> { // phone
                 fill.color = INK; c.drawRoundRect(RectF(66f, 58f, 80f, 82f), 3f, 3f, fill)
                 fill.color = SKY; c.drawRoundRect(RectF(68f, 61f, 78f, 78f), 1.5f, 1.5f, fill)

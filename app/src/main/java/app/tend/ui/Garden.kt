@@ -25,6 +25,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -69,11 +75,13 @@ fun GardenScene(
     preview: Plant? = null,
     /** Night or day; by default night from the evening hour until 5:00, in either theme. */
     night: Boolean? = null,
+    /** Fill the given space instead of keeping the 1.3:1 shape. */
+    fill: Boolean = false,
 ) {
     val accessories = LocalAccessories.current
     val context = androidx.compose.ui.platform.LocalContext.current
     val isNight = night ?: androidx.compose.runtime.remember { Garden.isNight(app.tend.data.TendStore(context).eveningFrom) }
-    Canvas(modifier.fillMaxWidth().aspectRatio(1.3f).clip(RoundedCornerShape(28.dp))) {
+    Canvas((if (fill) modifier.fillMaxSize() else modifier.fillMaxWidth().aspectRatio(1.3f)).clip(RoundedCornerShape(28.dp))) {
         drawGarden(avatar, plants, homeStage, mood, preview, accessories, isNight)
     }
 }
@@ -127,6 +135,36 @@ fun DrawScope.drawGarden(
     drawRect(fence, Offset(0f, groundY - h * 0.02f), Size(w, h * 0.012f))
     var x = w * 0.02f
     while (x < w) { drawRoundRect(fence, Offset(x, groundY - h * 0.07f), Size(w * 0.014f, h * 0.075f), CornerRadius(4f)); x += w * 0.06f }
+
+    // Garden things earned by habits.
+    if (Accessory.LANTERNS in accessories) {
+        val y0 = groundY - h * 0.25f
+        drawPath(Path().apply { moveTo(0f, y0); quadraticTo(w * 0.3f, y0 + h * 0.06f, w * 0.6f, y0) }, Soil, style = androidx.compose.ui.graphics.drawscope.Stroke(2.5f))
+        for (i in 0 until 6) {
+            val t = (i + 0.5f) / 6f
+            val p = Offset(w * 0.6f * t, y0 + h * 0.06f * 4 * t * (1 - t) * 0.5f + h * 0.02f)
+            drawCircle(Brand.Sunny.copy(alpha = if (night) 0.45f else 0.25f), h * 0.03f, p)
+            drawCircle(Brand.Sunny, h * 0.013f, p)
+        }
+    }
+    if (Accessory.BUNTING in accessories) {
+        val y0 = groundY - h * 0.15f
+        drawPath(Path().apply { moveTo(0f, y0); quadraticTo(w * 0.3f, y0 + h * 0.05f, w * 0.6f, y0) }, Soil, style = androidx.compose.ui.graphics.drawscope.Stroke(2.5f))
+        val flags = listOf(Brand.Coral, Brand.Sunny, Brand.Sky, Brand.Mint)
+        for (i in 0 until 8) {
+            val t = (i + 0.5f) / 8f
+            val x = w * 0.6f * t
+            val y = y0 + h * 0.05f * 4 * t * (1 - t) * 0.5f
+            drawPath(Path().apply { moveTo(x - w * 0.022f, y); lineTo(x + w * 0.022f, y); lineTo(x, y + h * 0.055f); close() }, flags[i % 4])
+        }
+    }
+    if (Accessory.BIRDHOUSE in accessories) {
+        val x = w * 0.045f
+        drawRect(Soil, Offset(x - w * 0.006f, groundY - h * 0.2f), Size(w * 0.012f, h * 0.22f))
+        drawRect(Color(0xFFF2E3C6), Offset(x - w * 0.03f, groundY - h * 0.27f), Size(w * 0.06f, h * 0.08f))
+        drawPath(Path().apply { moveTo(x - w * 0.04f, groundY - h * 0.265f); lineTo(x, groundY - h * 0.31f); lineTo(x + w * 0.04f, groundY - h * 0.265f); close() }, Brand.Coral)
+        drawCircle(Color(0xFF1D2A23), h * 0.012f, Offset(x, groundY - h * 0.235f))
+    }
 
     if (homeStage >= 2) { // a tree of your own
         drawRect(Soil, Offset(w * 0.1f, groundY - h * 0.17f), Size(w * 0.022f, h * 0.19f))
@@ -328,43 +366,75 @@ fun GardenScreen(
     week()
 }
 
-/** What the companion wears from a week of habits, as four small tiles; faded ones wait on the shelf. */
+/**
+ * What the companion wears and what the garden has, earned by doing. The page shows what's
+ * there now; "See all" opens the whole list with how to get each.
+ */
 @Composable
-private fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory>) = Card {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("${avatar.displayName.uppercase()}'S THINGS", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
-        Text("earned by doing", style = MaterialTheme.typography.bodyMedium)
+private fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory>) {
+    var all by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    Card {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("${avatar.displayName.uppercase()}'S THINGS", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            Text(
+                "See all ${Accessory.entries.size}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+                modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable { all = true }.padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+        }
+        if (worn.isEmpty()) Text(
+            "Do any activity and ${avatar.displayName} gets a lucky leaf. More things come with a few good days.",
+            style = MaterialTheme.typography.bodyMedium,
+        ) else androidx.compose.foundation.layout.FlowRow(
+            maxItemsInEachRow = 3,
+            horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(top = 4.dp),
+        ) {
+            Accessory.entries.filter { it in worn }.forEach { ThingTile(it, worn, onShelf, Modifier.weight(1f)) }
+            repeat((3 - worn.size % 3) % 3) { Spacer(Modifier.weight(1f)) }
+        }
     }
-    androidx.compose.foundation.layout.FlowRow(
-        maxItemsInEachRow = 3,
-        horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier.padding(top = 4.dp),
-    ) {
-        Accessory.entries.forEach { a ->
-            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(
-                    Modifier.size(48.dp).clip(CircleShape)
-                        // Light chips in both themes, so the ink-drawn glasses stay visible.
-                        .background(if (a in worn) Brand.Mint.copy(alpha = 0.35f) else if (Brand.dark) Color(0xFFDCE2DD) else Brand.Sage),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    androidx.compose.foundation.Image(
-                        CharacterPainter.accessoryIcon(a, 96).asImageBitmap(), a.title,
-                        Modifier.size(40.dp).graphicsLayer { alpha = if (a in worn) 1f else if (a in onShelf) 0.6f else 0.3f },
-                    )
-                }
-                Text(
-                    a.title.removePrefix("Reading ").replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), maxLines = 1, textAlign = TextAlign.Center,
-                    color = if (a in worn) Brand.Ink else Brand.Muted, modifier = Modifier.padding(top = 4.dp),
-                )
-                Text(
-                    when (a) { in worn -> "Wearing it"; in onShelf -> "On the shelf"; else -> a.short },
-                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp), textAlign = TextAlign.Center,
-                )
+    if (all) androidx.compose.ui.window.Dialog(onDismissRequest = { all = false }) {
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Brand.Card).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("${avatar.displayName}'s things", style = MaterialTheme.typography.titleLarge)
+            Text("Earned by doing, kept while the habit holds. Faded ones wait on the shelf.", style = MaterialTheme.typography.bodyMedium)
+            androidx.compose.foundation.layout.FlowRow(
+                maxItemsInEachRow = 3,
+                horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Accessory.entries.forEach { ThingTile(it, worn, onShelf, Modifier.weight(1f)) }
+                repeat((3 - Accessory.entries.size % 3) % 3) { Spacer(Modifier.weight(1f)) }
             }
+            PrimaryButton("Close", { all = false })
         }
     }
 }
+
+@Composable
+private fun ThingTile(a: Accessory, worn: Set<Accessory>, onShelf: Set<Accessory>, modifier: Modifier) =
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            Modifier.size(48.dp).clip(CircleShape)
+                // Light chips in both themes, so the ink-drawn glasses stay visible.
+                .background(if (a in worn) Brand.Mint.copy(alpha = 0.35f) else if (Brand.dark) Color(0xFFDCE2DD) else Brand.Sage),
+            contentAlignment = Alignment.Center,
+        ) {
+            androidx.compose.foundation.Image(
+                CharacterPainter.accessoryIcon(a, 96).asImageBitmap(), a.title,
+                Modifier.size(40.dp).graphicsLayer { alpha = if (a in worn) 1f else if (a in onShelf) 0.6f else 0.3f },
+            )
+        }
+        Text(
+            a.title.removePrefix("Reading ").replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
+            maxLines = 1, textAlign = TextAlign.Center, color = if (a in worn) Brand.Ink else Brand.Muted, modifier = Modifier.padding(top = 4.dp),
+        )
+        Text(
+            when (a) { in worn -> if (a.garden) "In the garden" else "Wearing it"; in onShelf -> "On the shelf"; else -> a.short },
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp), textAlign = TextAlign.Center,
+        )
+    }
 
 /** Week 1 / 2 / 4 milestones of the home on one track, with what comes next. */
 @Composable
@@ -419,8 +489,8 @@ fun RecapScreen(
     onReminder: (Boolean) -> Unit,
     onGoodNight: () -> Unit,
 ) = Column(
-    Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState()).padding(20.dp),
-    verticalArrangement = Arrangement.spacedBy(14.dp),
+    Modifier.fillMaxSize().background(Brand.Sage).padding(20.dp),
+    verticalArrangement = Arrangement.spacedBy(12.dp),
 ) {
     Text("TONIGHT'S RECAP", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
     Text(
@@ -428,24 +498,15 @@ fun RecapScreen(
         style = MaterialTheme.typography.headlineLarge,
     )
     Text(
-        if (recap.gotBackMinutes > 0) "Minutes you could have scrolled, and didn't."
-        else "That happens. No plant tonight, and tomorrow's a fresh start.",
+        recap.tonightsPlant?.let { "Minutes you could have scrolled, and didn't. A new ${it.displayName} grows tonight." }
+            ?: "That happens. No plant tonight, and tomorrow's a fresh start.",
         style = MaterialTheme.typography.bodyLarge, color = Brand.Muted,
     )
 
-    GardenScene(avatar, plants + listOfNotNull(recap.tonightsPlant), Garden.homeStage(daysTended), mood = Mood.HAPPY)
-    recap.tonightsPlant?.let { plant ->
-        Card {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                PlantIcon(plant, 48.dp)
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    "A new ${plant.displayName} grows tonight from ${recap.gotBackMinutes} unused minutes.",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            }
-        }
-    }
+    GardenScene(
+        avatar, plants + listOfNotNull(recap.tonightsPlant), Garden.homeStage(daysTended),
+        modifier = Modifier.weight(1f), mood = Mood.HAPPY, fill = true,
+    )
 
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Stat("%,d".format(recap.steps), "steps", Modifier.weight(1f))
@@ -463,7 +524,6 @@ fun RecapScreen(
         )
     }
 
-    HomeStages(daysTended)
     if (reminderHour != null) Card {
         Text("A nudge tomorrow evening?", style = MaterialTheme.typography.titleMedium)
         Text("${avatar.displayName} can send one quiet note at ${hour(reminderHour)} when the recap is ready.", style = MaterialTheme.typography.bodyMedium)
@@ -472,7 +532,50 @@ fun RecapScreen(
             ChipButton("No thanks", { onReminder(false) }, filled = false)
         }
     }
-    PrimaryButton("Good night, ${avatar.displayName}", onGoodNight, modifier = Modifier.padding(vertical = 12.dp))
+    PrimaryButton("Good night, ${avatar.displayName}", onGoodNight, modifier = Modifier.padding(top = 4.dp))
+}
+
+/**
+ * After "Good night": the companion falls asleep under the night sky, then the app goes back home.
+ * A tap anywhere ends it sooner.
+ */
+@Composable
+fun SleepScreen(avatar: Avatar, onDone: () -> Unit) {
+    androidx.compose.runtime.LaunchedEffect(Unit) { kotlinx.coroutines.delay(4500); onDone() }
+    val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "night")
+    val twinkle by t.animateFloat(
+        0.3f, 1f, androidx.compose.animation.core.infiniteRepeatable(tween(1400), androidx.compose.animation.core.RepeatMode.Reverse), label = "twinkle",
+    )
+    Box(
+        Modifier.fillMaxSize()
+            .background(Brush.verticalGradient(listOf(Color(0xFF1C2B47), Color(0xFF2B4A4A))))
+            .clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, onClick = onDone),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            for ((i, xy) in listOf(0.12f to 0.1f, 0.3f to 0.2f, 0.55f to 0.08f, 0.78f to 0.16f, 0.9f to 0.3f, 0.2f to 0.35f, 0.66f to 0.3f, 0.42f to 0.42f).withIndex()) {
+                val a = if (i % 2 == 0) twinkle else 1.3f - twinkle
+                drawCircle(Color.White.copy(alpha = a.coerceIn(0.2f, 1f)), size.minDimension * 0.006f, Offset(size.width * xy.first, size.height * xy.second))
+            }
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Box {
+                CharacterView(avatar, Mood.SLEEPING, 200.dp)
+                // Soft z's drifting up, light enough for the night sky.
+                for ((i, size) in listOf(22, 17, 13).withIndex()) {
+                    val p = (twinkle + i * 0.33f) % 1f
+                    Text(
+                        "z", style = MaterialTheme.typography.titleLarge.copy(fontSize = size.sp), color = Color(0xFFF3EBC8),
+                        modifier = Modifier.align(Alignment.TopEnd).graphicsLayer {
+                            translationX = (8 + i * 14).dp.toPx(); translationY = (10 - i * 22 - p * 12).dp.toPx(); alpha = 1f - p * 0.6f
+                        },
+                    )
+                }
+            }
+            Text("Good night", style = MaterialTheme.typography.headlineMedium, color = Color(0xFFF3EBC8))
+            Text("See you tomorrow.", style = MaterialTheme.typography.bodyLarge, color = Color(0xFFF3EBC8).copy(alpha = 0.7f))
+        }
+    }
 }
 
 @Composable

@@ -88,6 +88,9 @@ fun HomeScreen(
     brokenTimer: TaskDef? = null,
     onDismissBroken: () -> Unit = {},
     onNextStepsDone: () -> Unit = {},
+    /** Notes haven't been offered yet: the last of the next steps. */
+    notesOff: Boolean = false,
+    onAllowNotes: () -> Unit = {},
     /** First run: Bo walks through the screen once. */
     showTour: Boolean = false,
     onTourDone: () -> Unit = {},
@@ -163,11 +166,12 @@ fun HomeScreen(
         }
         val needsHealth = tasks.any { it.verification == Verification.AUTOMATIC } &&
             (health == HealthConnect.Status.NEEDS_PERMISSION || health == HealthConnect.Status.NEEDS_INSTALL)
-        val nextSteps = showNextSteps && (needsHealth || !widgetPlaced)
+        val nextSteps = showNextSteps && (needsHealth || !widgetPlaced || notesOff)
         if (nextSteps) NextSteps(
             avatar,
             widget = !widgetPlaced, onWidget = { widgetGuide = true },
             health = if (needsHealth) health else null, onHealth = onConnectHealth,
+            notes = notesOff, onNotes = onAllowNotes,
             onDismiss = onNextStepsDone,
         ) else if (needsHealth) {
             Notice(
@@ -342,6 +346,7 @@ private fun NextSteps(
     avatar: Avatar,
     widget: Boolean, onWidget: () -> Unit,
     health: HealthConnect.Status?, onHealth: () -> Unit,
+    notes: Boolean, onNotes: () -> Unit,
     onDismiss: () -> Unit,
 ) = Column(Modifier.fillMaxWidth().surface(radius = 24.dp).padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -351,15 +356,20 @@ private fun NextSteps(
             modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onDismiss).padding(horizontal = 8.dp, vertical = 4.dp),
         )
     }
-    // One step at a time: Health Connect first, then the widget.
-    val total = listOf(health != null, widget).count { it }
-    if (health != null) StepRow(
-        "heart",
-        if (health == HealthConnect.Status.NEEDS_INSTALL) "Get Health Connect" else "Connect Health Connect",
-        "Walks count by themselves. Got a smartwatch? Then sleep and workouts do too.",
-        onHealth,
-    ) else if (widget) StepRow("sun", "Put ${avatar.displayName} on your home screen", "Your minutes at a glance, without opening tend.", onWidget)
-    if (total > 1) Text("1 of $total · then: ${avatar.displayName} on your home screen", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp))
+    // One step at a time: Health Connect, then the widget, then notes.
+    class Step(val icon: String, val title: String, val body: String, val action: () -> Unit)
+    val steps = listOfNotNull(
+        health?.let {
+            Step(
+                "heart", if (it == HealthConnect.Status.NEEDS_INSTALL) "Get Health Connect" else "Connect Health Connect",
+                "Walks count by themselves. Got a smartwatch? Then sleep and workouts do too.", onHealth,
+            )
+        },
+        if (widget) Step("sun", "Put ${avatar.displayName} on your home screen", "Your minutes at a glance, without opening tend.", onWidget) else null,
+        if (notes) Step("moon", "Little notes from ${avatar.displayName}", "A morning plan, a heads-up at 10 minutes left, tonight's recap. At most 3 a day.", onNotes) else null,
+    )
+    steps.firstOrNull()?.let { StepRow(it.icon, it.title, it.body, it.action) }
+    if (steps.size > 1) Text("1 of ${steps.size} · then: ${steps[1].title}", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp))
 }
 
 @Composable

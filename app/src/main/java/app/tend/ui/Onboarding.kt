@@ -108,8 +108,6 @@ fun Onboarding(
     onToggleApp: (String) -> Unit,
     tasks: List<TaskDef>,
     onToggleTask: (TaskDef) -> Unit,
-    notesAllowed: Boolean = false,
-    onAllowNotes: () -> Unit = {},
     onFinish: () -> Unit,
 ) {
     var stepIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -179,14 +177,6 @@ fun Onboarding(
                         "${cfg.freeMinutes} free minutes today, up to ${Budget.earnableFrom(cfg, DayState(LocalDate.now()), tasks)} more to earn. You can change the budget any time in settings.",
                         style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = Brand.Muted,
                     )
-                    Spacer(Modifier.height(20.dp))
-                    // Notifications: asked here, once, with what they're for.
-                    Column(Modifier.fillMaxWidth().surface(radius = 22.dp).padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Little notes from ${avatar.displayName}", style = MaterialTheme.typography.titleMedium)
-                        Text("A plan in the morning, a heads-up when 10 minutes are left, tonight's recap. At most 3 a day, never at night.", style = MaterialTheme.typography.bodyMedium)
-                        if (notesAllowed) Text("Notes are on. Change them any time in settings.", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
-                        else SecondaryButton("Allow notes", onAllowNotes)
-                    }
                 }
             }
         }
