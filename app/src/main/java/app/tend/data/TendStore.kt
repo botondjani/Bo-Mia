@@ -93,6 +93,37 @@ class TendStore(private val context: Context) {
         get() = prefs.getString("theme", "light") ?: "light"
         set(v) = edit { putString("theme", v) }
 
+    /** Notifications: the 8:30 plan (and the hello after two quiet days). */
+    var notesMorning: Boolean
+        get() = prefs.getBoolean("notes_morning", true)
+        set(v) = edit { putBoolean("notes_morning", v) }
+
+    /** Notifications: "10 minutes left". */
+    var notesNudges: Boolean
+        get() = prefs.getBoolean("notes_nudges", true)
+        set(v) = edit { putBoolean("notes_nudges", v) }
+
+    /** Last time tend was opened, for the "misses you" note. */
+    var lastOpenedAt: Long
+        get() = prefs.getLong("last_opened_at", 0)
+        set(v) = edit { putLong("last_opened_at", v) }
+
+    fun noteSentOn(kind: String): String = prefs.getString("note_$kind", "") ?: ""
+
+    fun markNoteSent(kind: String, day: String) {
+        edit { putString("note_$kind", day) }
+        countNote()
+    }
+
+    fun notesSentToday(): Int =
+        if (prefs.getString("notes_day", "") == LocalDate.now().toString()) prefs.getInt("notes_count", 0) else 0
+
+    /** Every note that goes out counts toward the daily cap. */
+    fun countNote() {
+        val n = notesSentToday() + 1
+        edit { putString("notes_day", LocalDate.now().toString()); putInt("notes_count", n) }
+    }
+
     /** The first-run tour of the home screen has been shown (or skipped). */
     var tourDone: Boolean
         get() = prefs.getBoolean("tour_done", false)
@@ -224,10 +255,17 @@ class TendStore(private val context: Context) {
      * What the companion wears now (habits held over the last 7 days), and what is on the shelf:
      * earned before, waiting for the habit to come back.
      */
+    /** Accessories worn now that weren't seen before: for "Bo got a lucky leaf!". */
+    fun takeNewAccessories(): Set<Accessory> {
+        val before = prefs.getStringSet("acc_seen", emptySet())!!
+        return accessories().first.filter { it.name !in before }.toSet()
+    }
+
     fun accessories(): Pair<Set<Accessory>, Set<Accessory>> {
         val today = LocalDate.now()
         val byDate = daySummaries().associateBy { it.date }
-        val week = (6 downTo 0).map { byDate[today.minusDays(it.toLong())]?.done.orEmpty() }
+        // The last six closed days plus today as it stands, so a first activity earns the leaf right away.
+        val week = (6 downTo 1).map { byDate[today.minusDays(it.toLong())]?.done.orEmpty() } + listOf(today().completedTasks)
         val worn = Accessories.active(week)
         val seen = prefs.getStringSet("acc_seen", emptySet())!!
         if (!seen.containsAll(worn.map { it.name })) prefs.edit().putStringSet("acc_seen", seen + worn.map { it.name }).apply()

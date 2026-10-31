@@ -54,6 +54,7 @@ object WeeklyLetter {
         val store = TendStore(context)
         if (!store.weeklyLetter || !store.onboarded || !RecapReminder.canNotify(context)) return
         val (title, body) = text(store)
+        store.countNote()
         val nm = context.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "Weekly letter", NotificationManager.IMPORTANCE_DEFAULT))
         val open = PendingIntent.getActivity(

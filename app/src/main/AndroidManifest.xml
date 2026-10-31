@@ -99,6 +99,9 @@
         <receiver
             android:name=".reminder.WeeklyLetterReceiver"
             android:exported="false" />
+        <receiver
+            android:name=".reminder.MorningNoteReceiver"
+            android:exported="false" />
 
         <receiver
             android:name=".reminder.RecapReminderReceiver"

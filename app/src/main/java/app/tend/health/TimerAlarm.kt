@@ -39,6 +39,10 @@ object TimerAlarm {
                 "The phone came back a little early" to "No worries. ${task.title} is there whenever you want another go."
             app.tend.core.PhoneFree.runsPhoneFree(task) -> "${task.title} done, phone-free" to "+${task.rewardMinutes} min. $name is proud of you."
             else -> "${task.title} done" to "+${task.rewardMinutes} min. $name enjoyed that."
+        }.let { (t, body) ->
+            // A new accessory is the best news of all: say it.
+            val fresh = if (result == TaskSync.TimerResult.DONE) store.takeNewAccessories() else emptySet()
+            t to (body + fresh.joinToString("") { " And $name got a ${it.title.lowercase()}!" })
         }
         val nm = context.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "Timers", NotificationManager.IMPORTANCE_DEFAULT))

@@ -51,6 +51,9 @@ fun SettingsScreen(
     onWeeklyLetter: (Boolean) -> Unit,
     onExport: () -> Unit,
     onReplayTour: () -> Unit,
+    notesMorning: Boolean,
+    notesNudges: Boolean,
+    onNotes: (kind: String, on: Boolean) -> Unit,
     theme: String,
     onTheme: (String) -> Unit,
     onDone: () -> Unit,
@@ -76,9 +79,15 @@ fun SettingsScreen(
         Text("Evening starts at", style = MaterialTheme.typography.bodyLarge)
         Text("Tonight's recap is ready from then.", style = MaterialTheme.typography.bodyMedium)
         HourChips(listOf(21, 22, 23), eveningFrom, onEvening)
-        SwitchRow("Recap reminder", "One quiet note when the evening starts", reminderEnabled, onReminder)
         SwitchRow("Sleepy pauses", "From then until 5:00 the pause waits 15 s and ${avatar.displayName} gets sleepy", eveningPause, onEveningPause)
-        SwitchRow("Sunday letter", "A short note on Sunday evening about your week", weeklyLetter, onWeeklyLetter)
+    }
+    Text("NOTIFICATIONS", style = MaterialTheme.typography.labelSmall)
+    Card {
+        Text("At most 3 a day, and none at night.", style = MaterialTheme.typography.bodyMedium)
+        SwitchRow("Morning plan", "8:30: today's minutes and what's worth the most", notesMorning) { onNotes("morning", it) }
+        SwitchRow("Gentle nudges", "When 10 minutes are left", notesNudges) { onNotes("nudges", it) }
+        SwitchRow("Evening recap", "When the evening starts", reminderEnabled, onReminder)
+        SwitchRow("Sunday letter", "Your week, on Sunday evening", weeklyLetter, onWeeklyLetter)
     }
     Text("APPEARANCE", style = MaterialTheme.typography.labelSmall)
     Card {

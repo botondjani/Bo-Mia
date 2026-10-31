@@ -87,6 +87,7 @@ class MonitorService : Service() {
         val fg = foreground
         if (fg != null && fg == sessionPkg) {
             store.update { it.copy(usedSeconds = it.usedSeconds + (now - lastTick) / 1000) }
+            app.tend.reminder.Notes.checkLowMinutes(this)
             if (store.isLocked()) {
                 endSession(now, askWorthIt = false)
                 intercept(fg, now)
@@ -215,6 +216,7 @@ class BootReceiver : BroadcastReceiver() {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
         app.tend.reminder.RecapReminder.schedule(context) // alarms don't survive a reboot
         app.tend.reminder.WeeklyLetter.schedule(context)
+        app.tend.reminder.MorningNote.schedule(context)
         if (TendStore(context).blockedPackages.isNotEmpty()) MonitorService.start(context)
     }
 }
