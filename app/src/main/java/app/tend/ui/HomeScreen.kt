@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -74,11 +75,12 @@ fun HomeScreen(
     onOpenGarden: () -> Unit,
     onOpenRecap: () -> Unit,
     /** Show the one-time widget tip; called with true when it was handled. */
-    showWidgetTip: Boolean = false,
+    showNextSteps: Boolean = false,
+    widgetPlaced: Boolean = false,
     /** A phone-free session the phone interrupted, shown once. */
     brokenTimer: TaskDef? = null,
     onDismissBroken: () -> Unit = {},
-    onWidgetTipDone: () -> Unit = {},
+    onNextStepsDone: () -> Unit = {},
     /** First run: Bo walks through the screen once. */
     showTour: Boolean = false,
     onTourDone: () -> Unit = {},
@@ -89,7 +91,7 @@ fun HomeScreen(
 ) {
     val tour = androidx.compose.runtime.remember { TourTargets() }
     var widgetGuide by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
-    if (widgetGuide) WidgetGuideDialog(avatar) { widgetGuide = false; onWidgetTipDone() }
+    if (widgetGuide) WidgetGuideDialog(avatar) { widgetGuide = false }
     val remaining = Budget.remainingMinutes(cfg, day)
     val mood = Moods.of(cfg, day)
     Box(Modifier.fillMaxSize()) {
@@ -146,14 +148,20 @@ fun HomeScreen(
             brokenTimer.icon, "The phone came back a little early",
             "${brokenTimer.title} needs ${brokenTimer.target} phone-free minutes. Tap to try again later.", onDismissBroken,
         )
-        if (showWidgetTip) Notice("sun", "${avatar.displayName} has a widget", "See ${avatar.displayName} and your minutes on your home screen.", { widgetGuide = true })
         if (isEvening) Notice("moon", "Tonight's recap is ready", "See what today gave back", onOpenRecap)
         when {
             !permissions.usageAccess -> Notice("alert", "Limited mode", "${avatar.displayName} can't see screen time. Tap to turn it on.", onFixPermissions)
             !permissions.overlay -> Notice("alert", "No pause before scrolling", "Only a notification for now. Tap to fix.", onFixPermissions)
         }
-        val needsHealth = tasks.any { it.verification == Verification.AUTOMATIC }
-        if (needsHealth && (health == HealthConnect.Status.NEEDS_PERMISSION || health == HealthConnect.Status.NEEDS_INSTALL)) {
+        val needsHealth = tasks.any { it.verification == Verification.AUTOMATIC } &&
+            (health == HealthConnect.Status.NEEDS_PERMISSION || health == HealthConnect.Status.NEEDS_INSTALL)
+        val nextSteps = showNextSteps && (needsHealth || !widgetPlaced)
+        if (nextSteps) NextSteps(
+            avatar,
+            widget = !widgetPlaced, onWidget = { widgetGuide = true },
+            health = if (needsHealth) health else null, onHealth = onConnectHealth,
+            onDismiss = onNextStepsDone,
+        ) else if (needsHealth) {
             Notice(
                 "heart", if (health == HealthConnect.Status.NEEDS_INSTALL) "Get Health Connect" else "Connect Health Connect",
                 "Count walks and workouts automatically", onConnectHealth,
@@ -197,6 +205,47 @@ private fun homeTour(name: String, free: Int) = listOf(
     TourStep("garden", "Our garden", "Minutes you don't use grow into a plant at midnight. Come visit, and see how the week went."),
     TourStep("settings", "Make it yours", "Apps, activities, your budget and the evening mode live here. Change them any time."),
 )
+
+/**
+ * A little after onboarding: what makes tend better from here. Shown until both are done or it's
+ * closed; the widget and Health Connect stay reachable from settings and the home notice.
+ */
+@Composable
+private fun NextSteps(
+    avatar: Avatar,
+    widget: Boolean, onWidget: () -> Unit,
+    health: HealthConnect.Status?, onHealth: () -> Unit,
+    onDismiss: () -> Unit,
+) = Column(Modifier.fillMaxWidth().surface(radius = 24.dp).padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("NEXT STEPS", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+        Text(
+            "Not now", style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
+            modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onDismiss).padding(horizontal = 8.dp, vertical = 4.dp),
+        )
+    }
+    if (health != null) StepRow(
+        "heart",
+        if (health == HealthConnect.Status.NEEDS_INSTALL) "Get Health Connect" else "Connect Health Connect",
+        "Walks count by themselves. Got a smartwatch? Then sleep and workouts do too.",
+        onHealth,
+    )
+    if (widget) StepRow("sun", "Put ${avatar.displayName} on your home screen", "Your minutes at a glance, without opening tend.", onWidget)
+}
+
+@Composable
+private fun StepRow(icon: String, title: String, body: String, onClick: () -> Unit) = Row(
+    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).tappable(onClick = onClick).padding(vertical = 4.dp),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    TendIcons.Badge(icon, 40.dp)
+    Spacer(Modifier.width(12.dp))
+    Column(Modifier.weight(1f)) {
+        Text(title, style = MaterialTheme.typography.titleMedium)
+        Text(body, style = MaterialTheme.typography.bodyMedium)
+    }
+    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Brand.Muted)
+}
 
 private fun greeting(): String = when (java.time.LocalTime.now().hour) {
     in 5..11 -> "Good morning"

@@ -388,7 +388,7 @@ fun PermissionSteps(perms: PermissionActions) {
         onAllow = perms.requestUsage, onAppInfo = perms.openAppInfo,
     )
     if (!p.allGranted) Text(
-        "After each switch tend opens the next one by itself. Just come back when Android asks.",
+        "After each step tend brings you back here and shows what's next.",
         style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
     )
 }
@@ -414,8 +414,8 @@ private fun UnlockCard(perms: PermissionActions) = Column(
             Text("Once. Android locks them for apps from outside the Play Store.", style = MaterialTheme.typography.bodyMedium)
         }
     }
-    UnlockMove(1, "Tap the switch, Android says it's restricted, tap OK", done = tripped, active = !tripped)
-    UnlockMove(2, "Tap ⋮ top right → Allow restricted settings", done = false, active = tripped)
+    UnlockMove(1, "Tap tend's switch. Android says it's restricted: tap OK and come back", done = tripped, active = !tripped)
+    UnlockMove(2, "In App info: ⋮ top right → Allow restricted settings → confirm, then come back", done = false, active = tripped)
     if (tripped) PrimaryButton("Open App info", perms.unlockAppInfo)
     else PrimaryButton("Start", perms.startUnlock)
     LinkText("Already unlocked? Skip", perms.skipUnlock)
@@ -467,7 +467,7 @@ private fun PermissionCard(
     if (active) {
         if (blocked) RestrictedHelp(onAppInfo)
         PrimaryButton(if (blocked) "Try again" else "Allow", onAllow)
-        if (!blocked) Text("Switch tend on. We'll bring you right back.", style = MaterialTheme.typography.bodyMedium)
+        if (!blocked) Text("Find tend and switch it on. We'll bring you right back.", style = MaterialTheme.typography.bodyMedium)
     }
 }
 

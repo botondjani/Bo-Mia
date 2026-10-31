@@ -109,7 +109,10 @@ class MainActivity : ComponentActivity() {
         )
         val catalog = AppCatalog(this)
         catalog.preload { c ->
-            if (!store.onboarded && store.blockedPackages.isEmpty()) store.blockedPackages = c.suggested.map { it.pkg }.toSet()
+            if (!store.onboarded && store.blockedPackages.isEmpty()) {
+                store.blockedPackages = c.suggested.map { it.pkg }.toSet()
+                runOnUiThread { refresh++ } // the app picker must show the pre-selection, not a stale empty set
+            }
         }
         RecapReminder.schedule(this)
         app.tend.reminder.WeeklyLetter.schedule(this)
@@ -181,7 +184,7 @@ class MainActivity : ComponentActivity() {
         handler.removeCallbacksAndMessages(null)
         // Back from App info: when the lock can't be read, trust the visit and move on.
         if (launched == Launched.APP_INFO && restrictedMode() == null) store.restrictedUnlocked = true
-        continueSetup()
+        launched = Launched.NONE
         refresh++
         // Usage access is enough to count minutes; without the overlay the monitor nudges by notification.
         if (store.onboarded && permissions().usageAccess) MonitorService.start(this)
@@ -248,6 +251,7 @@ class MainActivity : ComponentActivity() {
                 onToggleTask = toggleTask,
                 onFinish = {
                     store.onboarded = true
+                    store.onboardedAt = System.currentTimeMillis()
                     if (permissions().usageAccess) MonitorService.start(this)
                     if (!permissions().overlay && Build.VERSION.SDK_INT >= 33 && !RecapReminder.canNotify(this)) {
                         notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) // for the fallback nudge
@@ -367,8 +371,10 @@ class MainActivity : ComponentActivity() {
                 onOpenGarden = { screen = Screen.GARDEN },
                 onOpenRecap = { screen = Screen.RECAP },
                 // Not during onboarding: from the second day on, until placed or seen.
-                showWidgetTip = !store.widgetTipDone && store.daysTended >= 1 && !widgetPlaced(),
-                onWidgetTipDone = { store.widgetTipDone = true; refresh++ },
+                // A little after onboarding (and the tour), not right away.
+                showNextSteps = store.tourDone && !store.widgetTipDone && now - store.onboardedAt > NEXT_STEPS_AFTER_MS,
+                widgetPlaced = widgetPlaced(),
+                onNextStepsDone = { store.widgetTipDone = true; refresh++ },
                 showTour = !store.tourDone,
                 exerciseTracked = store.exerciseTracked,
                 sleepEstimated = store.sleepEstimatedOn == LocalDate.now().toString(),
@@ -408,7 +414,7 @@ class MainActivity : ComponentActivity() {
         overlayAttempted = true
         launched = Launched.OVERLAY
         returnWhenGranted { Settings.canDrawOverlays(this) }
-        hint("Switch on \"Allow display over other apps\"")
+        hint("Find tend in the list and switch it on")
         open(highlightTend(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))), highlightTend(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)))
     }
 
@@ -419,32 +425,21 @@ class MainActivity : ComponentActivity() {
     private fun tripLock() {
         tripped = true
         launched = Launched.TRIP
-        returnWhenGranted { Settings.canDrawOverlays(this) } // phones without the lock just say yes
-        hint("Tap the switch. Android will say it's restricted: tap OK, then come back")
-        open(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+        // Back as soon as Android has said no (or yes, on phones without the lock), where Android lets us.
+        returnWhenGranted { restrictedMode() == AppOpsManager.MODE_IGNORED || permissions().let { it.overlay || it.usageAccess } }
+        hint("Tap tend's switch. Android will say it's restricted: tap OK")
+        // Usage access opens right on tend's own switch; the overlay page is a list on Android 11+.
+        open(
+            Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:$packageName")),
+            highlightTend(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)),
+        )
     }
 
     private fun openUnlock() {
         launched = Launched.APP_INFO
+        returnWhenGranted { restrictedMode() == AppOpsManager.MODE_ALLOWED }
         hint("Tap ⋮ in the top right, then \"Allow restricted settings\"")
         open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
-    }
-
-    /** Back in tend after a system screen: open the next one by itself, so setup is a chain of switches. */
-    private fun continueSetup() {
-        val from = launched
-        launched = Launched.NONE
-        val p = permissions()
-        val lock = lock()
-        val next: (() -> Unit)? = when {
-            from == Launched.NONE || from == Launched.USAGE -> null
-            p.overlay && !p.usageAccess -> ::requestUsage
-            from == Launched.TRIP && lock == PermissionLock.TRIPPED -> ::openUnlock
-            from == Launched.APP_INFO && lock == PermissionLock.NONE && !p.overlay -> ::requestOverlay
-            else -> null
-        }
-        // A short beat so the tick on the card is seen before the next screen opens.
-        if (next != null) handler.postDelayed({ next() }, 650)
     }
 
     /**
@@ -540,5 +535,7 @@ class MainActivity : ComponentActivity() {
         return Permissions(usage, Settings.canDrawOverlays(this))
     }
 
-
+    private companion object {
+        const val NEXT_STEPS_AFTER_MS = 10 * 60_000L
+    }
 }

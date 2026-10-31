@@ -83,6 +83,11 @@ class TendStore(private val context: Context) {
         get() = prefs.getString("sleep_estimated_on", "") ?: ""
         set(v) = edit { putString("sleep_estimated_on", v) }
 
+    /** When onboarding finished (0 for installs from before this was kept). */
+    var onboardedAt: Long
+        get() = prefs.getLong("onboarded_at", 0)
+        set(v) = edit { putLong("onboarded_at", v) }
+
     /** The first-run tour of the home screen has been shown (or skipped). */
     var tourDone: Boolean
         get() = prefs.getBoolean("tour_done", false)
