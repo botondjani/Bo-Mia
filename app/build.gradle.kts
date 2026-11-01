@@ -73,6 +73,8 @@ dependencies {
     implementation("com.google.zxing:core:3.5.3")
     // In-app review prompt (Play build only).
     "playImplementation"("com.google.android.play:review-ktx:2.0.2")
+    // The review library brings an old Fragment; activity-result calls need 1.3+.
+    "playImplementation"("androidx.fragment:fragment:1.8.5")
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.junit)
 }
