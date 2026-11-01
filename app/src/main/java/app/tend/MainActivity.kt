@@ -682,12 +682,15 @@ class MainActivity : ComponentActivity() {
     /** Null when the launcher can't pin widgets from inside the app. */
     private fun widgetPlaced() = app.tend.ui.WidgetKind.anyPlaced(this)
 
-    /** Asks the launcher to place the 1x1 widget (its own dialog); false when it can't. */
+    /**
+     * Asks the launcher to place the 2x1 widget (its own dialog); false when it can't. The 2x1 is
+     * the one launchers place reliably from an app; the 1x1 is in the phone's widget list.
+     */
     private fun pinWidget(): Boolean {
         val manager = android.appwidget.AppWidgetManager.getInstance(this)
         if (!manager.isRequestPinAppWidgetSupported) return false
         return runCatching {
-            manager.requestPinAppWidget(android.content.ComponentName(this, app.tend.ui.WidgetKind.FACE.provider), null, null)
+            manager.requestPinAppWidget(android.content.ComponentName(this, app.tend.ui.WidgetKind.WIDE.provider), null, null)
         }.getOrDefault(false)
     }
 
