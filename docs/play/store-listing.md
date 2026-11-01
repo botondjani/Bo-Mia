@@ -21,7 +21,7 @@ Most screen-time apps sell restriction ("block apps", "limit social media") and 
 - **Package**: `app.tend` (if Play says it's taken, change `applicationId` in `app/build.gradle.kts` before the first upload; it can't change later)
 - **Category**: Health & Fitness
 - **Tags** (Play Console → Store settings): Habit tracker, Self care, Mindfulness, Digital wellbeing
-- **Contact e-mail**: your address (also set `support_email` in `app/src/main/res/values/strings.xml` to show "Send feedback" in the app)
+- **Contact e-mail**: botondjani@gmail.com (same as `support_email` in `app/src/main/res/values/strings.xml`)
 - **Privacy policy URL**: where `docs/privacy/index.html` is published
 
 ## Short description (max 80)
@@ -56,7 +56,7 @@ CALM BY DESIGN
 • Home screen widgets, light and dark theme
 
 PRIVATE
-Everything stays on your phone. No account, no ads, no tracking.
+Your data stays on your phone. No account, no ads, no tracking. Anonymous usage stats only if you say yes.
 
 For a digital detox that sticks: less screen time, more of your life, and a small friend cheering you on.
 ```
@@ -70,9 +70,12 @@ For a digital detox that sticks: less screen time, more of your life, and a smal
 ## App content forms
 
 ### Data safety
-- Does your app collect or share user data? **No.** (All data is processed and stored only on the device; nothing is sent off it.)
-- Is data encrypted in transit? Not applicable (no data leaves the device).
-- Can users delete data? Yes: uninstalling or clearing the app's storage deletes everything.
+- Does your app collect or share user data? **Yes, collects** (only the opt-in anonymous usage stats). Shared with third parties: **No** (Supabase is a service provider, not sharing).
+- Data types collected: **App activity → App interactions** (e.g. "pause ended in Not now", "activity done"); **App info and performance → Other** (app version, Android version). Not collected: location, personal info, health, app list, messages.
+- For each: collected, not shared; **optional** (user can choose); processed ephemerally: no; purpose: **Analytics**.
+- Is data encrypted in transit? **Yes** (HTTPS).
+- Can users request deletion? **Yes**: turn stats off in Settings, Start over (new random id), or e-mail botondjani@gmail.com.
+- Everything else (minutes, answers, Health Connect data) stays on the device.
 
 ### Content rating (IARC questionnaire)
 - Category: Utility / Productivity. No violence, sexuality, language, controlled substances, gambling, user-generated content, location sharing or purchases. Expected rating: Everyone / PEGI 3.

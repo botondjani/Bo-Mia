@@ -37,6 +37,7 @@ This is the MVP skeleton described in the concept doc. Native Android, English o
 | App icon: the companion, large, on a soft sage-to-mint plate (launchers paint a transparent background black) |
 | Share the garden: a 4:5 card (feeds and stories) with the week's minutes got back, the garden, three facts and the Google Play link as a QR code; from the garden page (share button) and the evening recap; the share text carries the link too | `ui/ShareCard.kt` |
 | Settings → About: version, privacy page (also Health Connect's rationale screen), "Send feedback" (when `support_email` is set), "Start over" (deletes everything on the phone after a confirmation) | `ui/SettingsScreen.kt`, `health/PrivacyActivity.kt` |
+| Opt-in anonymous usage stats: off until the user taps yes (last next step, or the Settings switch). Random install id, day since install, event name, small props (pause outcome, activity id, day totals); no app names or health data. Queued in `files/stats_queue.jsonl`, sent in batches to the Supabase RPC `public.tend_log` (insert-only, schema `tend`, views `daily_active`, `retention`, `pause_outcomes`, `feature_use`) | `data/Stats.kt` |
 | Google Play build: in-app review sheet once (saying good night after a day with something done, from day 3; Play decides if it shows), "Rate tend on Google Play" in settings, no test-data export | `play/`, `sideload/` |
 | Themes: light by default; Dark or Auto (follow the phone) in settings (Appearance). Dark is a near-neutral charcoal with green accents; shadows and scrims stay dark. The garden (app and 2×2 widget) turns to night from the evening hour until 5:00 in either theme (crescent moon, stars, lit window) and stays light by day; the widget cards go dark in the evening too | `ui/Theme.kt`, `ui/Garden.kt`, `widget/TendWidget.kt` |
 | Brand: Moss/Mint/Coral/Sunny/Sky/Ink/Sage, Fredoka + Nunito (OFL, bundled); design tokens and shared components | `ui/Theme.kt`, `ui/Components.kt` |
@@ -64,7 +65,7 @@ Two flavors: **sideload** (the APK testers install by hand) and **play** (the Go
 ./gradlew bundlePlayRelease          # app/build/outputs/bundle/playRelease/app-play-release.aab
 ```
 
-Google Play: listing texts, form answers (data safety, foreground service, Health Connect) and graphics are in `docs/play/`; the privacy policy page is `docs/privacy/index.html`. `tools/store/` regenerates the store graphics and the Bo video clips (Rive web runtime + Playwright + ffmpeg).
+Google Play: listing texts, form answers (data safety, foreground service, Health Connect) and graphics are in `docs/play/`; the privacy policy page is `docs/privacy/index.html`. The landing page with the tester waitlist (Tally form) is `docs/index.html`; publish `docs/` with GitHub Pages (Settings → Pages → branch, folder `/docs`). `tools/store/` regenerates the store graphics and the Bo video clips (Rive web runtime + Playwright + ffmpeg).
 
 ## Test setup on the phone
 

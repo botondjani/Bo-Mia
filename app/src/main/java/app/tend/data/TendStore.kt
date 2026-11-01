@@ -217,7 +217,7 @@ class TendStore(private val context: Context) {
         val fresh = DayState(now)
         val plant = stored?.let { Garden.plantFor(Budget.gardenMinutesAtClose(config, it)) }
         val plants = prefs.getString("plants", "")!!
-        stored?.let { d -> summary(d).let { append("history.csv", "${it.date},${it.usedMinutes},${it.unusedMinutes},${it.tasksDone},${it.done.joinToString(";")}") } }
+        stored?.let { d -> summary(d).let { Stats.log(context, "day_closed", mapOf("used_min" to it.usedMinutes, "unused_min" to it.unusedMinutes, "tasks" to it.tasksDone)); append("history.csv", "${it.date},${it.usedMinutes},${it.unusedMinutes},${it.tasksDone},${it.done.joinToString(";")}") } }
         writeDay(fresh) {
             if (plant != null) putString("plants", if (plants.isEmpty()) plant.name else "$plants,${plant.name}")
             if (stored != null) putInt("days_tended", prefs.getInt("days_tended", 0) + 1)
@@ -226,7 +226,15 @@ class TendStore(private val context: Context) {
     }
 
     @Synchronized
-    fun update(change: (DayState) -> DayState): DayState = change(today()).also { writeDay(it) }
+    fun update(change: (DayState) -> DayState): DayState {
+        val before = today()
+        return change(before).also { after ->
+            writeDay(after)
+            (after.completedTasks - before.completedTasks).forEach { id ->
+                Stats.log(context, "activity_done", mapOf("task" to if (id.startsWith("custom:")) "custom" else id))
+            }
+        }
+    }
 
     fun credit(taskId: String, minutes: Int, manual: Boolean) =
         update { Budget.credit(config, it, taskId, minutes, manual) }
@@ -272,8 +280,10 @@ class TendStore(private val context: Context) {
         set(v) = edit { putBoolean("monitor_slept", v) }
 
     /** Answers to "What are you looking for?" and "Worth it?" — source of the weekly patterns. */
-    fun logAnswer(kind: String, pkg: String, answer: String, sessionSeconds: Long = 0) =
+    fun logAnswer(kind: String, pkg: String, answer: String, sessionSeconds: Long = 0) {
+        Stats.log(context, kind, mapOf((if (kind == "pause") "outcome" else "answer") to answer))
         append("answers.csv", "${LocalDateTime.now()},$kind,$pkg,$answer,$sessionSeconds")
+    }
 
     /** Every case where blocking did not run: monitor stopped, or an open was not caught. */
     fun logMiss(reason: String, pkg: String = "") = append("misses.csv", "${LocalDateTime.now()},$reason,$pkg")

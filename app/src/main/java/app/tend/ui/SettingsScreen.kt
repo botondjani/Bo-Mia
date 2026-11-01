@@ -62,6 +62,9 @@ fun SettingsScreen(
     /** Deletes everything and starts onboarding again. */
     onStartOver: () -> Unit = {},
     version: String = "",
+    /** Anonymous usage counts, off until the user says yes. */
+    shareStats: Boolean = false,
+    onShareStats: (Boolean) -> Unit = {},
     onReplayTour: () -> Unit,
     notesMorning: Boolean,
     notesNudges: Boolean,
@@ -148,7 +151,8 @@ fun SettingsScreen(
     var confirmReset by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     Card {
         Text("tend $version", style = MaterialTheme.typography.bodyLarge)
-        Text("Everything stays on this phone.", style = MaterialTheme.typography.bodyMedium)
+        Text(if (shareStats) "Your data stays on this phone; only anonymous counts are shared." else "Everything stays on this phone.", style = MaterialTheme.typography.bodyMedium)
+        SwitchRow("Share anonymous usage stats", "Counts like \"a pause ended in Not now\". No names, apps or health data.", shareStats, onShareStats)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
             ChipButton("Privacy", onPrivacy, filled = false)
             onFeedback?.let { ChipButton("Send feedback", it, filled = false) }

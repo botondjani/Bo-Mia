@@ -156,6 +156,7 @@ class MainActivity : ComponentActivity() {
     /** The garden card for this week, to the share sheet. */
     private fun shareGarden() {
         val week = Patterns.week(LocalDate.now(), store.daySummaries(), store.answers())
+        app.tend.data.Stats.log(this, "share_garden")
         app.tend.ui.ShareCard.share(
             this,
             app.tend.ui.ShareCard.Week(
@@ -172,6 +173,7 @@ class MainActivity : ComponentActivity() {
     private fun maybeAskReview() {
         if (store.reviewAsked || store.daysTended < 3 || store.today().completedTasks.isEmpty()) return
         store.reviewAsked = true
+        app.tend.data.Stats.log(this, "review_asked")
         Review.ask(this)
     }
 
@@ -188,7 +190,7 @@ class MainActivity : ComponentActivity() {
     private fun startOver() {
         TaskSync.stopTimer(this)
         stopService(Intent(this, MonitorService::class.java))
-        for (name in listOf("tend", "tend_monitor", "tend_ui")) getSharedPreferences(name, MODE_PRIVATE).edit().clear().commit()
+        for (name in listOf("tend", "tend_monitor", "tend_ui", app.tend.data.Stats.PREFS)) getSharedPreferences(name, MODE_PRIVATE).edit().clear().commit()
         filesDir.listFiles()?.forEach { it.deleteRecursively() }
         cacheDir.listFiles()?.forEach { it.deleteRecursively() }
         app.tend.widget.Widgets.refresh(this, force = true)
@@ -282,9 +284,16 @@ class MainActivity : ComponentActivity() {
         val nowMs = System.currentTimeMillis()
         if (store.onboarded && store.lastOpenedAt > 0 && nowMs - store.lastOpenedAt > 2 * DAY_MS) store.welcomeBackOn = LocalDate.now().toString()
         store.lastOpenedAt = nowMs
+        if (store.onboarded) app.tend.data.Stats.appOpen(this)
+        app.tend.data.Stats.flush(this)
         refresh++
         // Usage access is enough to count minutes; without the overlay the monitor nudges by notification.
         if (store.onboarded && permissions().usageAccess) MonitorService.start(this)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        app.tend.data.Stats.flush(this)
     }
 
     @Composable
@@ -362,6 +371,7 @@ class MainActivity : ComponentActivity() {
                 onFinish = {
                     store.onboarded = true
                     store.onboardedAt = System.currentTimeMillis()
+                    app.tend.data.Stats.log(this, "onboarding_done", mapOf("tasks" to store.selectedTasks.size))
                     if (permissions().usageAccess) MonitorService.start(this)
                     if (!permissions().overlay && Build.VERSION.SDK_INT >= 33 && !RecapReminder.canNotify(this)) {
                         notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) // for the fallback nudge
@@ -396,6 +406,8 @@ class MainActivity : ComponentActivity() {
                 onFeedback = getString(R.string.support_email).takeIf { it.isNotBlank() }?.let { mail -> { sendFeedback(mail) } },
                 onStartOver = ::startOver,
                 version = BuildConfig.VERSION_NAME,
+                shareStats = app.tend.data.Stats.consent(this) == true,
+                onShareStats = { app.tend.data.Stats.setConsent(this, it); refresh++ },
                 onReplayTour = { store.tourDone = false; screen = Screen.HOME },
                 notesMorning = store.notesMorning,
                 notesNudges = store.notesNudges,
@@ -523,6 +535,8 @@ class MainActivity : ComponentActivity() {
                 onAddWidget = ::pinWidget,
                 notesOff = !store.reminderPrompted && !(store.reminderEnabled && RecapReminder.canNotify(this@MainActivity)),
                 onAllowNotes = ::allowNotes,
+                askStats = app.tend.data.Stats.consent(this) == null,
+                onShareStats = { app.tend.data.Stats.setConsent(this, true); refresh++ },
                 showTour = !store.tourDone,
                 exerciseTracked = store.exerciseTracked,
                 sleepEstimated = store.sleepEstimatedOn == LocalDate.now().toString(),

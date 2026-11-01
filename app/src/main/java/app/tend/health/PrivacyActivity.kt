@@ -39,7 +39,7 @@ class PrivacyActivity : ComponentActivity() {
                 ) {
                     Text("Your privacy", style = MaterialTheme.typography.headlineLarge)
                     Text(
-                        "Everything tend knows stays on your phone. No account, no servers, no ads, no tracking. Nothing is sent anywhere.",
+                        "Everything tend knows stays on your phone. No account, no ads, no tracking.",
                         style = MaterialTheme.typography.bodyLarge,
                     )
                     Text("WHAT TEND USES, AND WHY", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
@@ -50,6 +50,8 @@ class PrivacyActivity : ComponentActivity() {
                             "With background access, a finished walk counts without opening tend. tend only reads; it never writes or shares health data.",
                         "Notifications, if you allow them: the morning plan, a heads-up at 10 minutes left, the evening recap, the Sunday letter.",
                         "Your installed apps: only to let you pick which ones to pause.",
+                        "Anonymous usage stats, only if you say yes: counts like \"a pause ended in Not now\" or \"a walk was done\", " +
+                            "with a random id and the day since install. No names, app names or health data. Off any time in Settings.",
                     ).forEach { Text("• $it", style = MaterialTheme.typography.bodyLarge) }
                     Text(
                         "To delete everything: Settings → Start over, or uninstall tend. Health Connect access can be turned off any time in Health Connect.",

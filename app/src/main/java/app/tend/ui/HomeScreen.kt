@@ -102,6 +102,9 @@ fun HomeScreen(
     /** Notes haven't been offered yet: the last of the next steps. */
     notesOff: Boolean = false,
     onAllowNotes: () -> Unit = {},
+    /** Not asked yet about anonymous usage stats: the last, optional step. */
+    askStats: Boolean = false,
+    onShareStats: () -> Unit = {},
     /** First run: Bo walks through the screen once. */
     showTour: Boolean = false,
     onTourDone: () -> Unit = {},
@@ -190,12 +193,13 @@ fun HomeScreen(
         val needsHealth = tasks.any { it.verification == Verification.AUTOMATIC } &&
             (health == HealthConnect.Status.NEEDS_PERMISSION || health == HealthConnect.Status.NEEDS_INSTALL)
         if (monitorSlept && batteryRisk) Notice("alert", "${avatar.displayName} fell asleep in the background", "Your phone paused tend for a while. Tap to keep ${avatar.displayName} awake.", onKeepAwake)
-        val nextSteps = showNextSteps && (needsHealth || batteryRisk || (!nextStepsImportantOnly && (!widgetPlaced || notesOff)))
+        val nextSteps = showNextSteps && (needsHealth || batteryRisk || (!nextStepsImportantOnly && (!widgetPlaced || notesOff || askStats)))
         if (nextSteps) NextSteps(
             avatar,
             widget = !widgetPlaced && !nextStepsImportantOnly, onWidget = { if (onAddWidget()) pinWaitingSince = System.currentTimeMillis() else widgetGuide = true },
             health = if (needsHealth) health else null, onHealth = onConnectHealth,
             notes = notesOff && !nextStepsImportantOnly, onNotes = onAllowNotes,
+            stats = askStats && !nextStepsImportantOnly, onStats = onShareStats,
             battery = batteryRisk && !monitorSlept, onBattery = onKeepAwake,
             onDismiss = onNextStepsDone,
         ) else if (needsHealth) {
@@ -372,6 +376,7 @@ private fun NextSteps(
     widget: Boolean, onWidget: () -> Unit,
     health: HealthConnect.Status?, onHealth: () -> Unit,
     notes: Boolean, onNotes: () -> Unit,
+    stats: Boolean, onStats: () -> Unit,
     battery: Boolean, onBattery: () -> Unit,
     onDismiss: () -> Unit,
 ) = Column(Modifier.fillMaxWidth().surface(radius = 24.dp).padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -394,6 +399,7 @@ private fun NextSteps(
         },
         if (widget) Step("sun", "Put ${avatar.displayName} on your home screen", "Tap, and your launcher asks where. Your minutes at a glance.", onWidget) else null,
         if (notes) Step("moon", "Little notes from ${avatar.displayName}", "A morning plan, a heads-up at 10 minutes left, tonight's recap. At most 3 a day.", onNotes) else null,
+        if (stats) Step("sparkle", "Help make tend better", "Tap to share anonymous counts, like how often a pause helped. No names, apps or health data. Off any time in Settings.", onStats) else null,
     )
     // Swipe through them; dots show how many.
     val pager = androidx.compose.foundation.pager.rememberPagerState { steps.size }

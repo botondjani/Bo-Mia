@@ -6,5 +6,5 @@
     <string name="widget_face_description">Your companion, in today\'s mood</string>
     <string name="widget_garden_description">Your garden and the minutes left today</string>
     <!-- Support address for "Send feedback" in settings; leave empty to hide the button. -->
-    <string name="support_email" translatable="false"></string>
+    <string name="support_email" translatable="false">botondjani@gmail.com</string>
 </resources>
