@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -11,7 +13,7 @@ android {
     defaultConfig {
         applicationId = "app.tend"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
         // Rive ships native code per CPU; phones only need ARM. (x86 emulators are left out.)
@@ -20,18 +22,37 @@ android {
     // Compress the native libraries in the side-loaded APK; they are unpacked at install.
     packaging { jniLibs { useLegacyPackaging = true } }
 
+    // The upload key lives outside the repo: keystore.properties (storeFile, storePassword, keyAlias,
+    // keyPassword) next to settings.gradle.kts. Without it, release builds use the debug key.
+    val keys = rootProject.file("keystore.properties").takeIf { it.exists() }?.let { f -> Properties().apply { f.inputStream().use(::load) } }
+    signingConfigs {
+        if (keys != null) create("upload") {
+            storeFile = rootProject.file(keys.getProperty("storeFile"))
+            storePassword = keys.getProperty("storePassword")
+            keyAlias = keys.getProperty("keyAlias")
+            keyPassword = keys.getProperty("keyPassword")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Test APK: signed with the debug key so it can be side-loaded.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
         }
+    }
+
+    // sideload: the APK testers install by hand. play: the bundle for Google Play (no direct
+    // battery-optimisation request, which Play allows only for a few kinds of apps).
+    flavorDimensions += "store"
+    productFlavors {
+        create("sideload") { dimension = "store"; buildConfigField("boolean", "PLAY", "false") }
+        create("play") { dimension = "store"; buildConfigField("boolean", "PLAY", "true") }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
 }
 
 kotlin {

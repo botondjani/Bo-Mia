@@ -1,0 +1,22 @@
+<!doctype html><html><head><style>
+html,body{margin:0;background:transparent;overflow:hidden}
+canvas{display:block}
+</style></head><body>
+<canvas id="c"></canvas>
+<script src="node_modules/@rive-app/canvas/rive.js"></script>
+<script>
+const q = new URLSearchParams(location.search);
+const size = +(q.get('size') || 1080);
+if (q.get('bg')) document.body.style.background = q.get('bg');
+const c = document.getElementById('c'); c.width = size; c.height = size; c.style.width = size + 'px'; c.style.height = size + 'px';
+const inputs = JSON.parse(q.get('in') || '{}');
+const r = new rive.Rive({
+  src: 'char.riv', canvas: c, stateMachines: 'Mood', autoplay: true,
+  onLoad: () => {
+    r.resizeDrawingSurfaceToCanvas();
+    for (const i of r.stateMachineInputs('Mood')) if (i.name in inputs) i.value = inputs[i.name];
+    window.loaded = true;
+  },
+});
+window.tap = () => { const t = r.stateMachineInputs('Mood').find(i => i.name === 'tap'); t && t.fire(); };
+</script></body></html>

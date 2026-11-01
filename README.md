@@ -51,12 +51,17 @@ Logs are written to the app's private storage: `answers.csv` (looking-for and wo
 
 ## Build
 
-Requires JDK 17+ and the Android SDK (platform 36). Start-up: Android 12+ shows Bo on sage as the splash, the installed-app list loads on a background thread, and the intro's feed animation draws without recomposing. The APK contains ARM native code only (Rive), so it runs on phones but not on x86 emulators.
+Requires JDK 17+ and the Android SDK (platform 36). Start-up: Android 12+ shows Bo on sage as the splash, the installed-app list loads on a background thread, and the intro's feed animation draws without recomposing. Targets Android 16 (API 36); themed (monochrome) icon included. The APK contains ARM native code only (Rive), so it runs on phones but not on x86 emulators.
+
+Two flavors: **sideload** (the APK testers install by hand) and **play** (the Google Play bundle: no direct battery-optimisation request, which Play allows only for a few kinds of apps). Release builds are signed with the upload key from `keystore.properties` (not in the repo; see `docs/play/store-listing.md`), or the debug key without it.
 
 ```bash
-./gradlew testDebugUnitTest   # domain logic tests
-./gradlew assembleRelease     # app/build/outputs/apk/release/app-release.apk (signed with the debug key, for side-loading)
+./gradlew testSideloadDebugUnitTest  # domain logic tests
+./gradlew assembleSideloadRelease    # app/build/outputs/apk/sideload/release/app-sideload-release.apk
+./gradlew bundlePlayRelease          # app/build/outputs/bundle/playRelease/app-play-release.aab
 ```
+
+Google Play: listing texts, form answers (data safety, foreground service, Health Connect) and graphics are in `docs/play/`; the privacy policy page is `docs/privacy/index.html`. `tools/store/` regenerates the store graphics and the Bo video clips (Rive web runtime + Playwright + ffmpeg).
 
 ## Test setup on the phone
 

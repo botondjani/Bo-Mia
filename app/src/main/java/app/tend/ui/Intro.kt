@@ -191,7 +191,7 @@ private fun PauseDemo(active: Boolean, name: String) {
             }
         }
         Box(Modifier.fillMaxWidth().height(46.dp).clip(RoundedCornerShape(16.dp)).background(Brand.Moss), contentAlignment = Alignment.Center) {
-            Text("Read with $name instead", style = MaterialTheme.typography.labelLarge, color = Color.White)
+            Text("Do something with $name instead", style = MaterialTheme.typography.labelLarge, color = Color.White)
         }
         Box(Modifier.fillMaxWidth().height(42.dp).clip(RoundedCornerShape(16.dp)).background(Brand.Mint.copy(alpha = 0.22f)), contentAlignment = Alignment.Center) {
             Text("Not now", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)

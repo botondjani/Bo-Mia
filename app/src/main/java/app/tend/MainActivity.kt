@@ -156,9 +156,15 @@ class MainActivity : ComponentActivity() {
     /** Asks Android to let tend run in the background: one "Allow" in a system dialog. */
     private fun keepAwake() {
         store.monitorSlept = false
-        @android.annotation.SuppressLint("BatteryLife") // side-loaded companion app; the pause depends on it
-        val ask = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))
-        open(ask, Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+        if (BuildConfig.PLAY) {
+            // Play build: the system list, where the user picks tend and "Don't optimise".
+            hint("Find tend and choose \"Don't optimise\"")
+            open(highlightTend(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)))
+        } else {
+            @android.annotation.SuppressLint("BatteryLife") // side-loaded build; the pause depends on it
+            val ask = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))
+            open(ask, Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+        }
         refresh++
     }
 
