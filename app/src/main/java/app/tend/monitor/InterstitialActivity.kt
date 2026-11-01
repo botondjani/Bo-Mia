@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Button
@@ -227,37 +228,41 @@ class InterstitialActivity : ComponentActivity() {
     }
 
     /**
-     * Ways in: "Quick peek" right away for one minute (five a day), or after the countdown for
-     * 5 or 15 minutes. When the time is up, tend checks in again.
+     * Ways in, side by side: 1 min right away (five a day), 5 or 15 min after the countdown.
+     * When the time is up, tend checks in again.
      */
     @Composable
     private fun OpenLinks(v: View, left: Int, openFor: (Int) -> Unit) {
         val quick = store.quickLooksLeft()
-        // The count shows only when it starts to matter.
-        if (quick > 0) Text(
-            if (quick <= 2) "Quick peek · 1 min · $quick left" else "Quick peek · 1 min",
-            style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-                .clickable { store.useQuickLook(); openFor(1) }.padding(vertical = 8.dp),
+        Text(
+            "Open ${v.label} for",
+            style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
         )
-        if (left > 0) {
-            Text(
-                "Open ${v.label} for longer in $left s", style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
-                textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-            )
-            return
-        }
-        Text("Open ${v.label} for", style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // 1 min: right away, no wait (five a day). Filled, so it reads as "this one works now".
+            if (quick > 0) OpenChip(
+                "1 min", if (quick <= 2) "now · $quick left" else "now",
+                enabled = true, filled = true, modifier = Modifier.weight(1f).fillMaxHeight(),
+            ) { store.useQuickLook(); openFor(1) }
             app.tend.core.TimeBox.CHOICES.forEach { minutes ->
-                Text(
-                    "$minutes min", style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = TextAlign.Center,
-                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
-                        .border(1.5.dp, Brand.Mint, RoundedCornerShape(14.dp))
-                        .clickable { openFor(minutes) }.padding(vertical = 12.dp),
-                )
+                OpenChip(
+                    "$minutes min", if (left > 0) "in $left s" else "open",
+                    enabled = left == 0, filled = false, modifier = Modifier.weight(1f).fillMaxHeight(),
+                ) { openFor(minutes) }
             }
         }
+    }
+
+    @Composable
+    private fun OpenChip(title: String, caption: String, enabled: Boolean, filled: Boolean, modifier: Modifier, onClick: () -> Unit) = Column(
+        modifier.clip(RoundedCornerShape(14.dp))
+            .background(if (filled) Brand.Mint.copy(alpha = 0.35f) else Color.Transparent)
+            .border(1.5.dp, if (enabled) Brand.Mint else Brand.Mint.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
+            .clickable(enabled = enabled, onClick = onClick).padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(title, style = MaterialTheme.typography.labelLarge, color = if (enabled) Brand.Moss else Brand.Muted, maxLines = 1)
+        Text(caption, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted, maxLines = 1)
     }
 
     /** A scheduled lock: no way in until it ends, only something better or "Not now". */

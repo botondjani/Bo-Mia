@@ -251,14 +251,19 @@ fun CompanionPicker(avatar: Avatar, onAvatar: (Avatar) -> Unit, compact: Boolean
             val selected = a == avatar
             // Settings: a small face and the name side by side.
             if (compact) Row(
-                Modifier.weight(1f).clip(RoundedCornerShape(20.dp)).background(Brand.Card)
-                    .border(2.dp, if (selected) Brand.Moss else Color.Transparent, RoundedCornerShape(20.dp))
-                    .clickable { onAvatar(a) }.padding(horizontal = 12.dp, vertical = 8.dp),
+                Modifier.weight(1f).clip(RoundedCornerShape(20.dp)).background(if (selected) Brand.Picked else Brand.Card)
+                    .border(if (selected) 2.dp else 1.dp, if (selected) Brand.Moss else Brand.Mint.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
+                    .clickable { onAvatar(a) }.padding(horizontal = 10.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
             ) {
-                CharacterView(a, Mood.HAPPY, 52.dp)
-                Spacer(Modifier.width(10.dp))
-                Text(a.displayName, style = MaterialTheme.typography.titleMedium)
+                CharacterView(a, Mood.HAPPY, 48.dp)
+                Spacer(Modifier.width(8.dp))
+                Text(a.displayName, style = MaterialTheme.typography.titleMedium, color = if (selected) Brand.Moss else Brand.Ink)
+                if (selected) {
+                    Spacer(Modifier.width(6.dp))
+                    androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, tint = Brand.Moss, modifier = Modifier.size(18.dp))
+                }
             } else Column(
                 Modifier.weight(1f).clip(RoundedCornerShape(24.dp)).background(Brand.Card)
                     .border(3.dp, if (selected) Brand.Moss else Color.Transparent, RoundedCornerShape(24.dp))
@@ -523,11 +528,19 @@ private fun RestrictedHelp(onAppInfo: () -> Unit) = Column(
  * placed, the button turns into a confirmation.
  */
 @Composable
-fun WidgetButton(avatar: Avatar) {
+fun WidgetButton(avatar: Avatar, onAddWidget: () -> Boolean) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var isPlaced by remember { mutableStateOf(WidgetKind.anyPlaced(context)) }
     var guide by rememberSaveable { mutableStateOf(false) }
+    var waiting by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { while (!isPlaced) { kotlinx.coroutines.delay(1500); isPlaced = WidgetKind.anyPlaced(context) } }
+    // Some launchers say yes and then show nothing: after a few seconds, the guide takes over.
+    LaunchedEffect(waiting) {
+        if (!waiting) return@LaunchedEffect
+        kotlinx.coroutines.delay(6000)
+        waiting = false
+        if (!WidgetKind.anyPlaced(context)) guide = true
+    }
 
     if (isPlaced) Row(
         Modifier.fillMaxWidth().surface(radius = 18.dp).padding(14.dp),
@@ -537,7 +550,14 @@ fun WidgetButton(avatar: Avatar) {
         androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, tint = Brand.Moss)
         Spacer(Modifier.width(Space.s))
         Text("${avatar.displayName} is on your home screen", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
-    } else SecondaryButton("Put ${avatar.displayName} on your home screen", { guide = true })
+    } else {
+        SecondaryButton("Put ${avatar.displayName} on your home screen", { if (onAddWidget()) waiting = true else guide = true })
+        // The bigger ones (with minutes, the garden) are in the phone's own widget list.
+        Text(
+            "Other sizes: your phone's widget list", style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+            textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { guide = true }.padding(vertical = 8.dp),
+        )
+    }
 
     if (guide) WidgetGuideDialog(avatar) { guide = false }
 }

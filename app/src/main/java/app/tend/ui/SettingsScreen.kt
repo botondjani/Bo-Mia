@@ -59,6 +59,8 @@ fun SettingsScreen(
     onPrivacy: () -> Unit = {},
     /** Mail to the support address; null when none is set. */
     onFeedback: (() -> Unit)? = null,
+    /** Asks the launcher to place the widget in its own dialog; false when it can't. */
+    onAddWidget: () -> Boolean = { false },
     /** Deletes everything and starts onboarding again. */
     onStartOver: () -> Unit = {},
     version: String = "",
@@ -140,7 +142,7 @@ fun SettingsScreen(
         Text("Auto follows your phone.", style = MaterialTheme.typography.bodyMedium)
     }
     Text("HOME SCREEN", style = MaterialTheme.typography.labelSmall)
-    WidgetButton(avatar)
+    WidgetButton(avatar, onAddWidget)
     Text(
         if (missCount == 0) "Diagnostics · no blocking misses logged" else "Diagnostics · $missCount blocking misses logged",
         style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = Space.s),

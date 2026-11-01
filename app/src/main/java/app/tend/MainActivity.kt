@@ -218,6 +218,9 @@ class MainActivity : ComponentActivity() {
 
     /** From the end of onboarding: notes on, the recap reminder included, asking Android if needed. */
     private fun allowNotes() {
+        store.eveningPause = true
+        store.weeklyLetter = true
+        WeeklyLetter.schedule(this)
         store.reminderPrompted = true
         store.reminderEnabled = true
         store.notesMorning = true
@@ -401,6 +404,7 @@ class MainActivity : ComponentActivity() {
                 onPrivacy = { startActivity(Intent(this, app.tend.health.PrivacyActivity::class.java)) },
                 onFeedback = getString(R.string.support_email).takeIf { it.isNotBlank() }?.let { mail -> { sendFeedback(mail) } },
                 onStartOver = ::startOver,
+                onAddWidget = ::pinWidget,
                 version = BuildConfig.VERSION_NAME,
                 shareStats = app.tend.data.Stats.consent(this) == true,
                 onShareStats = { app.tend.data.Stats.setConsent(this, it); refresh++ },
@@ -509,12 +513,8 @@ class MainActivity : ComponentActivity() {
                 onOpenSettings = { screen = Screen.SETTINGS },
                 onOpenGarden = { screen = Screen.GARDEN },
                 onOpenRecap = { screen = Screen.RECAP },
-                // Not during onboarding: from the second day on, until placed or seen.
-                // A little after onboarding (and the tour), not right away.
-                showNextSteps = store.tourDone && (
-                    (!store.widgetTipDone && now - store.onboardedAt > NEXT_STEPS_AFTER_MS) ||
-                        (store.widgetTipDone && store.nextStepsAgainAt in 1..now)
-                    ),
+                // Right after the tour; after a "Not now", the important ones once more a week later.
+                showNextSteps = store.tourDone && (!store.widgetTipDone || store.nextStepsAgainAt in 1..now),
                 // Coming back a week after "Not now": only what keeps tend working (battery, Health Connect).
                 nextStepsImportantOnly = store.widgetTipDone,
                 widgetPlaced = widgetPlaced(),
@@ -528,16 +528,11 @@ class MainActivity : ComponentActivity() {
                 batteryRisk = !getSystemService(android.os.PowerManager::class.java).isIgnoringBatteryOptimizations(packageName),
                 monitorSlept = store.monitorSlept,
                 onKeepAwake = ::keepAwake,
-                notesOff = !store.reminderPrompted && !(store.reminderEnabled && RecapReminder.canNotify(this@MainActivity)),
+                // One "calm evenings" step: the recap and notes, sleepy pauses, the Sunday letter.
+                notesOff = !store.eveningPause || !store.weeklyLetter ||
+                    (!store.reminderPrompted && !(store.reminderEnabled && RecapReminder.canNotify(this@MainActivity))),
                 onAllowNotes = ::allowNotes,
-                askStats = app.tend.data.Stats.consent(this) == null,
-                sleepyOff = !store.eveningPause,
-                onSleepy = { store.eveningPause = true; refresh++ },
-                bedtimeOff = store.lockSchedules.none { it.on },
-                onBedtime = { store.setLockSchedule(app.tend.core.LockSchedule.BEDTIME.copy(on = true)); refresh++ },
-                letterOff = !store.weeklyLetter,
-                onLetter = { setWeeklyLetter(true) },
-                onShareStats = { app.tend.data.Stats.setConsent(this, true); refresh++ },
+                onAddWidget = ::pinWidget,
                 showTour = !store.tourDone,
                 exerciseTracked = store.exerciseTracked,
                 sleepEstimated = store.sleepEstimatedOn == LocalDate.now().toString(),
@@ -686,6 +681,15 @@ class MainActivity : ComponentActivity() {
     /** Null when the launcher can't pin widgets from inside the app. */
     private fun widgetPlaced() = app.tend.ui.WidgetKind.anyPlaced(this)
 
+    /** Asks the launcher to place the 1x1 widget (its own dialog); false when it can't. */
+    private fun pinWidget(): Boolean {
+        val manager = android.appwidget.AppWidgetManager.getInstance(this)
+        if (!manager.isRequestPinAppWidgetSupported) return false
+        return runCatching {
+            manager.requestPinAppWidget(android.content.ComponentName(this, app.tend.ui.WidgetKind.FACE.provider), null, null)
+        }.getOrDefault(false)
+    }
+
     private fun permissions(): Permissions {
         val ops = getSystemService(AppOpsManager::class.java)
         val usage = if (Build.VERSION.SDK_INT >= 29) {
@@ -698,7 +702,6 @@ class MainActivity : ComponentActivity() {
     }
 
     private companion object {
-        const val NEXT_STEPS_AFTER_MS = 45_000L
         const val DAY_MS = 24 * 3_600_000L
     }
 }

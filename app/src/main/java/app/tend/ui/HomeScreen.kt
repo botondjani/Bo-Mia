@@ -100,15 +100,8 @@ fun HomeScreen(
     notesOff: Boolean = false,
     onAllowNotes: () -> Unit = {},
     /** Not asked yet about anonymous usage stats: the last, optional step. */
-    askStats: Boolean = false,
-    onShareStats: () -> Unit = {},
-    /** Evening extras that are still off: sleepy pauses, the bedtime lock, the Sunday letter. */
-    sleepyOff: Boolean = false,
-    onSleepy: () -> Unit = {},
-    bedtimeOff: Boolean = false,
-    onBedtime: () -> Unit = {},
-    letterOff: Boolean = false,
-    onLetter: () -> Unit = {},
+    /** Asks the launcher to place the widget in its own dialog; false when it can't. */
+    onAddWidget: () -> Boolean = { false },
     /** First run: Bo walks through the screen once. */
     showTour: Boolean = false,
     onTourDone: () -> Unit = {},
@@ -120,6 +113,14 @@ fun HomeScreen(
     val tour = androidx.compose.runtime.remember { TourTargets() }
     var widgetGuide by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     if (widgetGuide) WidgetGuideDialog(avatar) { widgetGuide = false }
+    // Some launchers say yes to placing a widget and then show nothing: after a few seconds, the guide takes over.
+    var pinWaitingSince by androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+    androidx.compose.runtime.LaunchedEffect(pinWaitingSince) {
+        if (pinWaitingSince == 0L) return@LaunchedEffect
+        kotlinx.coroutines.delay(6000)
+        pinWaitingSince = 0L
+        if (!widgetPlaced) widgetGuide = true
+    }
     val remaining = Budget.remainingMinutes(cfg, day)
     val context = androidx.compose.ui.platform.LocalContext.current
     val mood = Moods.atNight(Moods.of(cfg, day), app.tend.core.Garden.isNight(app.tend.data.TendStore(context).eveningFrom))
@@ -189,16 +190,12 @@ fun HomeScreen(
         val needsHealth = tasks.any { it.verification == Verification.AUTOMATIC } &&
             (health == HealthConnect.Status.NEEDS_PERMISSION || health == HealthConnect.Status.NEEDS_INSTALL)
         if (monitorSlept && batteryRisk) Notice("alert", "${avatar.displayName} fell asleep in the background", "Your phone paused tend for a while. Tap to keep ${avatar.displayName} awake.", onKeepAwake)
-        val nextSteps = showNextSteps && (needsHealth || batteryRisk || (!nextStepsImportantOnly && (!widgetPlaced || notesOff || askStats || sleepyOff || bedtimeOff || letterOff)))
+        val nextSteps = showNextSteps && (needsHealth || batteryRisk || (!nextStepsImportantOnly && (!widgetPlaced || notesOff)))
         if (nextSteps) NextSteps(
             avatar,
-            widget = !widgetPlaced && !nextStepsImportantOnly, onWidget = { widgetGuide = true },
+            widget = !widgetPlaced && !nextStepsImportantOnly, onWidget = { if (onAddWidget()) pinWaitingSince = System.currentTimeMillis() else widgetGuide = true },
             health = if (needsHealth) health else null, onHealth = onConnectHealth,
             notes = notesOff && !nextStepsImportantOnly, onNotes = onAllowNotes,
-            stats = askStats && !nextStepsImportantOnly, onStats = onShareStats,
-            sleepy = sleepyOff && !nextStepsImportantOnly, onSleepy = onSleepy,
-            bedtime = bedtimeOff && !nextStepsImportantOnly, onBedtime = onBedtime,
-            letter = letterOff && !nextStepsImportantOnly, onLetter = onLetter,
             battery = batteryRisk && !monitorSlept, onBattery = onKeepAwake,
             onDismiss = onNextStepsDone,
         ) else if (needsHealth) {
@@ -375,10 +372,6 @@ private fun NextSteps(
     widget: Boolean, onWidget: () -> Unit,
     health: HealthConnect.Status?, onHealth: () -> Unit,
     notes: Boolean, onNotes: () -> Unit,
-    stats: Boolean, onStats: () -> Unit,
-    sleepy: Boolean, onSleepy: () -> Unit,
-    bedtime: Boolean, onBedtime: () -> Unit,
-    letter: Boolean, onLetter: () -> Unit,
     battery: Boolean, onBattery: () -> Unit,
     onDismiss: () -> Unit,
 ) = Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -393,12 +386,8 @@ private fun NextSteps(
                 "Walks, workouts and sleep count by themselves.", "Connect", onHealth,
             )
         },
-        if (widget) Step("sun", "Put $name on your home screen", "Pick a size from your phone's widget list.", "Add", onWidget) else null,
-        if (notes) Step("moon", "Tonight's recap", "Your day each evening, a plan each morning.", "Turn on", onNotes) else null,
-        if (sleepy) Step("moon", "Sleepy evenings", "Slower pauses and a sleepy $name at night.", "Turn on", onSleepy) else null,
-        if (bedtime) Step("moon", "A calm bedtime", "Picked apps stay closed from 23:00 to 7:00.", "Turn on", onBedtime) else null,
-        if (letter) Step("sun", "The Sunday letter", "Your week in a short letter, on Sundays.", "Turn on", onLetter) else null,
-        if (stats) Step("sparkle", "Help make tend better", "Anonymous counts only. No names, no apps.", "Share", onStats) else null,
+        if (widget) Step("sun", "Put $name on your home screen", "$name at a glance, next to your apps.", "Add", onWidget) else null,
+        if (notes) Step("moon", "Calm evenings", "An evening recap, sleepy pauses at night and a Sunday letter.", "Turn on", onNotes) else null,
     )
     val pager = androidx.compose.foundation.pager.rememberPagerState { steps.size }
     Row(verticalAlignment = Alignment.CenterVertically) {
