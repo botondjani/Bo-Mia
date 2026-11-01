@@ -1,9 +1,7 @@
 package app.tend
 
 import android.app.AppOpsManager
-import android.appwidget.AppWidgetManager
 import android.content.ActivityNotFoundException
-import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -390,7 +388,6 @@ class MainActivity : ComponentActivity() {
                 tasks = store.selectedTasks,
                 onToggleTask = toggleTask,
                 missCount = store.missCount(),
-                onAddWidget = ::pinWidget,
                 reminderEnabled = store.reminderEnabled,
                 onReminder = ::setReminder,
                 eveningFrom = store.eveningFrom,
@@ -531,7 +528,6 @@ class MainActivity : ComponentActivity() {
                 batteryRisk = !getSystemService(android.os.PowerManager::class.java).isIgnoringBatteryOptimizations(packageName),
                 monitorSlept = store.monitorSlept,
                 onKeepAwake = ::keepAwake,
-                onAddWidget = ::pinWidget,
                 notesOff = !store.reminderPrompted && !(store.reminderEnabled && RecapReminder.canNotify(this@MainActivity)),
                 onAllowNotes = ::allowNotes,
                 askStats = app.tend.data.Stats.consent(this) == null,
@@ -689,13 +685,6 @@ class MainActivity : ComponentActivity() {
 
     /** Null when the launcher can't pin widgets from inside the app. */
     private fun widgetPlaced() = app.tend.ui.WidgetKind.anyPlaced(this)
-
-    /** Asks the launcher to place the widget; false when it can't or won't (then the user adds it by hand). */
-    private fun pinWidget(kind: app.tend.ui.WidgetKind): Boolean {
-        val manager = AppWidgetManager.getInstance(this)
-        if (!manager.isRequestPinAppWidgetSupported) return false
-        return runCatching { manager.requestPinAppWidget(ComponentName(this, kind.provider), null, null) }.getOrDefault(false)
-    }
 
     private fun permissions(): Permissions {
         val ops = getSystemService(AppOpsManager::class.java)

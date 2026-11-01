@@ -96,8 +96,6 @@ fun HomeScreen(
     /** It did stop it for a while: say so on home, with the fix. */
     monitorSlept: Boolean = false,
     onKeepAwake: () -> Unit = {},
-    /** Asks the launcher to place the widget; false when it can't. */
-    onAddWidget: (WidgetKind) -> Boolean = { false },
     /** Notes haven't been offered yet: the last of the next steps. */
     notesOff: Boolean = false,
     onAllowNotes: () -> Unit = {},
@@ -122,19 +120,6 @@ fun HomeScreen(
     val tour = androidx.compose.runtime.remember { TourTargets() }
     var widgetGuide by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     if (widgetGuide) WidgetGuideDialog(avatar) { widgetGuide = false }
-    // Some launchers say yes to placing a widget and then show nothing: after a few seconds, the guide takes over.
-    var pinWaitingSince by androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(0L) }
-    androidx.compose.runtime.LaunchedEffect(pinWaitingSince) {
-        if (pinWaitingSince == 0L) return@LaunchedEffect
-        kotlinx.coroutines.delay(5000)
-        pinWaitingSince = 0L
-        if (!widgetPlaced) widgetGuide = true
-    }
-    var chooseWidget by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
-    if (chooseWidget) WidgetChooser(avatar, onDismiss = { chooseWidget = false }) { kind ->
-        chooseWidget = false
-        if (onAddWidget(kind)) pinWaitingSince = System.currentTimeMillis() else widgetGuide = true
-    }
     val remaining = Budget.remainingMinutes(cfg, day)
     val context = androidx.compose.ui.platform.LocalContext.current
     val mood = Moods.atNight(Moods.of(cfg, day), app.tend.core.Garden.isNight(app.tend.data.TendStore(context).eveningFrom))
@@ -207,7 +192,7 @@ fun HomeScreen(
         val nextSteps = showNextSteps && (needsHealth || batteryRisk || (!nextStepsImportantOnly && (!widgetPlaced || notesOff || askStats || sleepyOff || bedtimeOff || letterOff)))
         if (nextSteps) NextSteps(
             avatar,
-            widget = !widgetPlaced && !nextStepsImportantOnly, onWidget = { chooseWidget = true },
+            widget = !widgetPlaced && !nextStepsImportantOnly, onWidget = { widgetGuide = true },
             health = if (needsHealth) health else null, onHealth = onConnectHealth,
             notes = notesOff && !nextStepsImportantOnly, onNotes = onAllowNotes,
             stats = askStats && !nextStepsImportantOnly, onStats = onShareStats,
@@ -401,19 +386,19 @@ private fun NextSteps(
     val name = avatar.displayName
     val steps = listOfNotNull(
         // First, so the pause keeps working: one "Allow" in a system dialog.
-        if (battery) Step("sparkle", "Keep $name awake", "Phones pause apps in the background to save battery. One tap keeps the pause working.", "Keep awake", onBattery) else null,
+        if (battery) Step("sparkle", "Keep $name awake", "Keeps the pause working in the background.", "Allow", onBattery) else null,
         health?.let {
             Step(
                 "heart", if (it == HealthConnect.Status.NEEDS_INSTALL) "Get Health Connect" else "Connect Health Connect",
-                "Walks count by themselves. Got a smartwatch? Then sleep and workouts do too.", "Connect", onHealth,
+                "Walks, workouts and sleep count by themselves.", "Connect", onHealth,
             )
         },
-        if (widget) Step("sun", "Put $name on your home screen", "Pick a size: just $name, $name with your minutes, or the whole garden.", "Choose a widget", onWidget) else null,
-        if (notes) Step("moon", "Tonight's recap", "$name sums up your day in the evening, plus a morning plan and a heads-up at 10 minutes left. At most 3 a day.", "Turn on", onNotes) else null,
-        if (sleepy) Step("moon", "Sleepy evenings", "In the evening the pause waits a little longer and $name gets sleepy. Easier to put the phone down.", "Turn on", onSleepy) else null,
-        if (bedtime) Step("moon", "A calm bedtime", "From 23:00 to 7:00 the picked apps stay closed. Change the hours in Settings.", "Turn on", onBedtime) else null,
-        if (letter) Step("sun", "The Sunday letter", "A short letter from $name about your week, on Sunday evening.", "Turn on", onLetter) else null,
-        if (stats) Step("sparkle", "Help make tend better", "Share anonymous counts, like how often a pause helped. No names, apps or health data. Off any time in Settings.", "Share counts", onStats) else null,
+        if (widget) Step("sun", "Put $name on your home screen", "Pick a size from your phone's widget list.", "Add", onWidget) else null,
+        if (notes) Step("moon", "Tonight's recap", "Your day each evening, a plan each morning.", "Turn on", onNotes) else null,
+        if (sleepy) Step("moon", "Sleepy evenings", "Slower pauses and a sleepy $name at night.", "Turn on", onSleepy) else null,
+        if (bedtime) Step("moon", "A calm bedtime", "Picked apps stay closed from 23:00 to 7:00.", "Turn on", onBedtime) else null,
+        if (letter) Step("sun", "The Sunday letter", "Your week in a short letter, on Sundays.", "Turn on", onLetter) else null,
+        if (stats) Step("sparkle", "Help make tend better", "Anonymous counts only. No names, no apps.", "Share", onStats) else null,
     )
     val pager = androidx.compose.foundation.pager.rememberPagerState { steps.size }
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -433,17 +418,30 @@ private fun NextSteps(
         pageSpacing = 10.dp, verticalAlignment = Alignment.Top,
     ) { i ->
         val step = steps[i]
-        Column(
-            Modifier.fillMaxWidth().surface(radius = 24.dp).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+        // One slim row: icon, two lines of text, and a small pill that does it. A soft mint wash
+        // and a hairline edge set it apart from the activity cards below.
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
+                .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Brand.Card, Brand.Mint.copy(alpha = 0.22f))))
+                .border(1.dp, Brand.Mint.copy(alpha = 0.55f), RoundedCornerShape(22.dp))
+                .tappable(onClick = step.action)
+                .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TendIcons.Badge(step.icon, 40.dp)
-                Spacer(Modifier.width(12.dp))
-                Text(step.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            TendIcons.Badge(step.icon, 36.dp)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(step.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Text(
+                    step.body, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Brand.Muted,
+                    minLines = 2, maxLines = 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
             }
-            Text(step.body, style = MaterialTheme.typography.bodyMedium, minLines = 3)
-            ChipButton(step.cta, step.action)
+            Spacer(Modifier.width(8.dp))
+            Text(
+                step.cta, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), color = Color.White, maxLines = 1,
+                modifier = Modifier.clip(RoundedCornerShape(50)).background(Brand.Moss).padding(horizontal = 12.dp, vertical = 7.dp),
+            )
         }
     }
     if (steps.size > 1) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {

@@ -523,20 +523,11 @@ private fun RestrictedHelp(onAppInfo: () -> Unit) = Column(
  * placed, the button turns into a confirmation.
  */
 @Composable
-fun WidgetButton(avatar: Avatar, onAddWidget: (WidgetKind) -> Boolean) {
+fun WidgetButton(avatar: Avatar) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    fun placed() = WidgetKind.anyPlaced(context)
-    var choosing by rememberSaveable { mutableStateOf(false) }
-    var isPlaced by remember { mutableStateOf(placed()) }
-    var waiting by remember { mutableStateOf(false) }
+    var isPlaced by remember { mutableStateOf(WidgetKind.anyPlaced(context)) }
     var guide by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(waiting) {
-        if (!waiting) return@LaunchedEffect
-        repeat(8) { kotlinx.coroutines.delay(500); if (placed()) { isPlaced = true; waiting = false; return@LaunchedEffect } }
-        waiting = false
-        guide = true
-    }
-    LaunchedEffect(Unit) { while (!isPlaced) { kotlinx.coroutines.delay(1500); isPlaced = placed() } }
+    LaunchedEffect(Unit) { while (!isPlaced) { kotlinx.coroutines.delay(1500); isPlaced = WidgetKind.anyPlaced(context) } }
 
     if (isPlaced) Row(
         Modifier.fillMaxWidth().surface(radius = 18.dp).padding(14.dp),
@@ -546,24 +537,16 @@ fun WidgetButton(avatar: Avatar, onAddWidget: (WidgetKind) -> Boolean) {
         androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, tint = Brand.Moss)
         Spacer(Modifier.width(Space.s))
         Text("${avatar.displayName} is on your home screen", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
-    } else SecondaryButton(
-        if (waiting) "Waiting for your launcher…" else "Put ${avatar.displayName} on your home screen",
-        { choosing = true },
-        enabled = !waiting,
-    )
-    if (choosing) WidgetChooser(avatar, onDismiss = { choosing = false }) { kind ->
-        choosing = false
-        if (onAddWidget(kind)) waiting = true else guide = true
-    }
+    } else SecondaryButton("Put ${avatar.displayName} on your home screen", { guide = true })
 
     if (guide) WidgetGuideDialog(avatar) { guide = false }
 }
 
-/** The three home screen widgets. */
-enum class WidgetKind(val title: String, val size: String, val provider: Class<*>) {
-    FACE("Just Bo", "1 × 1", app.tend.widget.TendWidgetFace::class.java),
-    WIDE("Bo and your minutes", "2 × 1", app.tend.widget.TendWidget::class.java),
-    GARDEN("The garden", "2 × 2", app.tend.widget.TendWidgetGarden::class.java);
+/** The three home screen widgets (1x1 face, 2x1 with minutes, 2x2 garden). */
+enum class WidgetKind(val provider: Class<*>) {
+    FACE(app.tend.widget.TendWidgetFace::class.java),
+    WIDE(app.tend.widget.TendWidget::class.java),
+    GARDEN(app.tend.widget.TendWidgetGarden::class.java);
 
     companion object {
         fun anyPlaced(context: android.content.Context): Boolean {
@@ -571,71 +554,6 @@ enum class WidgetKind(val title: String, val size: String, val provider: Class<*
             return entries.any { m.getAppWidgetIds(android.content.ComponentName(context, it.provider)).isNotEmpty() }
         }
     }
-}
-
-/** Pick a widget: each one drawn as it will look, at its real proportions. */
-@Composable
-fun WidgetChooser(avatar: Avatar, onDismiss: () -> Unit, onPick: (WidgetKind) -> Unit) {
-    val worn = LocalAccessories.current
-    val face = remember(avatar, worn) { app.tend.ui.CharacterPainter.bitmap(avatar, Mood.HAPPY, 240, worn).asImageBitmap() }
-    val garden = remember(avatar, worn) { gardenBitmap(avatar, emptyList(), 0, worn, 480, 300).asImageBitmap() }
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) { WidgetChooserCard(face, garden, onDismiss, onPick) }
-}
-
-@Composable
-internal fun WidgetChooserCard(
-    face: androidx.compose.ui.graphics.ImageBitmap, garden: androidx.compose.ui.graphics.ImageBitmap,
-    onDismiss: () -> Unit, onPick: (WidgetKind) -> Unit,
-) {
-        Column(
-            Modifier.fillMaxWidth().surface(radius = 28.dp).padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text("Which one?", style = MaterialTheme.typography.titleLarge)
-            Text("Tap one and your launcher asks where to put it. You can add the others later.", style = MaterialTheme.typography.bodyMedium)
-            Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                // 1x1: just the face, the way it sits among app icons.
-                WidgetOption(WidgetKind.FACE, Modifier.weight(1f).fillMaxHeight(), onPick) {
-                    Box(Modifier.size(64.dp).clip(RoundedCornerShape(20.dp)).background(Brand.Card), contentAlignment = Alignment.Center) {
-                        androidx.compose.foundation.Image(face, null, Modifier.size(52.dp))
-                    }
-                }
-                // 2x1: face and minutes.
-                WidgetOption(WidgetKind.WIDE, Modifier.weight(1.6f).fillMaxHeight(), onPick) {
-                    Row(
-                        Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(20.dp)).background(Brand.Card).padding(horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        androidx.compose.foundation.Image(face, null, Modifier.size(44.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Column {
-                            Text("85", style = MaterialTheme.typography.titleMedium, color = Brand.Moss, maxLines = 1)
-                            Text("min left", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), maxLines = 1)
-                        }
-                    }
-                }
-            }
-            // 2x2: the garden.
-            WidgetOption(WidgetKind.GARDEN, Modifier.fillMaxWidth(), onPick) {
-                androidx.compose.foundation.Image(
-                    garden, null,
-                    Modifier.fillMaxWidth().aspectRatio(1.6f).clip(RoundedCornerShape(20.dp)),
-                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                )
-            }
-            SecondaryButton("Later", onDismiss)
-        }
-}
-
-@Composable
-private fun WidgetOption(kind: WidgetKind, modifier: Modifier, onPick: (WidgetKind) -> Unit, preview: @Composable () -> Unit) = Column(
-    modifier.clip(RoundedCornerShape(20.dp)).background(Brand.Sage).clickable { onPick(kind) }.padding(10.dp),
-    horizontalAlignment = Alignment.CenterHorizontally,
-    verticalArrangement = Arrangement.spacedBy(6.dp),
-) {
-    preview()
-    Text(kind.title, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center, maxLines = 2)
-    Text(kind.size, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
 }
 
 /** Three steps to add the widget by hand: most launchers don't let apps place it themselves. */
@@ -648,11 +566,11 @@ fun WidgetGuideDialog(avatar: Avatar, onDone: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(Space.m),
         ) {
             Text("Put ${avatar.displayName} on your home screen", style = MaterialTheme.typography.titleLarge)
-            Text("See ${avatar.displayName} and your minutes at a glance. It takes ten seconds:", style = MaterialTheme.typography.bodyMedium)
+            Text("Your phone's own widget list shows all three sizes: just ${avatar.displayName}, ${avatar.displayName} with your minutes, or the garden.", style = MaterialTheme.typography.bodyMedium)
             listOf(
                 "Long-press an empty spot on your home screen",
-                "Tap \"Widgets\"",
-                "Find tend and drag ${avatar.displayName} onto the screen",
+                "Tap \"Widgets\" and find tend",
+                "Drag the one you like onto the screen",
             ).forEachIndexed { i, step ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(28.dp).clip(CircleShape).background(Brand.Mint.copy(alpha = 0.3f)), contentAlignment = Alignment.Center) {

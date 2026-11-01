@@ -396,7 +396,7 @@ class TendStore(private val context: Context) {
 
     companion object {
         private const val PASS_VALID_MS = 15_000L
-        const val QUICK_LOOKS_PER_DAY = 3
+        const val QUICK_LOOKS_PER_DAY = 5
 
         /** Own activities saved with an emoji before tend had its own icons. */
         private val LEGACY_EMOJI = mapOf(

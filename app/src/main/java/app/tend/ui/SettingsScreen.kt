@@ -43,7 +43,6 @@ fun SettingsScreen(
     tasks: List<TaskDef>,
     onToggleTask: (TaskDef) -> Unit,
     missCount: Int,
-    onAddWidget: (WidgetKind) -> Boolean,
     reminderEnabled: Boolean,
     onReminder: (enabled: Boolean) -> Unit,
     eveningFrom: Int,
@@ -141,7 +140,7 @@ fun SettingsScreen(
         Text("Auto follows your phone.", style = MaterialTheme.typography.bodyMedium)
     }
     Text("HOME SCREEN", style = MaterialTheme.typography.labelSmall)
-    WidgetButton(avatar, onAddWidget)
+    WidgetButton(avatar)
     Text(
         if (missCount == 0) "Diagnostics · no blocking misses logged" else "Diagnostics · $missCount blocking misses logged",
         style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = Space.s),

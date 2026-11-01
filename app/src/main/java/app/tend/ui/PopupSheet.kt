@@ -97,19 +97,25 @@ fun android.app.Activity.blurBehind() {
     blurOn.value = false
     if (android.os.Build.VERSION.SDK_INT < 31) return
     val prefs = getSharedPreferences("tend_ui", android.content.Context.MODE_PRIVATE)
-    // This phone switched blur on and off under a pop-up before (a video playing, battery saver):
-    // a steady dark scrim looks better than a flickering blur.
-    if (prefs.getBoolean("blur_unsteady", false)) return
+    // This phone switched blur on and off under a pop-up lately (a video playing, battery saver):
+    // for a few days a steady dark scrim looks better than a flickering blur, then we try again.
+    if (System.currentTimeMillis() < prefs.getLong("blur_off_until", 0)) return
+    val wm = getSystemService(android.view.WindowManager::class.java)
+    // Blur off right now (battery saver, power save mode): don't ask for it, just use the scrim.
+    var last = wm.isCrossWindowBlurEnabled
+    if (!last) return
     window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
     window.attributes = window.attributes.also { it.blurBehindRadius = BLUR_RADIUS }
-    val wm = getSystemService(android.view.WindowManager::class.java)
-    blurOn.value = wm.isCrossWindowBlurEnabled
+    blurOn.value = true
     var flips = 0
     lateinit var listener: java.util.function.Consumer<Boolean>
     listener = java.util.function.Consumer<Boolean> { on ->
+        // Android calls back with the current state as soon as we listen: not a change.
+        if (on == last) return@Consumer
+        last = on
         if (++flips >= 2) {
-            // Twice in one pop-up: stop blurring here and from now on.
-            prefs.edit().putBoolean("blur_unsteady", true).apply()
+            // Off and on again in one pop-up: stop blurring here, and for the next few days.
+            prefs.edit().putLong("blur_off_until", System.currentTimeMillis() + BLUR_PAUSE_MS).apply()
             window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
             window.attributes = window.attributes.also { it.blurBehindRadius = 0 }
             blurOn.value = false
@@ -123,3 +129,4 @@ fun android.app.Activity.blurBehind() {
 }
 
 private const val BLUR_RADIUS = 120
+private const val BLUR_PAUSE_MS = 3 * 24 * 3_600_000L

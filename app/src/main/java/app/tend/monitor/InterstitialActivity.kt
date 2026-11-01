@@ -45,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.tend.MainActivity
 import app.tend.core.Budget
 import app.tend.health.TaskSync
@@ -182,19 +183,20 @@ class InterstitialActivity : ComponentActivity() {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Header(v)
         Text("WHAT ARE YOU LOOKING FOR?", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
-        // One row: short labels, equal widths. The logged answer keeps the original wording.
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Messages" to "Messages", "Something" to "Something specific", "Just bored" to "Just bored").forEach { (label, a) ->
+        // One row of four short labels, equal widths. The logged answer keeps the full wording.
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            LOOKING_FOR.forEach { (label, a) ->
                 val on = answer == a
                 Text(
                     label,
-                    style = MaterialTheme.typography.labelLarge,
+                    style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
                     color = if (on) Color.White else Brand.Moss,
                     textAlign = TextAlign.Center,
                     maxLines = 1,
                     modifier = Modifier.weight(1f).clip(RoundedCornerShape(50)).background(if (on) Brand.Moss else Brand.Card)
                         .clickable { if (answer == null) store.logAnswer("looking_for", pkg, a); answer = a }
-                        .padding(horizontal = 4.dp, vertical = 10.dp),
+                        .padding(horizontal = 2.dp, vertical = 9.dp),
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
             }
         }
@@ -225,18 +227,15 @@ class InterstitialActivity : ComponentActivity() {
     }
 
     /**
-     * Opening is one tap, as before, but for a set time: "Open for 5 min" (or 15). When it runs
-     * out, tend checks in again. Counting down first, like always.
-     */
-    /**
-     * Ways in: "Quick look" right away for one minute (three a day), or after the countdown for
+     * Ways in: "Quick peek" right away for one minute (five a day), or after the countdown for
      * 5 or 15 minutes. When the time is up, tend checks in again.
      */
     @Composable
     private fun OpenLinks(v: View, left: Int, openFor: (Int) -> Unit) {
         val quick = store.quickLooksLeft()
+        // The count shows only when it starts to matter.
         if (quick > 0) Text(
-            "Quick look · 1 min, no wait ($quick left today)",
+            if (quick <= 2) "Quick peek · 1 min · $quick left" else "Quick peek · 1 min",
             style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
                 .clickable { store.useQuickLook(); openFor(1) }.padding(vertical = 8.dp),
@@ -324,6 +323,14 @@ class InterstitialActivity : ComponentActivity() {
         private const val EXTRA_PKG = "pkg"
         private const val SYNC_TIMEOUT_MS = 3000L
         private const val EXTRA_TIME_UP = "time_up"
+
+        /** Short label on the chip to the answer that's logged. */
+        private val LOOKING_FOR = listOf(
+            "Reply" to "Messages",
+            "Look up" to "Looking something up",
+            "Bored" to "Just bored",
+            "Habit" to "Out of habit",
+        )
 
         fun intent(context: Context, pkg: String, timeUp: Boolean = false) = Intent(context, InterstitialActivity::class.java)
             .putExtra(EXTRA_PKG, pkg)

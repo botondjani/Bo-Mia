@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.tend.core.Avatar
 import app.tend.core.Mood
 import app.tend.core.Plant
@@ -181,9 +182,9 @@ private fun PauseDemo(active: Boolean, name: String) {
         Text("Instagram · 3rd open today", style = MaterialTheme.typography.bodyMedium)
         Text(brandTend("We tend to open it without thinking. You just stopped to think."), style = MaterialTheme.typography.titleMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf("Messages", "Something", "Just bored").forEachIndexed { i, a ->
+            listOf("Reply", "Look up", "Bored", "Habit").forEachIndexed { i, a ->
                 Text(
-                    a, style = MaterialTheme.typography.labelLarge, maxLines = 1, textAlign = TextAlign.Center,
+                    a, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), maxLines = 1, textAlign = TextAlign.Center,
                     color = if (i == 2 && t >= 2) Color.White else Brand.Moss,
                     modifier = Modifier.weight(1f).clip(RoundedCornerShape(50))
                         .background(if (i == 2 && t >= 2) Brand.Moss else Brand.Sage).padding(vertical = 8.dp),
