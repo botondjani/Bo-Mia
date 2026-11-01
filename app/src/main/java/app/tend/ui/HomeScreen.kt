@@ -97,6 +97,8 @@ fun HomeScreen(
     /** It did stop it for a while: say so on home, with the fix. */
     monitorSlept: Boolean = false,
     onKeepAwake: () -> Unit = {},
+    /** Asks the launcher to place the widget; false when it can't. */
+    onAddWidget: () -> Boolean = { false },
     /** Notes haven't been offered yet: the last of the next steps. */
     notesOff: Boolean = false,
     onAllowNotes: () -> Unit = {},
@@ -111,6 +113,14 @@ fun HomeScreen(
     val tour = androidx.compose.runtime.remember { TourTargets() }
     var widgetGuide by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     if (widgetGuide) WidgetGuideDialog(avatar) { widgetGuide = false }
+    // Some launchers say yes to placing a widget and then show nothing: after a few seconds, the guide takes over.
+    var pinWaitingSince by androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+    androidx.compose.runtime.LaunchedEffect(pinWaitingSince) {
+        if (pinWaitingSince == 0L) return@LaunchedEffect
+        kotlinx.coroutines.delay(5000)
+        pinWaitingSince = 0L
+        if (!widgetPlaced) widgetGuide = true
+    }
     val remaining = Budget.remainingMinutes(cfg, day)
     val context = androidx.compose.ui.platform.LocalContext.current
     val mood = Moods.atNight(Moods.of(cfg, day), app.tend.core.Garden.isNight(app.tend.data.TendStore(context).eveningFrom))
@@ -183,7 +193,7 @@ fun HomeScreen(
         val nextSteps = showNextSteps && (needsHealth || batteryRisk || (!nextStepsImportantOnly && (!widgetPlaced || notesOff)))
         if (nextSteps) NextSteps(
             avatar,
-            widget = !widgetPlaced && !nextStepsImportantOnly, onWidget = { widgetGuide = true },
+            widget = !widgetPlaced && !nextStepsImportantOnly, onWidget = { if (onAddWidget()) pinWaitingSince = System.currentTimeMillis() else widgetGuide = true },
             health = if (needsHealth) health else null, onHealth = onConnectHealth,
             notes = notesOff && !nextStepsImportantOnly, onNotes = onAllowNotes,
             battery = batteryRisk && !monitorSlept, onBattery = onKeepAwake,
@@ -366,13 +376,12 @@ private fun NextSteps(
     onDismiss: () -> Unit,
 ) = Column(Modifier.fillMaxWidth().surface(radius = 24.dp).padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("NEXT STEP", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+        Text("NEXT STEPS", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
         Text(
             "Not now", style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
             modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onDismiss).padding(horizontal = 8.dp, vertical = 4.dp),
         )
     }
-    // One step at a time: Health Connect, then the widget, then notes.
     class Step(val icon: String, val title: String, val body: String, val action: () -> Unit)
     val steps = listOfNotNull(
         // First, so the pause keeps working: one "Allow" in a system dialog.
@@ -383,11 +392,20 @@ private fun NextSteps(
                 "Walks count by themselves. Got a smartwatch? Then sleep and workouts do too.", onHealth,
             )
         },
-        if (widget) Step("sun", "Put ${avatar.displayName} on your home screen", "Your minutes at a glance, without opening tend.", onWidget) else null,
+        if (widget) Step("sun", "Put ${avatar.displayName} on your home screen", "Tap, and your launcher asks where. Your minutes at a glance.", onWidget) else null,
         if (notes) Step("moon", "Little notes from ${avatar.displayName}", "A morning plan, a heads-up at 10 minutes left, tonight's recap. At most 3 a day.", onNotes) else null,
     )
-    steps.firstOrNull()?.let { StepRow(it.icon, it.title, it.body, it.action) }
-    if (steps.size > 1) Text("1 of ${steps.size} · then: ${steps[1].title}", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp))
+    // Swipe through them; dots show how many.
+    val pager = androidx.compose.foundation.pager.rememberPagerState { steps.size }
+    androidx.compose.foundation.pager.HorizontalPager(pager, Modifier.fillMaxWidth(), pageSpacing = 16.dp) { i ->
+        steps[i].let { StepRow(it.icon, it.title, it.body, it.action) }
+    }
+    if (steps.size > 1) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+        repeat(steps.size) { i ->
+            val on = i == pager.currentPage
+            Box(Modifier.padding(horizontal = 3.dp).size(if (on) 8.dp else 6.dp).clip(CircleShape).background(if (on) Brand.Moss else Brand.Mint.copy(alpha = 0.45f)))
+        }
+    }
 }
 
 @Composable

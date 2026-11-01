@@ -8,6 +8,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
@@ -227,22 +228,34 @@ class InterstitialActivity : ComponentActivity() {
      * Opening is one tap, as before, but for a set time: "Open for 5 min" (or 15). When it runs
      * out, tend checks in again. Counting down first, like always.
      */
+    /**
+     * Ways in: "Quick look" right away for one minute (three a day), or after the countdown for
+     * 5 or 15 minutes. When the time is up, tend checks in again.
+     */
     @Composable
     private fun OpenLinks(v: View, left: Int, openFor: (Int) -> Unit) {
+        val quick = store.quickLooksLeft()
+        if (quick > 0) Text(
+            "Quick look · 1 min, no wait ($quick left today)",
+            style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                .clickable { store.useQuickLook(); openFor(1) }.padding(vertical = 8.dp),
+        )
         if (left > 0) {
             Text(
-                "Open ${v.label} in $left s", style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
-                textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                "Open ${v.label} for longer in $left s", style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
+                textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
             )
             return
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-            app.tend.core.TimeBox.CHOICES.forEachIndexed { i, minutes ->
-                if (i > 0) Text("·", style = MaterialTheme.typography.labelLarge, color = Brand.Muted)
+        Text("Open ${v.label} for", style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            app.tend.core.TimeBox.CHOICES.forEach { minutes ->
                 Text(
-                    if (i == 0) "Open for $minutes min" else "$minutes min",
-                    style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
-                    modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { openFor(minutes) }.padding(horizontal = 10.dp, vertical = 10.dp),
+                    "$minutes min", style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
+                        .border(1.5.dp, Brand.Mint, RoundedCornerShape(14.dp))
+                        .clickable { openFor(minutes) }.padding(vertical = 12.dp),
                 )
             }
         }
@@ -285,30 +298,12 @@ class InterstitialActivity : ComponentActivity() {
 
     private fun notNow() { decide("not_now"); goHome() }
 
-    /**
-     * What to offer instead of the app: the first picked activity not done yet. Timers start right
-     * away in tend; a walk or a workout just sends you on your way.
-     */
-    private fun insteadSuggestion(evening: Boolean): Pair<String, () -> Unit>? {
-        val day = store.today()
-        val name = store.avatar.displayName
-        val open = store.selectedTasks.filter { it.id !in day.completedTasks && (it != app.tend.core.Tasks.SLEEP || evening) }
-        // Timers first (a workout runs as a phone-off timer too): they start right here, one tap.
-        val startable = { t: app.tend.core.TaskDef -> t.verification.timed || app.tend.core.PhoneFree.runsPhoneFree(t) }
-        val task = open.firstOrNull(startable) ?: open.firstOrNull() ?: return null
-        return when {
-            startable(task) -> "${task.title} with $name instead" to {
-                TaskSync.startTimer(this, task)
-                startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                finish()
-            }
-            task == app.tend.core.Tasks.SLEEP -> "Off to bed instead" to ::goHome
-            task == app.tend.core.Tasks.OUTSIDE -> "A short walk instead" to ::goHome
-            task == app.tend.core.Tasks.MOVE -> "Move a little instead" to ::goHome
-            else -> "${task.title} instead" to {
-                startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                finish()
-            }
+    /** Instead of the app: back to tend's activities, to pick one with the companion. */
+    private fun insteadSuggestion(@Suppress("UNUSED_PARAMETER") evening: Boolean): Pair<String, () -> Unit>? {
+        if (store.selectedTasks.isEmpty()) return null
+        return "Do something with ${store.avatar.displayName} instead" to {
+            startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+            finish()
         }
     }
 

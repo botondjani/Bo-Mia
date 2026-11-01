@@ -458,6 +458,7 @@ class MainActivity : ComponentActivity() {
                 batteryRisk = !getSystemService(android.os.PowerManager::class.java).isIgnoringBatteryOptimizations(packageName),
                 monitorSlept = store.monitorSlept,
                 onKeepAwake = ::keepAwake,
+                onAddWidget = ::pinWidget,
                 notesOff = !store.reminderPrompted && !(store.reminderEnabled && RecapReminder.canNotify(this@MainActivity)),
                 onAllowNotes = ::allowNotes,
                 showTour = !store.tourDone,

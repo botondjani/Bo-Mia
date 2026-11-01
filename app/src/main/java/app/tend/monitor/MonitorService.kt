@@ -40,6 +40,21 @@ class MonitorService : Service() {
     private var sessionStart = 0L
     /** When a time-boxed open ("Open for 5 min") runs out. */
     private var sessionEnds = Long.MAX_VALUE
+    /**
+     * Left the paused app, but maybe only for a moment: a link opened in the browser, the share
+     * sheet, a permission dialog. The session ends (and "Worth it?" asks) only on the home screen,
+     * or after a while in a real other app; coming back in time just carries on.
+     */
+    private var awaySince = 0L
+    private val homes by lazy {
+        packageManager.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)
+            .map { it.activityInfo.packageName }.toSet()
+    }
+    /** Screens apps open on top of themselves for a moment: browsers (custom tabs), share sheet, dialogs. */
+    private val helpers by lazy {
+        packageManager.queryIntentActivities(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://example.com")), 0)
+            .map { it.activityInfo.packageName }.toSet() + HELPER_PACKAGES
+    }
     /** Last background Health Connect read. */
     private var lastSync = 0L
     private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main) // store writes stay on the main thread, like the poll
@@ -99,6 +114,13 @@ class MonitorService : Service() {
 
         val blocked = store.blockedPackages
         val fg = foreground
+        if (sessionPkg != null && awaySince > 0 && fg != null) {
+            val waited = now - awaySince
+            when {
+                fg in helpers -> if (waited > HELPER_MAX_MS) endSession(now, askWorthIt = false)
+                waited > AWAY_CONFIRM_MS -> endSession(now, askWorthIt = true) // really in another app
+            }
+        }
         if (fg != null && fg == sessionPkg && (now > sessionEnds || scheduledLock() != null)) {
             // The chosen minutes are up, or a scheduled lock just began: check in again, kindly.
             val timeUp = now > sessionEnds
@@ -127,8 +149,17 @@ class MonitorService : Service() {
             interceptedPkg = null // our delay screen is showing
             return
         }
-        if (old != null && old == sessionPkg) endSession(now, askWorthIt = true)
+        if (sessionPkg != null && new == sessionPkg && awaySince > 0) {
+            awaySince = 0 // back from the browser or the share sheet: same session, no new pause
+            return
+        }
+        if (old != null && old == sessionPkg) {
+            if (new in homes) endSession(now, askWorthIt = true) else awaySince = now
+        } else if (awaySince > 0 && new in homes) {
+            endSession(now, askWorthIt = true) // from the helper screen straight home
+        }
         if (store.onboarded && new in store.blockedPackages) {
+            if (sessionPkg != null) endSession(now, askWorthIt = false) // another paused app: the pause takes over
             val pass = if (store.isLocked() || scheduledLock() != null) null else store.consumePass(new)
             if (pass != null) {
                 sessionPkg = new
@@ -214,11 +245,16 @@ class MonitorService : Service() {
         val seconds = (now - sessionStart) / 1000
         sessionPkg = null
         sessionEnds = Long.MAX_VALUE
+        awaySince = 0
         if (askWorthIt && seconds >= WORTH_IT_MIN_SECONDS) {
             // A moment later, so the closing swipes and back presses don't land on the question;
             // skipped if a paused app is open again by then.
             handler.postDelayed({
-                if (sessionPkg == null && foreground !in store.blockedPackages) startActivity(WorthItActivity.intent(this, pkg, seconds))
+                // Only on the home screen or in a real other app, never over a screen inside the app.
+                val fg = foreground
+                if (sessionPkg == null && fg !in store.blockedPackages && fg !in helpers && fg != packageName) {
+                    startActivity(WorthItActivity.intent(this, pkg, seconds))
+                }
             }, WORTH_IT_DELAY_MS)
         }
     }
@@ -251,6 +287,13 @@ class MonitorService : Service() {
         private const val GAP_LOG_SECONDS = 120
         private const val WORTH_IT_DELAY_MS = 1500L
         private const val SYNC_EVERY_MS = 15 * 60_000L
+        private const val AWAY_CONFIRM_MS = 8_000L
+        private const val HELPER_MAX_MS = 10 * 60_000L
+        private val HELPER_PACKAGES = setOf(
+            "android", "com.android.systemui", "com.android.intentresolver", "com.android.permissioncontroller",
+            "com.google.android.permissioncontroller", "com.google.android.gms", "com.android.packageinstaller",
+            "com.google.android.packageinstaller", "com.google.android.documentsui", "com.android.documentsui",
+        )
         private const val DONE_CHANNEL = "done"
         const val WORTH_IT_MIN_SECONDS = 30
 

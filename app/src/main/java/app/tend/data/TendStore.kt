@@ -240,6 +240,15 @@ class TendStore(private val context: Context) {
         return prefs.getInt("pass_minutes", 0)
     }
 
+    /** "Quick look": open for one minute without the wait, a few times a day. */
+    fun quickLooksLeft(): Int =
+        QUICK_LOOKS_PER_DAY - if (prefs.getString("quick_day", "") == LocalDate.now().toString()) prefs.getInt("quick_used", 0) else 0
+
+    fun useQuickLook() {
+        val used = QUICK_LOOKS_PER_DAY - quickLooksLeft() + 1
+        edit { putString("quick_day", LocalDate.now().toString()); putInt("quick_used", used) }
+    }
+
     /** Scheduled locks: bedtime and work hours, both off until turned on. */
     val lockSchedules: List<LockSchedule>
         get() = listOf(readLock("lock_bed", LockSchedule.BEDTIME), readLock("lock_work", LockSchedule.WORK))
@@ -372,6 +381,7 @@ class TendStore(private val context: Context) {
 
     companion object {
         private const val PASS_VALID_MS = 15_000L
+        const val QUICK_LOOKS_PER_DAY = 3
 
         /** Own activities saved with an emoji before tend had its own icons. */
         private val LEGACY_EMOJI = mapOf(
