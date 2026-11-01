@@ -135,6 +135,11 @@ class TendStore(private val context: Context) {
         edit { putString("notes_day", LocalDate.now().toString()); putInt("notes_count", n) }
     }
 
+    /** The Play review sheet was offered (once). */
+    var reviewAsked: Boolean
+        get() = prefs.getBoolean("review_asked", false)
+        set(v) = edit { putBoolean("review_asked", v) }
+
     /** The first-run tour of the home screen has been shown (or skipped). */
     var tourDone: Boolean
         get() = prefs.getBoolean("tour_done", false)

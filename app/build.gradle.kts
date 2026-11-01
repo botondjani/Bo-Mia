@@ -69,6 +69,10 @@ dependencies {
     implementation(libs.compose.icons)
     implementation(libs.health.connect)
     implementation(libs.rive)
+    // QR code on the shareable garden card.
+    implementation("com.google.zxing:core:3.5.3")
+    // In-app review prompt (Play build only).
+    "playImplementation"("com.google.android.play:review-ktx:2.0.2")
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.junit)
 }

@@ -49,7 +49,10 @@ fun SettingsScreen(
     onEveningPause: (Boolean) -> Unit,
     weeklyLetter: Boolean,
     onWeeklyLetter: (Boolean) -> Unit,
-    onExport: () -> Unit,
+    /** Side-loaded test builds: share all logs. Null on the Play build. */
+    onExport: (() -> Unit)?,
+    /** Play build: rate tend on Google Play. */
+    onRate: (() -> Unit)? = null,
     onReplayTour: () -> Unit,
     notesMorning: Boolean,
     notesNudges: Boolean,
@@ -131,7 +134,8 @@ fun SettingsScreen(
         style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = Space.s),
     )
     SecondaryButton("Show the tour again", onReplayTour)
-    SecondaryButton("Export test data", onExport)
+    onRate?.let { SecondaryButton("Rate tend on Google Play", it) }
+    onExport?.let { SecondaryButton("Export test data", it) }
     PrimaryButton("Done", onDone, enabled = blocked.isNotEmpty(), modifier = Modifier.padding(vertical = 20.dp))
 }
 

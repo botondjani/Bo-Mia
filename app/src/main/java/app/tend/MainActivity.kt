@@ -153,6 +153,33 @@ class MainActivity : ComponentActivity() {
         refresh++
     }
 
+    /** The garden card for this week, to the share sheet. */
+    private fun shareGarden() {
+        val week = Patterns.week(LocalDate.now(), store.daySummaries(), store.answers())
+        app.tend.ui.ShareCard.share(
+            this,
+            app.tend.ui.ShareCard.Week(
+                store.avatar, store.plants, app.tend.core.Garden.homeStage(store.daysTended), store.accessories().first,
+                gotBackMinutes = week.gotBackMinutes, activeDays = week.days.count { it.tasksDone > 0 }, letGo = week.letGo,
+            ),
+        )
+    }
+
+    /**
+     * Google Play's review sheet, once, at a good moment: saying good night after a day with
+     * something done, from the third day on. Play itself decides whether it shows.
+     */
+    private fun maybeAskReview() {
+        if (store.reviewAsked || store.daysTended < 3 || store.today().completedTasks.isEmpty()) return
+        store.reviewAsked = true
+        Review.ask(this)
+    }
+
+    private fun openPlayListing() = open(
+        Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName")),
+        Intent(Intent.ACTION_VIEW, Uri.parse(app.tend.ui.ShareCard.playUrl(this))),
+    )
+
     /** Asks Android to let tend run in the background: one "Allow" in a system dialog. */
     private fun keepAwake() {
         store.monitorSlept = false
@@ -341,7 +368,8 @@ class MainActivity : ComponentActivity() {
                 onEveningPause = { store.eveningPause = it; refresh++ },
                 weeklyLetter = store.weeklyLetter,
                 onWeeklyLetter = ::setWeeklyLetter,
-                onExport = ::exportTestData,
+                onExport = if (BuildConfig.PLAY) null else ::exportTestData,
+                onRate = if (BuildConfig.PLAY) ::openPlayListing else null,
                 onReplayTour = { store.tourDone = false; screen = Screen.HOME },
                 notesMorning = store.notesMorning,
                 notesNudges = store.notesNudges,
@@ -364,7 +392,8 @@ class MainActivity : ComponentActivity() {
                     daysTended = store.daysTended,
                     reminderHour = store.eveningFrom.takeIf { !store.reminderPrompted },
                     onReminder = ::setReminder,
-                    onGoodNight = { screen = Screen.SLEEP },
+                    onGoodNight = { screen = Screen.SLEEP; maybeAskReview() },
+                    onShare = ::shareGarden,
                 )
             }
 
@@ -378,6 +407,7 @@ class MainActivity : ComponentActivity() {
                 worn = shelf.first, onShelf = shelf.second,
                 onBack = { screen = Screen.HOME },
                 onOpenSettings = { screen = Screen.SETTINGS },
+                onShare = ::shareGarden,
             ) {
                 WeekSections(
                     store.avatar,

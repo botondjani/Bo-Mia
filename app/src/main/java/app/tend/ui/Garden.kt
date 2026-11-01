@@ -55,6 +55,7 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import app.tend.core.Accessory
 import app.tend.core.Garden
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import app.tend.core.Mood
 import app.tend.core.Plant
 import app.tend.core.Recap
@@ -311,6 +312,7 @@ fun GardenScreen(
     onShelf: Set<Accessory> = emptySet(),
     onBack: () -> Unit,
     onOpenSettings: () -> Unit = {},
+    onShare: () -> Unit = {},
     week: @Composable ColumnScope.() -> Unit,
 ) = Column(
     Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState())
@@ -322,6 +324,8 @@ fun GardenScreen(
         IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, "Back", onBack)
         Spacer(Modifier.width(Space.m))
         Text("${avatar.displayName}'s garden & week", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+        IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Share, "Share your garden", onShare)
+        Spacer(Modifier.width(Space.s))
         IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Settings, "Settings", onOpenSettings)
     }
     GardenScene(avatar, plants, Garden.homeStage(daysTended), preview = tonight)
@@ -488,6 +492,7 @@ fun RecapScreen(
     reminderHour: Int?,
     onReminder: (Boolean) -> Unit,
     onGoodNight: () -> Unit,
+    onShare: () -> Unit = {},
 ) = Column(
     Modifier.fillMaxSize().background(Brand.Sage).padding(20.dp),
     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -532,7 +537,10 @@ fun RecapScreen(
             ChipButton("No thanks", { onReminder(false) }, filled = false)
         }
     }
-    PrimaryButton("Good night, ${avatar.displayName}", onGoodNight, modifier = Modifier.padding(top = 4.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 4.dp)) {
+        SecondaryButton("Share", onShare, modifier = Modifier.weight(0.4f))
+        PrimaryButton("Good night, ${avatar.displayName}", onGoodNight, modifier = Modifier.weight(0.6f))
+    }
 }
 
 /**
