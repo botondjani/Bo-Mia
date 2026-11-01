@@ -155,3 +155,14 @@ class ScheduleTest {
         org.junit.Assert.assertEquals(Long.MAX_VALUE, TimeBox.endsAt(0, 0))
     }
 }
+
+class WelcomeBackTest {
+    @org.junit.Test fun backAfterAFewDaysStartsSmall() {
+        val day = DayState(java.time.LocalDate.of(2026, 11, 1))
+        val line = Moods.line(BudgetConfig(), day, listOf(Tasks.READ), welcomeBack = true)
+        org.junit.Assert.assertTrue(line, line.startsWith("Welcome back!") && "read" in line)
+        // Once something is done, the usual praise takes over.
+        val done = day.copy(completedTasks = setOf("read"))
+        org.junit.Assert.assertTrue(Moods.line(BudgetConfig(), done, listOf(Tasks.READ), welcomeBack = true).startsWith("Today we already"))
+    }
+}

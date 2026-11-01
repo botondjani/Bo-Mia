@@ -104,6 +104,16 @@ class TendStore(private val context: Context) {
         get() = prefs.getBoolean("notes_nudges", true)
         set(v) = edit { putBoolean("notes_nudges", v) }
 
+    /** The day tend was opened again after two days or more away: Bo says welcome back. */
+    var welcomeBackOn: String
+        get() = prefs.getString("welcome_back_on", "") ?: ""
+        set(v) = edit { putString("welcome_back_on", v) }
+
+    /** When "Not now" on the next steps lets them come back once (important ones only); MAX_VALUE: never. */
+    var nextStepsAgainAt: Long
+        get() = prefs.getLong("next_steps_again_at", 0)
+        set(v) = edit { putLong("next_steps_again_at", v) }
+
     /** Last time tend was opened, for the "misses you" note. */
     var lastOpenedAt: Long
         get() = prefs.getLong("last_opened_at", 0)

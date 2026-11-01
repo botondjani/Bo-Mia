@@ -224,7 +224,9 @@ class MainActivity : ComponentActivity() {
         // Back from App info: when the lock can't be read, trust the visit and move on.
         if (launched == Launched.APP_INFO && restrictedMode() == null) store.restrictedUnlocked = true
         launched = Launched.NONE
-        store.lastOpenedAt = System.currentTimeMillis()
+        val nowMs = System.currentTimeMillis()
+        if (store.onboarded && store.lastOpenedAt > 0 && nowMs - store.lastOpenedAt > 2 * DAY_MS) store.welcomeBackOn = LocalDate.now().toString()
+        store.lastOpenedAt = nowMs
         refresh++
         // Usage access is enough to count minutes; without the overlay the monitor nudges by notification.
         if (store.onboarded && permissions().usageAccess) MonitorService.start(this)
@@ -439,9 +441,20 @@ class MainActivity : ComponentActivity() {
                 onOpenRecap = { screen = Screen.RECAP },
                 // Not during onboarding: from the second day on, until placed or seen.
                 // A little after onboarding (and the tour), not right away.
-                showNextSteps = store.tourDone && !store.widgetTipDone && now - store.onboardedAt > NEXT_STEPS_AFTER_MS,
+                showNextSteps = store.tourDone && (
+                    (!store.widgetTipDone && now - store.onboardedAt > NEXT_STEPS_AFTER_MS) ||
+                        (store.widgetTipDone && store.nextStepsAgainAt in 1..now)
+                    ),
+                // Coming back a week after "Not now": only what keeps tend working (battery, Health Connect).
+                nextStepsImportantOnly = store.widgetTipDone,
                 widgetPlaced = widgetPlaced(),
-                onNextStepsDone = { store.widgetTipDone = true; refresh++ },
+                onNextStepsDone = {
+                    // The first "Not now" lets the important steps come back once, a week later.
+                    store.nextStepsAgainAt = if (store.widgetTipDone) Long.MAX_VALUE else System.currentTimeMillis() + 7 * DAY_MS
+                    store.widgetTipDone = true
+                    refresh++
+                },
+                welcomeBack = store.welcomeBackOn == LocalDate.now().toString(),
                 batteryRisk = !getSystemService(android.os.PowerManager::class.java).isIgnoringBatteryOptimizations(packageName),
                 monitorSlept = store.monitorSlept,
                 onKeepAwake = ::keepAwake,
@@ -616,5 +629,6 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val NEXT_STEPS_AFTER_MS = 45_000L
+        const val DAY_MS = 24 * 3_600_000L
     }
 }

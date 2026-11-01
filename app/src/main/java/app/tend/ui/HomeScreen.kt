@@ -88,6 +88,10 @@ fun HomeScreen(
     brokenTimer: TaskDef? = null,
     onDismissBroken: () -> Unit = {},
     onNextStepsDone: () -> Unit = {},
+    /** The week-later return of the next steps: only battery and Health Connect. */
+    nextStepsImportantOnly: Boolean = false,
+    /** Back after a few days away: Bo says welcome back. */
+    welcomeBack: Boolean = false,
     /** The phone may stop tend in the background (battery optimisation is on for it). */
     batteryRisk: Boolean = false,
     /** It did stop it for a while: say so on home, with the fix. */
@@ -133,7 +137,7 @@ fun HomeScreen(
                 Spacer(Modifier.width(Space.l))
                 Column(Modifier.weight(1f)) {
                     Text(Moods.status(avatar.displayName, mood).uppercase(), style = MaterialTheme.typography.labelSmall, color = Brand.Moss)
-                    Text(Moods.line(cfg, day, tasks), style = MaterialTheme.typography.titleMedium)
+                    Text(Moods.line(cfg, day, tasks, welcomeBack), style = MaterialTheme.typography.titleMedium)
                 }
             }
             Row(verticalAlignment = Alignment.Bottom) {
@@ -176,12 +180,12 @@ fun HomeScreen(
         val needsHealth = tasks.any { it.verification == Verification.AUTOMATIC } &&
             (health == HealthConnect.Status.NEEDS_PERMISSION || health == HealthConnect.Status.NEEDS_INSTALL)
         if (monitorSlept && batteryRisk) Notice("alert", "${avatar.displayName} fell asleep in the background", "Your phone paused tend for a while. Tap to keep ${avatar.displayName} awake.", onKeepAwake)
-        val nextSteps = showNextSteps && (needsHealth || !widgetPlaced || notesOff || batteryRisk)
+        val nextSteps = showNextSteps && (needsHealth || batteryRisk || (!nextStepsImportantOnly && (!widgetPlaced || notesOff)))
         if (nextSteps) NextSteps(
             avatar,
-            widget = !widgetPlaced, onWidget = { widgetGuide = true },
+            widget = !widgetPlaced && !nextStepsImportantOnly, onWidget = { widgetGuide = true },
             health = if (needsHealth) health else null, onHealth = onConnectHealth,
-            notes = notesOff, onNotes = onAllowNotes,
+            notes = notesOff && !nextStepsImportantOnly, onNotes = onAllowNotes,
             battery = batteryRisk && !monitorSlept, onBattery = onKeepAwake,
             onDismiss = onNextStepsDone,
         ) else if (needsHealth) {
