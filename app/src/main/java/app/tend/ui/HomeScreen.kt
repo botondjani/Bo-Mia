@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -78,6 +79,8 @@ fun HomeScreen(
     onCheckOff: (TaskDef) -> Unit,
     onUndo: (TaskDef) -> Unit,
     onOpenSettings: () -> Unit,
+    /** Shares this week's garden card. */
+    onShare: () -> Unit = {},
     onOpenGarden: () -> Unit,
     onOpenRecap: () -> Unit,
     /** Show the one-time widget tip; called with true when it was handled. */
@@ -113,14 +116,6 @@ fun HomeScreen(
     val tour = androidx.compose.runtime.remember { TourTargets() }
     var widgetGuide by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     if (widgetGuide) WidgetGuideDialog(avatar) { widgetGuide = false }
-    // Some launchers say yes to placing a widget and then show nothing: after a few seconds, the guide takes over.
-    var pinWaitingSince by androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(0L) }
-    androidx.compose.runtime.LaunchedEffect(pinWaitingSince) {
-        if (pinWaitingSince == 0L) return@LaunchedEffect
-        kotlinx.coroutines.delay(6000)
-        pinWaitingSince = 0L
-        if (!widgetPlaced) widgetGuide = true
-    }
     val remaining = Budget.remainingMinutes(cfg, day)
     val context = androidx.compose.ui.platform.LocalContext.current
     val mood = Moods.atNight(Moods.of(cfg, day), app.tend.core.Garden.isNight(app.tend.data.TendStore(context).eveningFrom))
@@ -137,6 +132,8 @@ fun HomeScreen(
                 Text(day.date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.ENGLISH)), style = MaterialTheme.typography.bodyMedium)
                 Text(greeting(), style = MaterialTheme.typography.headlineMedium)
             }
+            IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Share, "Share your garden", onShare)
+            Spacer(Modifier.width(8.dp))
             Box(Modifier.tourTarget(tour, "settings")) { IconButtonSoft(Icons.Filled.Settings, "Settings", onOpenSettings) }
         }
 
@@ -193,7 +190,7 @@ fun HomeScreen(
         val nextSteps = showNextSteps && (needsHealth || batteryRisk || (!nextStepsImportantOnly && (!widgetPlaced || notesOff)))
         if (nextSteps) NextSteps(
             avatar,
-            widget = !widgetPlaced && !nextStepsImportantOnly, onWidget = { if (onAddWidget()) pinWaitingSince = System.currentTimeMillis() else widgetGuide = true },
+            widget = !widgetPlaced && !nextStepsImportantOnly, onWidget = { if (!onAddWidget()) widgetGuide = true },
             health = if (needsHealth) health else null, onHealth = onConnectHealth,
             notes = notesOff && !nextStepsImportantOnly, onNotes = onAllowNotes,
             battery = batteryRisk && !monitorSlept, onBattery = onKeepAwake,
@@ -448,7 +445,7 @@ private fun greeting(): String = when (java.time.LocalTime.now().hour) {
 }
 
 @Composable
-private fun TaskRow(
+internal fun TaskRow(
     task: TaskDef,
     day: DayState,
     health: HealthConnect.Status?,

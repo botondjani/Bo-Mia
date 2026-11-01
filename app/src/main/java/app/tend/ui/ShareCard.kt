@@ -54,6 +54,12 @@ object ShareCard {
         paint.shader = LinearGradient(0f, 0f, 0f, H.toFloat(), intArrayOf(0xFFFFFFFF.toInt(), SAGE, MINT_SOFT), floatArrayOf(0f, 0.45f, 1f), Shader.TileMode.CLAMP)
         c.drawRect(0f, 0f, W.toFloat(), H.toFloat(), paint)
         paint.shader = null
+        // Two soft blobs of mint, so the background isn't flat.
+        paint.color = MINT_SOFT; paint.alpha = 90
+        c.drawCircle(W + 40f, 60f, 300f, paint)
+        paint.alpha = 60
+        c.drawCircle(-80f, H - 260f, 260f, paint)
+        paint.alpha = 255
 
         val fredoka = font(context, R.font.fredoka, 600)
         val nunito = font(context, R.font.nunito, 400)
@@ -62,50 +68,64 @@ object ShareCard {
             paint.typeface = face; paint.textSize = size; paint.color = color; paint.letterSpacing = spacing; paint.textAlign = align
             c.drawText(s, x, y, paint)
         }
-
-        val name = w.avatar.displayName
-        // Headline: what the week gave back.
-        text("${name.uppercase()}'S GARDEN · THIS WEEK", 64f, 120f, 30f, MUTED, nunitoBold, 0.12f)
-        if (w.gotBackMinutes > 0) {
-            text("I got back", 64f, 220f, 68f, INK, fredoka)
-            text(duration(w.gotBackMinutes), 64f, 340f, 120f, MOSS, fredoka)
-            text("from scrolling this week.", 64f, 420f, 56f, INK, fredoka)
-        } else {
-            text("We're growing", 64f, 240f, 84f, INK, fredoka)
-            text("a garden.", 64f, 340f, 84f, MOSS, fredoka)
-            text("One small thing at a time.", 64f, 420f, 48f, INK, fredoka)
+        fun card(r: RectF, radius: Float, color: Int = 0xFFFFFFFF.toInt()) {
+            paint.color = color
+            paint.setShadowLayer(28f, 0f, 10f, 0x22316849)
+            c.drawRoundRect(r, radius, radius, paint)
+            paint.clearShadowLayer()
         }
 
-        // The garden, as it is today.
-        val gw = W - 128; val gh = 540
-        val garden = gardenBitmap(w.avatar, w.plants, w.homeStage, w.worn, gw, gh)
-        c.drawBitmap(garden, 64f, 466f, null)
+        val name = w.avatar.displayName
+        // A small label chip, then the headline: what the week gave back.
+        val label = "${name.uppercase()}'S GARDEN · THIS WEEK"
+        paint.typeface = nunitoBold; paint.textSize = 28f; paint.letterSpacing = 0.12f
+        val lw = paint.measureText(label)
+        paint.color = MINT_SOFT
+        c.drawRoundRect(RectF(64f, 72f, 64f + lw + 44f, 124f), 26f, 26f, paint)
+        text(label, 86f, 108f, 28f, MOSS, nunitoBold, 0.12f)
+        if (w.gotBackMinutes > 0) {
+            text("I got back", 64f, 220f, 66f, INK, fredoka)
+            text(duration(w.gotBackMinutes), 64f, 340f, 124f, MOSS, fredoka)
+            text("from scrolling this week.", 64f, 418f, 54f, INK, fredoka)
+        } else {
+            text("We're growing", 64f, 236f, 84f, INK, fredoka)
+            text("a garden.", 64f, 336f, 84f, MOSS, fredoka)
+            text("One small thing at a time.", 64f, 416f, 48f, INK, fredoka)
+        }
 
-        // Three small facts.
+        // The garden, as it is today, in a white frame that lifts off the page.
+        val frame = RectF(52f, 456f, W - 52f, 1012f)
+        card(frame, 52f)
+        val garden = gardenBitmap(w.avatar, w.plants, w.homeStage, w.worn, (frame.width() - 28).toInt(), (frame.height() - 28).toInt())
+        c.drawBitmap(garden, frame.left + 14, frame.top + 14, null)
+
+        // Three small facts, each its own little card.
         val facts = listOf(
             "${w.plants.size}" to if (w.plants.size == 1) "plant" else "plants",
             "${w.activeDays}" to if (w.activeDays == 1) "active day" else "active days",
             "${w.letGo}" to if (w.letGo == 1) "scroll let go" else "scrolls let go",
         )
-        val pillW = (W - 128 - 2 * 24) / 3f
+        val pillW = (W - 104 - 2 * 20) / 3f
         // A first week with nothing yet: no row of zeros.
-        if (w.plants.isNotEmpty() || w.activeDays > 0 || w.letGo > 0) facts.forEachIndexed { i, (n, label) ->
-            val x = 64f + i * (pillW + 24)
-            paint.color = 0xFFFFFFFF.toInt()
-            c.drawRoundRect(RectF(x, 1032f, x + pillW, 1138f), 32f, 32f, paint)
-            text(n, x + pillW / 2, 1086f, 48f, MOSS, fredoka, align = Paint.Align.CENTER)
-            text(label, x + pillW / 2, 1121f, 26f, MUTED, nunito, align = Paint.Align.CENTER)
+        if (w.plants.isNotEmpty() || w.activeDays > 0 || w.letGo > 0) facts.forEachIndexed { i, (n, label2) ->
+            val x = 52f + i * (pillW + 20)
+            card(RectF(x, 1040f, x + pillW, 1150f), 34f)
+            text(n, x + pillW / 2, 1096f, 50f, MOSS, fredoka, align = Paint.Align.CENTER)
+            text(label2, x + pillW / 2, 1131f, 26f, MUTED, nunito, align = Paint.Align.CENTER)
         }
 
-        // Footer: the brand and the way in.
-        text("tend", 64f, 1278f, 64f, MOSS, fredoka)
-        text("A little pause before you scroll.", 64f, 1318f, 28f, MUTED, nunito)
-        val qr = 128
-        val qx = W - 64f - qr; val qy = H - 40f - qr
-        paint.color = 0xFFFFFFFF.toInt()
-        c.drawRoundRect(RectF(qx - 12, qy - 12, qx + qr + 12, qy + qr + 12), 20f, 20f, paint)
+        // Footer: the companion's face, the brand and the way in.
+        val faceSize = 104
+        card(RectF(52f, 1190f, 52f + faceSize + 16, 1190f + faceSize + 16), (faceSize + 16) / 2f)
+        c.drawBitmap(app.tend.ui.CharacterPainter.bitmap(w.avatar, app.tend.core.Mood.HAPPY, faceSize, w.worn), 60f, 1196f, null)
+        text("tend", 196f, 1262f, 62f, MOSS, fredoka)
+        text("A little pause before you scroll.", 196f, 1302f, 27f, MUTED, nunito)
+        val qr = 120
+        val qx = W - 52f - 14 - qr; val qy = H - 44f - qr
+        card(RectF(qx - 14, qy - 14, qx + qr + 14, qy + qr + 14), 24f)
         drawQr(c, playUrl(context), qx, qy, qr.toFloat(), paint)
-        text("Get it on Google Play", qx - 28, 1300f, 26f, INK, nunitoBold, align = Paint.Align.RIGHT)
+        text("Get it on", qx - 30, 1262f, 25f, MUTED, nunito, align = Paint.Align.RIGHT)
+        text("Google Play", qx - 30, 1296f, 27f, INK, nunitoBold, align = Paint.Align.RIGHT)
         return bmp
     }
 

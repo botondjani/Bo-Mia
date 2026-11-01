@@ -43,7 +43,11 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.tend.core.Accessory
 import app.tend.core.Avatar
+import app.tend.core.BudgetConfig
+import app.tend.core.DayState
+import app.tend.core.Tasks
 import app.tend.core.Mood
 import app.tend.core.Plant
 import kotlinx.coroutines.delay
@@ -140,12 +144,16 @@ private fun ticker(active: Boolean, stepMs: Long, steps: Int): Int {
  */
 @Composable
 private fun ScrollDemo(active: Boolean) {
-    val feed = androidx.compose.animation.core.rememberInfiniteTransition(label = "feed")
-    val cards by feed.animateFloat(
-        0f, 40f,
-        androidx.compose.animation.core.infiniteRepeatable(tween(40 * 1100, easing = androidx.compose.animation.core.LinearEasing)),
-        label = "cards",
-    )
+    val feed = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(active) {
+        if (!active) return@LaunchedEffect
+        // Like a thumb: a slow drag, then a fast fling that glides out; a breath; again.
+        while (true) {
+            feed.animateTo(feed.value + 0.3f, tween(650, easing = androidx.compose.animation.core.LinearOutSlowInEasing))
+            feed.animateTo(feed.value + 2.2f, tween(700, easing = androidx.compose.animation.core.FastOutSlowInEasing))
+            delay(300)
+        }
+    }
     val tints = remember { listOf(Brand.Sky, Brand.Coral, Brand.Sunny, Brand.Mint).map { it.copy(alpha = 0.55f) } }
     val line = remember { Brand.Muted.copy(alpha = 0.25f) }
     val t = ticker(active, 1000, 100_000)
@@ -153,7 +161,7 @@ private fun ScrollDemo(active: Boolean) {
         Box(Modifier.size(170.dp, 300.dp).clip(RoundedCornerShape(30.dp)).background(Brand.Shade).padding(8.dp)) {
             Canvas(Modifier.fillMaxSize().clip(RoundedCornerShape(24.dp)).background(Brand.Card)) {
                 val card = 92.dp.toPx()
-                val pos = if (active) cards else 0f
+                val pos = feed.value
                 var i = pos.toInt()
                 var y = -(pos - i) * card
                 val inset = 10.dp.toPx()
@@ -205,42 +213,59 @@ private fun PauseDemo(active: Boolean, name: String) {
     }
 }
 
-/** Three activities ticking off one by one while the minutes climb. */
+/** Three activities ticking off one by one while the minutes climb, drawn exactly as on the home screen. */
 @Composable
 private fun EarnDemo(active: Boolean, freeMinutes: Int) {
     val t = ticker(active, 1100, 6)
-    val items = listOf(Triple("outside", "Walk outside", 20), Triple("workout", "Workout or run", 30), Triple("read", "Read", 15))
-    val done = t.coerceAtMost(items.size)
-    val target = freeMinutes + items.take(done).sumOf { it.third }
-    val shown by animateFloatAsState(target.toFloat(), tween(600), label = "minutes")
+    val tasks = remember { Tasks.withRewards(BudgetConfig(freeMinutes = freeMinutes), listOf(Tasks.OUTSIDE, Tasks.MOVE, Tasks.READ)) }
+    val done = tasks.take(t.coerceAtMost(tasks.size))
+    val day = DayState(
+        java.time.LocalDate.now(),
+        earnedMinutes = done.sumOf { it.rewardMinutes },
+        completedTasks = done.map { it.id }.toSet(),
+        grants = done.associate { it.id to it.rewardMinutes },
+        steps = if (done.isEmpty()) 2600 else 4000,
+        exerciseMinutes = if (done.size < 2) 12 else 30,
+    )
+    val shown by animateFloatAsState((freeMinutes + day.earnedMinutes).toFloat(), tween(600), label = "minutes")
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth().surface(radius = 24.dp).padding(18.dp), verticalAlignment = Alignment.Bottom) {
             Text("${shown.toInt()}", style = MaterialTheme.typography.displayLarge, color = Brand.Moss)
             Text(" min today", style = MaterialTheme.typography.titleMedium, color = Brand.Muted, modifier = Modifier.padding(bottom = 10.dp))
         }
-        items.forEachIndexed { i, (icon, title, reward) ->
-            val isDone = i < done
-            Row(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (isDone) Box(Modifier.size(40.dp).clip(CircleShape).background(Brand.Moss), contentAlignment = Alignment.Center) {
-                    androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(22.dp))
-                } else TendIcons.Badge(icon, 40.dp)
-                Spacer(Modifier.width(12.dp))
-                Text(title, style = MaterialTheme.typography.titleMedium, color = if (isDone) Brand.Muted else Brand.Ink, modifier = Modifier.weight(1f))
-                Text(if (isDone) "+$reward earned" else "+$reward", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
-            }
+        tasks.forEach { task ->
+            TaskRow(task, day, app.tend.health.HealthConnect.Status.READY, null, {}, {}, {})
         }
     }
 }
 
-/** Plants appear one night at a time. */
+/**
+ * A garden filling up: full flowers night by night, then the bench, a tree of its own and the
+ * things Bo earns, on Bo and in the garden.
+ */
 @Composable
 private fun GardenDemo(active: Boolean, avatar: Avatar) {
-    val t = ticker(active, 900, 8)
-    val all = listOf(Plant.SPROUT, Plant.TULIP, Plant.SUNFLOWER, Plant.TULIP, Plant.SUNFLOWER, Plant.SPROUT)
+    val t = ticker(active, 900, 11)
+    val flowers = listOf(Plant.TULIP, Plant.SUNFLOWER, Plant.TULIP, Plant.SUNFLOWER, Plant.TULIP, Plant.SUNFLOWER)
+    val nights = t.coerceAtMost(flowers.size)
+    val stage = when { t >= 9 -> 2; t >= 7 -> 1; else -> 0 }
+    val worn = buildSet {
+        if (t >= 7) { add(Accessory.HAT); add(Accessory.BUNTING) }
+        if (t >= 8) add(Accessory.BIRDHOUSE)
+        if (t >= 9) add(Accessory.LANTERNS)
+    }
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        GardenScene(avatar, all.take(t.coerceAtMost(all.size)), if (t >= all.size) 1 else 0, night = false)
+        androidx.compose.runtime.CompositionLocalProvider(LocalAccessories provides worn) {
+            GardenScene(avatar, flowers.take(nights), stage, night = false)
+        }
         Text(
-            if (t == 0) "Tonight" else "Night ${t.coerceAtMost(all.size)}",
+            when {
+                t == 0 -> "Tonight"
+                t <= flowers.size -> "Night $nights"
+                t == 7 -> "Week 2: a bench and a sun hat"
+                t == 8 -> "A birdhouse for walks outside"
+                else -> "Week 4: a tree of your own"
+            },
             style = MaterialTheme.typography.titleMedium, color = Brand.Moss, modifier = Modifier.padding(top = 12.dp),
         )
     }

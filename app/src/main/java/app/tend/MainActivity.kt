@@ -511,6 +511,7 @@ class MainActivity : ComponentActivity() {
                 },
                 onUndo = { TaskSync.undo(store, it); refresh++ },
                 onOpenSettings = { screen = Screen.SETTINGS },
+                onShare = ::shareGarden,
                 onOpenGarden = { screen = Screen.GARDEN },
                 onOpenRecap = { screen = Screen.RECAP },
                 // Right after the tour; after a "Not now", the important ones once more a week later.

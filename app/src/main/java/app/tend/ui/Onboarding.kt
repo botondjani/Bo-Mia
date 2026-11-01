@@ -129,7 +129,8 @@ fun Onboarding(
             targetState = step,
             transitionSpec = {
                 val dir = if (targetState.ordinal > initialState.ordinal) 1 else -1
-                (slideInHorizontally { it * dir / 3 } + fadeIn()) togetherWith (slideOutHorizontally { -it * dir / 3 } + fadeOut())
+                val motion = androidx.compose.animation.core.spring<androidx.compose.ui.unit.IntOffset>(stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow)
+                slideInHorizontally(motion) { it * dir } togetherWith slideOutHorizontally(motion) { -it * dir }
             },
             modifier = Modifier.weight(1f),
             label = "onboarding",
@@ -283,13 +284,13 @@ fun AppPicker(catalog: AppCatalog, blocked: Set<String>, onToggle: (String) -> U
 
     if (catalog.suggested.isNotEmpty()) {
         if (catalog.dailyMinutes.isNotEmpty()) Text("Your most used apps and social media, most used first.", style = MaterialTheme.typography.bodyMedium)
-        AppGrid(catalog, catalog.suggested, blocked, onToggle)
     } else {
         Text("None of the usual suspects are installed. Search below.", style = MaterialTheme.typography.bodyMedium)
     }
-    // Picked from "other apps" earlier: keep them visible.
+    // Picked from the full list: they join the big tiles, next to the others.
     val extra = catalog.others.filter { it.pkg in blocked }
-    if (extra.isNotEmpty()) AppGrid(catalog, extra, blocked, onToggle)
+    val tiles = catalog.suggested + extra
+    if (tiles.isNotEmpty()) AppGrid(catalog, tiles, blocked, onToggle)
 
     SecondaryButton(if (showOthers) "Hide other apps" else "Add another app", { showOthers = !showOthers })
     AnimatedVisibility(showOthers) {
@@ -349,16 +350,24 @@ private fun AppTile(catalog: AppCatalog, app: InstalledApp, selected: Boolean, o
 
 @Composable
 private fun AppRow(catalog: AppCatalog, app: InstalledApp, selected: Boolean, onToggle: (String) -> Unit) = Row(
-    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Brand.Card).clickable { onToggle(app.pkg) }.padding(10.dp),
+    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+        .background(if (selected) Brand.Mint.copy(alpha = 0.35f) else Brand.Card)
+        .border(2.dp, if (selected) Brand.Moss else Color.Transparent, RoundedCornerShape(16.dp))
+        .clickable { onToggle(app.pkg) }.padding(10.dp),
     verticalAlignment = Alignment.CenterVertically,
 ) {
     AppIcon(catalog, app.pkg, 32.dp)
     Spacer(Modifier.width(12.dp))
-    Text(app.label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-    androidx.compose.material3.Icon(
-        if (selected) androidx.compose.material.icons.Icons.Filled.Check else androidx.compose.material.icons.Icons.Filled.Add,
-        null, tint = Brand.Moss,
-    )
+    Text(app.label, style = MaterialTheme.typography.bodyLarge, color = if (selected) Brand.Moss else Brand.Ink, modifier = Modifier.weight(1f))
+    Box(
+        Modifier.size(26.dp).clip(CircleShape).background(if (selected) Brand.Moss else Brand.Mint.copy(alpha = 0.3f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        androidx.compose.material3.Icon(
+            if (selected) androidx.compose.material.icons.Icons.Filled.Check else androidx.compose.material.icons.Icons.Filled.Add,
+            null, tint = if (selected) Color.White else Brand.Moss, modifier = Modifier.size(16.dp),
+        )
+    }
 }
 
 @Composable
@@ -532,15 +541,7 @@ fun WidgetButton(avatar: Avatar, onAddWidget: () -> Boolean) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var isPlaced by remember { mutableStateOf(WidgetKind.anyPlaced(context)) }
     var guide by rememberSaveable { mutableStateOf(false) }
-    var waiting by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { while (!isPlaced) { kotlinx.coroutines.delay(1500); isPlaced = WidgetKind.anyPlaced(context) } }
-    // Some launchers say yes and then show nothing: after a few seconds, the guide takes over.
-    LaunchedEffect(waiting) {
-        if (!waiting) return@LaunchedEffect
-        kotlinx.coroutines.delay(6000)
-        waiting = false
-        if (!WidgetKind.anyPlaced(context)) guide = true
-    }
 
     if (isPlaced) Row(
         Modifier.fillMaxWidth().surface(radius = 18.dp).padding(14.dp),
@@ -551,7 +552,7 @@ fun WidgetButton(avatar: Avatar, onAddWidget: () -> Boolean) {
         Spacer(Modifier.width(Space.s))
         Text("${avatar.displayName} is on your home screen", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
     } else {
-        SecondaryButton("Put ${avatar.displayName} on your home screen", { if (onAddWidget()) waiting = true else guide = true })
+        SecondaryButton("Put ${avatar.displayName} on your home screen", { if (!onAddWidget()) guide = true })
         // The bigger ones (with minutes, the garden) are in the phone's own widget list.
         Text(
             "Other sizes: your phone's widget list", style = MaterialTheme.typography.labelLarge, color = Brand.Moss,

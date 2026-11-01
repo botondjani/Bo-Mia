@@ -227,10 +227,10 @@ fun DrawScope.drawGarden(
         val base = Offset(bedLeft + step * (c + 0.4f), groundY + (h - groundY) * (0.36f + r * 0.28f))
         val plant = shown.getOrNull(i)
         when {
-            plant != null -> drawPlant(plant, base, h * 0.13f)
+            plant != null -> drawPlant(plant, base, h * 0.15f)
             i == shown.size && preview != null -> drawIntoCanvas {
                 it.saveLayer(androidx.compose.ui.geometry.Rect(Offset.Zero, size), androidx.compose.ui.graphics.Paint().apply { alpha = 0.4f })
-                drawPlant(preview, base, h * 0.13f)
+                drawPlant(preview, base, h * 0.15f)
                 it.restore()
             }
         }
@@ -283,16 +283,20 @@ fun DrawScope.drawPlant(plant: Plant, base: Offset, s: Float) {
             quadraticTo(stemTop.x + s * 0.16f, stemTop.y + s * 0.06f, stemTop.x, stemTop.y + s * 0.06f)
             quadraticTo(stemTop.x - s * 0.16f, stemTop.y + s * 0.06f, stemTop.x - s * 0.16f, stemTop.y - s * 0.2f)
             close()
-        }, Brand.Coral)
+        }, Brand.Coral).also {
+            // A lighter middle petal makes it a full bloom, not a flat cup.
+            drawOval(Color.White.copy(alpha = 0.28f), Offset(stemTop.x - s * 0.045f, stemTop.y - s * 0.17f), Size(s * 0.09f, s * 0.17f))
+        }
         Plant.SUNFLOWER -> {
-            for (a in 0 until 10) {
-                val angle = Math.toRadians(a * 36.0)
+            for (a in 0 until 12) {
+                val angle = Math.toRadians(a * 30.0)
                 drawCircle(
-                    Brand.Sunny, s * 0.09f,
-                    Offset(stemTop.x + (s * 0.15f * Math.cos(angle)).toFloat(), stemTop.y + (s * 0.15f * Math.sin(angle)).toFloat()),
+                    Brand.Sunny, s * 0.085f,
+                    Offset(stemTop.x + (s * 0.16f * Math.cos(angle)).toFloat(), stemTop.y + (s * 0.16f * Math.sin(angle)).toFloat()),
                 )
             }
-            drawCircle(Soil, s * 0.11f, stemTop)
+            drawCircle(Soil, s * 0.115f, stemTop)
+            drawCircle(Color.White.copy(alpha = 0.18f), s * 0.05f, stemTop + Offset(-s * 0.03f, -s * 0.03f))
         }
     }
 }
