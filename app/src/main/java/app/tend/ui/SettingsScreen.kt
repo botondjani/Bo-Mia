@@ -25,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.tend.core.Avatar
 import app.tend.core.BudgetConfig
 import app.tend.core.TaskDef
@@ -42,7 +43,7 @@ fun SettingsScreen(
     tasks: List<TaskDef>,
     onToggleTask: (TaskDef) -> Unit,
     missCount: Int,
-    onAddWidget: () -> Boolean,
+    onAddWidget: (WidgetKind) -> Boolean,
     reminderEnabled: Boolean,
     onReminder: (enabled: Boolean) -> Unit,
     eveningFrom: Int,
@@ -84,7 +85,7 @@ fun SettingsScreen(
         Text("Settings", style = MaterialTheme.typography.headlineMedium)
     }
     Text("COMPANION", style = MaterialTheme.typography.labelSmall)
-    CompanionPicker(avatar, onAvatar)
+    CompanionPicker(avatar, onAvatar, compact = true)
     Text("APPS TO PAUSE", style = MaterialTheme.typography.labelSmall)
     AppPicker(catalog, blocked, onToggleApp)
     Text("INSTEAD OF SCROLLING", style = MaterialTheme.typography.labelSmall)
@@ -153,7 +154,10 @@ fun SettingsScreen(
         Text("tend $version", style = MaterialTheme.typography.bodyLarge)
         Text(if (shareStats) "Your data stays on this phone; only anonymous counts are shared." else "Everything stays on this phone.", style = MaterialTheme.typography.bodyMedium)
         SwitchRow("Share anonymous usage stats", "Counts like \"a pause ended in Not now\". No names, apps or health data.", shareStats, onShareStats)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+        androidx.compose.foundation.layout.FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(top = 6.dp),
+        ) {
             ChipButton("Privacy", onPrivacy, filled = false)
             onFeedback?.let { ChipButton("Send feedback", it, filled = false) }
             ChipButton("Start over", { confirmReset = true }, filled = false)
@@ -173,13 +177,15 @@ fun SettingsScreen(
 
 @Composable
 private fun HourStepper(label: String, hour: Int, modifier: Modifier, onChange: (Int) -> Unit) =
-    Row(modifier.clip(RoundedCornerShape(14.dp)).background(Brand.Sage).padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 6.dp).weight(1f))
+    Column(modifier.clip(RoundedCornerShape(14.dp)).background(Brand.Sage).padding(horizontal = 6.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+      Text(label, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), maxLines = 1)
+      Row(verticalAlignment = Alignment.CenterVertically) {
         Text("−", style = MaterialTheme.typography.titleLarge, color = Brand.Moss,
             modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { onChange((hour + 23) % 24) }.padding(horizontal = 10.dp, vertical = 2.dp))
         Text("%d:00".format(hour), style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
         Text("+", style = MaterialTheme.typography.titleLarge, color = Brand.Moss,
             modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { onChange((hour + 1) % 24) }.padding(horizontal = 10.dp, vertical = 2.dp))
+      }
     }
 
 @Composable
@@ -189,6 +195,7 @@ private fun SwitchRow(title: String, body: String, checked: Boolean, onChange: (
             Text(title, style = MaterialTheme.typography.bodyLarge)
             Text(body, style = MaterialTheme.typography.bodyMedium)
         }
+        Spacer(Modifier.width(12.dp))
         Switch(checked = checked, onCheckedChange = onChange)
     }
 

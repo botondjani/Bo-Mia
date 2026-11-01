@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -52,13 +54,16 @@ fun ActivityPicker(selected: List<TaskDef>, onToggle: (TaskDef) -> Unit) {
     PickCounter(selected.size)
 
     Text("SUGGESTIONS", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
-    FlowRow(
-        maxItemsInEachRow = 2,
-        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Tasks.presets.forEach { preset ->
-            val picked = selected.firstOrNull { it == preset }
-            PresetTile(preset, picked, enabled = picked != null || !full, modifier = Modifier.weight(1f)) { onToggle(preset) }
+    // Two equal columns; tiles in a row share one height, whatever wraps.
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Tasks.presets.chunked(2).forEach { row ->
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { preset ->
+                    val picked = selected.firstOrNull { it == preset }
+                    PresetTile(preset, picked, enabled = picked != null || !full, modifier = Modifier.weight(1f).fillMaxHeight()) { onToggle(preset) }
+                }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
         }
     }
 
@@ -85,7 +90,7 @@ private fun PresetTile(task: TaskDef, picked: TaskDef?, enabled: Boolean, modifi
     TendIcons.Badge(task.icon, 34.dp)
     Spacer(Modifier.width(8.dp))
     Column(Modifier.weight(1f)) {
-        Text(task.title, style = MaterialTheme.typography.labelLarge, maxLines = 2)
+        Text(task.title, style = MaterialTheme.typography.labelLarge, maxLines = 3)
         Text(
             picked?.let { "+${it.rewardMinutes} min" } ?: task.verification.label,
             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = if (picked != null) Brand.Moss else Brand.Muted,
@@ -162,16 +167,13 @@ private fun PickCounter(count: Int) = Column(
     Modifier.fillMaxWidth().surface(radius = 20.dp).padding(horizontal = 16.dp, vertical = 12.dp),
     verticalArrangement = Arrangement.spacedBy(6.dp),
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("$count of ${Tasks.MAX_SELECTED} picked", style = MaterialTheme.typography.titleMedium, color = Brand.Moss, modifier = Modifier.weight(1f))
-        Text("Change any time in settings", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp))
-    }
+    Text("$count of ${Tasks.MAX_SELECTED} picked", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
     Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(Brand.Mint.copy(alpha = 0.25f))) {
         Box(Modifier.fillMaxWidth(count / Tasks.MAX_SELECTED.toFloat()).height(6.dp).clip(CircleShape).background(Brand.Moss))
     }
     Text(
         if (count >= Tasks.MAX_SELECTED) "That's the max. Tap one to swap it out."
-        else "Your daily extra minutes are shared between them: bigger efforts earn more.",
+        else "Your daily extra minutes are shared between them: bigger efforts earn more. Change any time in settings.",
         style = MaterialTheme.typography.bodyMedium,
     )
 }

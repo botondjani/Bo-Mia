@@ -20,7 +20,32 @@ class AppCatalog(private val context: Context) {
         .sortedBy { it.label.lowercase() }
     }
 
-    val suggested: List<InstalledApp> by lazy { all.filter { it.pkg in SUGGESTED }.sortedBy { SUGGESTED.indexOf(it.pkg) } }
+    /**
+     * Minutes a day each app was used over the last two weeks (empty without usage access).
+     * The home screen and tend itself are left out.
+     */
+    val dailyMinutes: Map<String, Int> by lazy {
+        runCatching {
+            val usm = context.getSystemService(android.app.usage.UsageStatsManager::class.java)
+            val now = System.currentTimeMillis()
+            val days = 14
+            val home = context.packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)?.activityInfo?.packageName
+            usm.queryAndAggregateUsageStats(now - days * 86_400_000L, now)
+                .mapValues { (it.value.totalTimeInForeground / 60_000 / days).toInt() }
+                .filter { (pkg, min) -> min >= 5 && pkg != home && pkg != context.packageName && pkg != "com.android.settings" }
+        }.getOrDefault(emptyMap())
+    }
+
+    /**
+     * The tiles shown first: the apps used most (when tend can see usage) and the social apps
+     * installed, most used first, at most [MAX_TILES].
+     */
+    val suggested: List<InstalledApp> by lazy {
+        val usage = dailyMinutes
+        val used = all.filter { (usage[it.pkg] ?: 0) > 0 }.sortedByDescending { usage[it.pkg] }.take(MAX_TILES)
+        val social = all.filter { it.pkg in SUGGESTED }.sortedBy { SUGGESTED.indexOf(it.pkg) }
+        (used + social).distinctBy { it.pkg }.sortedByDescending { usage[it.pkg] ?: 0 }.take(MAX_TILES)
+    }
 
     val others: List<InstalledApp> by lazy { all - suggested.toSet() }
 
@@ -36,6 +61,8 @@ class AppCatalog(private val context: Context) {
     }
 
     companion object {
+        const val MAX_TILES = 9
+
         /** Ordered roughly by how often they come up as "mindless scrolling". */
         val SUGGESTED = listOf(
             "com.instagram.android",

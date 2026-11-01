@@ -62,7 +62,6 @@ import app.tend.ui.Permissions
 import app.tend.ui.PermissionsScreen
 import app.tend.ui.SettingsScreen
 import app.tend.ui.TendTheme
-import app.tend.widget.TendWidget
 import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
@@ -536,6 +535,12 @@ class MainActivity : ComponentActivity() {
                 notesOff = !store.reminderPrompted && !(store.reminderEnabled && RecapReminder.canNotify(this@MainActivity)),
                 onAllowNotes = ::allowNotes,
                 askStats = app.tend.data.Stats.consent(this) == null,
+                sleepyOff = !store.eveningPause,
+                onSleepy = { store.eveningPause = true; refresh++ },
+                bedtimeOff = store.lockSchedules.none { it.on },
+                onBedtime = { store.setLockSchedule(app.tend.core.LockSchedule.BEDTIME.copy(on = true)); refresh++ },
+                letterOff = !store.weeklyLetter,
+                onLetter = { setWeeklyLetter(true) },
                 onShareStats = { app.tend.data.Stats.setConsent(this, true); refresh++ },
                 showTour = !store.tourDone,
                 exerciseTracked = store.exerciseTracked,
@@ -683,14 +688,13 @@ class MainActivity : ComponentActivity() {
     }
 
     /** Null when the launcher can't pin widgets from inside the app. */
-    private fun widgetPlaced() = AppWidgetManager.getInstance(this)
-        .getAppWidgetIds(ComponentName(this, TendWidget::class.java)).isNotEmpty()
+    private fun widgetPlaced() = app.tend.ui.WidgetKind.anyPlaced(this)
 
     /** Asks the launcher to place the widget; false when it can't or won't (then the user adds it by hand). */
-    private fun pinWidget(): Boolean {
+    private fun pinWidget(kind: app.tend.ui.WidgetKind): Boolean {
         val manager = AppWidgetManager.getInstance(this)
         if (!manager.isRequestPinAppWidgetSupported) return false
-        return runCatching { manager.requestPinAppWidget(ComponentName(this, TendWidget::class.java), null, null) }.getOrDefault(false)
+        return runCatching { manager.requestPinAppWidget(ComponentName(this, kind.provider), null, null) }.getOrDefault(false)
     }
 
     private fun permissions(): Permissions {

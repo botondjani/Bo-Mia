@@ -19,6 +19,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -57,6 +60,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.asImageBitmap
 import app.tend.core.Avatar
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -240,11 +245,21 @@ fun BobbingCharacter(avatar: Avatar, mood: Mood, size: Dp) {
 }
 
 @Composable
-fun CompanionPicker(avatar: Avatar, onAvatar: (Avatar) -> Unit) =
+fun CompanionPicker(avatar: Avatar, onAvatar: (Avatar) -> Unit, compact: Boolean = false) =
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Avatar.entries.forEach { a ->
             val selected = a == avatar
-            Column(
+            // Settings: a small face and the name side by side.
+            if (compact) Row(
+                Modifier.weight(1f).clip(RoundedCornerShape(20.dp)).background(Brand.Card)
+                    .border(2.dp, if (selected) Brand.Moss else Color.Transparent, RoundedCornerShape(20.dp))
+                    .clickable { onAvatar(a) }.padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CharacterView(a, Mood.HAPPY, 52.dp)
+                Spacer(Modifier.width(10.dp))
+                Text(a.displayName, style = MaterialTheme.typography.titleMedium)
+            } else Column(
                 Modifier.weight(1f).clip(RoundedCornerShape(24.dp)).background(Brand.Card)
                     .border(3.dp, if (selected) Brand.Moss else Color.Transparent, RoundedCornerShape(24.dp))
                     .clickable { onAvatar(a) }.padding(vertical = 20.dp),
@@ -262,19 +277,14 @@ fun AppPicker(catalog: AppCatalog, blocked: Set<String>, onToggle: (String) -> U
     var query by rememberSaveable { mutableStateOf("") }
 
     if (catalog.suggested.isNotEmpty()) {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            catalog.suggested.forEach { AppTile(catalog, it, it.pkg in blocked, onToggle) }
-        }
+        if (catalog.dailyMinutes.isNotEmpty()) Text("Your most used apps and social media, most used first.", style = MaterialTheme.typography.bodyMedium)
+        AppGrid(catalog, catalog.suggested, blocked, onToggle)
     } else {
         Text("None of the usual suspects are installed. Search below.", style = MaterialTheme.typography.bodyMedium)
     }
     // Picked from "other apps" earlier: keep them visible.
     val extra = catalog.others.filter { it.pkg in blocked }
-    if (extra.isNotEmpty()) {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            extra.forEach { AppTile(catalog, it, true, onToggle) }
-        }
-    }
+    if (extra.isNotEmpty()) AppGrid(catalog, extra, blocked, onToggle)
 
     SecondaryButton(if (showOthers) "Hide other apps" else "Add another app", { showOthers = !showOthers })
     AnimatedVisibility(showOthers) {
@@ -292,9 +302,21 @@ fun AppPicker(catalog: AppCatalog, blocked: Set<String>, onToggle: (String) -> U
     }
 }
 
+/** Three equal columns; a short last row keeps the same tile width. */
 @Composable
-private fun AppTile(catalog: AppCatalog, app: InstalledApp, selected: Boolean, onToggle: (String) -> Unit) = Column(
-    Modifier.width(96.dp).clip(RoundedCornerShape(20.dp))
+private fun AppGrid(catalog: AppCatalog, apps: List<InstalledApp>, blocked: Set<String>, onToggle: (String) -> Unit) =
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        apps.chunked(3).forEach { row ->
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                row.forEach { AppTile(catalog, it, it.pkg in blocked, onToggle, Modifier.weight(1f).fillMaxHeight()) }
+                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+
+@Composable
+private fun AppTile(catalog: AppCatalog, app: InstalledApp, selected: Boolean, onToggle: (String) -> Unit, modifier: Modifier) = Column(
+    modifier.clip(RoundedCornerShape(20.dp))
         .background(if (selected) Brand.Mint.copy(alpha = 0.35f) else Brand.Card)
         .border(2.dp, if (selected) Brand.Moss else Color.Transparent, RoundedCornerShape(20.dp))
         .clickable { onToggle(app.pkg) }.padding(vertical = 12.dp, horizontal = 6.dp),
@@ -308,7 +330,16 @@ private fun AppTile(catalog: AppCatalog, app: InstalledApp, selected: Boolean, o
         ) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(12.dp)) }
     }
     Spacer(Modifier.height(6.dp))
-    Text(app.label, style = MaterialTheme.typography.bodyMedium, color = Brand.Ink, maxLines = 1, textAlign = TextAlign.Center)
+    Text(
+        app.label, style = MaterialTheme.typography.bodyMedium, color = Brand.Ink, maxLines = 1, textAlign = TextAlign.Center,
+        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+    )
+    catalog.dailyMinutes[app.pkg]?.let { min ->
+        Text(
+            if (min >= 60) "${min / 60} h ${min % 60} min a day" else "$min min a day",
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted, maxLines = 1, textAlign = TextAlign.Center,
+        )
+    }
 }
 
 @Composable
@@ -355,14 +386,14 @@ private fun Stepper(title: String, hint: String, options: List<Int>, value: Int,
         StepButton("−", i > 0) { onPick(options[i - 1]) }
         Text(
             "$value min", style = MaterialTheme.typography.titleMedium, color = Brand.Moss, textAlign = TextAlign.Center,
-            modifier = Modifier.width(76.dp),
+            modifier = Modifier.width(70.dp),
         )
         StepButton("+", i < options.lastIndex) { onPick(options[i + 1]) }
     }
 
 @Composable
 private fun StepButton(label: String, enabled: Boolean, onClick: () -> Unit) = Box(
-    Modifier.size(38.dp).clip(CircleShape).background(if (enabled) Brand.Mint.copy(alpha = 0.25f) else Brand.Sage)
+    Modifier.size(36.dp).clip(CircleShape).background(if (enabled) Brand.Mint.copy(alpha = 0.25f) else Brand.Sage)
         .clickable(enabled = enabled, onClick = onClick),
     contentAlignment = Alignment.Center,
 ) { Text(label, style = MaterialTheme.typography.titleLarge, color = if (enabled) Brand.Moss else Brand.Muted.copy(alpha = 0.4f)) }
@@ -492,10 +523,10 @@ private fun RestrictedHelp(onAppInfo: () -> Unit) = Column(
  * placed, the button turns into a confirmation.
  */
 @Composable
-fun WidgetButton(avatar: Avatar, onAddWidget: () -> Boolean) {
+fun WidgetButton(avatar: Avatar, onAddWidget: (WidgetKind) -> Boolean) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    fun placed() = android.appwidget.AppWidgetManager.getInstance(context)
-        .getAppWidgetIds(android.content.ComponentName(context, app.tend.widget.TendWidget::class.java)).isNotEmpty()
+    fun placed() = WidgetKind.anyPlaced(context)
+    var choosing by rememberSaveable { mutableStateOf(false) }
     var isPlaced by remember { mutableStateOf(placed()) }
     var waiting by remember { mutableStateOf(false) }
     var guide by rememberSaveable { mutableStateOf(false) }
@@ -517,11 +548,94 @@ fun WidgetButton(avatar: Avatar, onAddWidget: () -> Boolean) {
         Text("${avatar.displayName} is on your home screen", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
     } else SecondaryButton(
         if (waiting) "Waiting for your launcher…" else "Put ${avatar.displayName} on your home screen",
-        { if (onAddWidget()) waiting = true else guide = true },
+        { choosing = true },
         enabled = !waiting,
     )
+    if (choosing) WidgetChooser(avatar, onDismiss = { choosing = false }) { kind ->
+        choosing = false
+        if (onAddWidget(kind)) waiting = true else guide = true
+    }
 
     if (guide) WidgetGuideDialog(avatar) { guide = false }
+}
+
+/** The three home screen widgets. */
+enum class WidgetKind(val title: String, val size: String, val provider: Class<*>) {
+    FACE("Just Bo", "1 × 1", app.tend.widget.TendWidgetFace::class.java),
+    WIDE("Bo and your minutes", "2 × 1", app.tend.widget.TendWidget::class.java),
+    GARDEN("The garden", "2 × 2", app.tend.widget.TendWidgetGarden::class.java);
+
+    companion object {
+        fun anyPlaced(context: android.content.Context): Boolean {
+            val m = android.appwidget.AppWidgetManager.getInstance(context)
+            return entries.any { m.getAppWidgetIds(android.content.ComponentName(context, it.provider)).isNotEmpty() }
+        }
+    }
+}
+
+/** Pick a widget: each one drawn as it will look, at its real proportions. */
+@Composable
+fun WidgetChooser(avatar: Avatar, onDismiss: () -> Unit, onPick: (WidgetKind) -> Unit) {
+    val worn = LocalAccessories.current
+    val face = remember(avatar, worn) { app.tend.ui.CharacterPainter.bitmap(avatar, Mood.HAPPY, 240, worn).asImageBitmap() }
+    val garden = remember(avatar, worn) { gardenBitmap(avatar, emptyList(), 0, worn, 480, 300).asImageBitmap() }
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) { WidgetChooserCard(face, garden, onDismiss, onPick) }
+}
+
+@Composable
+internal fun WidgetChooserCard(
+    face: androidx.compose.ui.graphics.ImageBitmap, garden: androidx.compose.ui.graphics.ImageBitmap,
+    onDismiss: () -> Unit, onPick: (WidgetKind) -> Unit,
+) {
+        Column(
+            Modifier.fillMaxWidth().surface(radius = 28.dp).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("Which one?", style = MaterialTheme.typography.titleLarge)
+            Text("Tap one and your launcher asks where to put it. You can add the others later.", style = MaterialTheme.typography.bodyMedium)
+            Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                // 1x1: just the face, the way it sits among app icons.
+                WidgetOption(WidgetKind.FACE, Modifier.weight(1f).fillMaxHeight(), onPick) {
+                    Box(Modifier.size(64.dp).clip(RoundedCornerShape(20.dp)).background(Brand.Card), contentAlignment = Alignment.Center) {
+                        androidx.compose.foundation.Image(face, null, Modifier.size(52.dp))
+                    }
+                }
+                // 2x1: face and minutes.
+                WidgetOption(WidgetKind.WIDE, Modifier.weight(1.6f).fillMaxHeight(), onPick) {
+                    Row(
+                        Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(20.dp)).background(Brand.Card).padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        androidx.compose.foundation.Image(face, null, Modifier.size(44.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Column {
+                            Text("85", style = MaterialTheme.typography.titleMedium, color = Brand.Moss, maxLines = 1)
+                            Text("min left", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), maxLines = 1)
+                        }
+                    }
+                }
+            }
+            // 2x2: the garden.
+            WidgetOption(WidgetKind.GARDEN, Modifier.fillMaxWidth(), onPick) {
+                androidx.compose.foundation.Image(
+                    garden, null,
+                    Modifier.fillMaxWidth().aspectRatio(1.6f).clip(RoundedCornerShape(20.dp)),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                )
+            }
+            SecondaryButton("Later", onDismiss)
+        }
+}
+
+@Composable
+private fun WidgetOption(kind: WidgetKind, modifier: Modifier, onPick: (WidgetKind) -> Unit, preview: @Composable () -> Unit) = Column(
+    modifier.clip(RoundedCornerShape(20.dp)).background(Brand.Sage).clickable { onPick(kind) }.padding(10.dp),
+    horizontalAlignment = Alignment.CenterHorizontally,
+    verticalArrangement = Arrangement.spacedBy(6.dp),
+) {
+    preview()
+    Text(kind.title, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center, maxLines = 2)
+    Text(kind.size, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
 }
 
 /** Three steps to add the widget by hand: most launchers don't let apps place it themselves. */
