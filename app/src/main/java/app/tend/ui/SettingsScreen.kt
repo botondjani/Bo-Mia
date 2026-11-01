@@ -21,6 +21,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.tend.core.Avatar
@@ -53,6 +55,13 @@ fun SettingsScreen(
     onExport: (() -> Unit)?,
     /** Play build: rate tend on Google Play. */
     onRate: (() -> Unit)? = null,
+    /** Opens the privacy page. */
+    onPrivacy: () -> Unit = {},
+    /** Mail to the support address; null when none is set. */
+    onFeedback: (() -> Unit)? = null,
+    /** Deletes everything and starts onboarding again. */
+    onStartOver: () -> Unit = {},
+    version: String = "",
     onReplayTour: () -> Unit,
     notesMorning: Boolean,
     notesNudges: Boolean,
@@ -135,6 +144,25 @@ fun SettingsScreen(
     )
     SecondaryButton("Show the tour again", onReplayTour)
     onRate?.let { SecondaryButton("Rate tend on Google Play", it) }
+    Text("ABOUT", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = Space.s))
+    var confirmReset by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    Card {
+        Text("tend $version", style = MaterialTheme.typography.bodyLarge)
+        Text("Everything stays on this phone.", style = MaterialTheme.typography.bodyMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+            ChipButton("Privacy", onPrivacy, filled = false)
+            onFeedback?.let { ChipButton("Send feedback", it, filled = false) }
+            ChipButton("Start over", { confirmReset = true }, filled = false)
+        }
+    }
+    if (confirmReset) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { confirmReset = false },
+        title = { Text("Start over?") },
+        text = { Text("This deletes your minutes, activities, garden and settings on this phone. It can't be undone.") },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = { confirmReset = false; onStartOver() }) { Text("Delete everything", color = Brand.Coral) } },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmReset = false }) { Text("Keep") } },
+        containerColor = Brand.Card,
+    )
     onExport?.let { SecondaryButton("Export test data", it) }
     PrimaryButton("Done", onDone, enabled = blocked.isNotEmpty(), modifier = Modifier.padding(vertical = 20.dp))
 }

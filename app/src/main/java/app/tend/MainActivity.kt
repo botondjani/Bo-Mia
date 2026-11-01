@@ -175,6 +175,28 @@ class MainActivity : ComponentActivity() {
         Review.ask(this)
     }
 
+    /** An e-mail to the support address with the version and phone, nothing else. */
+    private fun sendFeedback(mail: String) {
+        val body = "\n\n—\ntend ${BuildConfig.VERSION_NAME} · ${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}"
+        open(
+            Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:")).putExtra(Intent.EXTRA_EMAIL, arrayOf(mail))
+                .putExtra(Intent.EXTRA_SUBJECT, "tend feedback").putExtra(Intent.EXTRA_TEXT, body),
+        )
+    }
+
+    /** Settings → Start over: everything on this phone goes, and onboarding begins again. */
+    private fun startOver() {
+        TaskSync.stopTimer(this)
+        stopService(Intent(this, MonitorService::class.java))
+        for (name in listOf("tend", "tend_monitor", "tend_ui")) getSharedPreferences(name, MODE_PRIVATE).edit().clear().commit()
+        filesDir.listFiles()?.forEach { it.deleteRecursively() }
+        cacheDir.listFiles()?.forEach { it.deleteRecursively() }
+        app.tend.widget.Widgets.refresh(this, force = true)
+        app.tend.ui.ThemeChoice.mode = null // read again from the (now empty) store
+        startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        finish()
+    }
+
     private fun openPlayListing() = open(
         Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName")),
         Intent(Intent.ACTION_VIEW, Uri.parse(app.tend.ui.ShareCard.playUrl(this))),
@@ -370,6 +392,10 @@ class MainActivity : ComponentActivity() {
                 onWeeklyLetter = ::setWeeklyLetter,
                 onExport = if (BuildConfig.PLAY) null else ::exportTestData,
                 onRate = if (BuildConfig.PLAY) ::openPlayListing else null,
+                onPrivacy = { startActivity(Intent(this, app.tend.health.PrivacyActivity::class.java)) },
+                onFeedback = getString(R.string.support_email).takeIf { it.isNotBlank() }?.let { mail -> { sendFeedback(mail) } },
+                onStartOver = ::startOver,
+                version = BuildConfig.VERSION_NAME,
                 onReplayTour = { store.tourDone = false; screen = Screen.HOME },
                 notesMorning = store.notesMorning,
                 notesNudges = store.notesNudges,

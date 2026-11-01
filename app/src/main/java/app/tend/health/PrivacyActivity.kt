@@ -37,18 +37,24 @@ class PrivacyActivity : ComponentActivity() {
                         .verticalScroll(rememberScrollState()).padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text("What tend reads", style = MaterialTheme.typography.headlineLarge)
+                    Text("Your privacy", style = MaterialTheme.typography.headlineLarge)
                     Text(
-                        "tend reads today's step count and exercise sessions from Health Connect. " +
-                            "It uses them only to mark your walk and workout tasks as done and give you screen-time minutes back.",
+                        "Everything tend knows stays on your phone. No account, no servers, no ads, no tracking. Nothing is sent anywhere.",
                         style = MaterialTheme.typography.bodyLarge,
                     )
+                    Text("WHAT TEND USES, AND WHY", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
+                    listOf(
+                        "Usage access: to notice when you open an app you picked, and to count your minutes.",
+                        "Display over other apps: to show the pause over that app.",
+                        "Health Connect, if you connect it: steps, exercise and sleep, to complete those activities and give minutes back. " +
+                            "With background access, a finished walk counts without opening tend. tend only reads; it never writes or shares health data.",
+                        "Notifications, if you allow them: the morning plan, a heads-up at 10 minutes left, the evening recap, the Sunday letter.",
+                        "Your installed apps: only to let you pick which ones to pause.",
+                    ).forEach { Text("• $it", style = MaterialTheme.typography.bodyLarge) }
                     Text(
-                        "Nothing is written to Health Connect, and nothing leaves your phone. " +
-                            "Only today's totals are kept, and they reset at midnight.",
-                        style = MaterialTheme.typography.bodyLarge,
+                        "To delete everything: Settings → Start over, or uninstall tend. Health Connect access can be turned off any time in Health Connect.",
+                        style = MaterialTheme.typography.bodyMedium,
                     )
-                    Text("You can turn access off any time in Health Connect.", style = MaterialTheme.typography.bodyMedium)
                     PrimaryButton("Got it", ::finish, modifier = Modifier.padding(top = 12.dp))
                 }
             }

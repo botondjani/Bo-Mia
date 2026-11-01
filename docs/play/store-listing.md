@@ -2,48 +2,63 @@
 
 Everything to paste into Play Console, in the order Play asks for it.
 
+## Positioning
+
+Most screen-time apps sell restriction ("block apps", "limit social media") and compete in Productivity / Tools for the same few keywords. tend is positioned as a **cozy habit pet**: a companion you care for by living well (walks, sleep, reading, friends), where less scrolling is the reward, not the punishment. That puts it next to self-care and habit apps, a different shelf and a different set of searches, and it still catches the screen-time ones through the description.
+
+- **Primary promise:** "Care for Bo by caring for yourself."
+- **Shelf:** Health & Fitness (self-care, habits, wellbeing), not Productivity.
+- **Keyword clusters** (woven into title, short and full description, not stuffed):
+  - Companion / cozy: habit pet, virtual pet, cozy, self care, wellbeing, cute
+  - Habits: habit tracker, daily goals, walk, steps, sleep goal, reading timer, focus timer
+  - The problem, in people's words: doomscrolling, phone addiction, social media detox, dopamine detox, touch grass
+  - The classic ones: screen time, app limits, digital wellbeing
+- **Custom store listings later:** Play lets you show a different listing per search intent (e.g. "dopamine detox" vs "habit pet"); worth it once there's traffic to compare.
+
 ## App
 
-- **App name** (max 30): `tend: screen time with Bo`
+- **App name** (max 30): `tend: Habit Pet & Screen Time`
 - **Package**: `app.tend` (if Play says it's taken, change `applicationId` in `app/build.gradle.kts` before the first upload; it can't change later)
-- **Category**: Productivity (alternative: Health & Fitness)
-- **Contact e-mail**: your address
-- **Privacy policy URL**: where `docs/privacy/index.html` is published (see "Privacy policy" below)
+- **Category**: Health & Fitness
+- **Tags** (Play Console → Store settings): Habit tracker, Self care, Mindfulness, Digital wellbeing
+- **Contact e-mail**: your address (also set `support_email` in `app/src/main/res/values/strings.xml` to show "Send feedback" in the app)
+- **Privacy policy URL**: where `docs/privacy/index.html` is published
 
 ## Short description (max 80)
 
 ```
-A little pause before you scroll, and a companion who grows when you live.
+A cozy habit pet: walk, sleep, read, and earn your screen time back.
 ```
 
 ## Full description (max 4000)
 
 ```
-We tend to scroll more than we mean to. tend helps you notice, without bans or guilt.
+Meet Bo, a little habit pet who grows when you live your real day.
 
-Meet Bo (or Mia), a small companion who lives on your phone.
+Go for a walk, sleep well, read, learn, meet friends, cook, or add your own habits. Every one you do makes Bo happy, grows your garden, and earns back screen time. Scroll less without trying harder: tend makes the offline part the fun part.
 
-A BREATH BEFORE YOU SCROLL
-Open an app you picked, and Bo pops up for a few seconds. Often that's all it takes. Still want in? Open it for 5 or 15 minutes, or take a one-minute quick look. When the time is up, Bo checks in, kindly.
+CARE FOR BO BY CARING FOR YOURSELF
+• Daily goals you pick: steps, workouts, sleep, reading, learning, friends, hobbies, tidying, cooking, or your own
+• Walks, workouts and sleep count by themselves with Health Connect (great with a smartwatch)
+• Focus timers and phone-free timers for everything else
+• Bo earns little things for good habits: a lucky leaf, a sun hat, a nightcap. The garden gets bunting, a birdhouse and lanterns
 
-EARN YOUR MINUTES BY LIVING
-You get free minutes every day. Go for a walk, work out, read, learn, sleep well, meet friends, cook, or add your own: each one gives screen time back. Walks, workouts and sleep count by themselves with Health Connect (a smartwatch helps). The rest is a timer, phone put away.
+A GARDEN THAT GROWS WITH YOU
+Minutes you don't scroll become a plant every night. Week by week, Bo's home grows too. Share your garden with friends.
 
-A GARDEN THAT GROWS
-Minutes you don't use become a plant at midnight. Week by week, Bo's home grows too. Keep a habit and Bo gets something to wear: a lucky leaf, a sun hat, a nightcap; the garden gets lanterns and a birdhouse.
+A KIND PAUSE, NOT A BLOCK
+When you open TikTok, Instagram or another app you picked, Bo pops up for a breath. Often that's all it takes to stop doomscrolling. Still want in? Take a quick look, or open it for 5 or 15 minutes; Bo checks in when the time is up. No guilt, no shame.
 
 CALM BY DESIGN
-• Evening mode: the pause gets longer and Bo gets sleepy
+• Evening mode: a sleepy Bo and a longer pause at night, for better sleep
 • Scheduled lock for bedtime or work hours
-• A gentle recap at night and a letter on Sunday
-• At most three notes a day, never at night
-• Widgets with Bo and your minutes
-• Light and dark theme
+• Morning plan, evening recap, Sunday letter: at most three notes a day
+• Home screen widgets, light and dark theme
 
 PRIVATE
-Everything stays on your phone. No account, no ads, no tracking. tend reads your screen time and, if you connect it, your steps, workouts and sleep from Health Connect, only to give minutes back.
+Everything stays on your phone. No account, no ads, no tracking.
 
-tend needs two permissions to work: usage access (to see which app you open) and display over other apps (to show the pause). Nothing leaves your phone.
+For a digital detox that sticks: less screen time, more of your life, and a small friend cheering you on.
 ```
 
 ## Store graphics (in `docs/play/`)
