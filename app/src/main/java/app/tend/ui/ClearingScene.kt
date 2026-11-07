@@ -79,7 +79,7 @@ val SpotPositions: Map<Int, Offset> = mapOf(
     6 to Offset(0.43f, 0.62f), // trees, back left (by the pine)
     7 to Offset(0.15f, 0.73f), // river
     8 to Offset(0.3f, 0.93f), // shore
-    9 to Offset(0.7f, 0.4f), // overhead, between the trees
+    9 to Offset(0.7f, 0.44f), // overhead, between the trees
     10 to Offset(0.565f, 0.93f), // small: front, middle
     11 to Offset(0.685f, 0.67f), // small: between the shelters
     12 to Offset(0.875f, 0.87f), // small: front right
@@ -113,6 +113,9 @@ fun DrawScope.drawClearing(
     // Sky, with the low sun's warmth near the horizon.
     drawRect(Brush.verticalGradient(listOf(SkyTop, SkyLow), endY = horizon), size = Size(w, horizon + 2))
     drawCircle(Brush.radialGradient(listOf(Color(0x66FFF1C9), Color.Transparent), center = Offset(w * 0.2f, h * 0.18f), radius = h * 0.55f), h * 0.55f, Offset(w * 0.2f, h * 0.18f))
+
+    // Snow-capped mountains far behind, pale with distance.
+    mountains(horizon)
 
     // Two hazy forest walls far away: lighter and bluer the farther they are.
     forestWall(horizon + h * 0.02f, h * 0.2f, Haze1, seed = 3)
@@ -149,17 +152,17 @@ fun DrawScope.drawClearing(
     shore(w, h)
 
     // Trees around the clearing, back ones first.
-    pine(Offset(w * 0.035f, h * 0.6f), h * 0.62f)
-    pine(Offset(w * 0.105f, h * 0.575f), h * 0.5f)
-    pine(Offset(w * 0.2f, h * 0.55f), h * 0.38f)
-    pine(Offset(w * 0.44f, h * 0.6f), h * 0.6f)
-    birch(Offset(w * 0.62f, h * 0.58f), h * 0.5f)
-    pine(Offset(w * 0.69f, h * 0.57f), h * 0.46f)
-    birch(Offset(w * 0.88f, h * 0.73f), h * 0.66f)
-    broadleaf(Offset(w * 0.975f, h * 0.76f), h * 0.74f)
+    pine(Offset(w * 0.035f, h * 0.6f), h * 0.44f)
+    pine(Offset(w * 0.105f, h * 0.575f), h * 0.36f)
+    pine(Offset(w * 0.2f, h * 0.55f), h * 0.28f)
+    pine(Offset(w * 0.44f, h * 0.6f), h * 0.42f)
+    birch(Offset(w * 0.62f, h * 0.58f), h * 0.36f)
+    pine(Offset(w * 0.69f, h * 0.57f), h * 0.34f)
+    birch(Offset(w * 0.88f, h * 0.73f), h * 0.5f)
+    broadleaf(Offset(w * 0.975f, h * 0.76f), h * 0.56f)
 
     // Something strung between the trees, over the camp.
-    placed[9]?.let { overhead(it, Offset(w * 0.445f, h * 0.36f), Offset(w * 0.965f, h * 0.33f), u, lights) }
+    placed[9]?.let { overhead(it, Offset(w * 0.445f, h * 0.4f), Offset(w * 0.955f, h * 0.38f), u, lights) }
     if (showSpots && placed[9] == null) emptySpot(at(9), u, SpotKind.ABOVE, selected == 9)
 
     // The worn ground of the fire pit is always there.
@@ -216,6 +219,34 @@ fun DrawScope.drawClearing(
 }
 
 // ---- Scenery ----
+
+private fun DrawScope.mountains(horizon: Float) {
+    val w = size.width
+    val h = size.height
+    val rock = Color(0xFFA9B9C6)
+    val rockShade = Color(0xFF93A5B4)
+    val snow = Color(0xFFF7F7F2)
+    // (peak x, peak y, half width) as fractions of the scene.
+    for ((px, py, half) in listOf(Triple(0.18f, 0.2f, 0.2f), Triple(0.47f, 0.13f, 0.25f), Triple(0.78f, 0.19f, 0.22f), Triple(0.98f, 0.25f, 0.14f))) {
+        val peak = Offset(w * px, h * py)
+        val base = horizon + h * 0.04f
+        drawPath(Path().apply { moveTo(peak.x - w * half, base); lineTo(peak.x, peak.y); lineTo(peak.x + w * half, base); close() }, rock)
+        // The shaded right face.
+        drawPath(Path().apply { moveTo(peak.x, peak.y); lineTo(peak.x + w * half, base); lineTo(peak.x + w * half * 0.15f, base); close() }, rockShade)
+        // Snow on top, with a ragged lower edge.
+        val drop = (base - peak.y) * 0.3f
+        val sw = w * half * 0.3f
+        drawPath(Path().apply {
+            moveTo(peak.x, peak.y)
+            lineTo(peak.x + sw, peak.y + drop); lineTo(peak.x + sw * 0.55f, peak.y + drop * 0.8f)
+            lineTo(peak.x + sw * 0.2f, peak.y + drop * 1.05f); lineTo(peak.x - sw * 0.2f, peak.y + drop * 0.78f)
+            lineTo(peak.x - sw * 0.6f, peak.y + drop * 0.95f); lineTo(peak.x - sw, peak.y + drop)
+            close()
+        }, snow)
+    }
+    // Haze over their feet.
+    drawRect(Brush.verticalGradient(listOf(Color.Transparent, SkyLow.copy(alpha = 0.7f)), startY = h * 0.25f, endY = horizon + h * 0.04f), Offset(0f, h * 0.25f), Size(w, horizon - h * 0.21f))
+}
 
 private fun DrawScope.forestWall(base: Float, height: Float, color: Color, seed: Int) {
     val w = size.width
