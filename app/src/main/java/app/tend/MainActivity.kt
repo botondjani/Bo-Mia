@@ -138,6 +138,11 @@ class MainActivity : ComponentActivity() {
             RecapReminder.OPEN_RECAP -> openRecap = true
             app.tend.reminder.WeeklyLetter.OPEN_CLEARING -> openClearing = true
         }
+        // A friend's invite: keep the code (it waits through onboarding or logging in) and open the clearing.
+        app.tend.data.Friends.codeFrom(intent?.dataString)?.let { code ->
+            app.tend.data.Friends.setPendingCode(this, code)
+            if (store.onboarded) openClearing = true
+        }
     }
 
     private fun setReminder(enabled: Boolean) {
@@ -466,8 +471,9 @@ class MainActivity : ComponentActivity() {
                 lastNight = store.acornsLastNight(),
                 worn = shelf.first, onShelf = shelf.second,
                 night = app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour),
-                onBuy = { spot, thing -> store.buy(spot, thing).also { if (it) { app.tend.data.Stats.log(this, "bought", mapOf("thing" to thing)); refresh++ } } },
-                onSell = { spot -> store.sell(spot); refresh++ },
+                onBuy = { spot, thing -> store.buy(spot, thing).also { if (it) { app.tend.data.Stats.log(this, "bought", mapOf("thing" to thing)); saveProfile(); refresh++ } } },
+                onSell = { spot -> store.sell(spot); saveProfile(); refresh++ },
+                onOpenSettings = { screen = Screen.SETTINGS },
                 onBack = { screen = Screen.HOME },
                 onShare = ::shareCamp,
             ) {
@@ -586,7 +592,8 @@ class MainActivity : ComponentActivity() {
     private fun saveProfile() {
         if (app.tend.data.Account.user(this) == null) return
         val level = app.tend.core.Progress.level(store.totalXp()).level
-        lifecycleScope.launch { app.tend.data.Account.saveProfile(this@MainActivity, store.avatar.name, level) }
+        val placed = app.tend.core.Clearing.format(store.placed)
+        lifecycleScope.launch { app.tend.data.Account.saveProfile(this@MainActivity, store.avatar.name, level, placed) }
     }
 
     private class HomeProgress(val level: app.tend.core.Level, val skills: Map<app.tend.core.Skill, app.tend.core.Level>, val challenge: app.tend.core.Challenge)

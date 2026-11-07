@@ -67,6 +67,7 @@ fun ClearingScreen(
     onSell: (spot: Int) -> Unit,
     onBack: () -> Unit,
     onShare: () -> Unit,
+    onOpenSettings: () -> Unit = {},
     week: @Composable ColumnScope.() -> Unit,
 ) = Column(
     Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState())
@@ -106,6 +107,7 @@ fun ClearingScreen(
 
     NextThing(acorns, placed)
     EarnedToday(earnedToday, lastNight)
+    FriendsCard(onOpenSettings)
     Things(avatar, worn, onShelf)
     week()
 

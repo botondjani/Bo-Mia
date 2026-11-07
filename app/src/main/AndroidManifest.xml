@@ -51,6 +51,19 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Friend invites: tend://invite?c=CODE, and the invite web page (opened in tend when installed). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="tend" android:host="invite" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="botondjani.github.io" android:pathPrefix="/Bo-Mia/i" />
+            </intent-filter>
         </activity>
 
         <!-- Health Connect links here to explain why tend reads steps and exercise. -->

@@ -125,9 +125,9 @@ object Account {
     }
 
     /** Name, companion and level, so friends will see who's there. */
-    suspend fun saveProfile(c: Context, companion: String, level: Int) {
+    suspend fun saveProfile(c: Context, companion: String, level: Int, placed: String) {
         val u = user(c) ?: return
-        rpc(c, "tend_save_profile", JSONObject().put("p_name", u.name).put("p_companion", companion).put("p_level", level))
+        rpc(c, "tend_save_profile", JSONObject().put("p_name", u.name).put("p_companion", companion).put("p_level", level).put("p_placed", placed))
     }
 
     suspend fun signOut(c: Context) {
