@@ -104,6 +104,7 @@ fun DrawScope.drawClearing(
     selected: Int? = null,
     paper: Float = 0f,
     ducks: Int = 0,
+    bridge: Boolean = false,
 ) {
     val w = size.width
     val h = size.height
@@ -162,6 +163,9 @@ fun DrawScope.drawClearing(
     pine(Offset(w * 0.69f, h * 0.57f), h * 0.34f)
     birch(Offset(w * 0.88f, h * 0.73f), h * 0.5f)
     broadleaf(Offset(w * 0.975f, h * 0.76f), h * 0.56f)
+
+    // The bridge built together with friends, over the narrow part of the river.
+    if (bridge) bridge(Offset(w * 0.13f, h * 0.578f), Offset(w * 0.35f, h * 0.62f), u, night, lights)
 
     // Something strung between the trees, over the camp.
     placed[9]?.let { overhead(it, Offset(w * 0.445f, h * 0.4f), Offset(w * 0.955f, h * 0.38f), u, lights) }
@@ -339,6 +343,43 @@ private fun DrawScope.broadleaf(base: Offset, height: Float) {
         Blob(-0.12f, 0.72f, 0.16f, LeafDark), Blob(0.08f, 0.7f, 0.17f, LeafDark), Blob(-0.02f, 0.86f, 0.18f, LeafMid),
         Blob(-0.16f, 0.88f, 0.12f, LeafMid), Blob(0.12f, 0.9f, 0.13f, LeafMid), Blob(-0.08f, 0.98f, 0.11f, LeafLit),
     ).forEach { drawCircle(it.color, height * it.r, Offset(base.x + height * it.dx, base.y - height * it.dy)) }
+}
+
+// ---- Built together ----
+
+/** A wooden footbridge arching from [a] (the far bank) to [b] (ours), with posts, rails and a lantern. */
+private fun DrawScope.bridge(a: Offset, b: Offset, u: Float, night: Boolean, lights: MutableList<Light>) {
+    val rise = u * 0.06f
+    fun deck(t: Float): Offset {
+        val m = 1 - t
+        val c = Offset((a.x + b.x) / 2, (a.y + b.y) / 2 - rise * 2)
+        return Offset(m * m * a.x + 2 * m * t * c.x + t * t * b.x, m * m * a.y + 2 * m * t * c.y + t * t * b.y)
+    }
+    val n = 30
+    val pts = (0..n).map { deck(it / n.toFloat()) }
+    fun curve(dy: Float) = Path().apply { moveTo(pts[0].x, pts[0].y + dy); pts.drop(1).forEach { lineTo(it.x, it.y + dy) } }
+    // Its reflection, faint in the water below.
+    drawPath(Path().apply { pts.take(n * 7 / 10).forEachIndexed { i, p -> if (i == 0) moveTo(p.x, p.y + rise * 2f) else lineTo(p.x, p.y + rise * 2f) } }, Color.Black.copy(alpha = 0.08f), style = Stroke(u * 0.018f, cap = StrokeCap.Round))
+    // Stone feet on each bank.
+    for (p in listOf(a, b)) drawOval(Color(0xFF8E8A80), Offset(p.x - u * 0.025f, p.y - u * 0.008f), Size(u * 0.05f, u * 0.022f))
+    // The deck: a dark underside, then the planks.
+    drawPath(curve(u * 0.012f), BarkDark, style = Stroke(u * 0.016f, cap = StrokeCap.Round))
+    drawPath(curve(0f), Wood, style = Stroke(u * 0.02f, cap = StrokeCap.Round))
+    for (i in 1 until n) {
+        val p = pts[i]
+        drawLine(if (i % 2 == 0) WoodLight else BarkDark.copy(alpha = 0.5f), p + Offset(0f, -u * 0.009f), p + Offset(0f, u * 0.009f), strokeWidth = u * 0.003f)
+    }
+    // Posts and two rails.
+    val posts = listOf(0, 6, 12, 18, 24, 30).map { pts[it] }
+    val postH = u * 0.05f
+    posts.forEach { p -> drawLine(BarkDark, p, p + Offset(0f, -postH), strokeWidth = u * 0.008f, cap = StrokeCap.Round) }
+    drawPath(curve(-postH), Wood, style = Stroke(u * 0.007f, cap = StrokeCap.Round))
+    drawPath(curve(-postH * 0.5f), WoodLight, style = Stroke(u * 0.004f, cap = StrokeCap.Round))
+    // A lantern on the middle post, lit at night.
+    val top = pts[18] + Offset(0f, -postH)
+    drawRoundRect(BarkDark, Offset(top.x - u * 0.008f, top.y - u * 0.022f), Size(u * 0.016f, u * 0.022f), CornerRadius(u * 0.003f))
+    drawRect(if (night) Glow else Color(0xFFF3E3B0), Offset(top.x - u * 0.005f, top.y - u * 0.018f), Size(u * 0.01f, u * 0.013f))
+    lights += Light(top + Offset(0f, -u * 0.01f), u * 0.08f, 0.8f)
 }
 
 // ---- What friends do ----
@@ -786,7 +827,7 @@ private fun DrawScope.campfire(p: Offset, u: Float, lights: MutableList<Light>) 
 
 /** The clearing as a bitmap with rounded corners, for the widget and the share card. */
 fun clearingBitmap(
-    avatar: Avatar, placed: Map<Int, String>, worn: Set<Accessory>, widthPx: Int, heightPx: Int, night: Boolean = false, paper: Boolean = false, ducks: Int = 0,
+    avatar: Avatar, placed: Map<Int, String>, worn: Set<Accessory>, widthPx: Int, heightPx: Int, night: Boolean = false, paper: Boolean = false, ducks: Int = 0, bridge: Boolean = false,
 ): android.graphics.Bitmap {
     val image = androidx.compose.ui.graphics.ImageBitmap(widthPx, heightPx)
     val canvas = androidx.compose.ui.graphics.Canvas(image)
@@ -794,7 +835,7 @@ fun clearingBitmap(
     canvas.clipPath(Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(Rect(Offset.Zero, size), CornerRadius(widthPx * 0.05f))) })
     androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(
         androidx.compose.ui.unit.Density(1f), androidx.compose.ui.unit.LayoutDirection.Ltr, canvas, size,
-    ) { drawClearing(avatar, placed, worn = worn, night = night, paper = if (paper) 1f else 0f, ducks = ducks) }
+    ) { drawClearing(avatar, placed, worn = worn, night = night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = bridge) }
     return image.asAndroidBitmap()
 }
 

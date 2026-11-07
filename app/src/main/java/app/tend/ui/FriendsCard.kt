@@ -47,7 +47,7 @@ import kotlinx.coroutines.launch
  * Without an account it says what an account gives and links to Settings.
  */
 @Composable
-fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> Unit = {}) {
+fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> Unit = {}, onChanged: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val signedIn = Account.user(context) != null
@@ -59,10 +59,14 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
     var removing by remember { mutableStateOf<Friends.Friend?>(null) }
     var note by rememberSaveable { mutableStateOf<String?>(null) }
 
+    var claimed by remember { mutableStateOf(false) }
     suspend fun reload() {
         val list = Friends.list(context)
         offline = list == null
         if (list != null) friends = list
+        // The together goal reached: acorns (and the bridge, the first time).
+        val me = Friends.me(context)
+        if (list != null && Friends.claimWeek(context, Friends.week(me, list), me.week)) { claimed = true; onChanged() }
     }
     /** Looks a code up and asks before adding; says so when it's unknown. */
     suspend fun lookUp(code: String) {
@@ -101,6 +105,7 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
                 style = MaterialTheme.typography.bodyMedium,
             )
             list.forEach { f -> FriendRow(f, onVisit = { onOpenRiver(f.id) }) { removing = f } }
+            if (list.isNotEmpty()) TogetherWeek(Friends.week(Friends.me(context), list), app.tend.data.TendStore(context).togetherDone.size, claimed)
             androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
                 if (list.isNotEmpty()) ChipButton("Along the river", { onOpenRiver(null) })
                 ChipButton("Invite a friend", { inviting = true }, filled = list.isEmpty())
@@ -163,6 +168,40 @@ private fun NoteRow(n: Friends.Note) = Row(Modifier.fillMaxWidth().padding(verti
     Text(
         android.text.format.DateUtils.getRelativeTimeSpanString(n.at, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS).toString(),
         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted,
+    )
+}
+
+/** This week's shared goal: a bar, who added how much, and what reaching it gives. */
+@Composable
+internal fun TogetherWeek(week: Friends.Week, weeksDone: Int, justClaimed: Boolean) = Column(
+    Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(18.dp)).background(Brand.Sage).padding(14.dp),
+    verticalArrangement = Arrangement.spacedBy(8.dp),
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("TOGETHER THIS WEEK", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+        Text("${week.total.coerceAtMost(week.target)} / ${week.target}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+    }
+    Box(Modifier.fillMaxWidth().size(height = 8.dp, width = 0.dp).clip(RoundedCornerShape(4.dp)).background(Brand.Mint)) {
+        Box(Modifier.fillMaxWidth((week.total / week.target.toFloat()).coerceIn(0f, 1f)).size(height = 8.dp, width = 0.dp).clip(RoundedCornerShape(4.dp)).background(Brand.Moss))
+    }
+    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        week.parts.forEachIndexed { i, (f, n) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Face(f.companion, 24)
+                Spacer(Modifier.width(6.dp))
+                Text("${if (i == 0) "You" else f.name} $n", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp))
+            }
+        }
+    }
+    val left = week.target - week.total
+    Text(
+        when {
+            justClaimed && weeksDone == 1 -> "Reached! A bridge now crosses your river. +${app.tend.core.Together.ACORNS} acorns."
+            week.done -> "Reached together. +${app.tend.core.Together.ACORNS} acorns for each of you."
+            weeksDone == 0 -> "$left more activities between you all, and a bridge crosses your river."
+            else -> "$left more activities between you all for +${app.tend.core.Together.ACORNS} acorns each."
+        },
+        style = MaterialTheme.typography.bodyMedium, color = if (week.done) Brand.Moss else Brand.Muted,
     )
 }
 

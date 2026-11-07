@@ -71,6 +71,8 @@ fun ClearingScreen(
     onOpenSettings: () -> Unit = {},
     onOpenRiver: (friendId: String?) -> Unit = {},
     paper: Boolean = false,
+    bridge: Boolean = false,
+    onFriendsChanged: () -> Unit = {},
     ducks: List<app.tend.data.Friends.Note> = emptyList(),
     onUnroll: () -> Unit = {},
     onCatchDuck: (app.tend.data.Friends.Note) -> Int = { 0 },
@@ -118,7 +120,7 @@ fun ClearingScreen(
                     selected = spot
                 }
             },
-        ) { drawClearing(avatar, placed, worn = worn, night = night, showSpots = editing, selected = selected, paper = paperLeft, ducks = ducks.size) }
+        ) { drawClearing(avatar, placed, worn = worn, night = night, showSpots = editing, selected = selected, paper = paperLeft, ducks = ducks.size, bridge = bridge) }
         AcornBadge(acorns, Modifier.align(Alignment.TopEnd).padding(10.dp))
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -137,7 +139,7 @@ fun ClearingScreen(
 
     NextThing(acorns, placed)
     EarnedToday(earnedToday, lastNight)
-    FriendsCard(onOpenSettings, onOpenRiver)
+    FriendsCard(onOpenSettings, onOpenRiver, onFriendsChanged)
     Things(avatar, worn, onShelf)
     week()
 
@@ -208,6 +210,7 @@ private fun EarnedToday(earned: Map<String, Int>, lastNight: Int) {
         earned["not_now"]?.takeIf { it > 0 }?.let { "\"Not now\"" to it },
         earned["challenge"]?.takeIf { it > 0 }?.let { "Weekly challenge" to it },
         earned["level"]?.takeIf { it > 0 }?.let { "Level up" to it },
+        earned["together"]?.takeIf { it > 0 }?.let { "Together with friends" to it },
         lastNight.takeIf { it > 0 }?.let { "Last night" to it },
     )
     Card {

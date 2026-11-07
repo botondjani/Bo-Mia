@@ -306,7 +306,8 @@ class MainActivity : ComponentActivity() {
         refresh++
         // Usage access is enough to count minutes; without the overlay the monitor nudges by notification.
         if (store.onboarded) lifecycleScope.launch { app.tend.data.Backup.uploadIfDue(this@MainActivity) }
-        // Notes from friends: a wave, a gift, a prank in the camp.
+        // What friends see (this week's activities count toward the together goal), and what they did to your camp.
+        if (store.onboarded) saveProfile()
         if (store.onboarded) lifecycleScope.launch { if (app.tend.data.Friends.syncInbox(this@MainActivity)) { refresh++; app.tend.widget.Widgets.refresh(this@MainActivity) } }
         if (store.onboarded && permissions().usageAccess) {
             MonitorService.start(this)
@@ -479,6 +480,8 @@ class MainActivity : ComponentActivity() {
                 onOpenSettings = { screen = Screen.SETTINGS },
                 onOpenRiver = { id -> riverFocus = id; screen = Screen.RIVER },
                 paper = app.tend.data.Friends.paperOnMe(this).isNotEmpty(),
+                bridge = store.bridgeBuilt,
+                onFriendsChanged = { saveProfile(); refresh++ },
                 ducks = app.tend.data.Friends.ducks(this).take(3),
                 onUnroll = { lifecycleScope.launch { app.tend.data.Friends.clearPaper(this@MainActivity) }; refresh++ },
                 onCatchDuck = { n -> app.tend.data.Friends.catchDuck(this, n); refresh++; store.ducksCaught },
@@ -493,7 +496,7 @@ class MainActivity : ComponentActivity() {
             }
 
             screen == Screen.RIVER -> app.tend.ui.RiverScreen(
-                me = app.tend.data.Friends.Friend("", store.avatar.displayName, store.avatar.name, app.tend.core.Progress.level(store.totalXp()).level, store.placed),
+                me = app.tend.data.Friends.me(this),
                 worn = shelf.first,
                 night = app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour),
                 focus = riverFocus,
@@ -609,9 +612,7 @@ class MainActivity : ComponentActivity() {
     /** Name, companion and level on the server, when signed in (friends will see them). */
     private fun saveProfile() {
         if (app.tend.data.Account.user(this) == null) return
-        val level = app.tend.core.Progress.level(store.totalXp()).level
-        val placed = app.tend.core.Clearing.format(store.placed)
-        lifecycleScope.launch { app.tend.data.Account.saveProfile(this@MainActivity, store.avatar.name, level, placed) }
+        lifecycleScope.launch { app.tend.data.Account.saveProfile(this@MainActivity) }
     }
 
     private class HomeProgress(val level: app.tend.core.Level, val skills: Map<app.tend.core.Skill, app.tend.core.Level>, val challenge: app.tend.core.Challenge)

@@ -10,7 +10,10 @@ import org.json.JSONObject
  * server, so the UI can say so.
  */
 object Friends {
-    data class Friend(val id: String, val name: String, val companion: String, val level: Int, val placed: Map<Int, String>)
+    data class Friend(
+        val id: String, val name: String, val companion: String, val level: Int, val placed: Map<Int, String>,
+        val week: String = "", val weekCount: Int = 0, val bridge: Boolean = false,
+    )
 
     /** The web page that opens tend on an invite (and sends people without tend to Google Play). */
     fun inviteLink(code: String) = "https://botondjani.github.io/Bo-Mia/i/?c=$code"
@@ -54,9 +57,44 @@ object Friends {
             Friend(
                 o.optString("user_id"), o.optString("name").ifBlank { "A friend" }, o.optString("companion", "BO"),
                 o.optInt("level", 1), app.tend.core.Clearing.parse(o.optString("placed")),
+                o.optString("week"), o.optInt("week_count"), o.optBoolean("bridge"),
             )
         }
     }.getOrDefault(emptyList())
+
+    // ---- Together ----
+
+    /** This week's together goal: who added how much (you first), the target, and whether it's reached. */
+    class Week(val parts: List<Pair<Friend, Int>>, val target: Int) {
+        val total: Int get() = parts.sumOf { it.second }
+        val done: Boolean get() = total >= target
+    }
+
+    /** The together week from [me] and [friends]; a friend's count only counts in the same week. */
+    fun week(me: Friend, friends: List<Friend>): Week {
+        val parts = listOf(me to me.weekCount) + friends.map { it to if (it.week == me.week) it.weekCount else 0 }
+        return Week(parts, app.tend.core.Together.target(parts.size))
+    }
+
+    /** Yourself, as friends see you: for the river and the together week. */
+    fun me(c: Context): Friend {
+        val store = TendStore(c)
+        val today = java.time.LocalDate.now()
+        return Friend(
+            "", Account.user(c)?.name?.ifBlank { null } ?: store.avatar.displayName, store.avatar.name,
+            app.tend.core.Progress.level(store.totalXp()).level, store.placed,
+            app.tend.core.Progress.weekKey(today), app.tend.core.Together.activities(today, store.daySummaries()), store.bridgeBuilt,
+        )
+    }
+
+    /** When the week's goal is reached for the first time: acorns, and the bridge if it isn't built. True then. */
+    fun claimWeek(c: Context, week: Week, key: String): Boolean {
+        val store = TendStore(c)
+        if (!week.done || week.parts.size < 2 || key in store.togetherDone) return false
+        store.togetherDone = store.togetherDone + key
+        store.addAcorns(app.tend.core.Together.ACORNS, "together")
+        return true
+    }
 
     // ---- Notes: a wave, a visit, toilet paper ----
 

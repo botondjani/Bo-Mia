@@ -70,3 +70,20 @@ object Progress {
         return options[Math.floorMod(key.hashCode(), options.size)].copy(weekKey = key)
     }
 }
+
+/**
+ * The together goal: you and your friends add up this week's activities. Reaching it builds a
+ * bridge over your river (it stays) and gives acorns, every week it's reached.
+ */
+object Together {
+    const val PER_CAMP = 8
+    const val ACORNS = 40
+
+    /** Activities done this week (Monday to [today]). */
+    fun activities(today: LocalDate, days: List<DaySummary>): Int {
+        val monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        return days.filter { !it.date.isBefore(monday) && !it.date.isAfter(today) }.sumOf { it.tasksDone }
+    }
+
+    fun target(camps: Int): Int = PER_CAMP * camps.coerceAtLeast(1)
+}

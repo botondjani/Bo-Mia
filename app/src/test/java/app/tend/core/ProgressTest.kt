@@ -45,4 +45,16 @@ class ProgressTest {
             "Something done on 5 days" -> assertEquals(2, c.progress)
         }
     }
+
+    @Test fun togetherCountsThisWeeksActivities() {
+        val wed = LocalDate.of(2026, 11, 4) // a Wednesday
+        val days = listOf(
+            DaySummary(wed.minusDays(3), 0, 0, 5), // last Sunday: not this week
+            DaySummary(wed.minusDays(2), 0, 0, 2), // Monday
+            DaySummary(wed, 0, 0, 3),
+        )
+        assertEquals(5, Together.activities(wed, days))
+        assertEquals(24, Together.target(3))
+        assertEquals(8, Together.target(0))
+    }
 }

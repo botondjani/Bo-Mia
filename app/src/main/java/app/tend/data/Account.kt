@@ -124,10 +124,16 @@ object Account {
         return withContext(Dispatchers.IO) { Supabase.post("/rest/v1/rpc/$name", args.toString(), t) }
     }
 
-    /** Name, companion and level, so friends will see who's there. */
-    suspend fun saveProfile(c: Context, companion: String, level: Int, placed: String) {
+    /** What friends see: name, companion, level and camp, and this week's activities for the together goal. */
+    suspend fun saveProfile(c: Context) {
         val u = user(c) ?: return
-        rpc(c, "tend_save_profile", JSONObject().put("p_name", u.name).put("p_companion", companion).put("p_level", level).put("p_placed", placed))
+        val me = Friends.me(c)
+        rpc(
+            c, "tend_save_profile",
+            JSONObject().put("p_name", u.name).put("p_companion", me.companion).put("p_level", me.level)
+                .put("p_placed", app.tend.core.Clearing.format(me.placed))
+                .put("p_week", me.week).put("p_week_count", me.weekCount).put("p_bridge", me.bridge),
+        )
     }
 
     suspend fun signOut(c: Context) {

@@ -240,6 +240,13 @@ class TendStore(private val context: Context) {
         get() = prefs.getStringSet("challenges_done", emptySet())!!.toSet()
         set(v) = edit { putStringSet("challenges_done", v) }
 
+    /** Weeks whose together goal was reached with friends ("2026-W45"); the first one built the bridge. */
+    var togetherDone: Set<String>
+        get() = prefs.getStringSet("together_done", emptySet())!!.toSet()
+        set(v) = edit { putStringSet("together_done", v) }
+
+    val bridgeBuilt: Boolean get() = togetherDone.isNotEmpty()
+
     /** All XP: activities plus completed weekly challenges. */
     fun skillXp(): Map<app.tend.core.Skill, Int> = app.tend.core.Progress.skillXp(daySummaries())
 
