@@ -91,7 +91,7 @@ class PermissionActions(
 /** Where Android's restricted-settings lock stands: none, locked, or refused once (the unlock option now shows). */
 enum class PermissionLock { NONE, LOCKED, TRIPPED }
 
-private enum class Step { INTRO, COMPANION, APPS, ACTIVITIES, PERMISSIONS, DONE }
+private enum class Step { INTRO, COMPANION, USAGE, APPS, ACTIVITIES, PAUSE, ACCOUNT, DONE }
 
 @Composable
 fun Onboarding(
@@ -105,6 +105,8 @@ fun Onboarding(
     onToggleApp: (String) -> Unit,
     tasks: List<TaskDef>,
     onToggleTask: (TaskDef) -> Unit,
+    signedIn: Boolean = false,
+    account: @Composable () -> Unit = {},
     onFinish: () -> Unit,
 ) {
     var stepIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -135,12 +137,30 @@ fun Onboarding(
                     CompanionPicker(avatar, onAvatar)
                 }
 
+                Step.USAGE -> StepPage(cta = "Continue", ctaEnabled = perms.permissions.usageAccess, onCta = next) {
+                    Title(
+                        "Which apps take your time?",
+                        "Allow usage access and ${avatar.displayName} will suggest the apps you use most, with minutes a day. It's read on your phone and never leaves it.",
+                    )
+                    if (perms.lock != PermissionLock.NONE && !perms.permissions.usageAccess) UnlockCard(perms)
+                    PermissionCard(
+                        number = if (perms.lock != PermissionLock.NONE) 2 else 1, title = "Usage access", why = "Minutes a day for each app, from the last two weeks.",
+                        granted = perms.permissions.usageAccess, active = !perms.permissions.usageAccess, blocked = perms.usageBlocked,
+                        onAllow = perms.requestUsage, onAppInfo = perms.openAppInfo,
+                    )
+                    if (!perms.permissions.usageAccess) LinkText("Skip, I'll pick the apps myself", next)
+                }
+
                 Step.APPS -> StepPage(
                     cta = if (blocked.isEmpty()) "Pick at least one" else "Continue with ${blocked.size} app${if (blocked.size == 1) "" else "s"}",
                     ctaEnabled = blocked.isNotEmpty(),
                     onCta = next,
                 ) {
-                    Title("Which apps pull you in?", "We picked the usual suspects. Tap to change.")
+                    Title(
+                        "Which apps pull you in?",
+                        if (catalog.dailyMinutes.isNotEmpty()) "Picked for you: social apps and everything you use ${AppCatalog.HEAVY_MINUTES}+ minutes a day. Tap to change."
+                        else "We picked the usual suspects. Tap to change.",
+                    )
                     AppPicker(catalog, blocked, onToggleApp)
                 }
 
@@ -153,7 +173,7 @@ fun Onboarding(
                     ActivityPicker(tasks, onToggleTask)
                 }
 
-                Step.PERMISSIONS -> StepPage(
+                Step.PAUSE -> StepPage(
                     cta = if (perms.permissions.allGranted) "Continue" else "A few taps to go",
                     ctaEnabled = perms.permissions.allGranted,
                     onCta = next,
@@ -163,10 +183,18 @@ fun Onboarding(
                     val first = blocked.firstOrNull()?.let(catalog::label) ?: "an app"
                     Title(
                         "Let ${avatar.displayName} notice",
-                        "Two quick switches so ${avatar.displayName} can see when you open $first and give you a breath. Nothing leaves your phone.",
+                        "${if (perms.permissions.usageAccess) "One more switch" else "Two quick switches"} so ${avatar.displayName} can see when you open $first and give you a breath. Nothing leaves your phone.",
                     )
                     PermissionSteps(perms)
                     if (!perms.permissions.allGranted) LinkText("Continue without", { askSkip = true })
+                }
+
+                Step.ACCOUNT -> StepPage(cta = if (signedIn) "Continue" else "Skip for now", onCta = next) {
+                    Title(
+                        "Keep your camp safe",
+                        "With an account your camp is backed up, and friends can visit it. Optional: tend works fully without one.",
+                    )
+                    account()
                 }
 
                 Step.DONE -> StepPage(cta = "Start my day", onCta = onFinish, centered = true) {

@@ -119,6 +119,9 @@ fun HomeScreen(
     sleepEstimated: Boolean = false,
 ) {
     val tour = androidx.compose.runtime.remember { TourTargets() }
+    // The first days: one clear thing to do (the first steps), and nothing that's still empty.
+    val firstDays = steps.isNotEmpty() && !steps.all { it.claimed }
+    val campEmpty = steps.firstOrNull { it.step == app.tend.core.Step.PLACE }?.done == false
     var widgetGuide by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     if (widgetGuide) WidgetGuideDialog(avatar) { widgetGuide = false }
     val remaining = Budget.remainingMinutes(cfg, day)
@@ -137,7 +140,7 @@ fun HomeScreen(
                 Text(day.date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.ENGLISH)), style = MaterialTheme.typography.bodyMedium)
                 Text(greeting(), style = MaterialTheme.typography.headlineMedium)
             }
-            IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Share, "Share your camp", onShare)
+            if (!campEmpty) IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Share, "Share your camp", onShare)
             Spacer(Modifier.width(8.dp))
             Box(Modifier.tourTarget(tour, "settings")) { IconButtonSoft(Icons.Filled.Settings, "Settings", onOpenSettings) }
         }
@@ -177,7 +180,7 @@ fun HomeScreen(
         }
 
         FirstStepsStrip(steps, onOpenClearing)
-        if (level != null) ProgressStrip(level, skills, challenge)
+        if (level != null && !(firstDays && level.level == 1 && level.into == 0)) ProgressStrip(level, skills, challenge)
         if (levelUp != null) LevelUpDialog(avatar, levelUp, onLevelUpSeen)
 
         if (onShareCrash != null) Notice("alert", "tend crashed last time", "Sorry! Tap to share the crash report.", onShareCrash)
@@ -196,12 +199,14 @@ fun HomeScreen(
         val needsHealth = tasks.any { it.verification == Verification.AUTOMATIC } &&
             (health == HealthConnect.Status.NEEDS_PERMISSION || health == HealthConnect.Status.NEEDS_INSTALL)
         if (monitorSlept && batteryRisk) Notice("alert", "${avatar.displayName} fell asleep in the background", "Your phone paused tend for a while. Tap to keep ${avatar.displayName} awake.", onKeepAwake)
-        val nextSteps = showNextSteps && (needsHealth || batteryRisk || (!nextStepsImportantOnly && (!widgetPlaced || notesOff)))
+        // In the first days the first steps ask for the widget; here only what can't wait.
+        val importantOnly = nextStepsImportantOnly || firstDays
+        val nextSteps = showNextSteps && (needsHealth || batteryRisk || (!importantOnly && (!widgetPlaced || notesOff)))
         if (nextSteps) NextSteps(
             avatar,
-            widget = !widgetPlaced && !nextStepsImportantOnly, onWidget = { if (!onAddWidget()) widgetGuide = true },
+            widget = !widgetPlaced && !importantOnly, onWidget = { if (!onAddWidget()) widgetGuide = true },
             health = if (needsHealth) health else null, onHealth = onConnectHealth,
-            notes = notesOff && !nextStepsImportantOnly, onNotes = onAllowNotes,
+            notes = notesOff && !importantOnly, onNotes = onAllowNotes,
             battery = batteryRisk && !monitorSlept, onBattery = onKeepAwake,
             onDismiss = onNextStepsDone,
         ) else if (needsHealth) {

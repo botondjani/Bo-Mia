@@ -107,13 +107,7 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
         )
-        val catalog = AppCatalog(this)
-        catalog.preload { c ->
-            if (!store.onboarded && store.blockedPackages.isEmpty()) {
-                store.blockedPackages = c.suggested.map { it.pkg }.filter { it in AppCatalog.SOCIAL }.toSet()
-                runOnUiThread { refresh++ } // the app picker must show the pre-selection, not a stale empty set
-            }
-        }
+        loadCatalog()
         RecapReminder.schedule(this)
         app.tend.reminder.WeeklyLetter.schedule(this)
         app.tend.reminder.MorningNote.schedule(this)
@@ -122,7 +116,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             TendTheme {
                 androidx.compose.runtime.CompositionLocalProvider(app.tend.ui.LocalAccessories provides shelf.first) {
-                    Box(Modifier.fillMaxSize().safeDrawingPadding()) { Content(catalog) }
+                    Box(Modifier.fillMaxSize().safeDrawingPadding()) { catalog?.let { Content(it) } }
                 }
             }
         }
@@ -292,8 +286,34 @@ class MainActivity : ComponentActivity() {
         startActivity(Intent.createChooser(send, "Export test data"))
     }
 
+    /** Installed apps and, with usage access, how much each is used; read again once access is given. */
+    private var catalog by mutableStateOf<AppCatalog?>(null)
+    private var catalogHasUsage = false
+    private var catalogLoading = false
+
+    private fun loadCatalog() {
+        catalogLoading = true
+        val fresh = AppCatalog(this)
+        fresh.preload { c ->
+            val hasUsage = c.dailyMinutes.isNotEmpty()
+            runOnUiThread {
+                // Before setup is done, the picker starts from what's recommended: the social apps and
+                // everything used a lot. Only while the user hasn't changed the pick themselves.
+                val before = catalog?.let(AppCatalog::recommended).orEmpty()
+                if (!store.onboarded && (store.blockedPackages.isEmpty() || store.blockedPackages == before)) store.blockedPackages = AppCatalog.recommended(c)
+                catalog = c
+                catalogHasUsage = hasUsage
+                catalogLoading = false
+                refresh++
+            }
+        }
+        if (catalog == null) catalog = fresh
+    }
+
     override fun onResume() {
         super.onResume()
+        // Usage access just given (during setup, or later): read the apps again to suggest the right ones.
+        if (!catalogLoading && !catalogHasUsage && permissions().usageAccess) loadCatalog()
         handler.removeCallbacksAndMessages(null)
         // Back from App info: when the lock can't be read, trust the visit and move on.
         if (launched == Launched.APP_INFO && restrictedMode() == null) store.restrictedUnlocked = true
@@ -393,6 +413,8 @@ class MainActivity : ComponentActivity() {
                 onToggleApp = toggleApp,
                 tasks = store.selectedTasks,
                 onToggleTask = toggleTask,
+                signedIn = app.tend.data.Account.user(this) != null,
+                account = { app.tend.ui.AccountCard(onChanged = { saveProfile(); refresh++ }, onRestored = ::restartFresh) },
                 onFinish = {
                     store.onboarded = true
                     store.onboardedAt = System.currentTimeMillis()

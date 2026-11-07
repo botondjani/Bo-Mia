@@ -92,7 +92,7 @@ fun AccountCard(onChanged: () -> Unit, onRestored: () -> Unit = {}) {
                 ChipButton("Delete account", { confirmDelete = true }, filled = false)
             }
         } else {
-            Text("Back up your camp, and soon see your friends' camps. Optional: tend works fully without it.", style = MaterialTheme.typography.bodyMedium)
+            Text("Back up your camp, and visit your friends' camps. Optional: tend works fully without it.", style = MaterialTheme.typography.bodyMedium)
             if (!useEmail) {
                 PrimaryButton(if (busy) "Opening Google…" else "Continue with Google", {
                     (context as? android.app.Activity)?.let { a -> run { Account.signInWithGoogle(a) } }

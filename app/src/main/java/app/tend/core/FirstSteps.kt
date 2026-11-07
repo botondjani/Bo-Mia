@@ -5,9 +5,9 @@ package app.tend.core
  * day one and every part of tend gets tried once. Claimed one by one; the card goes when all are.
  */
 enum class Step(val title: String, val how: String, val acorns: Int) {
-    PLACE("Put something in your camp", "Clearing → Place things → tap a spot", 10),
+    ACTIVITY("Do one activity", "Home → Instead of scrolling → start one", 15),
+    PLACE("Put something in your camp", "Tap your acorns (top right) → Place things", 10),
     USE("Watch your companion use it", "Tap a thing in the camp", 10),
-    ACTIVITY("Do one activity", "Home → pick one and check it off", 15),
     NOT_NOW("Say \"Not now\" once", "When a paused app opens", 10),
     WIDGET("Add the widget", "Settings → Add the widget", 10),
     FRIEND("Invite a friend", "Clearing → Friends → Invite", 15),

@@ -77,10 +77,12 @@ fun FirstStepsStrip(steps: List<StepState>, onOpen: () -> Unit) {
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("FIRST STEPS · ${steps.count { it.claimed }} OF ${steps.size}", style = MaterialTheme.typography.labelSmall)
+            val next = steps.firstOrNull { !it.done }?.step
             Text(
-                if (waiting > 0) "$waiting acorns waiting for you in the camp" else steps.first { !it.done }.step.title,
+                if (waiting > 0) "$waiting acorns waiting for you in the camp" else next?.let { "Next: ${it.title.replaceFirstChar { c -> c.lowercase() }}" } ?: "",
                 style = MaterialTheme.typography.titleSmall,
             )
+            if (waiting == 0 && next != null) Text(next.how, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
             Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)).background(Brand.Sage)) {
                 Box(Modifier.fillMaxWidth(steps.count { it.claimed } / steps.size.toFloat()).height(6.dp).clip(RoundedCornerShape(50)).background(Brand.Moss))
             }
