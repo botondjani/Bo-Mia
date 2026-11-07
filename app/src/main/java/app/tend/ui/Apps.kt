@@ -63,6 +63,13 @@ class AppCatalog(private val context: Context) {
     companion object {
         const val MAX_TILES = 9
 
+        /** Minutes a day (two-week average) that make an app one you "use a lot". */
+        const val HEAVY_MINUTES = 20
+
+        /** Installed apps used [HEAVY_MINUTES]+ a day that aren't picked yet, most used first. */
+        fun heavyToAdd(dailyMinutes: Map<String, Int>, installed: List<String>, picked: Set<String>): List<String> =
+            installed.filter { (dailyMinutes[it] ?: 0) >= HEAVY_MINUTES && it !in picked }.sortedByDescending { dailyMinutes[it] }
+
         /** Ordered roughly by how often they come up as "mindless scrolling". */
         val SUGGESTED = listOf(
             "com.instagram.android",

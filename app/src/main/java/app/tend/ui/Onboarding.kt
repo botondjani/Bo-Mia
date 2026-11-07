@@ -284,6 +284,24 @@ fun AppPicker(catalog: AppCatalog, blocked: Set<String>, onToggle: (String) -> U
     val tiles = catalog.suggested + extra
     if (tiles.isNotEmpty()) AppGrid(catalog, tiles, blocked, onToggle)
 
+    // One tap for everything that takes real time: apps used 20+ minutes a day over the last two weeks.
+    val toAdd = AppCatalog.heavyToAdd(catalog.dailyMinutes, catalog.all.map { it.pkg }, blocked)
+    if (toAdd.isNotEmpty()) Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Brand.Mint.copy(alpha = 0.3f))
+            .border(1.5.dp, Brand.Moss.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
+            .clickable { toAdd.forEach(onToggle) }.padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Pick all I use a lot", style = MaterialTheme.typography.titleSmall, color = Brand.Moss)
+            Text(
+                "${toAdd.size} more app${if (toAdd.size == 1) "" else "s"} you use ${AppCatalog.HEAVY_MINUTES}+ minutes a day",
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted,
+            )
+        }
+        androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Add, null, tint = Brand.Moss)
+    }
+
     SecondaryButton(if (showOthers) "Hide other apps" else "Add another app", { showOthers = !showOthers })
     AnimatedVisibility(showOthers) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
