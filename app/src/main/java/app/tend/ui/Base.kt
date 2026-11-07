@@ -147,11 +147,9 @@ fun DrawScope.drawBase(
         drawCircle(WoodLight, h * 0.017f, Offset(w * 0.41f, groundY + h * 0.1575f))
     }
 
-    // Firewood: every night's split logs land on one heap that grows wider and taller; tonight's
-    // pieces wait see-through on top.
-    val pieces = items.sumOf { piecesOf(it) }.coerceAtMost(MAX_PIECES)
-    val extra = preview?.let { piecesOf(it) } ?: 0
-    woodpile(Offset(w * 0.2f, groundY + (h - groundY) * 0.88f), w * 0.038f, pieces, extra)
+    // Firewood: every night's wood falls onto one heap; more minutes saved, bigger wood.
+    // Tonight's wood waits see-through on top.
+    woodpile(Offset(w * 0.22f, groundY + (h - groundY) * 0.9f), w * 0.038f, items.takeLast(40), preview, maxHalfWidth = w * 0.19f)
 
     // The companion in the clearing, in front of everything.
     val cs = h * 0.24f
@@ -213,55 +211,88 @@ fun DrawScope.baseThingIcon(a: Accessory): Boolean {
     return true
 }
 
-private const val MAX_PIECES = 64
+/** One piece of wood: a split piece, a bigger split piece, or a round log. */
+private enum class Piece(val len: Float, val thick: Float) { SMALL(1f, 0.38f), SPLIT(1.3f, 0.5f), LOG(1.9f, 0.78f) }
 
-/** Split logs a night brings: a few, a pile, a big pile. */
-private fun piecesOf(item: Plant) = when (item) { Plant.SPROUT -> 2; Plant.TULIP -> 4; Plant.SUNFLOWER -> 7 }
+/** What a night brings: the more minutes saved, the bigger the wood. */
+private fun woodOf(item: Plant): List<Piece> = when (item) {
+    Plant.SPROUT -> listOf(Piece.SMALL, Piece.SMALL)
+    Plant.TULIP -> listOf(Piece.SPLIT, Piece.SMALL, Piece.SPLIT)
+    Plant.SUNFLOWER -> listOf(Piece.LOG, Piece.SPLIT, Piece.SPLIT)
+}
 
 /**
- * A heap of split firewood with its base centred on [base]: the narrowest triangle that holds
- * [count] pieces, bottom rows first, so it always looks like a heap. [extra] pieces are drawn
- * see-through on top. [piece] is one piece's length.
+ * A heap of firewood around [base], shaped like a real one: a low mound whose size follows the
+ * amount of wood. Pieces lie at seeded random spots inside it, slightly turned, the ones in front
+ * drawn last; the gaps show the heap's shadow. [preview]'s wood lies see-through on the top.
+ * [unit] is the length of a small piece.
  */
-fun DrawScope.woodpile(base: Offset, piece: Float, count: Int, extra: Int = 0) {
-    val total = count + extra
-    if (total == 0) {
-        drawOval(Color.Black.copy(alpha = 0.07f), Offset(base.x - piece * 2, base.y - piece * 0.25f), Size(piece * 4, piece * 0.5f))
+fun DrawScope.woodpile(base: Offset, unitIn: Float, items: List<Plant>, preview: Plant? = null, maxHalfWidth: Float = Float.MAX_VALUE) {
+    var unit = unitIn
+    val pieces = items.flatMap(::woodOf)
+    val extra = preview?.let(::woodOf).orEmpty()
+    if (pieces.isEmpty() && extra.isEmpty()) {
+        drawOval(Color.Black.copy(alpha = 0.07f), Offset(base.x - unit * 2, base.y - unit * 0.25f), Size(unit * 4, unit * 0.5f))
         return
     }
-    var bottom = 1
-    while (bottom * (bottom + 1) / 2 < total) bottom++ // rows bottom, bottom-1, ... 1
-    drawOval(Color.Black.copy(alpha = 0.1f), Offset(base.x - bottom * piece * 0.5f, base.y - piece * 0.25f), Size(bottom * piece, piece * 0.6f))
-    var i = 0
-    var row = 0
-    while (i < total) {
-        val n = bottom - row
-        for (c in 0 until n) {
-            if (i >= total) break
-            // Fixed jitter per spot, so the heap doesn't shuffle between frames.
-            val seed = (i * 7919 + 17) % 101 / 100f
-            val x = base.x + (c - (n - 1) / 2f) * piece * 0.92f + (seed - 0.5f) * piece * 0.3f
-            val y = base.y - piece * 0.32f - row * piece * 0.48f
-            val angle = (seed - 0.5f) * 50f
-            rotate(angle, Offset(x, y)) { splitLog(Offset(x, y), piece, if (i >= count) 0.4f else 1f, seed > 0.5f) }
-            i++
+    // Mound: half-width r, height r * 0.7; its area (4/3 r h) holds all the wood. A heap too wide
+    // for its spot keeps its shape with smaller pieces.
+    val area = pieces.sumOf { (it.len * it.thick).toDouble() }.toFloat() * unit * unit * 0.85f
+    var r = kotlin.math.sqrt(area * 3f / (4f * 0.7f)).coerceAtLeast(unit * 1.1f)
+    if (r > maxHalfWidth) { unit *= maxHalfWidth / r; r = maxHalfWidth }
+    val hMax = r * 0.7f
+    fun height(dx: Float) = (hMax * (1f - (dx / r) * (dx / r))).coerceAtLeast(0f)
+    val rnd = java.util.Random(11L)
+    drawOval(Color.Black.copy(alpha = 0.12f), Offset(base.x - r * 1.1f, base.y - unit * 0.25f), Size(r * 2.2f, unit * 0.6f))
+    if (pieces.size > 3) drawPath(Path().apply {
+        moveTo(base.x - r, base.y)
+        quadraticTo(base.x, base.y - hMax * 2f * 0.92f, base.x + r, base.y)
+        close()
+    }, WoodDark.copy(alpha = 0.55f))
+
+    class Placed(val piece: Piece, val at: Offset, val angle: Float, val flip: Boolean, val alpha: Float)
+    val placed = pieces.map { piece ->
+        val dx = (rnd.nextFloat() * 2f - 1f) * r * 0.92f
+        val y = base.y - unit * piece.thick * 0.5f - rnd.nextFloat() * (height(dx) - unit * piece.thick * 0.5f).coerceAtLeast(0f)
+        Placed(piece, Offset(base.x + dx, y), (rnd.nextFloat() - 0.5f) * if (piece == Piece.LOG) 14f else 40f, rnd.nextBoolean(), 1f)
+    } + extra.map { piece ->
+        val dx = (rnd.nextFloat() * 2f - 1f) * r * 0.5f
+        Placed(piece, Offset(base.x + dx, base.y - height(dx) - unit * piece.thick * 0.3f), (rnd.nextFloat() - 0.5f) * 30f, rnd.nextBoolean(), 0.4f)
+    }
+    // Back (higher) pieces first, front (lower) ones over them; tonight's on the very top.
+    (placed.filter { it.alpha == 1f }.sortedBy { it.at.y } + placed.filter { it.alpha < 1f }).forEach { p ->
+        val len = unit * p.piece.len
+        val thick = unit * p.piece.thick
+        rotate(p.angle, p.at) {
+            if (p.piece == Piece.LOG) roundLog(p.at, len, thick, p.alpha, p.flip) else splitLog(p.at, len, thick, p.alpha, p.flip)
         }
-        row++
     }
 }
 
-/** One piece of split firewood: pale cut wood with a strip of dark bark. */
-private fun DrawScope.splitLog(c: Offset, len: Float, alpha: Float, flip: Boolean) {
-    val h = len * 0.38f
+/** A split piece: pale cut wood with a strip of dark bark and a lighter cut end. */
+private fun DrawScope.splitLog(c: Offset, len: Float, h: Float, alpha: Float, flip: Boolean) {
     val tl = Offset(c.x - len / 2, c.y - h / 2)
     drawRoundRect(Color(0xFFE8C99A).copy(alpha = alpha), tl, Size(len, h), CornerRadius(h * 0.2f))
     val barkY = if (flip) tl.y else tl.y + h * 0.62f
     drawRoundRect(WoodDark.copy(alpha = alpha), Offset(tl.x, barkY), Size(len, h * 0.38f), CornerRadius(h * 0.18f))
-    drawRect(Color(0xFFD2A877).copy(alpha = alpha), Offset(tl.x + len - h * 0.35f, tl.y), Size(h * 0.3f, h)) // the cut end
+    val endX = if (flip) tl.x + len - h * 0.35f else tl.x + h * 0.05f
+    drawRect(Color(0xFFD2A877).copy(alpha = alpha), Offset(endX, tl.y), Size(h * 0.3f, h))
+}
+
+/** A whole round log: bark along the side, the cut end with its rings. */
+private fun DrawScope.roundLog(c: Offset, len: Float, d: Float, alpha: Float, flip: Boolean) {
+    val tl = Offset(c.x - len / 2, c.y - d / 2)
+    drawRoundRect(Wood.copy(alpha = alpha), tl, Size(len, d), CornerRadius(d * 0.45f))
+    drawLine(WoodDark.copy(alpha = alpha * 0.5f), Offset(tl.x + d * 0.4f, c.y - d * 0.15f), Offset(tl.x + len - d * 0.6f, c.y - d * 0.15f), strokeWidth = d * 0.06f)
+    drawLine(WoodDark.copy(alpha = alpha * 0.5f), Offset(tl.x + d * 0.6f, c.y + d * 0.18f), Offset(tl.x + len - d * 0.8f, c.y + d * 0.18f), strokeWidth = d * 0.06f)
+    val end = Offset(if (flip) tl.x + len - d * 0.42f else tl.x + d * 0.42f, c.y)
+    drawOval(Color(0xFFE8C99A).copy(alpha = alpha), Offset(end.x - d * 0.36f, end.y - d * 0.46f), Size(d * 0.72f, d * 0.92f))
+    drawOval(Color(0xFFC99A66).copy(alpha = alpha), Offset(end.x - d * 0.22f, end.y - d * 0.29f), Size(d * 0.44f, d * 0.58f), style = Stroke(d * 0.04f))
+    drawCircle(Color(0xFFB3804F).copy(alpha = alpha), d * 0.06f, end)
 }
 
 /** One night's wood as a small heap, standing at [base]; [s] is its size (lists and the recap). */
-fun DrawScope.supply(item: Plant, base: Offset, s: Float) = woodpile(base, s * 0.32f, piecesOf(item))
+fun DrawScope.supply(item: Plant, base: Offset, s: Float) = woodpile(base, s * 0.32f, listOf(item))
 
 /** A small icon of a night's item in [world], for lists and the recap. */
 fun DrawScope.drawItem(world: app.tend.core.World, item: Plant, base: Offset, s: Float) =
