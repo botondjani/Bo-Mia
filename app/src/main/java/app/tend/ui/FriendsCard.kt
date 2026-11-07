@@ -126,7 +126,7 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     asking = null
-                    scope.launch { if (Friends.accept(context, code)) reload() else note = "Couldn't add them. Try again in a moment." }
+                    scope.launch { if (Friends.accept(context, code)) { app.tend.data.TendStore(context).invited = true; reload() } else note = "Couldn't add them. Try again in a moment." }
                 }) { Text("Add", color = Brand.Moss) }
             },
             dismissButton = { androidx.compose.material3.TextButton(onClick = { asking = null }) { Text("Not now") } },
@@ -236,6 +236,7 @@ private fun InviteDialog(onDismiss: () -> Unit) {
                     Text("Scan it with their phone's camera, or send the link.", style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
                     Text(c.chunked(3).joinToString(" "), style = MaterialTheme.typography.headlineMedium.copy(letterSpacing = 4.sp), color = Brand.Moss)
                     PrimaryButton("Send the link", {
+                        app.tend.data.TendStore(context).invited = true
                         val text = "Let's tend our camps together! Open this on your phone: ${Friends.inviteLink(c)}\nOr in tend: Clearing → Friends → Enter a code: $c"
                         context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "Invite a friend"))
                     })

@@ -481,6 +481,12 @@ class MainActivity : ComponentActivity() {
                 onOpenRiver = { id -> riverFocus = id; screen = Screen.RIVER },
                 paper = app.tend.data.Friends.paperOnMe(this).isNotEmpty(),
                 bridge = store.bridgeBuilt,
+                steps = remember(refresh) { firstSteps() },
+                onClaimStep = { store.claimStep(it); refresh++ },
+                onUsed = { if (!store.usedThing) { store.usedThing = true; refresh++ } },
+                visitor = remember(refresh) { store.visitorWaiting() },
+                guestbook = remember(refresh) { store.guestbook },
+                onGreet = { store.greetVisitor().also { refresh++ } },
                 onFriendsChanged = { saveProfile(); refresh++ },
                 ducks = app.tend.data.Friends.ducks(this).take(3),
                 onUnroll = { lifecycleScope.launch { app.tend.data.Friends.clearPaper(this@MainActivity) }; refresh++ },
@@ -568,6 +574,7 @@ class MainActivity : ComponentActivity() {
                 onOpenSettings = { screen = Screen.SETTINGS },
                 onShare = ::shareCamp,
                 onOpenClearing = { screen = Screen.CLEARING },
+                steps = remember(refresh) { firstSteps() },
                 onOpenRecap = { screen = Screen.RECAP },
                 // Right after the tour; after a "Not now", the important ones once more a week later.
                 showNextSteps = store.tourDone && (!store.widgetTipDone || store.nextStepsAgainAt in 1..now),
@@ -618,6 +625,25 @@ class MainActivity : ComponentActivity() {
     private class HomeProgress(val level: app.tend.core.Level, val skills: Map<app.tend.core.Skill, app.tend.core.Level>, val challenge: app.tend.core.Challenge)
 
     /** XP from all activities, the week's challenge (banked once when finished), and the levels. */
+    /** The first steps: what's done (from what's in the store and on the home screen) and what's claimed. */
+    private fun firstSteps(): List<app.tend.core.StepState> {
+        val claimed = store.stepsClaimed
+        if (claimed.size == app.tend.core.Step.entries.size) return app.tend.core.FirstSteps.of(emptySet(), claimed)
+        val widgets = android.appwidget.AppWidgetManager.getInstance(this).let { m ->
+            listOf(app.tend.widget.TendWidget::class.java, app.tend.widget.TendWidgetFace::class.java, app.tend.widget.TendWidgetGarden::class.java)
+                .sumOf { m.getAppWidgetIds(android.content.ComponentName(this, it)).size }
+        }
+        val done = buildSet {
+            if (store.placed.isNotEmpty()) add(app.tend.core.Step.PLACE)
+            if (store.usedThing) add(app.tend.core.Step.USE)
+            if (store.daySummaries().any { it.tasksDone > 0 }) add(app.tend.core.Step.ACTIVITY)
+            if (store.answers().any { it.kind == "pause" && it.answer == "not_now" }) add(app.tend.core.Step.NOT_NOW)
+            if (widgets > 0) add(app.tend.core.Step.WIDGET)
+            if (store.invited) add(app.tend.core.Step.FRIEND)
+        }
+        return app.tend.core.FirstSteps.of(done, claimed)
+    }
+
     private fun homeProgress(): HomeProgress {
         val days = store.daySummaries()
         val challenge = app.tend.core.Progress.challenge(LocalDate.now(), store.selectedTasks.map { it.id }, days)

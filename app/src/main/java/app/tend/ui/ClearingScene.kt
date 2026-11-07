@@ -107,6 +107,7 @@ fun DrawScope.drawClearing(
     bridge: Boolean = false,
     use: InUse? = null,
     lastStrum: Float = 9f,
+    visitor: app.tend.core.Visitor? = null,
 ) {
     val w = size.width
     val h = size.height
@@ -210,6 +211,9 @@ fun DrawScope.drawClearing(
         } else if (thing == null && showSpots) emptySpot(p, u, spot.kind, selected == spot.id)
     }
     if (!companionDrawn) drawActor(lights)
+
+    // Today's visitor, waiting to be greeted.
+    visitor?.let { drawVisitor(it, Offset(it.x * w, it.y * h), u * VISITOR_SCALE) }
 
     // What friends did: toilet paper over the trees on the right, a rubber duck for each visit.
     if (paper > 0f) toiletPaper(paper)
@@ -353,6 +357,9 @@ private fun DrawScope.broadleaf(base: Offset, height: Float) {
         Blob(-0.16f, 0.88f, 0.12f, LeafMid), Blob(0.12f, 0.9f, 0.13f, LeafMid), Blob(-0.08f, 0.98f, 0.11f, LeafLit),
     ).forEach { drawCircle(it.color, height * it.r, Offset(base.x + height * it.dx, base.y - height * it.dy)) }
 }
+
+/** Visitors are drawn a little larger than life, so they're easy to see and tap. */
+const val VISITOR_SCALE = 1.4f
 
 // ---- Built together ----
 
@@ -847,7 +854,7 @@ private fun DrawScope.campfire(p: Offset, u: Float, lights: MutableList<Light>) 
 
 /** The clearing as a bitmap with rounded corners, for the widget and the share card. */
 fun clearingBitmap(
-    avatar: Avatar, placed: Map<Int, String>, worn: Set<Accessory>, widthPx: Int, heightPx: Int, night: Boolean = false, paper: Boolean = false, ducks: Int = 0, bridge: Boolean = false,
+    avatar: Avatar, placed: Map<Int, String>, worn: Set<Accessory>, widthPx: Int, heightPx: Int, night: Boolean = false, paper: Boolean = false, ducks: Int = 0, bridge: Boolean = false, visitor: app.tend.core.Visitor? = null,
 ): android.graphics.Bitmap {
     val image = androidx.compose.ui.graphics.ImageBitmap(widthPx, heightPx)
     val canvas = androidx.compose.ui.graphics.Canvas(image)
@@ -855,7 +862,7 @@ fun clearingBitmap(
     canvas.clipPath(Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(Rect(Offset.Zero, size), CornerRadius(widthPx * 0.05f))) })
     androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(
         androidx.compose.ui.unit.Density(1f), androidx.compose.ui.unit.LayoutDirection.Ltr, canvas, size,
-    ) { drawClearing(avatar, placed, worn = worn, night = night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = bridge) }
+    ) { drawClearing(avatar, placed, worn = worn, night = night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = bridge, visitor = visitor) }
     return image.asAndroidBitmap()
 }
 
@@ -868,7 +875,7 @@ private fun thingSize(id: String): Pair<Float, Float> = when (id) {
     "swing" -> 0.1f to 0.21f
     "hammock" -> 0.15f to 0.1f
     "canoe" -> 0.21f to 0.05f
-    "dock" -> 0.2f to 0.05f
+    "dock" -> 0.2f to 0.07f
     "kettle" -> 0.11f to 0.13f
     "grill" -> 0.08f to 0.11f
     "campfire" -> 0.08f to 0.09f
@@ -876,7 +883,7 @@ private fun thingSize(id: String): Pair<Float, Float> = when (id) {
     "picnic_table" -> 0.13f to 0.08f
     "log_bench" -> 0.12f to 0.035f
     "guitar" -> 0.04f to 0.1f
-    "fishing_rod" -> 0.12f to 0.1f
+    "fishing_rod" -> 0.15f to 0.1f
     "telescope" -> 0.09f to 0.1f
     else -> 0.06f to 0.05f
 }
@@ -886,10 +893,22 @@ fun DrawScope.drawThingIcon(id: String) {
     val s = size.minDimension
     val c = Offset(size.width / 2, size.height / 2)
     if (id == "string_lights") {
-        overhead(id, Offset(c.x - s * 0.45f, c.y - s * 0.15f), Offset(c.x + s * 0.45f, c.y - s * 0.15f), s * 0.9f, mutableListOf())
+        // As an icon: a drooping wire with warm bulbs on dark sockets, so it reads on a light card.
+        val a = Offset(c.x - s * 0.45f, c.y - s * 0.2f)
+        val b = Offset(c.x + s * 0.45f, c.y - s * 0.2f)
+        drawPath(Path().apply { moveTo(a.x, a.y); quadraticTo(c.x, c.y + s * 0.2f, b.x, b.y) }, BarkDark, style = Stroke(s * 0.02f))
+        for (i in 0 until 7) {
+            val t = (i + 0.5f) / 7f
+            val p = Offset(a.x + (b.x - a.x) * t, a.y + s * 0.4f * 4 * t * (1 - t) * 0.5f)
+            drawRect(BarkDark, Offset(p.x - s * 0.018f, p.y), Size(s * 0.036f, s * 0.03f))
+            drawCircle(Glow.copy(alpha = 0.45f), s * 0.07f, p + Offset(0f, s * 0.07f))
+            drawCircle(Color(0xFFFFE7A3), s * 0.04f, p + Offset(0f, s * 0.07f))
+        }
         return
     }
     val (tw, th) = thingSize(id)
     val u = minOf(s * 0.85f / tw, s * 0.8f / th)
-    drawThing(id, Offset(c.x, c.y + s * 0.4f), u)
+    // Some things reach out to one side of where they stand: centre what's drawn.
+    val shift = when (id) { "dock" -> -0.03f; "fishing_rod" -> 0.006f; else -> 0f }
+    drawThing(id, Offset(c.x + u * shift, c.y + s * if (id == "dock") 0.15f else 0.4f), u)
 }

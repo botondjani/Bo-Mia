@@ -54,8 +54,9 @@ object Widgets {
         val paper = app.tend.data.Friends.paperOnMe(context).isNotEmpty()
         val ducks = app.tend.data.Friends.ducks(context).size.coerceAtMost(3)
         val fresh = app.tend.data.Friends.unseen(context)
+        val visitor = store.visitorWaiting()
         // Evening (from the evening hour until 5:00): the camp at night, a dark card and a sleepy companion.
-        val shown = listOf(store.avatar, mood, remaining, next?.id, day.completedTasks.sorted(), placed, night, paper, ducks, fresh?.id, store.bridgeBuilt).joinToString("|")
+        val shown = listOf(store.avatar, mood, remaining, next?.id, day.completedTasks.sorted(), placed, night, paper, ducks, fresh?.id, store.bridgeBuilt, visitor).joinToString("|")
         if (!force && shown == lastShown) return
         lastShown = shown
 
@@ -87,9 +88,10 @@ object Widgets {
             setOnClickPendingIntent(R.id.root, open)
         })
         if (garden.isNotEmpty()) manager.updateAppWidget(garden, RemoteViews(context.packageName, R.layout.widget_garden).apply {
-            setImageViewBitmap(R.id.garden, clearingBitmap(store.avatar, placed, worn, 440, 440, night = night, paper = paper, ducks = ducks, bridge = store.bridgeBuilt))
-            setViewVisibility(R.id.note, if (fresh != null) android.view.View.VISIBLE else android.view.View.GONE)
-            setTextViewText(R.id.note, fresh?.let { "${it.name}: ${it.kind.short}" } ?: "")
+            setImageViewBitmap(R.id.garden, clearingBitmap(store.avatar, placed, worn, 440, 440, night = night, paper = paper, ducks = ducks, bridge = store.bridgeBuilt, visitor = visitor))
+            val label = fresh?.let { "${it.name}: ${it.kind.short}" } ?: visitor?.let { "A ${it.title.lowercase()} is here" }
+            setViewVisibility(R.id.note, if (label != null) android.view.View.VISIBLE else android.view.View.GONE)
+            setTextViewText(R.id.note, label ?: "")
             setInt(R.id.note, "setBackgroundResource", if (night) R.drawable.widget_pill_night else R.drawable.widget_pill)
             setTextColor(R.id.note, if (night) NIGHT_TEXT else DAY_TEXT)
             setTextViewText(R.id.minutes, minutes)

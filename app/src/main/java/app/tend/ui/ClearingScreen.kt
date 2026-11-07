@@ -73,6 +73,12 @@ fun ClearingScreen(
     paper: Boolean = false,
     bridge: Boolean = false,
     onFriendsChanged: () -> Unit = {},
+    steps: List<app.tend.core.StepState> = emptyList(),
+    onClaimStep: (app.tend.core.Step) -> Unit = {},
+    onUsed: () -> Unit = {},
+    visitor: app.tend.core.Visitor? = null,
+    guestbook: Map<app.tend.core.Visitor, Int> = emptyMap(),
+    onGreet: () -> app.tend.core.Visitor? = { null },
     ducks: List<app.tend.data.Friends.Note> = emptyList(),
     onUnroll: () -> Unit = {},
     onCatchDuck: (app.tend.data.Friends.Note) -> Int = { 0 },
@@ -113,6 +119,7 @@ fun ClearingScreen(
         }
     }
     val placedNow by androidx.compose.runtime.rememberUpdatedState(placed)
+    val visitorNow by androidx.compose.runtime.rememberUpdatedState(visitor)
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { Sounds.stop() } }
 
     // The camp. Tapping it shows the spots; tapping a spot opens the shop for it.
@@ -131,6 +138,12 @@ fun ClearingScreen(
                             Sounds.chime(context)
                             return@detectTapGestures
                         }
+                        visitorNow?.let { v ->
+                            if (kotlin.math.abs(v.x - fx) * size.width < size.height * 0.08f && fy in (v.y - 0.16f)..(v.y + 0.03f)) {
+                                onGreet()?.let { caught = "A ${it.title.lowercase()} came by! It's in your guestbook. +${app.tend.core.Visitors.ACORNS} acorns."; Sounds.chime(context) }
+                                return@detectTapGestures
+                            }
+                        }
                         if (paperNow && fx > PAPER_LEFT && fy < PAPER_BOTTOM) { onUnroll(); caught = "All clean again."; return@detectTapGestures }
                         // The bridge leads to friends' camps along the river.
                         if (bridgeNow && fx in 0.1f..0.37f && fy in 0.5f..0.64f) { onOpenRiver(null); return@detectTapGestures }
@@ -139,7 +152,7 @@ fun ClearingScreen(
                         val thing = hit?.let { placedNow[it] }
                         if (thing != null) {
                             if (using?.second == thing && thing == "guitar") { strumAt = frame; useStart = frame - 1_000_000_000L; Sounds.strum(context) }
-                            else { using = hit to thing; caught = null; Sounds.forUse(context, thing) }
+                            else { using = hit to thing; caught = null; Sounds.forUse(context, thing); onUsed() }
                             return@detectTapGestures
                         }
                         if (using != null) { using = null; Sounds.stop(); return@detectTapGestures }
@@ -153,7 +166,7 @@ fun ClearingScreen(
             val use = using?.takeIf { !editing && useStart >= 0 }?.let { (spot, thing) -> InUse(spot, thing, (frame - useStart) / 1e9f) }
             drawClearing(
                 avatar, placed, worn = worn, night = night, showSpots = editing, selected = selected, paper = paperLeft, ducks = ducks.size, bridge = bridge,
-                use = use, lastStrum = (frame - strumAt) / 1e9f,
+                use = use, lastStrum = (frame - strumAt) / 1e9f, visitor = visitor,
             )
         }
         AcornBadge(acorns, Modifier.align(Alignment.TopEnd).padding(10.dp))
@@ -164,6 +177,7 @@ fun ClearingScreen(
                 editing -> "Tap a spot to put something there."
                 using != null -> Uses.line(using!!.second, avatar.displayName)
                 paper -> "Someone toilet-papered your oak! Tap it to unroll."
+                visitor != null -> "A ${visitor.title.lowercase()} came to the camp. Tap it to say hello."
                 ducks.isNotEmpty() -> "A rubber duck: someone visited. Tap it to fish it out."
                 caught != null -> caught!!
                 bridge -> "Cross the bridge to visit your friends' camps."
@@ -175,6 +189,8 @@ fun ClearingScreen(
         ChipButton(if (editing) "Done" else "Place things", { editing = !editing; selected = null; using = null; Sounds.stop() }, filled = !editing)
     }
 
+    FirstStepsCard(steps) { onClaimStep(it); Sounds.chime(context) }
+    Guestbook(guestbook)
     NextThing(acorns, placed)
     EarnedToday(earnedToday, lastNight)
     FriendsCard(onOpenSettings, onOpenRiver, onFriendsChanged)
@@ -249,6 +265,8 @@ private fun EarnedToday(earned: Map<String, Int>, lastNight: Int) {
         earned["challenge"]?.takeIf { it > 0 }?.let { "Weekly challenge" to it },
         earned["level"]?.takeIf { it > 0 }?.let { "Level up" to it },
         earned["together"]?.takeIf { it > 0 }?.let { "Together with friends" to it },
+        earned["steps"]?.takeIf { it > 0 }?.let { "First steps" to it },
+        earned["visitor"]?.takeIf { it > 0 }?.let { "A visitor" to it },
         lastNight.takeIf { it > 0 }?.let { "Last night" to it },
     )
     Card {
@@ -332,5 +350,29 @@ internal fun SpotSheetCard(spotId: Int, current: String?, acorns: Int, onDismiss
             if (current != null) Text("Swapping sells what's there for half its price.", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
             SecondaryButton("Close", onDismiss)
         }
+    }
+}
+
+/** The animals that came to the camp: seen ones in colour with how often, the rest as shadows. */
+@Composable
+private fun Guestbook(book: Map<app.tend.core.Visitor, Int>) {
+    if (book.isEmpty()) return
+    Card {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("GUESTBOOK", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            Text("${book.size} / ${app.tend.core.Visitor.entries.size}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            app.tend.core.Visitor.entries.forEach { v ->
+                val n = book[v] ?: 0
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(12.dp)).background(Brand.Sage), contentAlignment = Alignment.Center) {
+                        Canvas(Modifier.fillMaxSize().padding(4.dp)) { drawVisitorIcon(v, seen = n > 0) }
+                    }
+                    Text(if (n > 0) "${v.title}${if (n > 1) " ×$n" else ""}" else if (v.rare) "Rare" else "?", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted, maxLines = 1)
+                }
+            }
+        }
+        Text("Someone new comes most days. After a good day, a rare one might.", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
     }
 }

@@ -86,6 +86,7 @@ fun HomeScreen(
     levelUp: Int? = null,
     onLevelUpSeen: () -> Unit = {},
     onOpenClearing: () -> Unit,
+    steps: List<app.tend.core.StepState> = emptyList(),
     onOpenRecap: () -> Unit,
     /** Show the one-time widget tip; called with true when it was handled. */
     showNextSteps: Boolean = false,
@@ -175,6 +176,7 @@ fun HomeScreen(
             Text("+${Budget.earnableFrom(cfg, day, tasks)} min still to earn", style = MaterialTheme.typography.bodyMedium)
         }
 
+        FirstStepsStrip(steps, onOpenClearing)
         if (level != null) ProgressStrip(level, skills, challenge)
         if (levelUp != null) LevelUpDialog(avatar, levelUp, onLevelUpSeen)
 

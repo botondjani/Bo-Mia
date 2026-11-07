@@ -166,6 +166,48 @@ class TendStore(private val context: Context) {
         lines("acorns.csv").sumOf { line -> line.split(',').takeIf { it.size == 3 && it[0] == y && it[1] == "day" }?.get(2)?.toIntOrNull() ?: 0 }
     }
 
+    /** First steps already claimed (their acorns added). */
+    var stepsClaimed: Set<app.tend.core.Step>
+        get() = prefs.getStringSet("steps_claimed", emptySet())!!.mapNotNull { runCatching { app.tend.core.Step.valueOf(it) }.getOrNull() }.toSet()
+        set(v) = edit { putStringSet("steps_claimed", v.map { it.name }.toSet()) }
+
+    /** Something in the camp has been used once (a first step). */
+    var usedThing: Boolean
+        get() = prefs.getBoolean("used_thing", false)
+        set(v) { prefs.edit().putBoolean("used_thing", v).apply() }
+
+    /** An invite has been sent once (a first step). */
+    var invited: Boolean
+        get() = prefs.getBoolean("invited", false)
+        set(v) { prefs.edit().putBoolean("invited", v).apply() }
+
+    /** Claims a first step: its acorns, once. */
+    fun claimStep(step: app.tend.core.Step) {
+        if (step in stepsClaimed) return
+        stepsClaimed = stepsClaimed + step
+        addAcorns(step.acorns, "steps")
+    }
+
+    /** Today's visitor, still waiting to be greeted; null once greeted today. */
+    fun visitorWaiting(today: LocalDate = LocalDate.now()): app.tend.core.Visitor? {
+        if (prefs.getString("visitor_greeted", "") == today.toString()) return null
+        val y = daySummaries().firstOrNull { it.date == today.minusDays(1) }
+        val good = y != null && (y.unusedMinutes > 0 || y.tasksDone > 0)
+        return app.tend.core.Visitors.of(today, good)
+    }
+
+    /** Animals greeted so far, and how often. */
+    val guestbook: Map<app.tend.core.Visitor, Int> get() = app.tend.core.Visitors.parse(prefs.getString("guestbook", "")!!)
+
+    /** Greets today's visitor: into the guestbook, with a few acorns. */
+    fun greetVisitor(today: LocalDate = LocalDate.now()): app.tend.core.Visitor? {
+        val v = visitorWaiting(today) ?: return null
+        val book = guestbook.toMutableMap().apply { this[v] = (this[v] ?: 0) + 1 }
+        prefs.edit().putString("visitor_greeted", today.toString()).putString("guestbook", app.tend.core.Visitors.format(book)).apply()
+        addAcorns(app.tend.core.Visitors.ACORNS, "visitor")
+        return v
+    }
+
     /** Rubber ducks fished out of the river: one for each friend's visit. */
     var ducksCaught: Int
         get() = prefs.getInt("ducks_caught", 0)
