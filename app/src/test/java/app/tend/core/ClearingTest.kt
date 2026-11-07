@@ -14,12 +14,12 @@ class ClearingTest {
         SpotKind.entries.forEach { k -> assertTrue("$k has things", Things.forKind(k).isNotEmpty()) }
         assertTrue(Things.all.all { t -> Clearing.spots.any { it.kind == t.kind } })
         assertEquals(10, Clearing.spots.count { it.kind != SpotKind.SMALL })
-        assertEquals(20, Clearing.spots.count { it.kind == SpotKind.SMALL })
+        assertEquals(8, Clearing.spots.count { it.kind == SpotKind.SMALL })
         assertEquals(Clearing.spots.size, Clearing.spots.map { it.id }.toSet().size)
     }
 
     @Test fun placementsRoundTrip() {
-        val placed = mapOf(0 to "grill", 1 to "hammock", 10 to "flowers", 11 to "flowers")
+        val placed = mapOf(0 to "grill", 5 to "hammock", 10 to "wildflowers", 11 to "wildflowers")
         assertEquals(placed, Clearing.parse(Clearing.format(placed)))
         // Unknown things, unknown spots and things in the wrong kind of spot are dropped.
         assertEquals(mapOf(0 to "grill"), Clearing.parse("0:grill,1:boat,99:flowers,2:nonsense,junk"))

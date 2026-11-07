@@ -29,9 +29,9 @@ are spent on things for it. Friends' clearings sit next to yours along the river
 - Your normal: average daily minutes in the picked apps in the 14 days before tend (from usage
   stats); without that data, the first 7 days with tend.
 - A good day is about 40 to 50, a weak one about 15. New users start with 25.
-- Prices so something is in reach every day: small things 10 to 15 (always buyable, about 20 small
-  spots), medium 40 to 90, big 150 to 300, long goals 500 to 900. The shop shows how many acorns
-  are missing for the next thing.
+- Prices so something is in reach every day: small things 10 to 15 (always buyable, 8 small
+  spots around the camp), medium 40 to 90, big 150 to 300, long goals 500 to 900. The shop shows how many acorns
+  are missing for the next thing. Small spots are few (8) and placed around the camp, never scattered.
 - Existing users: plants and logs so far become acorns (15 / 25 / 40 per night by size).
 - Selling gives half back.
 

@@ -2,11 +2,11 @@ package app.tend.core
 
 /**
  * The clearing on the riverbank: acorns earned by doing, and things bought with them for fixed
- * spots. Pure rules here; storage is in TendStore, drawing in ui.
+ * spots around a camp. Pure rules here; storage is in TendStore, drawing in ui.
  */
 
-/** Where a thing can stand. */
-enum class SpotKind { FIRE, TREES, BANK, WATER, BACK, SMALL }
+/** Where a thing can go: the fire pit, a seat by it, a shelter, the trees, the river, overhead, or a small spot. */
+enum class SpotKind { FIRE, SEAT, SHELTER, TREES, WATER, ABOVE, SMALL }
 
 /** A spot in the clearing; [id] is stable (it's what's saved). */
 data class Spot(val id: Int, val kind: SpotKind)
@@ -15,34 +15,39 @@ data class Thing(val id: String, val name: String, val price: Int, val kind: Spo
 
 object Things {
     val all: List<Thing> = listOf(
-        // Small things: always something to buy today.
-        Thing("flowers", "Wildflowers", 10, SpotKind.SMALL),
+        // Small things around the camp: always something to buy today.
+        Thing("wildflowers", "Wildflowers", 10, SpotKind.SMALL),
         Thing("mushrooms", "Mushrooms", 10, SpotKind.SMALL),
-        Thing("stones", "River stones", 10, SpotKind.SMALL),
-        Thing("sunflowers", "Sunflowers", 15, SpotKind.SMALL),
         Thing("lantern", "Lantern", 15, SpotKind.SMALL),
-        Thing("fireflies", "Fireflies", 15, SpotKind.SMALL),
+        Thing("woodpile", "Firewood", 15, SpotKind.SMALL),
+        Thing("backpack", "Backpack", 15, SpotKind.SMALL),
+        Thing("guitar", "Guitar", 30, SpotKind.SMALL),
         // The fire pit.
         Thing("campfire", "Campfire", 40, SpotKind.FIRE),
         Thing("grill", "Grill", 80, SpotKind.FIRE),
+        Thing("kettle", "Fire and kettle", 120, SpotKind.FIRE),
         Thing("pizza_oven", "Pizza oven", 250, SpotKind.FIRE),
-        // Under the trees.
-        Thing("log_bench", "Log bench", 50, SpotKind.TREES),
+        // Seats by the fire.
+        Thing("log_bench", "Log bench", 50, SpotKind.SEAT),
+        Thing("camp_chairs", "Camp chairs", 70, SpotKind.SEAT),
+        Thing("picnic_table", "Picnic table", 90, SpotKind.SEAT),
+        // Shelters at the back.
+        Thing("tent", "Tent", 150, SpotKind.SHELTER),
+        Thing("bell_tent", "Canvas tent", 300, SpotKind.SHELTER),
+        Thing("workshop", "Workshop", 500, SpotKind.SHELTER),
+        Thing("cabin", "Cabin", 800, SpotKind.SHELTER),
+        // In the trees.
         Thing("swing", "Swing", 70, SpotKind.TREES),
         Thing("hammock", "Hammock", 90, SpotKind.TREES),
-        Thing("tent", "Tent", 150, SpotKind.TREES),
+        Thing("bike", "Bike", 120, SpotKind.TREES),
         Thing("treehouse", "Treehouse", 300, SpotKind.TREES),
-        // On the bank.
-        Thing("fishing_chair", "Fishing chair", 60, SpotKind.BANK),
-        Thing("bike", "Bike", 120, SpotKind.BANK),
-        // On the water.
+        // On the river.
         Thing("canoe", "Canoe", 200, SpotKind.WATER),
-        Thing("boat", "Boat", 600, SpotKind.WATER),
+        Thing("boat", "Rowing boat", 600, SpotKind.WATER),
         Thing("dock", "Dock", 900, SpotKind.WATER),
-        // At the back.
-        Thing("flag", "Flag", 40, SpotKind.BACK),
-        Thing("workshop", "Workshop", 500, SpotKind.BACK),
-        Thing("cabin", "Cabin", 800, SpotKind.BACK),
+        // Strung between the trees over the camp.
+        Thing("bunting", "Bunting", 40, SpotKind.ABOVE),
+        Thing("string_lights", "String lights", 60, SpotKind.ABOVE),
     )
 
     fun byId(id: String): Thing? = all.firstOrNull { it.id == id }
@@ -51,15 +56,15 @@ object Things {
 }
 
 object Clearing {
-    /** 10 big spots and 20 small ones. Ids never change: placements are saved by id. */
-    val spots: List<Spot> = buildList {
-        add(Spot(0, SpotKind.FIRE))
-        repeat(3) { add(Spot(1 + it, SpotKind.TREES)) }
-        repeat(2) { add(Spot(4 + it, SpotKind.BANK)) }
-        repeat(2) { add(Spot(6 + it, SpotKind.WATER)) }
-        repeat(2) { add(Spot(8 + it, SpotKind.BACK)) }
-        repeat(20) { add(Spot(10 + it, SpotKind.SMALL)) }
-    }
+    /** 10 big spots and 8 small ones around the camp. Ids never change: placements are saved by id. */
+    val spots: List<Spot> = listOf(
+        Spot(0, SpotKind.FIRE),
+        Spot(1, SpotKind.SEAT), Spot(2, SpotKind.SEAT),
+        Spot(3, SpotKind.SHELTER), Spot(4, SpotKind.SHELTER),
+        Spot(5, SpotKind.TREES), Spot(6, SpotKind.TREES),
+        Spot(7, SpotKind.WATER), Spot(8, SpotKind.WATER),
+        Spot(9, SpotKind.ABOVE),
+    ) + (0 until 8).map { Spot(10 + it, SpotKind.SMALL) }
 
     fun spot(id: Int): Spot? = spots.firstOrNull { it.id == id }
 
