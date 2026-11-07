@@ -37,9 +37,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.foundation.layout.Box
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Icon
 import app.tend.core.TaskDef
 import app.tend.core.Tasks
 

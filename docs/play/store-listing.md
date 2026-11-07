@@ -7,7 +7,7 @@ Everything to paste into Play Console, in the order Play asks for it.
 Most screen-time apps sell restriction ("block apps", "limit social media") and compete in Productivity / Tools for the same few keywords. tend is positioned as a **cozy habit pet**: a companion you care for by living well (walks, sleep, reading, friends), where less scrolling is the reward, not the punishment. That puts it next to self-care and habit apps, a different shelf and a different set of searches, and it still catches the screen-time ones through the description.
 
 - **Primary promise:** "Care for Bo by caring for yourself."
-- **Two looks, one app:** Bo builds a base camp (levels, a weekly challenge, tent → cabin → workshop); Mia grows a garden. Either can be switched in settings.
+- **Your own camp:** activities earn acorns; spend them on a camp by the river (a fire, a tent, a canoe, string lights). Something new every day, a long goal every few weeks.
 - **Shelf:** Health & Fitness (self-care, habits, wellbeing), not Productivity.
 - **Keyword clusters** (woven into title, short and full description, not stuffed):
   - Companion / cozy: habit pet, virtual pet, cozy, self care, wellbeing, cute
@@ -47,8 +47,8 @@ CARE FOR BO BY CARING FOR YOURSELF
 • A weekly challenge picked from your habits, with bonus XP
 • Bo earns little things for good habits: a lucky leaf, a sun hat, a nightcap
 
-BUILD A BASE, OR GROW A GARDEN
-Minutes you don't scroll become something every night. Build a base camp in the woods, from a tent to a log cabin and a workshop, or grow a garden with flowers, a bench and a tree of your own. Share it with friends.
+YOUR CAMP BY THE RIVER
+Walks, books and every "Not now" earn acorns. Spend them on a camp in a clearing by the river: a campfire, a hammock, a canvas tent, a canoe, string lights between the trees. A little something every day, a cabin or a boat to save for. Share it with friends.
 
 A KIND PAUSE, NOT A BLOCK
 When you open TikTok, Instagram or another app you picked, Bo pops up for a breath. Often that's all it takes to stop doomscrolling. Still want in? Take a quick look, or open it for 5 or 15 minutes; Bo checks in when the time is up. No guilt, no shame.

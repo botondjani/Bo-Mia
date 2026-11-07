@@ -40,14 +40,13 @@ class NewGoalsTest {
 
     @Test fun `accessories follow a week of habits`() {
         val week = listOf(setOf("move"), setOf("move", "read"), setOf("read"), setOf("move"), setOf("move", "friends"), setOf("hobby"), setOf("friends"))
-        assertEquals(setOf(Accessory.LEAF, Accessory.BOWTIE, Accessory.HEADBAND, Accessory.FLOWER, Accessory.BUNTING), Accessories.active(week))
+        assertEquals(setOf(Accessory.LEAF, Accessory.BOWTIE, Accessory.HEADBAND, Accessory.FLOWER), Accessories.active(week))
         assertEquals(emptySet<Accessory>(), Accessories.active(week.map { emptySet() }))
         // Quick ones for new users: the leaf after one activity, the bow tie after two active days.
         assertEquals(setOf(Accessory.LEAF), Accessories.active(listOf(setOf("read"))))
-        // Sleep earns a nightcap after 2 nights and lanterns for the garden after 4.
-        val nights = List(4) { setOf("sleep") }
-        assertTrue(Accessory.NIGHTCAP in Accessories.active(nights.take(2)) && Accessory.LANTERNS !in Accessories.active(nights.take(3)))
-        assertTrue(Accessory.LANTERNS in Accessories.active(nights) && Accessory.LANTERNS.garden)
+        // Sleep earns a nightcap after 2 nights.
+        val nights = List(2) { setOf("sleep") }
+        assertTrue(Accessory.NIGHTCAP in Accessories.active(nights) && Accessory.NIGHTCAP !in Accessories.active(nights.take(1)))
         assertEquals(setOf(Accessory.LEAF, Accessory.BOWTIE), Accessories.active(listOf(setOf("custom:journal"), emptySet(), setOf("read"))))
     }
 }

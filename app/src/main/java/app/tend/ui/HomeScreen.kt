@@ -13,7 +13,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,13 +28,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.ui.window.Dialog
 import app.tend.health.HealthConnect
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,7 +76,7 @@ fun HomeScreen(
     onCheckOff: (TaskDef) -> Unit,
     onUndo: (TaskDef) -> Unit,
     onOpenSettings: () -> Unit,
-    /** Shares this week's garden card. */
+    /** Shares this week's camp card. */
     onShare: () -> Unit = {},
     /** The companion's level and the three skills; null hides the strip. */
     level: app.tend.core.Level? = null,
@@ -89,7 +85,7 @@ fun HomeScreen(
     /** A new level to celebrate, once. */
     levelUp: Int? = null,
     onLevelUpSeen: () -> Unit = {},
-    onOpenGarden: () -> Unit,
+    onOpenClearing: () -> Unit,
     onOpenRecap: () -> Unit,
     /** Show the one-time widget tip; called with true when it was handled. */
     showNextSteps: Boolean = false,
@@ -126,7 +122,7 @@ fun HomeScreen(
     if (widgetGuide) WidgetGuideDialog(avatar) { widgetGuide = false }
     val remaining = Budget.remainingMinutes(cfg, day)
     val context = androidx.compose.ui.platform.LocalContext.current
-    val mood = Moods.atNight(Moods.of(cfg, day), app.tend.core.Garden.isNight(app.tend.data.TendStore(context).eveningFrom))
+    val mood = Moods.atNight(Moods.of(cfg, day), app.tend.core.Budget.isEvening(app.tend.data.TendStore(context).eveningFrom, java.time.LocalTime.now().hour))
     Box(Modifier.fillMaxSize()) {
     // The page itself stays put; only the activity list scrolls, in the space that's left.
     Column(
@@ -140,7 +136,7 @@ fun HomeScreen(
                 Text(day.date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.ENGLISH)), style = MaterialTheme.typography.bodyMedium)
                 Text(greeting(), style = MaterialTheme.typography.headlineMedium)
             }
-            IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Share, "Share your garden", onShare)
+            IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Share, "Share your camp", onShare)
             Spacer(Modifier.width(8.dp))
             Box(Modifier.tourTarget(tour, "settings")) { IconButtonSoft(Icons.Filled.Settings, "Settings", onOpenSettings) }
         }
@@ -163,7 +159,7 @@ fun HomeScreen(
                 Row(
                     Modifier.padding(bottom = 6.dp).tourTarget(tour, "garden").clip(RoundedCornerShape(50)).background(Brand.Mint.copy(alpha = 0.32f))
                         .border(1.dp, Brand.Mint, RoundedCornerShape(50))
-                        .tappable(onClick = onOpenGarden).padding(horizontal = 14.dp, vertical = 10.dp),
+                        .tappable(onClick = onOpenClearing).padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     AcornIcon(20.dp)
@@ -366,7 +362,7 @@ private fun DoneRow(task: TaskDef, day: DayState, onUndo: (TaskDef) -> Unit) = R
 private fun homeTour(name: String, free: Int) = listOf(
     TourStep("minutes", "Your minutes for today", "Every app you picked draws from here. You start with $free, and I'll pause you before each open."),
     TourStep("activity", "Do one, earn minutes", "Finish one of these and I add minutes back. Walks and workouts count by themselves; the rest you start or tick off here."),
-    TourStep("garden", "Our garden", "Minutes you don't use grow into a plant at midnight. Come visit, and see how the week went."),
+    TourStep("garden", "Your camp", "Activities earn acorns; spend them on things for your camp by the river. Come visit, and see how the week went."),
     TourStep("settings", "Make it yours", "Apps, activities, your budget and the evening mode live here. Change them any time."),
 )
 

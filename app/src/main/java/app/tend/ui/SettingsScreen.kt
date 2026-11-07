@@ -38,8 +38,6 @@ fun SettingsScreen(
     cfg: BudgetConfig,
     blocked: Set<String>,
     onAvatar: (Avatar) -> Unit,
-    world: app.tend.core.World = app.tend.core.World.GARDEN,
-    onWorld: (app.tend.core.World) -> Unit = {},
     onConfig: (BudgetConfig) -> Unit,
     onToggleApp: (String) -> Unit,
     tasks: List<TaskDef>,
@@ -87,9 +85,8 @@ fun SettingsScreen(
         Spacer(Modifier.width(Space.m))
         Text("Settings", style = MaterialTheme.typography.headlineMedium)
     }
-    Text("COMPANION & WORLD", style = MaterialTheme.typography.labelSmall)
+    Text("COMPANION", style = MaterialTheme.typography.labelSmall)
     CompanionPicker(avatar, onAvatar, compact = true)
-    WorldPicker(avatar, world, onWorld)
     Text("APPS TO PAUSE", style = MaterialTheme.typography.labelSmall)
     AppPicker(catalog, blocked, onToggleApp)
     Text("INSTEAD OF SCROLLING", style = MaterialTheme.typography.labelSmall)
@@ -168,7 +165,7 @@ fun SettingsScreen(
     if (confirmReset) androidx.compose.material3.AlertDialog(
         onDismissRequest = { confirmReset = false },
         title = { Text("Start over?") },
-        text = { Text("This deletes your minutes, activities, ${world.place} and settings on this phone. It can't be undone.") },
+        text = { Text("This deletes your minutes, activities, camp and settings on this phone. It can't be undone.") },
         confirmButton = { androidx.compose.material3.TextButton(onClick = { confirmReset = false; onStartOver() }) { Text("Delete everything", color = Brand.Coral) } },
         dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmReset = false }) { Text("Keep") } },
         containerColor = Brand.Card,

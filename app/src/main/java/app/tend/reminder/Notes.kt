@@ -95,7 +95,7 @@ object Notes {
         val name = store.avatar.displayName
         val away = System.currentTimeMillis() - store.lastOpenedAt > 2 * 24 * 3_600_000L && store.lastOpenedAt > 0
         if (away) {
-            post(context, Kind.MISSED, "$name misses you", "The ${store.world.place} is still here. One small thing today is enough.")
+            post(context, Kind.MISSED, "$name misses you", "The camp is still here. One small thing today is enough.")
             return
         }
         val cfg = store.config

@@ -58,8 +58,8 @@ class BudgetTest {
     }
 
     @Test fun `only unused minutes grow the garden, overuse does not carry over`() {
-        assertEquals(45, Budget.gardenMinutesAtClose(cfg, day))
-        assertEquals(0, Budget.gardenMinutesAtClose(cfg, day.copy(usedSeconds = 60 * 60L)))
+        assertEquals(45, Budget.unusedMinutesAtClose(cfg, day))
+        assertEquals(0, Budget.unusedMinutesAtClose(cfg, day.copy(usedSeconds = 60 * 60L)))
     }
 
     @Test fun `mood follows the day`() {

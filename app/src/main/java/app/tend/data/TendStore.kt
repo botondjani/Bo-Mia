@@ -9,20 +9,18 @@ import app.tend.core.Accessory
 import app.tend.core.Answer
 import app.tend.core.DayState
 import app.tend.core.DaySummary
-import app.tend.core.Garden
 import app.tend.core.LockSchedule
 import app.tend.core.Plant
 import app.tend.core.TaskDef
 import app.tend.core.Tasks
 import app.tend.core.WorthIt
-import app.tend.widget.TendWidget
 import java.io.File
 import java.time.LocalDate
 import java.time.LocalDateTime
 
 /**
  * Local persistence (SharedPreferences + two CSV logs). Every state change refreshes the widget.
- * Day rollover happens on read: yesterday's unused minutes go to the garden, everything else resets.
+ * Day rollover happens on read: yesterday is closed (acorns, history), everything else resets.
  */
 class TendStore(private val context: Context) {
     private val prefs = context.getSharedPreferences("tend", Context.MODE_PRIVATE)
@@ -134,15 +132,6 @@ class TendStore(private val context: Context) {
         val n = notesSentToday() + 1
         edit { putString("notes_day", LocalDate.now().toString()); putInt("notes_count", n) }
     }
-
-    /**
-     * Garden or base: what the unused minutes build. Until it's picked in settings it follows the
-     * companion: Bo builds a base, Mia grows a garden.
-     */
-    var world: app.tend.core.World
-        get() = prefs.getString("world", null)?.let { runCatching { app.tend.core.World.valueOf(it) }.getOrNull() }
-            ?: if (avatar == Avatar.BO) app.tend.core.World.BASE else app.tend.core.World.GARDEN
-        set(v) = edit { putString("world", v.name) }
 
     // ---- The clearing: acorns and things ----
 
@@ -311,19 +300,12 @@ class TendStore(private val context: Context) {
     val focusTask: TaskDef
         get() = selectedTasks.firstOrNull { it.id == focusTaskId } ?: Tasks.presets.firstOrNull { it.id == focusTaskId } ?: Tasks.READ
 
-    /** One plant per closed day that had unused minutes, oldest first. */
-    val plants: List<Plant>
-        get() {
-            today()
-            return prefs.getString("plants", "")!!.split(',').filter { it.isNotEmpty() }.map { Plant.valueOf(it) }
-        }
-
-    /** Days closed since install: drives the weekly home growth. */
+    /** Days closed since install. */
     val daysTended: Int get() { today(); return prefs.getInt("days_tended", 0) }
 
     /**
-     * Today's state. At the first read of a new day, yesterday is closed: its unused minutes
-     * become a plant, the home's day count goes up, everything else resets.
+     * Today's state. At the first read of a new day, yesterday is closed: its acorns are counted,
+     * it goes into the history, the day count goes up, everything else resets.
      */
     @Synchronized
     fun today(): DayState {
@@ -331,12 +313,9 @@ class TendStore(private val context: Context) {
         val stored = readDay()
         if (stored != null && stored.date == now) return stored
         val fresh = DayState(now)
-        val plant = stored?.let { Garden.plantFor(Budget.gardenMinutesAtClose(config, it)) }
-        val plants = prefs.getString("plants", "")!!
         stored?.let { d -> closeDayAcorns(d) }
         stored?.let { d -> summary(d).let { Stats.log(context, "day_closed", mapOf("used_min" to it.usedMinutes, "unused_min" to it.unusedMinutes, "tasks" to it.tasksDone)); append("history.csv", "${it.date},${it.usedMinutes},${it.unusedMinutes},${it.tasksDone},${it.done.joinToString(";")}") } }
         writeDay(fresh) {
-            if (plant != null) putString("plants", if (plants.isEmpty()) plant.name else "$plants,${plant.name}")
             if (stored != null) putInt("days_tended", prefs.getInt("days_tended", 0) + 1)
         }
         return fresh
@@ -457,7 +436,7 @@ class TendStore(private val context: Context) {
     }
 
     private fun summary(d: DayState) = DaySummary(
-        d.date, ((d.usedSeconds + 59) / 60).toInt(), Budget.gardenMinutesAtClose(config, d), d.completedTasks.size, d.completedTasks,
+        d.date, ((d.usedSeconds + 59) / 60).toInt(), Budget.unusedMinutesAtClose(config, d), d.completedTasks.size, d.completedTasks,
     )
 
     private fun lines(name: String): List<String> =

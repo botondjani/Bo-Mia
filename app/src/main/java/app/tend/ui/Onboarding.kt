@@ -9,8 +9,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -19,13 +17,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,8 +34,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -61,7 +55,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.asImageBitmap
 import app.tend.core.Avatar
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -72,7 +65,6 @@ import app.tend.core.DayState
 import app.tend.core.Mood
 import java.time.LocalDate
 import app.tend.core.TaskDef
-import app.tend.core.Tasks
 
 data class Permissions(val usageAccess: Boolean, val overlay: Boolean) {
     val allGranted get() = usageAccess && overlay
@@ -273,36 +265,6 @@ fun CompanionPicker(avatar: Avatar, onAvatar: (Avatar) -> Unit, compact: Boolean
             ) {
                 if (selected) BobbingCharacter(a, Mood.HAPPY, 110.dp) else CharacterView(a, Mood.HAPPY, 110.dp)
                 Text(a.displayName, style = MaterialTheme.typography.titleLarge)
-            }
-        }
-    }
-
-/** Garden or base: two small live scenes, side by side. */
-@Composable
-fun WorldPicker(avatar: Avatar, world: app.tend.core.World, onWorld: (app.tend.core.World) -> Unit) =
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        app.tend.core.World.entries.forEach { w ->
-            val selected = w == world
-            Column(
-                Modifier.weight(1f).clip(RoundedCornerShape(20.dp)).background(if (selected) Brand.Picked else Brand.Card)
-                    .border(if (selected) 2.dp else 1.dp, if (selected) Brand.Moss else Brand.Mint.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
-                    .clickable { onWorld(w) }.padding(8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                // A few weeks in, so the choice shows what it grows into.
-                androidx.compose.runtime.CompositionLocalProvider(LocalWorld provides w, LocalAccessories provides setOf(app.tend.core.Accessory.BUNTING)) {
-                    GardenScene(avatar, listOf(app.tend.core.Plant.TULIP, app.tend.core.Plant.SUNFLOWER, app.tend.core.Plant.TULIP, app.tend.core.Plant.SUNFLOWER), 2, night = false)
-                }
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) {
-                    Column(Modifier.weight(1f)) {
-                        Text(w.label, style = MaterialTheme.typography.titleMedium, color = if (selected) Brand.Moss else Brand.Ink)
-                        Text(
-                            if (w == app.tend.core.World.BASE) "Tent to cabin" else "Flowers to a tree",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), maxLines = 1,
-                        )
-                    }
-                    if (selected) androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, tint = Brand.Moss, modifier = Modifier.size(18.dp))
-                }
             }
         }
     }
@@ -583,7 +545,7 @@ fun WidgetButton(avatar: Avatar, onAddWidget: () -> Boolean) {
         Text("${avatar.displayName} is on your home screen", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
     } else {
         SecondaryButton("Put ${avatar.displayName} on your home screen", { if (!onAddWidget()) guide = true })
-        // The bigger ones (with minutes, the garden) are in the phone's own widget list.
+        // The bigger ones (with minutes, the camp) are in the phone's own widget list.
         Text(
             "Other sizes in your phone's widget list", style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
             textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { guide = true }.padding(vertical = 8.dp),
@@ -593,7 +555,7 @@ fun WidgetButton(avatar: Avatar, onAddWidget: () -> Boolean) {
     if (guide) WidgetGuideDialog(avatar) { guide = false }
 }
 
-/** The three home screen widgets (1x1 face, 2x1 with minutes, 2x2 garden). */
+/** The three home screen widgets (1x1 face, 2x1 with minutes, 2x2 camp). */
 enum class WidgetKind(val provider: Class<*>) {
     FACE(app.tend.widget.TendWidgetFace::class.java),
     WIDE(app.tend.widget.TendWidget::class.java),
@@ -617,7 +579,7 @@ fun WidgetGuideDialog(avatar: Avatar, onDone: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(Space.m),
         ) {
             Text("Put ${avatar.displayName} on your home screen", style = MaterialTheme.typography.titleLarge)
-            Text("Your phone's own widget list shows all three sizes: just ${avatar.displayName}, ${avatar.displayName} with your minutes, or the garden.", style = MaterialTheme.typography.bodyMedium)
+            Text("Your phone's own widget list shows all three sizes: just ${avatar.displayName}, ${avatar.displayName} with your minutes, or the camp.", style = MaterialTheme.typography.bodyMedium)
             listOf(
                 "Long-press an empty spot on your home screen",
                 "Tap \"Widgets\" and find tend",
@@ -659,7 +621,7 @@ fun LimitedModeDialog(p: Permissions, onConfirm: () -> Unit, onDismiss: () -> Un
         ) {
             Text("Continue in limited mode?", style = MaterialTheme.typography.titleLarge)
             if (!p.usageAccess) Text(
-                "Without usage access, tend can't see screen time or app opens. Activities, the reading timer and the garden still work.",
+                "Without usage access, tend can't see screen time or app opens. Activities, the reading timer and the camp still work.",
                 style = MaterialTheme.typography.bodyLarge,
             )
             if (p.usageAccess && !p.overlay) Text(

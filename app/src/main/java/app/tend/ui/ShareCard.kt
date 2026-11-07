@@ -15,14 +15,13 @@ import androidx.core.content.res.ResourcesCompat
 import app.tend.R
 import app.tend.core.Accessory
 import app.tend.core.Avatar
-import app.tend.core.Plant
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 import java.io.File
 
 /**
- * "My garden this week": a 4:5 card (fits feeds and stories) with the garden, what the week gave
+ * "My camp this week": a 4:5 card (fits feeds and stories) with the clearing, what the week gave
  * back, and the way to tend: the Play link as a QR code on the image and as a link in the text.
  */
 object ShareCard {
@@ -31,13 +30,12 @@ object ShareCard {
 
     data class Week(
         val avatar: Avatar,
-        val plants: List<Plant>,
-        val homeStage: Int,
+        /** What stands in the clearing: spot id to thing id. */
+        val placed: Map<Int, String>,
         val worn: Set<Accessory>,
         val gotBackMinutes: Int,
         val activeDays: Int,
         val letGo: Int,
-        val world: app.tend.core.World = app.tend.core.World.GARDEN,
         /** The companion's level, shown next to the name. */
         val level: Int = 1,
     )
@@ -80,7 +78,7 @@ object ShareCard {
 
         val name = w.avatar.displayName
         // A small label chip, then the headline: what the week gave back.
-        val label = "${name.uppercase()}'S ${w.world.place.uppercase()} · LEVEL ${w.level}"
+        val label = "${name.uppercase()}'S CAMP · LEVEL ${w.level}"
         paint.typeface = nunitoBold; paint.textSize = 28f; paint.letterSpacing = 0.12f
         val lw = paint.measureText(label)
         paint.color = MINT_SOFT
@@ -91,30 +89,26 @@ object ShareCard {
             text(duration(w.gotBackMinutes), 64f, 340f, 124f, MOSS, fredoka)
             text("from scrolling this week.", 64f, 418f, 54f, INK, fredoka)
         } else {
-            text(if (w.world == app.tend.core.World.BASE) "We're building" else "We're growing", 64f, 236f, 84f, INK, fredoka)
-            text("a ${w.world.place}.", 64f, 336f, 84f, MOSS, fredoka)
+            text("We're building", 64f, 236f, 84f, INK, fredoka)
+            text("a camp.", 64f, 336f, 84f, MOSS, fredoka)
             text("One small thing at a time.", 64f, 416f, 48f, INK, fredoka)
         }
 
-        // The garden, as it is today, in a white frame that lifts off the page.
+        // The clearing, as it is today, in a white frame that lifts off the page.
         val frame = RectF(52f, 456f, W - 52f, 1012f)
         card(frame, 52f)
-        val garden = gardenBitmap(w.avatar, w.plants, w.homeStage, w.worn, (frame.width() - 28).toInt(), (frame.height() - 28).toInt(), world = w.world)
-        c.drawBitmap(garden, frame.left + 14, frame.top + 14, null)
+        val scene = clearingBitmap(w.avatar, w.placed, w.worn, (frame.width() - 28).toInt(), (frame.height() - 28).toInt())
+        c.drawBitmap(scene, frame.left + 14, frame.top + 14, null)
 
         // Three small facts, each its own little card.
         val facts = listOf(
-            "${w.plants.size}" to when {
-                w.world == app.tend.core.World.BASE -> if (w.plants.size == 1) "supply" else "supplies"
-                w.plants.size == 1 -> "plant"
-                else -> "plants"
-            },
+            "${w.placed.size}" to if (w.placed.size == 1) "thing at camp" else "things at camp",
             "${w.activeDays}" to if (w.activeDays == 1) "active day" else "active days",
             "${w.letGo}" to if (w.letGo == 1) "scroll let go" else "scrolls let go",
         )
         val pillW = (W - 104 - 2 * 20) / 3f
         // A first week with nothing yet: no row of zeros.
-        if (w.plants.isNotEmpty() || w.activeDays > 0 || w.letGo > 0) facts.forEachIndexed { i, (n, label2) ->
+        if (w.placed.isNotEmpty() || w.activeDays > 0 || w.letGo > 0) facts.forEachIndexed { i, (n, label2) ->
             val x = 52f + i * (pillW + 20)
             card(RectF(x, 1040f, x + pillW, 1150f), 34f)
             text(n, x + pillW / 2, 1096f, 50f, MOSS, fredoka, align = Paint.Align.CENTER)
@@ -139,16 +133,16 @@ object ShareCard {
     /** Saves the card and opens the share sheet: the image plus a line and the link. */
     fun share(activity: Activity, w: Week) {
         val dir = File(activity.cacheDir, "share").apply { mkdirs() }
-        val file = File(dir, "tend-garden.png")
+        val file = File(dir, "tend-camp.png")
         file.outputStream().use { render(activity, w).compress(Bitmap.CompressFormat.PNG, 100, it) }
         val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.share", file)
-        val line = if (w.gotBackMinutes > 0) "I got back ${duration(w.gotBackMinutes)} from scrolling this week, and ${w.avatar.displayName}'s ${w.world.place} grew."
-            else "${w.avatar.displayName} and I are building a ${w.world.place} instead of scrolling."
+        val line = if (w.gotBackMinutes > 0) "I got back ${duration(w.gotBackMinutes)} from scrolling this week, and ${w.avatar.displayName}'s camp grew."
+            else "${w.avatar.displayName} and I are building a camp instead of scrolling."
         val send = Intent(Intent.ACTION_SEND).setType("image/png")
             .putExtra(Intent.EXTRA_STREAM, uri)
             .putExtra(Intent.EXTRA_TEXT, "$line\n\ntend: a little pause before you scroll\n${playUrl(activity)}")
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        activity.startActivity(Intent.createChooser(send, "Share your ${w.world.place}"))
+        activity.startActivity(Intent.createChooser(send, "Share your camp"))
     }
 
     private fun drawQr(c: Canvas, url: String, x: Float, y: Float, size: Float, paint: Paint) {

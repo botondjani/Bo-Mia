@@ -13,7 +13,7 @@ import java.time.ZoneId
 
 /**
  * The day's turning points, even when nobody touches the phone: just after midnight the day is
- * closed (the garden gets its plant, a fresh budget starts), and at the evening hour and at 5:00
+ * closed (acorns are counted, a fresh budget starts), and at the evening hour and at 5:00
  * the widgets switch between day and night. Inexact alarms, a minute either way is fine.
  */
 object DayClock {
@@ -25,7 +25,7 @@ object DayClock {
         val today = LocalDate.now()
         val next = listOf(
             today.plusDays(1).atTime(0, 0, 30), // midnight: close yesterday, start today
-            today.atTime(store.eveningFrom, 0), // evening: sleepy widget, night garden
+            today.atTime(store.eveningFrom, 0), // evening: sleepy widget, the camp at night
             today.atTime(5, 0), // morning: day again
             today.plusDays(1).atTime(5, 0),
         ).filter { it.isAfter(now) }.min()

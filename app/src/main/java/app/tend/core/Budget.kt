@@ -124,9 +124,9 @@ object Budget {
         return d
     }
 
-    /** Unused minutes at the end of the day grow the garden. Overuse never carries over. */
-    fun gardenMinutesAtClose(cfg: BudgetConfig, day: DayState): Int =
+    /** Minutes not used by the end of the day ("got back"). Overuse never carries over. */
+    fun unusedMinutesAtClose(cfg: BudgetConfig, day: DayState): Int =
         remainingMinutes(cfg, day).coerceAtLeast(0)
 
-    private fun usedMinutes(day: DayState): Int = ((day.usedSeconds + 59) / 60).toInt()
+    fun usedMinutes(day: DayState): Int = ((day.usedSeconds + 59) / 60).toInt()
 }

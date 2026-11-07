@@ -31,7 +31,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import android.Manifest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Column
 import app.tend.core.Budget
 import app.tend.core.Patterns
 import app.tend.core.Recap
@@ -40,7 +39,6 @@ import app.tend.reminder.WeeklyLetter
 import app.tend.ui.WeekSections
 import java.time.LocalDate
 import app.tend.core.TaskDef
-import app.tend.ui.GardenScreen
 import app.tend.ui.RecapScreen
 import java.time.LocalTime
 import app.tend.core.Tasks
@@ -84,11 +82,11 @@ class MainActivity : ComponentActivity() {
 
     private enum class Launched { NONE, TRIP, APP_INFO, OVERLAY, USAGE }
 
-    private enum class Screen { HOME, SETTINGS, PERMISSIONS, GARDEN, RECAP, SLEEP }
+    private enum class Screen { HOME, SETTINGS, PERMISSIONS, CLEARING, RECAP, SLEEP }
 
     /** Set when the evening notification was tapped. */
     private var openRecap by mutableStateOf(false)
-    private var openGarden by mutableStateOf(false)
+    private var openClearing by mutableStateOf(false)
 
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (store.reminderPrompted) store.reminderEnabled = granted // asked for the evening reminder, not for nudges
@@ -120,7 +118,7 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
         setContent {
             TendTheme {
-                androidx.compose.runtime.CompositionLocalProvider(app.tend.ui.LocalAccessories provides shelf.first, app.tend.ui.LocalWorld provides refresh.let { store.world }) { // re-read when settings change
+                androidx.compose.runtime.CompositionLocalProvider(app.tend.ui.LocalAccessories provides shelf.first) {
                     Box(Modifier.fillMaxSize().safeDrawingPadding()) { Content(catalog) }
                 }
             }
@@ -135,7 +133,7 @@ class MainActivity : ComponentActivity() {
     private fun handleIntent(intent: Intent?) {
         when (intent?.getStringExtra(RecapReminder.EXTRA_OPEN)) {
             RecapReminder.OPEN_RECAP -> openRecap = true
-            app.tend.reminder.WeeklyLetter.OPEN_GARDEN -> openGarden = true
+            app.tend.reminder.WeeklyLetter.OPEN_CLEARING -> openClearing = true
         }
     }
 
@@ -150,16 +148,16 @@ class MainActivity : ComponentActivity() {
         refresh++
     }
 
-    /** The garden card for this week, to the share sheet. */
-    private fun shareGarden() {
+    /** The camp card for this week, to the share sheet. */
+    private fun shareCamp() {
         val week = Patterns.week(LocalDate.now(), store.daySummaries(), store.answers())
         app.tend.data.Stats.log(this, "share_garden")
         app.tend.ui.ShareCard.share(
             this,
             app.tend.ui.ShareCard.Week(
-                store.avatar, store.plants, app.tend.core.Garden.homeStage(store.daysTended), store.accessories().first,
+                store.avatar, store.placed, store.accessories().first,
                 gotBackMinutes = week.gotBackMinutes, activeDays = week.days.count { it.tasksDone > 0 }, letGo = week.letGo,
-                world = store.world, level = app.tend.core.Progress.level(store.totalXp()).level,
+                level = app.tend.core.Progress.level(store.totalXp()).level,
             ),
         )
     }
@@ -343,7 +341,7 @@ class MainActivity : ComponentActivity() {
         // System back always leads home from inner pages.
         androidx.activity.compose.BackHandler(enabled = store.onboarded && screen != Screen.HOME) { screen = Screen.HOME }
         LaunchedEffect(openRecap) { if (openRecap) { screen = Screen.RECAP; openRecap = false } }
-        LaunchedEffect(openGarden) { if (openGarden) { screen = Screen.GARDEN; openGarden = false } }
+        LaunchedEffect(openClearing) { if (openClearing) { screen = Screen.CLEARING; openClearing = false } }
         celebrate?.let { done ->
             // Only a single hand check-off can be undone; measured tasks are facts.
             val undoable = done.tasks.singleOrNull()?.takeIf { it.manual }
@@ -390,8 +388,6 @@ class MainActivity : ComponentActivity() {
                 cfg = store.config,
                 blocked = store.blockedPackages,
                 onAvatar = { store.avatar = it; refresh++ },
-                world = store.world,
-                onWorld = { store.world = it; app.tend.widget.Widgets.refresh(this, force = true); refresh++ },
                 onConfig = { store.config = it; refresh++ },
                 onToggleApp = toggleApp,
                 tasks = store.selectedTasks,
@@ -431,13 +427,13 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(Unit) { store.recapSeenOn = LocalDate.now().toString() }
                 RecapScreen(
                     avatar = store.avatar,
-                    recap = Recap.of(store.config, store.today(), store.worthItToday()),
-                    plants = store.plants,
-                    daysTended = store.daysTended,
+                    recap = Recap.of(store.config, store.today(), store.worthItToday(), store.normalMinutes),
+                    placed = store.placed,
+                    worn = shelf.first,
                     reminderHour = store.eveningFrom.takeIf { !store.reminderPrompted },
                     onReminder = ::setReminder,
                     onGoodNight = { screen = Screen.SLEEP; maybeAskReview() },
-                    onShare = ::shareGarden,
+                    onShare = ::shareCamp,
                 )
             }
 
@@ -446,18 +442,18 @@ class MainActivity : ComponentActivity() {
                 screen = Screen.HOME
             }
 
-            screen == Screen.GARDEN -> app.tend.ui.ClearingScreen(
+            screen == Screen.CLEARING -> app.tend.ui.ClearingScreen(
                 avatar = store.avatar,
                 placed = store.placed,
                 acorns = store.acorns,
                 earnedToday = store.acornsToday(),
                 lastNight = store.acornsLastNight(),
                 worn = shelf.first, onShelf = shelf.second,
-                night = app.tend.core.Garden.isNight(store.eveningFrom),
+                night = app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour),
                 onBuy = { spot, thing -> store.buy(spot, thing).also { if (it) { app.tend.data.Stats.log(this, "bought", mapOf("thing" to thing)); refresh++ } } },
                 onSell = { spot -> store.sell(spot); refresh++ },
                 onBack = { screen = Screen.HOME },
-                onShare = ::shareGarden,
+                onShare = ::shareCamp,
             ) {
                 WeekSections(
                     store.avatar,
@@ -527,8 +523,8 @@ class MainActivity : ComponentActivity() {
                 },
                 onUndo = { TaskSync.undo(store, it); refresh++ },
                 onOpenSettings = { screen = Screen.SETTINGS },
-                onShare = ::shareGarden,
-                onOpenGarden = { screen = Screen.GARDEN },
+                onShare = ::shareCamp,
+                onOpenClearing = { screen = Screen.CLEARING },
                 onOpenRecap = { screen = Screen.RECAP },
                 // Right after the tour; after a "Not now", the important ones once more a week later.
                 showNextSteps = store.tourDone && (!store.widgetTipDone || store.nextStepsAgainAt in 1..now),

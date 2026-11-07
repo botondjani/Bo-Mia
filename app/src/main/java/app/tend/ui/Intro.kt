@@ -1,20 +1,18 @@
 package app.tend.ui
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -43,13 +41,11 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.tend.core.Accessory
 import app.tend.core.Avatar
 import app.tend.core.BudgetConfig
 import app.tend.core.DayState
 import app.tend.core.Tasks
 import app.tend.core.Mood
-import app.tend.core.Plant
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -62,13 +58,11 @@ private class Slide(val title: String, val body: String)
 @Composable
 fun IntroSlides(avatar: Avatar, freeMinutes: Int, onDone: () -> Unit) {
     val name = avatar.displayName
-    val world = LocalWorld.current
     val slides = listOf(
         Slide("Hi! I'm $name.", "We tend to scroll more than we mean to. That's not you being weak: apps are built that way. Let me show you how tend helps."),
         Slide("A breath before you scroll", "Open an app you picked and I'll pop up for a few seconds. Often that's all it takes to choose something better."),
         Slide("Live a little, earn minutes", "You get $freeMinutes free minutes a day. A walk, a workout or a good book earns more. Steps and workouts count by themselves."),
-        if (world == app.tend.core.World.BASE) Slide("What you don't use, builds up", "At midnight, unused minutes become supplies for our base. Week by week, the tent becomes a cabin.")
-        else Slide("What you don't use, grows", "At midnight, unused minutes become a plant in our garden. Week by week, our home grows too."),
+        Slide("Acorns for your camp", "Every walk, book or \"Not now\" earns acorns. Spend them on a camp by the river: a fire, a tent, a canoe."),
     )
     val pager = rememberPagerState { slides.size }
     val scope = rememberCoroutineScope()
@@ -89,7 +83,7 @@ fun IntroSlides(avatar: Avatar, freeMinutes: Int, onDone: () -> Unit) {
                     0 -> ScrollDemo(active)
                     1 -> PauseDemo(active, name)
                     2 -> EarnDemo(active, freeMinutes)
-                    else -> GardenDemo(active, avatar)
+                    else -> CampDemo(active, avatar)
                 }
             }
         }
@@ -241,37 +235,23 @@ private fun EarnDemo(active: Boolean, freeMinutes: Int) {
     }
 }
 
-/**
- * A garden filling up: full flowers night by night, then the bench, a tree of its own and the
- * things Bo earns, on Bo and in the garden.
- */
+/** The camp filling up, thing by thing, the way acorns buy it. */
 @Composable
-private fun GardenDemo(active: Boolean, avatar: Avatar) {
-    val t = ticker(active, 900, 11)
-    val base = LocalWorld.current == app.tend.core.World.BASE
-    val flowers = listOf(Plant.TULIP, Plant.SUNFLOWER, Plant.TULIP, Plant.SUNFLOWER, Plant.TULIP, Plant.SUNFLOWER)
-    val nights = t.coerceAtMost(flowers.size)
-    val stage = when { t >= 9 -> 2; t >= 7 -> 1; else -> 0 }
-    val worn = buildSet {
-        if (t >= 7) { add(Accessory.HAT); add(Accessory.BUNTING) }
-        if (t >= 8) add(Accessory.BIRDHOUSE)
-        if (t >= 9) add(Accessory.LANTERNS)
-    }
+private fun CampDemo(active: Boolean, avatar: Avatar) {
+    val steps = listOf(
+        "campfire" to (0 to "Day 1: a campfire"),
+        "log_bench" to (1 to "Day 3: a log bench"),
+        "tent" to (3 to "Week 1: a tent"),
+        "string_lights" to (9 to "String lights"),
+        "hammock" to (5 to "A hammock"),
+        "canoe" to (8 to "Week 3: a canoe"),
+    )
+    val t = ticker(active, 1000, steps.size + 2).coerceAtMost(steps.size)
+    val placed = steps.take(t).associate { (thing, at) -> at.first to thing }
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        androidx.compose.runtime.CompositionLocalProvider(LocalAccessories provides worn) {
-            GardenScene(avatar, flowers.take(nights), stage, night = false)
-        }
+        Canvas(Modifier.fillMaxWidth().aspectRatio(1.6f).clip(RoundedCornerShape(24.dp))) { drawClearing(avatar, placed) }
         Text(
-            when {
-                t == 0 -> "Tonight"
-                t <= flowers.size -> "Night $nights"
-                base && t == 7 -> "Week 2: a log cabin and a sun hat"
-                base && t == 8 -> "A bike for walks outside"
-                base -> "Week 4: a workshop of your own"
-                t == 7 -> "Week 2: a bench and a sun hat"
-                t == 8 -> "A birdhouse for walks outside"
-                else -> "Week 4: a tree of your own"
-            },
+            if (t == 0) "Your clearing, day one" else steps[t - 1].second.second,
             style = MaterialTheme.typography.titleMedium, color = Brand.Moss, modifier = Modifier.padding(top = 12.dp),
         )
     }

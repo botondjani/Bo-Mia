@@ -10,12 +10,11 @@ import android.widget.RemoteViews
 import app.tend.MainActivity
 import app.tend.R
 import app.tend.core.Budget
-import app.tend.core.Garden
 import app.tend.core.Moods
 import app.tend.core.Tasks
 import app.tend.data.TendStore
 import app.tend.ui.CharacterPainter
-import app.tend.ui.gardenBitmap
+import app.tend.ui.clearingBitmap
 
 /** 2x1: face, minutes left (or what earns them back), and how the companion is doing. */
 class TendWidget : AppWidgetProvider() {
@@ -27,7 +26,7 @@ class TendWidgetFace : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = Widgets.refresh(context, force = true)
 }
 
-/** 2x2: the garden with the companion, and the minutes left. */
+/** 2x2: the camp with the companion, and the minutes left. (Class name kept: placed widgets depend on it.) */
 class TendWidgetGarden : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = Widgets.refresh(context, force = true)
 }
@@ -48,12 +47,12 @@ object Widgets {
         val cfg = store.config
         val day = store.today()
         val remaining = Budget.remainingMinutes(cfg, day)
-        val night = Garden.isNight(store.eveningFrom)
+        val night = Budget.isEvening(store.eveningFrom, java.time.LocalTime.now().hour)
         val mood = Moods.atNight(Moods.of(cfg, day), night)
         val next = Tasks.next(day, store.selectedTasks)
-        val plants = store.plants
-        // Evening (from the evening hour until 5:00): night garden, a dark card and a sleepy companion.
-        val shown = listOf(store.avatar, mood, remaining, next?.id, day.completedTasks.sorted(), plants.size, store.daysTended, night).joinToString("|")
+        val placed = store.placed
+        // Evening (from the evening hour until 5:00): the camp at night, a dark card and a sleepy companion.
+        val shown = listOf(store.avatar, mood, remaining, next?.id, day.completedTasks.sorted(), placed, night).joinToString("|")
         if (!force && shown == lastShown) return
         lastShown = shown
 
@@ -84,10 +83,7 @@ object Widgets {
             setOnClickPendingIntent(R.id.root, open)
         })
         if (garden.isNotEmpty()) manager.updateAppWidget(garden, RemoteViews(context.packageName, R.layout.widget_garden).apply {
-            setImageViewBitmap(R.id.garden, gardenBitmap(
-                store.avatar, plants, Garden.homeStage(store.daysTended), worn, 440, 440,
-                night = night, world = store.world,
-            ))
+            setImageViewBitmap(R.id.garden, clearingBitmap(store.avatar, placed, worn, 440, 440, night = night))
             setTextViewText(R.id.minutes, minutes)
             setOnClickPendingIntent(R.id.root, open)
             setInt(R.id.root, "setBackgroundResource", if (night) R.drawable.widget_bg_night else R.drawable.widget_bg)

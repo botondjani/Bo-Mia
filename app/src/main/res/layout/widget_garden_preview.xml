@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Widget picker preview of the 2x2: the garden, minutes left on a small pill. -->
+<!-- Widget picker preview of the 2x2: the camp, minutes left on a small pill. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"

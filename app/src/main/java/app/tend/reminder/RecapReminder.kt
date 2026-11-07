@@ -48,11 +48,13 @@ object RecapReminder {
         val store = TendStore(context)
         if (!store.reminderEnabled || !canNotify(context)) return
         if (store.recapSeenOn == LocalDate.now().toString()) return // already looked tonight
-        val recap = Recap.of(store.config, store.today(), store.worthItToday())
+        val recap = Recap.of(store.config, store.today(), store.worthItToday(), store.normalMinutes)
         val name = store.avatar.displayName
-        val text = recap.tonightsPlant
-            ?.let { "You got back ${recap.gotBackMinutes} min today. ${store.world.tonight(it)} at $name's ${store.world.place}." }
-            ?: "Today used it all, and that's okay. $name saved you a seat for tomorrow."
+        val text = when {
+            recap.gotBackMinutes > 0 && recap.tonightAcorns > 0 -> "You got back ${recap.gotBackMinutes} min today: +${recap.tonightAcorns} acorns for the camp at midnight."
+            recap.gotBackMinutes > 0 -> "You got back ${recap.gotBackMinutes} min today. $name is by the fire."
+            else -> "Today used it all, and that's okay. $name saved you a seat by the fire."
+        }
 
         val nm = context.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "Evening recap", NotificationManager.IMPORTANCE_DEFAULT))

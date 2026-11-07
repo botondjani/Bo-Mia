@@ -168,41 +168,6 @@ object CharacterPainter {
         }
     }
 
-    /** Icons for the garden things, in the 100 box (the garden itself draws them in ui/Garden.kt). */
-    private fun drawGardenThing(c: Canvas, a: Accessory) {
-        when (a) {
-            Accessory.BUNTING -> {
-                stroke.color = HAIR; stroke.strokeWidth = 1.6f
-                c.drawPath(Path().apply { moveTo(12f, 34f); quadTo(50f, 50f, 88f, 34f) }, stroke)
-                stroke.color = INK; stroke.strokeWidth = 2.6f
-                for ((i, col) in listOf(CORAL, SUNNY, SKY, MINT, CORAL).withIndex()) {
-                    val x = 20f + i * 15f
-                    val y = 38f + 6f * (1f - kotlin.math.abs(i - 2) / 2f)
-                    fill.color = col
-                    c.drawPath(Path().apply { moveTo(x - 6f, y); lineTo(x + 6f, y); lineTo(x, y + 16f); close() }, fill)
-                }
-            }
-            Accessory.BIRDHOUSE -> {
-                fill.color = HAIR; c.drawRect(47f, 52f, 53f, 90f, fill)
-                fill.color = 0xFFF2E3C6.toInt(); c.drawRect(32f, 30f, 68f, 60f, fill)
-                fill.color = CORAL; c.drawPath(Path().apply { moveTo(26f, 32f); lineTo(50f, 12f); lineTo(74f, 32f); close() }, fill)
-                fill.color = INK; c.drawCircle(50f, 44f, 5f, fill)
-            }
-            Accessory.LANTERNS -> {
-                stroke.color = HAIR; stroke.strokeWidth = 1.6f
-                c.drawPath(Path().apply { moveTo(10f, 30f); quadTo(50f, 56f, 90f, 30f) }, stroke)
-                stroke.color = INK; stroke.strokeWidth = 2.6f
-                for (i in 0 until 4) {
-                    val x = 22f + i * 19f
-                    val y = 40f + 8f * (1f - kotlin.math.abs(i - 1.5f) / 1.5f)
-                    fill.color = 0x55F6D673; c.drawCircle(x, y + 8f, 9f, fill)
-                    fill.color = SUNNY; c.drawCircle(x, y + 8f, 5f, fill)
-                }
-            }
-            else -> Unit
-        }
-    }
-
     private fun heart(c: Canvas, cx: Float, cy: Float, s: Float, color: Int) {
         fill.color = color
         c.drawCircle(cx - 0.25f * s, cy - 0.1f * s, 0.3f * s, fill)
@@ -297,13 +262,12 @@ object CharacterPainter {
             Accessory.LEAF -> RectF(51f, 8f, 68f, 22f)
             Accessory.BOWTIE -> RectF(41f, 67f, 59f, 79f)
             Accessory.NIGHTCAP -> RectF(30f, 2f, 76f, 26f)
-            Accessory.BUNTING, Accessory.BIRDHOUSE, Accessory.LANTERNS -> RectF(10f, 10f, 90f, 90f)
         }
         val scale = sizePx * 0.86f / maxOf(box.width(), box.height())
         c.translate(sizePx / 2f, sizePx / 2f)
         c.scale(scale, scale)
         c.translate(-box.centerX(), -box.centerY())
-        if (a.garden) drawGardenThing(c, a) else drawAccessories(c, setOf(a))
+        drawAccessories(c, setOf(a))
     }
 
     /** Same shapes as the Rive rig (tools/rive/make_character.py), drawn back to front. */

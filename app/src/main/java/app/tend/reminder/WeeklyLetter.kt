@@ -18,10 +18,10 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
 
-/** A short note every Sunday evening: what the week gave back. Opens the garden & week page. */
+/** A short note every Sunday evening: what the week gave back. Opens the clearing and the week. */
 object WeeklyLetter {
     private const val CHANNEL = "weekly"
-    const val OPEN_GARDEN = "garden"
+    const val OPEN_CLEARING = "garden"
 
     fun schedule(context: Context) {
         val alarms = context.getSystemService(AlarmManager::class.java)
@@ -39,11 +39,9 @@ object WeeklyLetter {
         val h = week.gotBackMinutes / 60
         val m = week.gotBackMinutes % 60
         val gotBack = if (h > 0) "$h h $m min" else "$m min"
-        val plants = week.days.count { it.unusedMinutes > 0 }
         val title = "Your week with ${store.avatar.displayName}"
         val body = buildString {
             append("You got back $gotBack")
-            if (plants > 0) append(" and $plants ${if (plants == 1) "plant" else "plants"} grew")
             append(".")
             if (week.pauses > 0) append(" You let the scroll go ${week.letGo} of ${week.pauses} times.")
         }
@@ -59,7 +57,7 @@ object WeeklyLetter {
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "Weekly letter", NotificationManager.IMPORTANCE_DEFAULT))
         val open = PendingIntent.getActivity(
             context, 7,
-            Intent(context, MainActivity::class.java).putExtra(RecapReminder.EXTRA_OPEN, OPEN_GARDEN)
+            Intent(context, MainActivity::class.java).putExtra(RecapReminder.EXTRA_OPEN, OPEN_CLEARING)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )

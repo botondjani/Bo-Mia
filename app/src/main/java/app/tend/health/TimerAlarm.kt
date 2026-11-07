@@ -10,7 +10,6 @@ import android.content.Context
 import android.content.Intent
 import app.tend.MainActivity
 import app.tend.R
-import app.tend.core.Verification
 import app.tend.data.TendStore
 import app.tend.reminder.RecapReminder
 
