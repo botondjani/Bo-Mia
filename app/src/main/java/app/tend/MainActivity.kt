@@ -356,6 +356,8 @@ class MainActivity : ComponentActivity() {
         var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
         var health by remember { mutableStateOf<HealthConnect.Status?>(null) }
         var celebrate by remember { mutableStateOf<TaskSync.Done?>(null) }
+        // After an activity is done: the companion acts it out in the camp on the home page.
+        var reaction by remember { mutableStateOf<String?>(null) }
         var synced by remember { mutableIntStateOf(0) }
         synced // read so recomposition follows a sync
 
@@ -392,7 +394,12 @@ class MainActivity : ComponentActivity() {
             Celebration(
                 store.avatar, done.tasks, done.minutes,
                 onUndo = undoable?.let { t -> { TaskSync.undo(store, t); celebrate = null; refresh++ } },
-            ) { celebrate = null }
+            ) {
+                celebrate = null
+                val r = app.tend.ui.Uses.reactionFor(done.tasks.first().id)
+                reaction = if (r == "campfire" && store.placed[0] == null) "act_cheer" else r
+                reaction?.let { app.tend.ui.Sounds.forUse(this@MainActivity, it) }
+            }
         }
         val toggleTask: (TaskDef) -> Unit = { store.toggleTask(it); refresh++ }
 
@@ -604,8 +611,20 @@ class MainActivity : ComponentActivity() {
                     val paper = remember(refresh) { app.tend.data.Friends.paperOnMe(this@MainActivity).isNotEmpty() }
                     val ducks = remember(refresh) { app.tend.data.Friends.ducks(this@MainActivity).size.coerceAtMost(3) }
                     val visitor = remember(refresh) { store.visitorWaiting() }
+                    // The reaction's clock: frame by frame while it plays, then gone.
+                    var start by remember { mutableLongStateOf(-1L) }
+                    var frame by remember { mutableLongStateOf(0L) }
+                    LaunchedEffect(reaction) {
+                        val r = reaction ?: return@LaunchedEffect
+                        start = -1L
+                        while (true) {
+                            androidx.compose.runtime.withFrameNanos { frame = it; if (start < 0) start = it }
+                            if ((frame - start) / 1e9f > app.tend.ui.Uses.seconds(r)) { reaction = null; break }
+                        }
+                    }
+                    val use = reaction?.takeIf { start >= 0 }?.let { app.tend.ui.InUse(-1, it, (frame - start) / 1e9f) }
                     androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-                        drawClearing(store.avatar, store.placed, mood, shelf.first, night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, visitor = visitor)
+                        drawClearing(store.avatar, store.placed, mood, shelf.first, night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor)
                     }
                 },
                 onOpenRecap = { screen = Screen.RECAP },

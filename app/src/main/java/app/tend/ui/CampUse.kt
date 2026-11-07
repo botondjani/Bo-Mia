@@ -45,7 +45,21 @@ object Uses {
         else -> "$name looks around."
     }
 
+    /** How the companion acts out an activity done in real life, in the camp. */
+    fun reactionFor(taskId: String): String = when (taskId) {
+        "read", "learn" -> "act_read"
+        "move" -> "act_run"
+        "outside" -> "act_walk"
+        "sleep" -> "act_stretch"
+        "friends" -> "act_hearts"
+        "hobby" -> "guitar"
+        "chores" -> "act_tidy"
+        "cook" -> "campfire"
+        else -> "act_cheer"
+    }
+
     fun seconds(thing: String): Float = when (thing) {
+        "act_read", "act_run", "act_walk", "act_stretch", "act_hearts", "act_tidy", "act_cheer" -> 8f
         "guitar" -> 12f
         "canoe", "fishing_rod", "hammock", "tent", "bell_tent", "cabin" -> 9f
         else -> 7f
@@ -72,10 +86,16 @@ fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>): Offset {
     val w = size.width
     val h = size.height
     val u = h
-    val p = SpotPositions.getValue(use.spot).let { Offset(it.x * w, it.y * h) }
+    val home = Offset(w * 0.395f, h * 0.86f)
+    val p = SpotPositions[use.spot]?.let { Offset(it.x * w, it.y * h) } ?: home
     val fire = SpotPositions.getValue(0).let { Offset(it.x * w, it.y * h) }
     val seat = SpotPositions.getValue(1).let { Offset(it.x * w, it.y * h) }
     return when (use.thing) {
+        // Activities done in real life, acted out where the companion stands.
+        "act_run" -> Offset(w * (0.5f + 0.12f * sin(use.t * 0.9f)), h * 0.84f)
+        "act_walk" -> Offset(w * (0.36f + 0.03f * sin(use.t * 0.4f)), h * (0.8f + 0.05f * sin(use.t * 0.4f)))
+        "act_read", "act_stretch", "act_hearts", "act_tidy", "act_cheer" -> home
+        "guitar", "campfire" -> if (use.spot < 0) (if (use.thing == "campfire") fire + Offset(-u * 0.12f, u * 0.035f) else home) else p
         "campfire", "grill", "kettle", "pizza_oven", "woodpile" ->
             if (placed[1] != null && use.thing != "woodpile") seat + Offset(0f, -u * 0.012f) else fire + Offset(-u * 0.12f, u * 0.035f)
         "fishing_rod" -> Offset(w * 0.335f, h * 0.84f)
@@ -96,14 +116,14 @@ fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>): Offset {
 /** Draws the companion at [base] (feet), [s] tall, optionally rotated, faded, or with eyes closed. */
 private fun DrawScope.actor(
     avatar: Avatar, mood: Mood, worn: Set<Accessory>, base: Offset, s: Float,
-    rotation: Float = 0f, alpha: Float = 1f, bounce: Float = 0f, sleepy: Boolean = false, look: Float = 0f,
+    rotation: Float = 0f, alpha: Float = 1f, bounce: Float = 0f, sleepy: Boolean = false, look: Float = 0f, book: Boolean = false,
 ) = drawIntoCanvas {
     val c = it.nativeCanvas
     c.save()
     if (alpha < 1f) c.saveLayerAlpha(null, (alpha * 255).toInt())
     c.rotate(rotation, base.x, base.y - s * 0.45f)
     c.translate(base.x - s / 2, base.y - s * 0.95f)
-    CharacterPainter.draw(c, avatar, mood, s, CharacterPainter.Pose(blink = if (sleepy) 1f else 0f, breathe = bounce, look = look), worn)
+    CharacterPainter.draw(c, avatar, mood, s, CharacterPainter.Pose(blink = if (sleepy) 1f else 0f, breathe = bounce, look = look, book = book), worn)
     if (alpha < 1f) c.restore()
     c.restore()
 }
@@ -161,7 +181,9 @@ fun DrawScope.drawUse(
     val u = h
     val t = use.t
     val s = u * 0.17f * depthScale(base.y / h)
-    val p = SpotPositions.getValue(use.spot).let { Offset(it.x * w, it.y * h) }
+    val p = SpotPositions[use.spot]?.let { Offset(it.x * w, it.y * h) } ?: base
+    // An activity just done: acorns pop out and fly up to the corner.
+    if (use.spot < 0 && t < 1.6f) acornBurst(base + Offset(0f, -s * 0.6f), t / 1.6f, u)
     val fire = SpotPositions.getValue(0).let { Offset(it.x * w, it.y * h) }
     when (use.thing) {
         "guitar" -> {
@@ -315,6 +337,53 @@ fun DrawScope.drawUse(
             actor(avatar, mood, worn, base + Offset(0f, -kotlin.math.abs(sin(t * 5f)) * u * 0.02f), s, rotation = sin(t * 5f) * 10f)
             rising(t, base + Offset(s * 0.4f, -s * 0.9f), s * 0.07f, every = 1f) { at, a -> note(at, s * 0.07f, a) }
         }
+        "act_read" -> {
+            shadowAt(base, s * 0.45f)
+            actor(avatar, mood, worn, base, s, book = true, bounce = sin(t * 1.5f) * 0.2f)
+        }
+        "act_run" -> {
+            shadowAt(base, s * 0.45f)
+            val dir = kotlin.math.cos(t * 0.9f)
+            actor(avatar, mood, worn, base + Offset(0f, -kotlin.math.abs(sin(t * 9f)) * u * 0.015f), s, rotation = if (dir > 0) 6f else -6f, look = if (dir > 0) 1f else -1f)
+            if (sin(t * 3f) > 0.6f) drawCircle(Color(0xFF8EC9E6), u * 0.004f, base + Offset(-s * 0.35f * dir, -s * 0.85f)) // a drop of sweat
+        }
+        "act_walk" -> {
+            shadowAt(base, s * 0.45f)
+            actor(avatar, mood, worn, base + Offset(0f, -kotlin.math.abs(sin(t * 4f)) * u * 0.006f), s, look = -0.6f)
+            rising(t, base + Offset(-s * 0.4f, -s * 0.7f), u * 0.01f, every = 2f) { at, a -> heart(at, u * 0.01f, a * 0.6f) }
+        }
+        "act_stretch" -> {
+            shadowAt(base, s * 0.45f)
+            val k = (sin(t * 1.8f) + 1) / 2
+            actor(avatar, mood, worn, base, s * (1f + 0.08f * k), sleepy = t < 2f, bounce = -k)
+            for (i in 0 until 6) {
+                val a = i / 6f * 2 * PI.toFloat() + t * 0.3f
+                val c = base + Offset(0f, -s * 0.5f)
+                drawLine(GlowWarm.copy(alpha = 0.5f), c + Offset(kotlin.math.cos(a) * s * 0.6f, sin(a) * s * 0.6f), c + Offset(kotlin.math.cos(a) * s * 0.8f, sin(a) * s * 0.8f), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
+            }
+        }
+        "act_hearts" -> {
+            shadowAt(base, s * 0.45f)
+            actor(avatar, mood, worn, base, s, bounce = sin(t * 4f) * 0.5f)
+            rising(t, base + Offset(0f, -s * 0.9f), u * 0.014f, every = 1f, drift = 1.5f) { at, a -> heart(at, u * 0.016f, a) }
+        }
+        "act_tidy" -> {
+            shadowAt(base, s * 0.45f)
+            val sweep = sin(t * 5f) * 18f
+            actor(avatar, mood, worn, base, s, look = 0.5f)
+            val grip = base + Offset(s * 0.35f, -s * 0.5f)
+            rotate(sweep, grip) {
+                drawLine(Wood, grip, grip + Offset(s * 0.1f, s * 0.48f), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
+                val b0 = grip + Offset(s * 0.1f, s * 0.48f)
+                drawPath(Path().apply { moveTo(b0.x - u * 0.012f, b0.y + u * 0.012f); lineTo(b0.x + u * 0.012f, b0.y + u * 0.012f); lineTo(b0.x + u * 0.004f, b0.y - u * 0.004f); lineTo(b0.x - u * 0.004f, b0.y - u * 0.004f); close() }, Color(0xFFD9B26A))
+            }
+            rising(t, base + Offset(s * 0.5f, -s * 0.05f), u * 0.006f, every = 0.6f) { at, a -> drawCircle(Color(0xFFB79C7A).copy(alpha = 0.5f * a), u * 0.004f, at) }
+        }
+        "act_cheer" -> {
+            shadowAt(base, s * 0.45f)
+            actor(avatar, mood, worn, base + Offset(0f, -kotlin.math.abs(sin(t * 4f)) * u * 0.04f), s, bounce = -0.5f)
+            rising(t, base + Offset(0f, -s * 1f), u * 0.012f, every = 0.8f, drift = 2f) { at, a -> drawCircle(GlowWarm.copy(alpha = a), u * 0.005f, at) }
+        }
         else -> actor(avatar, mood, worn, base, s)
     }
 }
@@ -334,4 +403,18 @@ private fun DrawScope.canoeHull(p: Offset, u: Float) {
         quadraticTo(p.x, p.y - u * 0.022f, p.x - u * 0.1f, p.y - u * 0.04f); close()
     }, Color(0xFF8E5A36))
     drawPath(Path().apply { moveTo(p.x - u * 0.092f, p.y - u * 0.036f); quadraticTo(p.x, p.y - u * 0.018f, p.x + u * 0.092f, p.y - u * 0.036f) }, WoodLight, style = Stroke(u * 0.004f))
+}
+
+/** Five acorns popping out of [from] and flying up to the top-right corner, [k] 0..1. */
+private fun DrawScope.acornBurst(from: Offset, k: Float, u: Float) {
+    val corner = Offset(size.width * 0.93f, size.height * 0.08f)
+    for (i in 0 until 5) {
+        val kk = ((k - i * 0.08f) / 0.7f).coerceIn(0f, 1f)
+        if (kk <= 0f || kk >= 1f) continue
+        val spread = (i - 2) * u * 0.03f
+        val at = Offset(from.x + spread * (1 - kk) + (corner.x - from.x) * kk * kk, from.y - sin(kk * PI.toFloat()) * u * 0.12f + (corner.y - from.y) * kk * kk)
+        val r = u * 0.012f
+        drawOval(Color(0xFFB9783F), Offset(at.x - r * 0.8f, at.y - r * 0.6f), Size(r * 1.6f, r * 1.7f))
+        drawArc(Color(0xFF6B4A2B), 180f, 180f, true, Offset(at.x - r, at.y - r * 1.1f), Size(r * 2f, r * 1.1f))
+    }
 }
