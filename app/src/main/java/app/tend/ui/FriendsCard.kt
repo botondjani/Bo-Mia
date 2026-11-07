@@ -47,13 +47,14 @@ import kotlinx.coroutines.launch
  * Without an account it says what an account gives and links to Settings.
  */
 @Composable
-fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> Unit = {}, onChanged: () -> Unit = {}) {
+fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> Unit = {}, onChanged: () -> Unit = {}, openInvite: Boolean = false) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val signedIn = Account.user(context) != null
     var friends by remember { mutableStateOf<List<Friends.Friend>?>(null) }
     var offline by remember { mutableStateOf(false) }
-    var inviting by rememberSaveable { mutableStateOf(false) }
+    var inviting by rememberSaveable { mutableStateOf(openInvite && signedIn) }
+    LaunchedEffect(openInvite) { if (openInvite && signedIn) inviting = true }
     var typing by rememberSaveable { mutableStateOf(false) }
     var asking by remember { mutableStateOf<Pair<String, Friends.Friend>?>(null) }
     var removing by remember { mutableStateOf<Friends.Friend?>(null) }

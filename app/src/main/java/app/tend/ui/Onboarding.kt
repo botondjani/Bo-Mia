@@ -91,7 +91,7 @@ class PermissionActions(
 /** Where Android's restricted-settings lock stands: none, locked, or refused once (the unlock option now shows). */
 enum class PermissionLock { NONE, LOCKED, TRIPPED }
 
-private enum class Step { INTRO, COMPANION, USAGE, APPS, ACTIVITIES, PAUSE, ACCOUNT, DONE }
+private enum class Step { INTRO, COMPANION, USAGE, APPS, PAUSE, ACCOUNT }
 
 @Composable
 fun Onboarding(
@@ -103,8 +103,6 @@ fun Onboarding(
     onAvatar: (Avatar) -> Unit,
     onConfig: (BudgetConfig) -> Unit,
     onToggleApp: (String) -> Unit,
-    tasks: List<TaskDef>,
-    onToggleTask: (TaskDef) -> Unit,
     signedIn: Boolean = false,
     account: @Composable () -> Unit = {},
     onFinish: () -> Unit,
@@ -116,8 +114,8 @@ fun Onboarding(
     androidx.activity.compose.BackHandler(enabled = stepIndex > 0) { stepIndex-- }
 
     Column(Modifier.fillMaxSize().background(Brand.Sage)) {
-        if (step != Step.INTRO && step != Step.DONE) {
-            Progress(stepIndex, Step.entries.size - 1) { stepIndex-- }
+        if (step != Step.INTRO) {
+            Progress(stepIndex, Step.entries.size) { stepIndex-- }
         }
         AnimatedContent(
             targetState = step,
@@ -164,15 +162,6 @@ fun Onboarding(
                     AppPicker(catalog, blocked, onToggleApp)
                 }
 
-                Step.ACTIVITIES -> StepPage(
-                    cta = if (tasks.isEmpty()) "Pick at least one" else "Continue with ${tasks.size}",
-                    ctaEnabled = tasks.isNotEmpty(),
-                    onCta = next,
-                ) {
-                    Title("What would you rather do?", "Pick a few things that make your day better, or add your own. Each one gives screen time back.")
-                    ActivityPicker(tasks, onToggleTask)
-                }
-
                 Step.PAUSE -> StepPage(
                     cta = if (perms.permissions.allGranted) "Continue" else "A few taps to go",
                     ctaEnabled = perms.permissions.allGranted,
@@ -189,22 +178,12 @@ fun Onboarding(
                     if (!perms.permissions.allGranted) LinkText("Continue without", { askSkip = true })
                 }
 
-                Step.ACCOUNT -> StepPage(cta = if (signedIn) "Continue" else "Skip for now", onCta = next) {
+                Step.ACCOUNT -> StepPage(cta = if (signedIn) "Start" else "Skip for now", onCta = onFinish) {
                     Title(
                         "Keep your camp safe",
                         "With an account your camp is backed up, and friends can visit it. Optional: tend works fully without one.",
                     )
                     account()
-                }
-
-                Step.DONE -> StepPage(cta = "Start my day", onCta = onFinish, centered = true) {
-                    BobbingCharacter(avatar, Mood.OUTSIDE, 180.dp)
-                    Spacer(Modifier.height(20.dp))
-                    Text("You're all set!", style = MaterialTheme.typography.headlineLarge)
-                    Text(
-                        "${cfg.freeMinutes} free minutes today, up to ${Budget.earnableFrom(cfg, DayState(LocalDate.now()), tasks)} more to earn. You can change the budget any time in settings.",
-                        style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = Brand.Muted,
-                    )
                 }
             }
         }

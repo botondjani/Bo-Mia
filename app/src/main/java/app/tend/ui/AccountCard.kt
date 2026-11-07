@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
  * [onChanged] runs after signing in or out, so the app can save the profile and redraw.
  */
 @Composable
-fun AccountCard(onChanged: () -> Unit, onRestored: () -> Unit = {}) {
+fun AccountCard(onChanged: () -> Unit, onRestored: () -> Unit = {}, onSignedIn: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var user by androidx.compose.runtime.remember { mutableStateOf(Account.user(context)) }
@@ -50,7 +50,10 @@ fun AccountCard(onChanged: () -> Unit, onRestored: () -> Unit = {}) {
     suspend fun afterLogin() {
         val saved = app.tend.data.Backup.fetch(context)
         if (saved != null) found = saved
-        else if (app.tend.data.Backup.upload(context)) lastBackup = app.tend.data.Backup.lastBackupAt(context)
+        else {
+            if (app.tend.data.Backup.upload(context)) lastBackup = app.tend.data.Backup.lastBackupAt(context)
+            onSignedIn()
+        }
     }
 
     fun run(block: suspend () -> Account.Result) {
@@ -141,7 +144,7 @@ fun AccountCard(onChanged: () -> Unit, onRestored: () -> Unit = {}) {
             dismissButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     found = null
-                    scope.launch { if (app.tend.data.Backup.upload(context)) lastBackup = app.tend.data.Backup.lastBackupAt(context) }
+                    scope.launch { if (app.tend.data.Backup.upload(context)) lastBackup = app.tend.data.Backup.lastBackupAt(context); onSignedIn() }
                 }) { Text("Keep this phone's") }
             },
             containerColor = Brand.Card,

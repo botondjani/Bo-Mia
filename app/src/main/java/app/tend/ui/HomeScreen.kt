@@ -90,6 +90,7 @@ fun HomeScreen(
     /** The camp scene for the top of the page (drawn by the caller, which knows what's in it). */
     camp: @Composable () -> Unit = {},
     steps: List<app.tend.core.StepState> = emptyList(),
+    onStep: (app.tend.core.Step) -> Unit = {},
     onOpenRecap: () -> Unit,
     /** Show the one-time widget tip; called with true when it was handled. */
     showNextSteps: Boolean = false,
@@ -145,24 +146,24 @@ fun HomeScreen(
             }
             if (!campEmpty) IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Share, "Share your camp", onShare)
             Spacer(Modifier.width(8.dp))
-            Box(Modifier.tourTarget(tour, "settings")) { IconButtonSoft(Icons.Filled.Settings, "Settings", onOpenSettings) }
+            IconButtonSoft(Icons.Filled.Settings, "Settings", onOpenSettings)
         }
 
         // Hero: the camp, with the companion living in it; what they say, today's minutes, and the
         // acorns to spend. Tapping it opens the camp.
         Box(
-            Modifier.fillMaxWidth().aspectRatio(1.5f).tourTarget(tour, "minutes").clip(RoundedCornerShape(28.dp)).tappable(onClick = onOpenClearing),
+            Modifier.fillMaxWidth().aspectRatio(CAMP_RATIO).tourTarget(tour, "minutes").clip(RoundedCornerShape(28.dp)).tappable(onClick = onOpenClearing),
         ) {
             camp()
             Column(
-                Modifier.align(Alignment.TopStart).padding(10.dp).fillMaxWidth(0.7f)
+                Modifier.align(Alignment.TopStart).padding(10.dp).fillMaxWidth(0.66f)
                     .clip(RoundedCornerShape(18.dp)).background(Color(0xF0FFFFFF)).padding(horizontal = 12.dp, vertical = 8.dp),
             ) {
                 Text(Moods.status(avatar.displayName, mood).uppercase(), style = MaterialTheme.typography.labelSmall, color = Brand.Moss)
-                Text(Moods.line(cfg, day, tasks, welcomeBack), style = MaterialTheme.typography.titleSmall, color = Brand.Ink, maxLines = 3)
+                Text(Moods.line(cfg, day, tasks, welcomeBack), style = MaterialTheme.typography.bodyMedium, color = Brand.Ink, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             }
             Row(
-                Modifier.align(Alignment.TopEnd).padding(10.dp).tourTarget(tour, "garden")
+                Modifier.align(Alignment.TopEnd).padding(10.dp)
                     .clip(RoundedCornerShape(50)).background(Color(0xF0FFFFFF)).padding(horizontal = 10.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -170,26 +171,26 @@ fun HomeScreen(
                 Spacer(Modifier.width(5.dp))
                 Text("$acorns", style = MaterialTheme.typography.titleMedium, color = Color(0xFF3D2A1C))
             }
-            Row(
-                Modifier.align(Alignment.BottomStart).padding(10.dp)
-                    .clip(RoundedCornerShape(18.dp)).background(Color(0xF0FFFFFF)).padding(start = 12.dp, end = 12.dp, top = 2.dp, bottom = 6.dp),
-                verticalAlignment = Alignment.Bottom,
+            // Today's minutes: what's left, a small bar, and what's still to earn.
+            Column(
+                Modifier.align(Alignment.BottomEnd).padding(10.dp).width(124.dp)
+                    .clip(RoundedCornerShape(18.dp)).background(Color(0xF0FFFFFF)).padding(start = 12.dp, end = 12.dp, top = 2.dp, bottom = 8.dp),
             ) {
-                Text(if (remaining > 0) "$remaining" else "0", style = MaterialTheme.typography.headlineLarge, color = if (remaining > 0) Brand.Moss else Brand.Coral)
-                Spacer(Modifier.width(5.dp))
-                Text("min left", style = MaterialTheme.typography.bodyMedium, color = Brand.Ink, modifier = Modifier.padding(bottom = 5.dp))
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(if (remaining > 0) "$remaining" else "0", style = MaterialTheme.typography.headlineLarge, color = if (remaining > 0) Brand.Moss else Brand.Coral)
+                    Spacer(Modifier.width(5.dp))
+                    Text("min left", style = MaterialTheme.typography.bodyMedium, color = Brand.Ink, modifier = Modifier.padding(bottom = 5.dp))
+                }
+                val available = (cfg.freeMinutes + day.earnedMinutes).coerceAtLeast(1)
+                val left by animateFloatAsState((remaining.toFloat() / available).coerceIn(0f, 1f), tween(700), label = "left")
+                Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(50)).background(Brand.Sage)) {
+                    Box(Modifier.fillMaxWidth(left).height(5.dp).clip(RoundedCornerShape(50)).background(if (remaining > 0) Brand.Mint else Brand.Coral))
+                }
+                Text("+${Budget.earnableFrom(cfg, day, tasks)} to earn", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted, modifier = Modifier.padding(top = 3.dp))
             }
-        }
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            val available = (cfg.freeMinutes + day.earnedMinutes).coerceAtLeast(1)
-            val left by animateFloatAsState((remaining.toFloat() / available).coerceIn(0f, 1f), tween(700), label = "left")
-            Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(50)).background(Brand.Card)) {
-                Box(Modifier.fillMaxWidth(left).height(8.dp).clip(RoundedCornerShape(50)).background(if (remaining > 0) Brand.Mint else Brand.Coral))
-            }
-            Text("+${Budget.earnableFrom(cfg, day, tasks)} min still to earn", style = MaterialTheme.typography.bodyMedium)
         }
 
-        FirstStepsStrip(steps, onOpenClearing)
+        FirstStepsStrip(steps, onOpenClearing, onStep)
         if (level != null && !(firstDays && level.level == 1 && level.into == 0)) ProgressStrip(level, skills, challenge)
         if (levelUp != null) LevelUpDialog(avatar, levelUp, onLevelUpSeen)
 
@@ -377,10 +378,8 @@ private fun DoneRow(task: TaskDef, day: DayState, onUndo: (TaskDef) -> Unit) = R
 }
 
 private fun homeTour(name: String, free: Int) = listOf(
-    TourStep("minutes", "Our camp, and your minutes", "I live here. Your minutes for today are in the corner: every app you picked draws from them. You start with $free, and I'll pause you before each open."),
+    TourStep("minutes", "Our camp, and your minutes", "I live here. Your minutes are in the corner: you start with $free a day. Activities earn more, and acorns for the camp: tap it to spend them."),
     TourStep("activity", "Do one, earn minutes", "Finish one of these and I add minutes back. Walks and workouts count by themselves; the rest you start or tick off here."),
-    TourStep("garden", "Acorns for the camp", "Activities earn acorns. Tap the camp to spend them on things, and I'll use every one of them."),
-    TourStep("settings", "Make it yours", "Apps, activities, your budget and the evening mode live here. Change them any time."),
 )
 
 /**

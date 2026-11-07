@@ -30,7 +30,7 @@ import app.tend.core.StepState
 
 /** The first steps on the clearing page: each with how to do it, and its acorns to claim. */
 @Composable
-fun FirstStepsCard(steps: List<StepState>, onClaim: (Step) -> Unit) {
+fun FirstStepsCard(steps: List<StepState>, onClaim: (Step) -> Unit, onGo: (Step) -> Unit = {}) {
     if (steps.all { it.claimed }) return
     Card {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -38,7 +38,11 @@ fun FirstStepsCard(steps: List<StepState>, onClaim: (Step) -> Unit) {
             Text("${steps.count { it.claimed }} / ${steps.size}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
         }
         steps.forEach { s ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+            // A step not done yet: tapping it goes where it's done.
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).then(if (!s.done) Modifier.tappable { onGo(s.step) } else Modifier).padding(vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Check(s.done)
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
@@ -66,29 +70,31 @@ fun FirstStepsCard(steps: List<StepState>, onClaim: (Step) -> Unit) {
     }
 }
 
-/** On the home page: how far the first steps are, and acorns waiting; opens the clearing. */
+/**
+ * On the home page, one slim line: the next first step (tap: go do it), or acorns waiting to be
+ * claimed in the camp (tap: open it).
+ */
 @Composable
-fun FirstStepsStrip(steps: List<StepState>, onOpen: () -> Unit) {
+fun FirstStepsStrip(steps: List<StepState>, onOpen: () -> Unit, onGo: (Step) -> Unit = {}) {
     if (steps.all { it.claimed }) return
     val waiting = steps.filter { it.claimable }.sumOf { it.step.acorns }
+    val next = steps.firstOrNull { !it.done }?.step
     Row(
-        Modifier.fillMaxWidth().surface(radius = 22.dp).tappable(onClick = onOpen).padding(horizontal = 16.dp, vertical = 12.dp),
+        Modifier.fillMaxWidth().surface(radius = 18.dp).tappable { if (waiting > 0 || next == null) onOpen() else onGo(next) }
+            .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("FIRST STEPS · ${steps.count { it.claimed }} OF ${steps.size}", style = MaterialTheme.typography.labelSmall)
-            val next = steps.firstOrNull { !it.done }?.step
-            Text(
-                if (waiting > 0) "$waiting acorns waiting for you in the camp" else next?.let { "Next: ${it.title.replaceFirstChar { c -> c.lowercase() }}" } ?: "",
-                style = MaterialTheme.typography.titleSmall,
-            )
-            if (waiting == 0 && next != null) Text(next.how, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
-            Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)).background(Brand.Sage)) {
-                Box(Modifier.fillMaxWidth(steps.count { it.claimed } / steps.size.toFloat()).height(6.dp).clip(RoundedCornerShape(50)).background(Brand.Moss))
-            }
+        Box(Modifier.size(28.dp).clip(CircleShape).background(Brand.Sage), contentAlignment = Alignment.Center) {
+            Text("${steps.count { it.claimed } + 1}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
         }
-        Spacer(Modifier.width(12.dp))
-        AcornIcon(28.dp)
+        Spacer(Modifier.width(10.dp))
+        Text(
+            if (waiting > 0) "$waiting acorns waiting in the camp" else next?.title ?: "",
+            style = MaterialTheme.typography.titleSmall, maxLines = 1, modifier = Modifier.weight(1f),
+        )
+        Text("+${if (waiting > 0) waiting else next?.acorns ?: 0}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+        Spacer(Modifier.width(4.dp))
+        AcornIcon(16.dp)
     }
 }
 

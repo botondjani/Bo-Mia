@@ -353,6 +353,24 @@ class MainActivity : ComponentActivity() {
         }
         var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
         var riverFocus by rememberSaveable { mutableStateOf<String?>(null) }
+        // A first step tapped: open the camp ready to place a thing, or with the invite open.
+        var campEditing by rememberSaveable { mutableStateOf(false) }
+        var campInvite by rememberSaveable { mutableStateOf(false) }
+        val goToStep: (app.tend.core.Step) -> Unit = { step ->
+            when (step) {
+                app.tend.core.Step.ACTIVITY -> screen = Screen.HOME
+                app.tend.core.Step.PLACE -> { campEditing = true; screen = Screen.CLEARING }
+                app.tend.core.Step.USE -> screen = Screen.CLEARING
+                app.tend.core.Step.NOT_NOW -> {
+                    // Open a paused app: the pause comes up, and "Not now" is right there.
+                    val launch = store.blockedPackages.firstNotNullOfOrNull { packageManager.getLaunchIntentForPackage(it) }
+                    if (launch != null && permissions().allGranted) startActivity(launch)
+                    else Toast.makeText(this, "Open one of your paused apps, then tap \"Not now\".", Toast.LENGTH_LONG).show()
+                }
+                app.tend.core.Step.WIDGET -> if (!pinWidget()) screen = Screen.SETTINGS
+                app.tend.core.Step.FRIEND -> { campInvite = true; screen = Screen.CLEARING }
+            }
+        }
         var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
         var health by remember { mutableStateOf<HealthConnect.Status?>(null) }
         var celebrate by remember { mutableStateOf<TaskSync.Done?>(null) }
@@ -385,7 +403,10 @@ class MainActivity : ComponentActivity() {
             }
         }
         // System back always leads home from inner pages.
-        androidx.activity.compose.BackHandler(enabled = store.onboarded && screen != Screen.HOME) { screen = if (screen == Screen.RIVER) Screen.CLEARING else Screen.HOME }
+        androidx.activity.compose.BackHandler(enabled = store.onboarded && screen != Screen.HOME) {
+            if (screen == Screen.CLEARING) { campEditing = false; campInvite = false }
+            screen = if (screen == Screen.RIVER) Screen.CLEARING else Screen.HOME
+        }
         LaunchedEffect(openRecap) { if (openRecap) { screen = Screen.RECAP; openRecap = false } }
         LaunchedEffect(openClearing) { if (openClearing) { screen = Screen.CLEARING; openClearing = false } }
         celebrate?.let { done ->
@@ -409,21 +430,17 @@ class MainActivity : ComponentActivity() {
             refresh++
         }
 
+        // Pages fade into each other; the camp is the same size and place on home and in the camp, so it stays put.
+        val page = when {
+            !store.onboarded -> "setup"
+            screen != Screen.HOME -> screen.name
+            (TaskSync.focusSecondsLeft(store, now) ?: 0) > 0 -> "focus"
+            else -> "HOME"
+        }
+        androidx.compose.animation.Crossfade(page, animationSpec = androidx.compose.animation.core.tween(200), label = "page") { p ->
         when {
-            !store.onboarded -> Onboarding(
-                catalog = catalog,
-                avatar = store.avatar,
-                cfg = store.config,
-                blocked = store.blockedPackages,
-                perms = permissionActions(),
-                onAvatar = { store.avatar = it; refresh++ },
-                onConfig = { store.config = it; refresh++ },
-                onToggleApp = toggleApp,
-                tasks = store.selectedTasks,
-                onToggleTask = toggleTask,
-                signedIn = app.tend.data.Account.user(this) != null,
-                account = { app.tend.ui.AccountCard(onChanged = { saveProfile(); refresh++ }, onRestored = ::restartFresh) },
-                onFinish = {
+            p == "setup" -> {
+                val finish: () -> Unit = {
                     store.onboarded = true
                     store.onboardedAt = System.currentTimeMillis()
                     app.tend.data.Stats.log(this, "onboarding_done", mapOf("tasks" to store.selectedTasks.size))
@@ -431,11 +448,27 @@ class MainActivity : ComponentActivity() {
                     if (!permissions().overlay && Build.VERSION.SDK_INT >= 33 && !RecapReminder.canNotify(this)) {
                         notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) // for the fallback nudge
                     }
+                    saveProfile()
+                    screen = Screen.HOME
                     refresh++
-                },
-            )
+                }
+                Onboarding(
+                    catalog = catalog,
+                    avatar = store.avatar,
+                    cfg = store.config,
+                    blocked = store.blockedPackages,
+                    perms = permissionActions(),
+                    onAvatar = { store.avatar = it; refresh++ },
+                    onConfig = { store.config = it; refresh++ },
+                    onToggleApp = toggleApp,
+                    signedIn = app.tend.data.Account.user(this) != null,
+                    // Logged in: straight into the app (after a restore offer, if there's a backup).
+                    account = { app.tend.ui.AccountCard(onChanged = { refresh++ }, onRestored = ::restartFresh, onSignedIn = finish) },
+                    onFinish = finish,
+                )
+            }
 
-            screen == Screen.SETTINGS -> SettingsScreen(
+            p == "SETTINGS" -> SettingsScreen(
                 catalog = catalog,
                 avatar = store.avatar,
                 cfg = store.config,
@@ -476,9 +509,9 @@ class MainActivity : ComponentActivity() {
                 onDone = { screen = Screen.HOME },
             )
 
-            screen == Screen.SLEEP -> app.tend.ui.SleepScreen(store.avatar) { screen = Screen.HOME }
+            p == "SLEEP" -> app.tend.ui.SleepScreen(store.avatar) { screen = Screen.HOME }
 
-            screen == Screen.RECAP -> {
+            p == "RECAP" -> {
                 LaunchedEffect(Unit) { store.recapSeenOn = LocalDate.now().toString() }
                 RecapScreen(
                     avatar = store.avatar,
@@ -492,12 +525,12 @@ class MainActivity : ComponentActivity() {
                 )
             }
 
-            screen == Screen.PERMISSIONS -> PermissionsScreen(store.avatar, permissionActions()) {
+            p == "PERMISSIONS" -> PermissionsScreen(store.avatar, permissionActions()) {
                 MonitorService.start(this)
                 screen = Screen.HOME
             }
 
-            screen == Screen.CLEARING -> app.tend.ui.ClearingScreen(
+            p == "CLEARING" -> app.tend.ui.ClearingScreen(
                 avatar = store.avatar,
                 placed = store.placed,
                 acorns = store.acorns,
@@ -521,8 +554,12 @@ class MainActivity : ComponentActivity() {
                 ducks = app.tend.data.Friends.ducks(this).take(3),
                 onUnroll = { lifecycleScope.launch { app.tend.data.Friends.clearPaper(this@MainActivity) }; refresh++ },
                 onCatchDuck = { n -> app.tend.data.Friends.catchDuck(this, n); refresh++; store.ducksCaught },
-                onBack = { screen = Screen.HOME },
+                onBack = { campEditing = false; campInvite = false; screen = Screen.HOME },
                 onShare = ::shareCamp,
+                mood = app.tend.core.Moods.atNight(app.tend.core.Moods.of(store.config, store.today()), app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour)),
+                startEditing = campEditing,
+                openInvite = campInvite,
+                onStep = goToStep,
             ) {
                 WeekSections(
                     store.avatar,
@@ -531,7 +568,7 @@ class MainActivity : ComponentActivity() {
                 )
             }
 
-            screen == Screen.RIVER -> app.tend.ui.RiverScreen(
+            p == "RIVER" -> app.tend.ui.RiverScreen(
                 me = app.tend.data.Friends.me(this),
                 worn = shelf.first,
                 night = app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour),
@@ -541,7 +578,7 @@ class MainActivity : ComponentActivity() {
                 myDucks = app.tend.data.Friends.ducks(this).size.coerceAtMost(3),
             )
 
-            (TaskSync.focusSecondsLeft(store, now) ?: 0) > 0 -> FocusTimerScreen(
+            p == "focus" -> FocusTimerScreen(
                 store.avatar, store.focusTask, TaskSync.focusSecondsLeft(store, now)!!,
                 screenOnSeconds = remember(now / 5000) { TaskSync.screenOnSeconds(this@MainActivity) },
                 onCancel = { TaskSync.stopTimer(this@MainActivity); refresh++ },
@@ -605,6 +642,7 @@ class MainActivity : ComponentActivity() {
                 onShare = ::shareCamp,
                 onOpenClearing = { screen = Screen.CLEARING },
                 steps = remember(refresh) { firstSteps() },
+                onStep = goToStep,
                 camp = {
                     val night = app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour)
                     val mood = app.tend.core.Moods.atNight(app.tend.core.Moods.of(store.config, store.today()), night)
@@ -665,6 +703,7 @@ class MainActivity : ComponentActivity() {
                 },
             )
             }
+        }
         }
     }
 

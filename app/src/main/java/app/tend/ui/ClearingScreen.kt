@@ -46,9 +46,11 @@ import app.tend.core.Avatar
 import app.tend.core.Clearing
 import app.tend.core.SpotKind
 import app.tend.core.Things
+import kotlinx.coroutines.launch
 
 /** The scene's shape on screen: wide, like a window onto the camp. */
-private const val SCENE_RATIO = 1.6f
+/** The camp's shape, the same on the home page and here, so moving between them is seamless. */
+const val CAMP_RATIO = 1.8f
 
 /**
  * The clearing page: the camp, acorns to spend, what today earned and what to save for. Tap
@@ -76,6 +78,10 @@ fun ClearingScreen(
     steps: List<app.tend.core.StepState> = emptyList(),
     onClaimStep: (app.tend.core.Step) -> Unit = {},
     onUsed: () -> Unit = {},
+    mood: app.tend.core.Mood = app.tend.core.Mood.HAPPY,
+    startEditing: Boolean = false,
+    openInvite: Boolean = false,
+    onStep: (app.tend.core.Step) -> Unit = {},
     visitor: app.tend.core.Visitor? = null,
     guestbook: Map<app.tend.core.Visitor, Int> = emptyMap(),
     onGreet: () -> app.tend.core.Visitor? = { null },
@@ -83,18 +89,26 @@ fun ClearingScreen(
     onUnroll: () -> Unit = {},
     onCatchDuck: (app.tend.data.Friends.Note) -> Int = { 0 },
     week: @Composable ColumnScope.() -> Unit,
-) = Column(
-    Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState())
-        .padding(horizontal = 20.dp).padding(top = Space.s, bottom = Space.xxl),
-    verticalArrangement = Arrangement.spacedBy(14.dp),
 ) {
-    var editing by rememberSaveable { mutableStateOf(false) }
+    val scroll = rememberScrollState()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    Column(
+    Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(scroll)
+        .padding(horizontal = 20.dp).padding(top = Space.xs, bottom = Space.xxl),
+    verticalArrangement = Arrangement.spacedBy(Space.m),
+) {
+    var editing by rememberSaveable { mutableStateOf(startEditing) }
+    androidx.compose.runtime.LaunchedEffect(startEditing) { if (startEditing) editing = true }
     var selected by rememberSaveable { mutableStateOf<Int?>(null) }
 
+    // The same height as the home page's header, so the camp stays where it was.
     Row(verticalAlignment = Alignment.CenterVertically) {
         IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, "Back", onBack)
         Spacer(Modifier.width(Space.m))
-        Text("${avatar.displayName}'s clearing", style = MaterialTheme.typography.headlineMedium, maxLines = 1, modifier = Modifier.weight(1f))
+        Column(Modifier.weight(1f)) {
+            Text("$acorns acorns to spend", style = MaterialTheme.typography.bodyMedium)
+            Text("${avatar.displayName}'s camp", style = MaterialTheme.typography.headlineMedium, maxLines = 1)
+        }
         IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Share, "Share", onShare)
     }
 
@@ -123,7 +137,7 @@ fun ClearingScreen(
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { Sounds.stop() } }
 
     // The camp. Tapping it shows the spots; tapping a spot opens the shop for it.
-    Box(Modifier.fillMaxWidth().aspectRatio(SCENE_RATIO).clip(RoundedCornerShape(26.dp))) {
+    Box(Modifier.fillMaxWidth().aspectRatio(CAMP_RATIO).clip(RoundedCornerShape(28.dp))) {
         Canvas(
             Modifier.fillMaxSize().pointerInput(editing) {
                 detectTapGestures { tap ->
@@ -165,7 +179,7 @@ fun ClearingScreen(
         ) {
             val use = using?.takeIf { !editing && useStart >= 0 }?.let { (spot, thing) -> InUse(spot, thing, (frame - useStart) / 1e9f) }
             drawClearing(
-                avatar, placed, worn = worn, night = night, showSpots = editing, selected = selected, paper = paperLeft, ducks = ducks.size, bridge = bridge,
+                avatar, placed, mood, worn = worn, night = night, showSpots = editing, selected = selected, paper = paperLeft, ducks = ducks.size, bridge = bridge,
                 use = use, lastStrum = (frame - strumAt) / 1e9f, visitor = visitor,
             )
         }
@@ -189,17 +203,24 @@ fun ClearingScreen(
         ChipButton(if (editing) "Done" else "Place things", { editing = !editing; selected = null; using = null; Sounds.stop() }, filled = !editing)
     }
 
-    FirstStepsCard(steps) { onClaimStep(it); Sounds.chime(context) }
+    FirstStepsCard(steps, onClaim = { onClaimStep(it); Sounds.chime(context) }, onGo = { step ->
+        // Here already: placing starts right in the camp at the top.
+        if (step == app.tend.core.Step.PLACE || step == app.tend.core.Step.USE) {
+            editing = step == app.tend.core.Step.PLACE
+            scope.launch { scroll.animateScrollTo(0) }
+        } else onStep(step)
+    })
     Guestbook(guestbook)
     NextThing(acorns, placed)
     EarnedToday(earnedToday, lastNight)
-    FriendsCard(onOpenSettings, onOpenRiver, onFriendsChanged)
+    FriendsCard(onOpenSettings, onOpenRiver, onFriendsChanged, openInvite)
     Things(avatar, worn, onShelf)
     week()
 
     selected?.let { id ->
         SpotSheet(id, placed[id], acorns, onDismiss = { selected = null }, onBuy = { thing -> if (onBuy(id, thing)) selected = null }, onSell = { onSell(id); selected = null })
     }
+}
 }
 
 /** The spot nearest to a tap (in scene fractions), if it's close enough. */

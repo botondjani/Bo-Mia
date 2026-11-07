@@ -52,17 +52,15 @@ import kotlinx.coroutines.launch
 private class Slide(val title: String, val body: String)
 
 /**
- * The first thing a new user sees: Bo in a lab coat explains tend in four short slides, each with
+ * The first thing a new user sees: Bo in a lab coat explains tend in two short slides, each with
  * a small live demo. Bo and the speech bubble stay put; the demos slide.
  */
 @Composable
 fun IntroSlides(avatar: Avatar, freeMinutes: Int, onDone: () -> Unit) {
     val name = avatar.displayName
     val slides = listOf(
-        Slide("Hi! I'm $name.", "We tend to scroll more than we mean to. That's not you being weak: apps are built that way. Let me show you how tend helps."),
-        Slide("A breath before you scroll", "Open an app you picked and I'll pop up for a few seconds. Often that's all it takes to choose something better."),
-        Slide("Live a little, earn minutes", "You get $freeMinutes free minutes a day. A walk, a workout or a good book earns more. Steps and workouts count by themselves."),
-        Slide("Acorns for your camp", "Every walk, book or \"Not now\" earns acorns. Spend them on a camp by the river: a fire, a tent, a canoe."),
+        Slide("Hi! I'm $name.", "Open an app you picked and I'll pop up for a breath first. Often that's all it takes to choose something better."),
+        Slide("Live a little, earn it back", "You get $freeMinutes free minutes a day. A walk, a workout or a book earns more, and acorns for our camp by the river."),
     )
     val pager = rememberPagerState { slides.size }
     val scope = rememberCoroutineScope()
@@ -79,12 +77,7 @@ fun IntroSlides(avatar: Avatar, freeMinutes: Int, onDone: () -> Unit) {
         HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth()) { page ->
             Box(Modifier.fillMaxSize().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
                 val active = pager.currentPage == page
-                when (page) {
-                    0 -> ScrollDemo(active)
-                    1 -> PauseDemo(active, name)
-                    2 -> EarnDemo(active, freeMinutes)
-                    else -> CampDemo(active, avatar)
-                }
+                if (page == 0) PauseDemo(active, name) else CampDemo(active, avatar)
             }
         }
         // Bo explains, pointer in hand.
@@ -134,46 +127,6 @@ private fun ticker(active: Boolean, stepMs: Long, steps: Int): Int {
     return t
 }
 
-/**
- * A phone with an endless feed and a clock that keeps going up. The feed moves on every frame in the
- * draw phase only (no recomposition), so it stays smooth while the rest of the screen settles.
- */
-@Composable
-private fun ScrollDemo(active: Boolean) {
-    val feed = remember { androidx.compose.animation.core.Animatable(0f) }
-    LaunchedEffect(active) {
-        if (!active) return@LaunchedEffect
-        // Like a thumb: a slow drag, then a fast fling that glides out; a breath; again.
-        while (true) {
-            feed.animateTo(feed.value + 0.3f, tween(650, easing = androidx.compose.animation.core.LinearOutSlowInEasing))
-            feed.animateTo(feed.value + 2.2f, tween(700, easing = androidx.compose.animation.core.FastOutSlowInEasing))
-            delay(300)
-        }
-    }
-    val tints = remember { listOf(Brand.Sky, Brand.Coral, Brand.Sunny, Brand.Mint).map { it.copy(alpha = 0.55f) } }
-    val line = remember { Brand.Muted.copy(alpha = 0.25f) }
-    val t = ticker(active, 1000, 100_000)
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(170.dp, 300.dp).clip(RoundedCornerShape(30.dp)).background(Brand.Shade).padding(8.dp)) {
-            Canvas(Modifier.fillMaxSize().clip(RoundedCornerShape(24.dp)).background(Brand.Card)) {
-                val card = 92.dp.toPx()
-                val pos = feed.value
-                var i = pos.toInt()
-                var y = -(pos - i) * card
-                val inset = 10.dp.toPx()
-                val radius = androidx.compose.ui.geometry.CornerRadius(12.dp.toPx())
-                while (y < size.height) {
-                    drawRoundRect(tints[i % 4], Offset(inset, y + 8.dp.toPx()), androidx.compose.ui.geometry.Size(size.width - 2 * inset, 52.dp.toPx()), radius)
-                    drawRoundRect(line, Offset(inset, y + 66.dp.toPx()), androidx.compose.ui.geometry.Size((size.width - 2 * inset) * (0.5f + 0.1f * (i % 4)), 8.dp.toPx()), androidx.compose.ui.geometry.CornerRadius(4.dp.toPx()))
-                    y += card; i++
-                }
-            }
-        }
-        val minutes = 160 + t
-        Text("${minutes / 60}h ${"%02d".format(minutes % 60)}m today", style = MaterialTheme.typography.titleMedium, color = Brand.Coral, modifier = Modifier.padding(top = 12.dp))
-    }
-}
-
 /** The pause card, counting down on a loop. */
 @Composable
 private fun PauseDemo(active: Boolean, name: String) {
@@ -206,32 +159,6 @@ private fun PauseDemo(active: Boolean, name: String) {
             style = MaterialTheme.typography.labelLarge, color = if (left > 0) Brand.Muted else Brand.Moss,
             textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
         )
-    }
-}
-
-/** Three activities ticking off one by one while the minutes climb, drawn exactly as on the home screen. */
-@Composable
-private fun EarnDemo(active: Boolean, freeMinutes: Int) {
-    val t = ticker(active, 1100, 6)
-    val tasks = remember { Tasks.withRewards(BudgetConfig(freeMinutes = freeMinutes), listOf(Tasks.OUTSIDE, Tasks.MOVE, Tasks.READ)) }
-    val done = tasks.take(t.coerceAtMost(tasks.size))
-    val day = DayState(
-        java.time.LocalDate.now(),
-        earnedMinutes = done.sumOf { it.rewardMinutes },
-        completedTasks = done.map { it.id }.toSet(),
-        grants = done.associate { it.id to it.rewardMinutes },
-        steps = if (done.isEmpty()) 2600 else 4000,
-        exerciseMinutes = if (done.size < 2) 12 else 30,
-    )
-    val shown by animateFloatAsState((freeMinutes + day.earnedMinutes).toFloat(), tween(600), label = "minutes")
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(Modifier.fillMaxWidth().surface(radius = 24.dp).padding(18.dp), verticalAlignment = Alignment.Bottom) {
-            Text("${shown.toInt()}", style = MaterialTheme.typography.displayLarge, color = Brand.Moss)
-            Text(" min today", style = MaterialTheme.typography.titleMedium, color = Brand.Muted, modifier = Modifier.padding(bottom = 10.dp))
-        }
-        tasks.forEach { task ->
-            TaskRow(task, day, app.tend.health.HealthConnect.Status.READY, null, {}, {}, {})
-        }
     }
 }
 
