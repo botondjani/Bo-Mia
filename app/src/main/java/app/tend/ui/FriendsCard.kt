@@ -70,8 +70,10 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
         if (owner != null) asking = code to owner else note = "That code isn't anyone's (or it's yours). Check it and try again."
     }
 
+    val notes = remember { Friends.notes(context).filter { System.currentTimeMillis() - it.at < 3 * 86_400_000L }.take(4) }
     LaunchedEffect(signedIn) {
         if (!signedIn) return@LaunchedEffect
+        Friends.markSeen(context)
         reload()
         Friends.pendingCode(context)?.let { code -> Friends.setPendingCode(context, null); lookUp(code) }
     }
@@ -90,6 +92,7 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
             ChipButton("Log in", onOpenSettings)
         } else {
             val list = friends.orEmpty()
+            notes.forEach { n -> NoteRow(n) }
             if (list.isEmpty()) Text(
                 if (offline) "Can't reach the server right now." else "No friends yet. Invite someone: when they accept, you'll see each other's camps.",
                 style = MaterialTheme.typography.bodyMedium,
@@ -146,6 +149,18 @@ private fun FriendRow(f: Friends.Friend, onVisit: () -> Unit, onRemove: () -> Un
     }
     Text("Remove", style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp), color = Brand.Muted,
         modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onRemove).padding(horizontal = 8.dp, vertical = 6.dp))
+}
+
+/** "Anna waved at you · 2 hours ago" */
+@Composable
+private fun NoteRow(n: Friends.Note) = Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+    Face(n.companion, 28)
+    Spacer(Modifier.width(10.dp))
+    Text(n.kind.received(n.name), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+    Text(
+        android.text.format.DateUtils.getRelativeTimeSpanString(n.at, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS).toString(),
+        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted,
+    )
 }
 
 /** A friend's companion, as a small round face. */

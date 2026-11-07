@@ -221,6 +221,8 @@ class MonitorService : Service() {
      * with a note when one completes (and when it brings a new accessory).
      */
     private suspend fun backgroundSync() {
+        // A friend's wave, gift or prank shows on the widget without opening tend.
+        if (runCatching { app.tend.data.Friends.syncInbox(this) }.getOrDefault(false)) app.tend.widget.Widgets.refresh(this)
         if (!store.onboarded || store.selectedTasks.none { it.verification == app.tend.core.Verification.AUTOMATIC }) return
         val done = runCatching { app.tend.health.TaskSync.sync(this) }.getOrNull() ?: return
         if (done.tasks.isEmpty() || !app.tend.reminder.RecapReminder.canNotify(this)) return

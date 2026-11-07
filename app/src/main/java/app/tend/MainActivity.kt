@@ -306,6 +306,8 @@ class MainActivity : ComponentActivity() {
         refresh++
         // Usage access is enough to count minutes; without the overlay the monitor nudges by notification.
         if (store.onboarded) lifecycleScope.launch { app.tend.data.Backup.uploadIfDue(this@MainActivity) }
+        // Notes from friends: a wave, a gift, a prank in the camp.
+        if (store.onboarded) lifecycleScope.launch { if (app.tend.data.Friends.syncInbox(this@MainActivity)) { refresh++; app.tend.widget.Widgets.refresh(this@MainActivity) } }
         if (store.onboarded && permissions().usageAccess) {
             MonitorService.start(this)
             store.learnNormal()
@@ -476,6 +478,7 @@ class MainActivity : ComponentActivity() {
                 onSell = { spot -> store.sell(spot); saveProfile(); refresh++ },
                 onOpenSettings = { screen = Screen.SETTINGS },
                 onOpenRiver = { id -> riverFocus = id; screen = Screen.RIVER },
+                pranks = app.tend.data.Friends.pranksOnMe(this).map { it.id }.toSet(),
                 onBack = { screen = Screen.HOME },
                 onShare = ::shareCamp,
             ) {
@@ -492,6 +495,9 @@ class MainActivity : ComponentActivity() {
                 night = app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour),
                 focus = riverFocus,
                 onBack = { screen = Screen.CLEARING },
+                myPranks = app.tend.data.Friends.pranksOnMe(this).map { it.id }.toSet(),
+                onGift = { (store.acorns >= app.tend.data.Friends.GIFT_ACORNS).also { if (it) { store.addAcorns(-app.tend.data.Friends.GIFT_ACORNS, "spent"); refresh++ } } },
+                onRefund = { store.addAcorns(app.tend.data.Friends.GIFT_ACORNS, "spent"); refresh++ },
             )
 
             (TaskSync.focusSecondsLeft(store, now) ?: 0) > 0 -> FocusTimerScreen(

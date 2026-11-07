@@ -102,6 +102,7 @@ fun DrawScope.drawClearing(
     night: Boolean = false,
     showSpots: Boolean = false,
     selected: Int? = null,
+    pranks: Set<String> = emptySet(),
 ) {
     val w = size.width
     val h = size.height
@@ -194,6 +195,12 @@ fun DrawScope.drawClearing(
         } else if (showSpots) emptySpot(p, u, spot.kind, selected == spot.id)
     }
     if (!companionDrawn) drawCompanion()
+
+    // What friends left here today, for a laugh.
+    if ("tp" in pranks) toiletPaper(Offset(w * 0.975f, h * 0.76f), h * 0.56f)
+    if ("duck" in pranks) rubberDuck(Offset(w * 0.13f, h * 0.88f), u)
+    if ("gnome" in pranks) gnome(Offset(w * 0.355f, h * 0.775f), u)
+    if ("flamingo" in pranks) flamingo(Offset(w * 0.715f, h * 0.745f), u)
 
     // Grass and a few flowers along the bottom edge frame the picture.
     foreground(w, h)
@@ -333,6 +340,76 @@ private fun DrawScope.broadleaf(base: Offset, height: Float) {
         Blob(-0.12f, 0.72f, 0.16f, LeafDark), Blob(0.08f, 0.7f, 0.17f, LeafDark), Blob(-0.02f, 0.86f, 0.18f, LeafMid),
         Blob(-0.16f, 0.88f, 0.12f, LeafMid), Blob(0.12f, 0.9f, 0.13f, LeafMid), Blob(-0.08f, 0.98f, 0.11f, LeafLit),
     ).forEach { drawCircle(it.color, height * it.r, Offset(base.x + height * it.dx, base.y - height * it.dy)) }
+}
+
+// ---- Pranks ----
+
+private val PaperWhite = Color(0xFFF7F5EE)
+private val PaperShade = Color(0xFFDCD8CC)
+
+/** Loops of toilet paper over the oak's crown, and streamers hanging down. */
+private fun DrawScope.toiletPaper(base: Offset, height: Float) {
+    fun pt(dx: Float, dy: Float) = Offset(base.x + height * dx, base.y - height * dy)
+    val band = height * 0.022f
+    // Loops draped over the crown: (start, end, how far it sags).
+    for ((a, b, sag) in listOf(Triple(pt(-0.26f, 0.9f), pt(0.2f, 0.95f), 0.1f), Triple(pt(-0.24f, 0.74f), pt(0.22f, 0.76f), 0.08f), Triple(pt(-0.18f, 1.04f), pt(0.08f, 1.06f), 0.06f))) {
+        val mid = Offset((a.x + b.x) / 2, (a.y + b.y) / 2 + height * sag)
+        val path = Path().apply { moveTo(a.x, a.y); quadraticTo(mid.x, mid.y, b.x, b.y) }
+        drawPath(path, PaperShade, style = Stroke(band * 1.25f, cap = StrokeCap.Round))
+        drawPath(path, PaperWhite, style = Stroke(band, cap = StrokeCap.Round))
+    }
+    // Streamers fluttering down from the branches.
+    for ((dx, top, len) in listOf(Triple(-0.25f, 0.82f, 0.3f), Triple(-0.1f, 0.7f, 0.22f), Triple(0.04f, 0.66f, 0.34f), Triple(0.17f, 0.74f, 0.26f))) {
+        val s = pt(dx, top)
+        val path = Path().apply {
+            moveTo(s.x, s.y)
+            cubicTo(s.x + height * 0.03f, s.y + height * len * 0.35f, s.x - height * 0.03f, s.y + height * len * 0.65f, s.x + height * 0.01f, s.y + height * len)
+        }
+        drawPath(path, PaperShade, style = Stroke(band * 1.2f))
+        drawPath(path, PaperWhite, style = Stroke(band * 0.9f))
+    }
+}
+
+/** A yellow rubber duck bobbing in the river. */
+private fun DrawScope.rubberDuck(p: Offset, u: Float) {
+    val yellow = Color(0xFFFFD43B)
+    val shade = Color(0xFFE9B21C)
+    val s = u * 0.05f
+    drawOval(Color.White.copy(alpha = 0.35f), Offset(p.x - s * 1.2f, p.y - s * 0.12f), Size(s * 2.4f, s * 0.4f)) // ripple
+    drawPath(Path().apply { // body, tail up on the right
+        moveTo(p.x - s, p.y - s * 0.35f)
+        cubicTo(p.x - s * 1.05f, p.y + s * 0.1f, p.x + s * 0.9f, p.y + s * 0.15f, p.x + s, p.y - s * 0.4f)
+        lineTo(p.x + s * 1.15f, p.y - s * 0.85f)
+        cubicTo(p.x + s * 0.6f, p.y - s * 0.6f, p.x - s * 0.2f, p.y - s * 0.75f, p.x - s, p.y - s * 0.35f); close()
+    }, yellow)
+    drawOval(shade, Offset(p.x - s * 0.1f, p.y - s * 0.55f), Size(s * 0.75f, s * 0.35f)) // wing
+    val head = Offset(p.x - s * 0.55f, p.y - s * 1.0f)
+    drawCircle(yellow, s * 0.45f, head)
+    drawPath(Path().apply { moveTo(head.x - s * 0.35f, head.y - s * 0.02f); lineTo(head.x - s * 0.85f, head.y + s * 0.08f); lineTo(head.x - s * 0.35f, head.y + s * 0.22f); close() }, Color(0xFFF07F2B))
+    drawCircle(Color(0xFF1D2A23), s * 0.07f, head + Offset(-s * 0.12f, -s * 0.1f))
+}
+
+/** A garden gnome: red hat, white beard, blue coat. */
+private fun DrawScope.gnome(p: Offset, u: Float) {
+    val s = u * 0.075f
+    shadow(p, s * 0.4f, u)
+    drawRoundRect(Color(0xFF3F6FA8), Offset(p.x - s * 0.28f, p.y - s * 0.62f), Size(s * 0.56f, s * 0.6f), CornerRadius(s * 0.18f)) // coat
+    drawRect(Color(0xFF5B3A26), Offset(p.x - s * 0.28f, p.y - s * 0.32f), Size(s * 0.56f, s * 0.07f)) // belt
+    drawCircle(Color(0xFFF1C9A5), s * 0.16f, Offset(p.x, p.y - s * 0.74f)) // face
+    drawPath(Path().apply { moveTo(p.x - s * 0.2f, p.y - s * 0.7f); quadraticTo(p.x, p.y - s * 0.22f, p.x + s * 0.2f, p.y - s * 0.7f); close() }, Color.White) // beard
+    drawCircle(Color(0xFFE38B7A), s * 0.05f, Offset(p.x, p.y - s * 0.7f)) // nose
+    drawPath(Path().apply { moveTo(p.x - s * 0.22f, p.y - s * 0.8f); quadraticTo(p.x - s * 0.02f, p.y - s * 1.2f, p.x + s * 0.12f, p.y - s * 1.35f); lineTo(p.x + s * 0.22f, p.y - s * 0.8f); close() }, Color(0xFFD64541)) // hat
+}
+
+/** A pink plastic flamingo on one wire leg. */
+private fun DrawScope.flamingo(p: Offset, u: Float) {
+    val pink = Color(0xFFF58FB4)
+    val s = u * 0.09f
+    drawLine(Color(0xFF6B6B6B), p, p + Offset(0f, -s * 0.55f), strokeWidth = u * 0.004f)
+    drawOval(pink, Offset(p.x - s * 0.3f, p.y - s * 0.78f), Size(s * 0.55f, s * 0.3f)) // body
+    drawPath(Path().apply { moveTo(p.x + s * 0.18f, p.y - s * 0.7f); cubicTo(p.x + s * 0.32f, p.y - s * 0.95f, p.x + s * 0.05f, p.y - s * 1.05f, p.x + s * 0.12f, p.y - s * 1.22f) }, pink, style = Stroke(u * 0.007f, cap = StrokeCap.Round)) // neck
+    drawCircle(pink, s * 0.07f, Offset(p.x + s * 0.13f, p.y - s * 1.24f))
+    drawPath(Path().apply { moveTo(p.x + s * 0.18f, p.y - s * 1.26f); lineTo(p.x + s * 0.3f, p.y - s * 1.16f); lineTo(p.x + s * 0.17f, p.y - s * 1.19f); close() }, Color(0xFF2B2B2B)) // beak
 }
 
 private fun DrawScope.foreground(w: Float, h: Float) {
@@ -663,7 +740,7 @@ private fun DrawScope.campfire(p: Offset, u: Float, lights: MutableList<Light>) 
 
 /** The clearing as a bitmap with rounded corners, for the widget and the share card. */
 fun clearingBitmap(
-    avatar: Avatar, placed: Map<Int, String>, worn: Set<Accessory>, widthPx: Int, heightPx: Int, night: Boolean = false,
+    avatar: Avatar, placed: Map<Int, String>, worn: Set<Accessory>, widthPx: Int, heightPx: Int, night: Boolean = false, pranks: Set<String> = emptySet(),
 ): android.graphics.Bitmap {
     val image = androidx.compose.ui.graphics.ImageBitmap(widthPx, heightPx)
     val canvas = androidx.compose.ui.graphics.Canvas(image)
@@ -671,7 +748,7 @@ fun clearingBitmap(
     canvas.clipPath(Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(Rect(Offset.Zero, size), CornerRadius(widthPx * 0.05f))) })
     androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(
         androidx.compose.ui.unit.Density(1f), androidx.compose.ui.unit.LayoutDirection.Ltr, canvas, size,
-    ) { drawClearing(avatar, placed, worn = worn, night = night) }
+    ) { drawClearing(avatar, placed, worn = worn, night = night, pranks = pranks) }
     return image.asAndroidBitmap()
 }
 

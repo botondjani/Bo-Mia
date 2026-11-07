@@ -58,6 +58,108 @@ object Friends {
         }
     }.getOrDefault(emptyList())
 
+    // ---- Notes: a wave, a gift, a prank ----
+
+    /** What friends can send each other. Pranks sit in the friend's camp for a day. */
+    enum class Kind(val id: String, val label: String, val prank: Boolean = false) {
+        WAVE("wave", "Wave"),
+        GIFT("gift", "Gift $GIFT_ACORNS acorns"),
+        DUCK("duck", "Rubber duck", prank = true),
+        GNOME("gnome", "Garden gnome", prank = true),
+        FLAMINGO("flamingo", "Plastic flamingo", prank = true),
+        TP("tp", "Toilet paper", prank = true);
+
+        /** How it reads for whoever got it: "Anna waved". */
+        fun received(name: String) = when (this) {
+            WAVE -> "$name waved at you"
+            GIFT -> "$name sent you $GIFT_ACORNS acorns"
+            DUCK -> "$name put a rubber duck in your river"
+            GNOME -> "$name snuck a garden gnome into your camp"
+            FLAMINGO -> "$name planted a plastic flamingo in your camp"
+            TP -> "$name toilet-papered your oak"
+        }
+
+        /** For the widget's small label: "Anna: a rubber duck". */
+        val short: String get() = when (this) {
+            WAVE -> "waved"; GIFT -> "+$GIFT_ACORNS acorns"; DUCK -> "a rubber duck"
+            GNOME -> "a gnome"; FLAMINGO -> "a flamingo"; TP -> "toilet paper!"
+        }
+
+        companion object { fun of(id: String) = entries.firstOrNull { it.id == id } }
+    }
+
+    data class Note(val id: Long, val from: String, val name: String, val companion: String, val kind: Kind, val at: Long)
+
+    /** Sends [kind] to a friend; true when it went (false: not friends, already sent today, or offline). */
+    suspend fun send(c: Context, to: String, kind: Kind): Boolean {
+        val reply = Account.rpc(c, "tend_send_note", JSONObject().put("p_to", to).put("p_kind", kind.id)) ?: return false
+        return reply.ok && reply.body.trim() == "true"
+    }
+
+    /** What you sent in the last day, as friend id to kinds; null when offline. */
+    suspend fun sent(c: Context): Map<String, Set<Kind>>? {
+        val reply = Account.rpc(c, "tend_sent")?.takeIf { it.ok } ?: return null
+        return runCatching {
+            val a = JSONArray(reply.body)
+            (0 until a.length()).mapNotNull { i -> a.getJSONObject(i).let { o -> Kind.of(o.optString("kind"))?.let { o.optString("to_id") to it } } }
+                .groupBy({ it.first }, { it.second }).mapValues { it.value.toSet() }
+        }.getOrNull()
+    }
+
+    /**
+     * Fetches notes from friends (last 7 days) and keeps them for the clearing page and the
+     * widget; gifts not seen before are added to the acorns. True when something new came.
+     */
+    suspend fun syncInbox(c: Context): Boolean {
+        if (Account.user(c) == null) return false
+        val reply = Account.rpc(c, "tend_inbox")?.takeIf { it.ok } ?: return false
+        val notes = parseNotes(reply.body)
+        val p = prefs(c)
+        val known = p.getLong("notes_newest", 0)
+        p.edit().putString("notes", reply.body).putLong("notes_newest", maxOf(known, notes.maxOfOrNull { it.id } ?: 0)).apply()
+        // Gifts count once: the newest gift id credited is kept with the acorns (and so in the backup).
+        val store = TendStore(c)
+        val credited = store.giftsUpTo
+        val gifts = notes.filter { it.kind == Kind.GIFT && it.id > credited }
+        if (gifts.isNotEmpty()) {
+            store.addAcorns(GIFT_ACORNS * gifts.size, "gift")
+            store.giftsUpTo = gifts.maxOf { it.id }
+        }
+        return notes.any { it.id > known }
+    }
+
+    /** Notes kept from the last sync, newest first. */
+    fun notes(c: Context): List<Note> = parseNotes(prefs(c).getString("notes", null) ?: "[]")
+
+    /** Pranks in your own camp right now (sent in the last day). */
+    fun pranksOnMe(c: Context, now: Long = System.currentTimeMillis()): Set<Kind> =
+        notes(c).filter { it.kind.prank && now - it.at < DAY_MS }.map { it.kind }.toSet()
+
+    /** The newest note not yet seen on the clearing page, from the last day; for the widget. */
+    fun unseen(c: Context, now: Long = System.currentTimeMillis()): Note? =
+        notes(c).firstOrNull()?.takeIf { it.id > prefs(c).getLong("notes_seen", 0) && now - it.at < DAY_MS }
+
+    fun markSeen(c: Context) {
+        val newest = notes(c).maxOfOrNull { it.id } ?: return
+        if (newest > prefs(c).getLong("notes_seen", 0)) {
+            prefs(c).edit().putLong("notes_seen", newest).apply()
+            app.tend.widget.Widgets.refresh(c)
+        }
+    }
+
+    private fun parseNotes(body: String): List<Note> = runCatching {
+        val a = JSONArray(body)
+        (0 until a.length()).mapNotNull { i ->
+            val o = a.getJSONObject(i)
+            val kind = Kind.of(o.optString("kind")) ?: return@mapNotNull null
+            val at = runCatching { java.time.OffsetDateTime.parse(o.optString("created_at")).toInstant().toEpochMilli() }.getOrDefault(0L)
+            Note(o.optLong("id"), o.optString("from_id"), o.optString("name").ifBlank { "A friend" }, o.optString("companion", "BO"), kind, at)
+        }
+    }.getOrDefault(emptyList())
+
+    const val GIFT_ACORNS = 10
+    private const val DAY_MS = 24 * 3_600_000L
+
     // An invite opened before logging in waits here until there's an account.
     private fun prefs(c: Context) = c.getSharedPreferences(Account.PREFS_NAME, Context.MODE_PRIVATE)
     fun pendingCode(c: Context): String? = prefs(c).getString("pending_invite", null)

@@ -14,6 +14,25 @@
         android:contentDescription="@string/app_name"
         android:scaleType="centerCrop" />
 
+    <!-- A friend sent something: shown until it's seen in tend. -->
+    <TextView
+        android:id="@+id/note"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:layout_margin="10dp"
+        android:background="@drawable/widget_pill"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:paddingStart="10dp"
+        android:paddingTop="4dp"
+        android:paddingEnd="10dp"
+        android:paddingBottom="5dp"
+        android:textColor="@color/moss"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

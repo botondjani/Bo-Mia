@@ -69,6 +69,7 @@ fun ClearingScreen(
     onShare: () -> Unit,
     onOpenSettings: () -> Unit = {},
     onOpenRiver: (friendId: String?) -> Unit = {},
+    pranks: Set<String> = emptySet(),
     week: @Composable ColumnScope.() -> Unit,
 ) = Column(
     Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState())
@@ -95,7 +96,7 @@ fun ClearingScreen(
                     selected = spot
                 }
             },
-        ) { drawClearing(avatar, placed, worn = worn, night = night, showSpots = editing, selected = selected) }
+        ) { drawClearing(avatar, placed, worn = worn, night = night, showSpots = editing, selected = selected, pranks = pranks) }
         AcornBadge(acorns, Modifier.align(Alignment.TopEnd).padding(10.dp))
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -179,6 +180,7 @@ private fun EarnedToday(earned: Map<String, Int>, lastNight: Int) {
         earned["not_now"]?.takeIf { it > 0 }?.let { "\"Not now\"" to it },
         earned["challenge"]?.takeIf { it > 0 }?.let { "Weekly challenge" to it },
         earned["level"]?.takeIf { it > 0 }?.let { "Level up" to it },
+        earned["gift"]?.takeIf { it > 0 }?.let { "Gifts from friends" to it },
         lastNight.takeIf { it > 0 }?.let { "Last night" to it },
     )
     Card {

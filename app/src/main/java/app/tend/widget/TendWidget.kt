@@ -51,8 +51,10 @@ object Widgets {
         val mood = Moods.atNight(Moods.of(cfg, day), night)
         val next = Tasks.next(day, store.selectedTasks)
         val placed = store.placed
+        val pranks = app.tend.data.Friends.pranksOnMe(context).map { it.id }.toSet()
+        val fresh = app.tend.data.Friends.unseen(context)
         // Evening (from the evening hour until 5:00): the camp at night, a dark card and a sleepy companion.
-        val shown = listOf(store.avatar, mood, remaining, next?.id, day.completedTasks.sorted(), placed, night).joinToString("|")
+        val shown = listOf(store.avatar, mood, remaining, next?.id, day.completedTasks.sorted(), placed, night, pranks, fresh?.id).joinToString("|")
         if (!force && shown == lastShown) return
         lastShown = shown
 
@@ -68,7 +70,8 @@ object Widgets {
             // Out of minutes: point to what earns them back instead.
             setTextViewText(
                 R.id.status,
-                if (remaining > 0) Moods.status(store.avatar.displayName, mood)
+                if (fresh != null) fresh.kind.received(fresh.name) + "!"
+                else if (remaining > 0) Moods.status(store.avatar.displayName, mood)
                 else next?.let { "${it.title} +${it.rewardMinutes}" } ?: "Fresh start tomorrow",
             )
             setOnClickPendingIntent(R.id.root, open)
@@ -83,7 +86,11 @@ object Widgets {
             setOnClickPendingIntent(R.id.root, open)
         })
         if (garden.isNotEmpty()) manager.updateAppWidget(garden, RemoteViews(context.packageName, R.layout.widget_garden).apply {
-            setImageViewBitmap(R.id.garden, clearingBitmap(store.avatar, placed, worn, 440, 440, night = night))
+            setImageViewBitmap(R.id.garden, clearingBitmap(store.avatar, placed, worn, 440, 440, night = night, pranks = pranks))
+            setViewVisibility(R.id.note, if (fresh != null) android.view.View.VISIBLE else android.view.View.GONE)
+            setTextViewText(R.id.note, fresh?.let { "${it.name}: ${it.kind.short}" } ?: "")
+            setInt(R.id.note, "setBackgroundResource", if (night) R.drawable.widget_pill_night else R.drawable.widget_pill)
+            setTextColor(R.id.note, if (night) NIGHT_TEXT else DAY_TEXT)
             setTextViewText(R.id.minutes, minutes)
             setOnClickPendingIntent(R.id.root, open)
             setInt(R.id.root, "setBackgroundResource", if (night) R.drawable.widget_bg_night else R.drawable.widget_bg)
