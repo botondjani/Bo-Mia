@@ -98,6 +98,22 @@ fun ClearingScreen(
     val paperNow by androidx.compose.runtime.rememberUpdatedState(paper)
     val bridgeNow by androidx.compose.runtime.rememberUpdatedState(bridge)
     var caught by remember { mutableStateOf<String?>(null) }
+    // The companion using a thing: which spot and thing, and the frame clock that moves it.
+    var using by remember { mutableStateOf<Pair<Int, String>?>(null) }
+    var useStart by remember { androidx.compose.runtime.mutableLongStateOf(-1L) }
+    var frame by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+    var strumAt by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    androidx.compose.runtime.LaunchedEffect(using) {
+        val u = using ?: return@LaunchedEffect
+        useStart = -1L
+        while (true) {
+            androidx.compose.runtime.withFrameNanos { frame = it; if (useStart < 0) { useStart = it; strumAt = it } }
+            if ((frame - useStart) / 1e9f > Uses.seconds(u.second)) { using = null; break }
+        }
+    }
+    val placedNow by androidx.compose.runtime.rememberUpdatedState(placed)
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { Sounds.stop() } }
 
     // The camp. Tapping it shows the spots; tapping a spot opens the shop for it.
     Box(Modifier.fillMaxWidth().aspectRatio(SCENE_RATIO).clip(RoundedCornerShape(26.dp))) {
@@ -112,33 +128,51 @@ fun ClearingScreen(
                             val n = ducksNow[duck]
                             val total = onCatchDuck(n)
                             caught = "${n.name}'s duck from their visit. You have $total."
+                            Sounds.chime(context)
                             return@detectTapGestures
                         }
                         if (paperNow && fx > PAPER_LEFT && fy < PAPER_BOTTOM) { onUnroll(); caught = "All clean again."; return@detectTapGestures }
                         // The bridge leads to friends' camps along the river.
                         if (bridgeNow && fx in 0.1f..0.37f && fy in 0.5f..0.64f) { onOpenRiver(null); return@detectTapGestures }
+                        // A thing in the camp: the companion uses it (the guitar: another strum).
+                        val hit = spotAt(Offset(fx, fy), size.width / size.height.toFloat())
+                        val thing = hit?.let { placedNow[it] }
+                        if (thing != null) {
+                            if (using?.second == thing && thing == "guitar") { strumAt = frame; useStart = frame - 1_000_000_000L; Sounds.strum(context) }
+                            else { using = hit to thing; caught = null; Sounds.forUse(context, thing) }
+                            return@detectTapGestures
+                        }
+                        if (using != null) { using = null; Sounds.stop(); return@detectTapGestures }
                     }
                     val spot = spotAt(Offset(tap.x / size.width, tap.y / size.height), size.width / size.height.toFloat())
                     if (!editing) editing = true
                     selected = spot
                 }
             },
-        ) { drawClearing(avatar, placed, worn = worn, night = night, showSpots = editing, selected = selected, paper = paperLeft, ducks = ducks.size, bridge = bridge) }
+        ) {
+            val use = using?.takeIf { !editing && useStart >= 0 }?.let { (spot, thing) -> InUse(spot, thing, (frame - useStart) / 1e9f) }
+            drawClearing(
+                avatar, placed, worn = worn, night = night, showSpots = editing, selected = selected, paper = paperLeft, ducks = ducks.size, bridge = bridge,
+                use = use, lastStrum = (frame - strumAt) / 1e9f,
+            )
+        }
         AcornBadge(acorns, Modifier.align(Alignment.TopEnd).padding(10.dp))
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             when {
                 editing -> "Tap a spot to put something there."
+                using != null -> Uses.line(using!!.second, avatar.displayName)
                 paper -> "Someone toilet-papered your oak! Tap it to unroll."
                 ducks.isNotEmpty() -> "A rubber duck: someone visited. Tap it to fish it out."
                 caught != null -> caught!!
                 bridge -> "Cross the bridge to visit your friends' camps."
+                placed.isNotEmpty() -> "Tap something in the camp: ${avatar.displayName} will use it."
                 else -> "Earn acorns by living; spend them here."
             },
             style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f),
         )
-        ChipButton(if (editing) "Done" else "Place things", { editing = !editing; selected = null }, filled = !editing)
+        ChipButton(if (editing) "Done" else "Place things", { editing = !editing; selected = null; using = null; Sounds.stop() }, filled = !editing)
     }
 
     NextThing(acorns, placed)

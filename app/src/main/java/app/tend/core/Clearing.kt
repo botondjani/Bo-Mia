@@ -15,39 +15,39 @@ data class Thing(val id: String, val name: String, val price: Int, val kind: Spo
 
 object Things {
     val all: List<Thing> = listOf(
-        // Small things around the camp: always something to buy today.
+        // Small things around the camp: always something to buy today, and each one gets used.
         Thing("wildflowers", "Wildflowers", 10, SpotKind.SMALL),
-        Thing("mushrooms", "Mushrooms", 10, SpotKind.SMALL),
         Thing("lantern", "Lantern", 15, SpotKind.SMALL),
         Thing("woodpile", "Firewood", 15, SpotKind.SMALL),
-        Thing("backpack", "Backpack", 15, SpotKind.SMALL),
         Thing("guitar", "Guitar", 30, SpotKind.SMALL),
-        // The fire pit.
+        Thing("fishing_rod", "Fishing rod", 40, SpotKind.SMALL),
+        Thing("telescope", "Telescope", 80, SpotKind.SMALL),
+        // The fire pit: each one cooks something else.
         Thing("campfire", "Campfire", 40, SpotKind.FIRE),
         Thing("grill", "Grill", 80, SpotKind.FIRE),
         Thing("kettle", "Fire and kettle", 120, SpotKind.FIRE),
         Thing("pizza_oven", "Pizza oven", 250, SpotKind.FIRE),
         // Seats by the fire.
         Thing("log_bench", "Log bench", 50, SpotKind.SEAT),
-        Thing("camp_chairs", "Camp chairs", 70, SpotKind.SEAT),
         Thing("picnic_table", "Picnic table", 90, SpotKind.SEAT),
-        // Shelters at the back.
+        // Shelters at the back, for the night.
         Thing("tent", "Tent", 150, SpotKind.SHELTER),
         Thing("bell_tent", "Canvas tent", 300, SpotKind.SHELTER),
-        Thing("workshop", "Workshop", 500, SpotKind.SHELTER),
-        Thing("cabin", "Cabin", 800, SpotKind.SHELTER),
+        Thing("cabin", "Cabin", 700, SpotKind.SHELTER),
         // In the trees.
         Thing("swing", "Swing", 70, SpotKind.TREES),
         Thing("hammock", "Hammock", 90, SpotKind.TREES),
-        Thing("bike", "Bike", 120, SpotKind.TREES),
         Thing("treehouse", "Treehouse", 300, SpotKind.TREES),
         // On the river.
         Thing("canoe", "Canoe", 200, SpotKind.WATER),
-        Thing("boat", "Rowing boat", 600, SpotKind.WATER),
-        Thing("dock", "Dock", 900, SpotKind.WATER),
+        Thing("dock", "Dock", 400, SpotKind.WATER),
         // Strung between the trees over the camp.
-        Thing("bunting", "Bunting", 40, SpotKind.ABOVE),
         Thing("string_lights", "String lights", 60, SpotKind.ABOVE),
+    )
+
+    /** Things no longer sold, with what they cost: whoever had one gets it back in acorns. */
+    val retired: Map<String, Int> = mapOf(
+        "mushrooms" to 10, "backpack" to 15, "camp_chairs" to 70, "workshop" to 500, "bike" to 120, "boat" to 600, "bunting" to 40,
     )
 
     fun byId(id: String): Thing? = all.firstOrNull { it.id == id }
@@ -68,8 +68,8 @@ object Clearing {
 
     fun spot(id: Int): Spot? = spots.firstOrNull { it.id == id }
 
-    /** What a new user starts with: enough for a first small thing. */
-    const val STARTING_ACORNS = 25
+    /** What a new user starts with: a campfire and some flowers on day one. */
+    const val STARTING_ACORNS = 50
 
     /** Selling gives half back. */
     fun sellValue(thing: Thing): Int = thing.price / 2

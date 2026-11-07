@@ -173,7 +173,18 @@ class TendStore(private val context: Context) {
 
     /** What stands where: spot id to thing id. */
     var placed: Map<Int, String>
-        get() = app.tend.core.Clearing.parse(prefs.getString("placed", "")!!)
+        get() {
+            val saved = prefs.getString("placed", "")!!
+            // Things no longer sold: refunded in full, once, and taken away.
+            val retired = saved.split(',').mapNotNull { it.substringAfter(':', "").takeIf { id -> id in app.tend.core.Things.retired } }
+            if (retired.isNotEmpty()) {
+                val kept = app.tend.core.Clearing.parse(saved)
+                prefs.edit().putString("placed", app.tend.core.Clearing.format(kept)).apply()
+                addAcorns(retired.sumOf { app.tend.core.Things.retired.getValue(it) }, "sold", refreshWidgets = false)
+                return kept
+            }
+            return app.tend.core.Clearing.parse(saved)
+        }
         set(v) = edit { putString("placed", app.tend.core.Clearing.format(v)) }
 
     /** Buys [thingId] for [spotId]; a thing already there is sold first. False when it doesn't fit or isn't affordable. */

@@ -144,6 +144,9 @@ fun SettingsScreen(
             }
         }
         WidgetButton(avatar, onAddWidget)
+        val ctx = androidx.compose.ui.platform.LocalContext.current
+        var sounds by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(Sounds.enabled(ctx)) }
+        SwitchRow("Sounds", "The guitar, the fire, the river: when ${avatar.displayName} uses things", sounds) { sounds = it; Sounds.setEnabled(ctx, it) }
         SwitchRow("Share anonymous stats", "No names, apps or health data", shareStats, onShareStats)
         // Small things, two to a row, all the same width.
         val links = listOfNotNull(

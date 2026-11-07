@@ -105,6 +105,8 @@ fun DrawScope.drawClearing(
     paper: Float = 0f,
     ducks: Int = 0,
     bridge: Boolean = false,
+    use: InUse? = null,
+    lastStrum: Float = 9f,
 ) {
     val w = size.width
     val h = size.height
@@ -182,15 +184,16 @@ fun DrawScope.drawClearing(
     val pit = at(0)
     drawOval(Dirt.copy(alpha = 0.55f), Offset(pit.x - u * 0.2f, pit.y - u * 0.06f), Size(u * 0.4f, u * 0.13f))
 
-    // Everything standing in the clearing, back to front, the companion among them.
-    val companion = Offset(w * 0.395f, h * 0.86f)
+    // Everything standing in the clearing, back to front, the companion among them (or using something).
+    val anchor = use?.let { useAnchor(it, placed) } ?: Offset(w * 0.395f, h * 0.86f)
     var companionDrawn = false
     val cs = u * 0.17f
-    fun drawCompanion() {
-        shadow(companion, cs * 0.5f, u)
+    fun drawActor(glows: MutableList<Light>) {
+        if (use != null) { drawUse(use, avatar, mood, worn, placed, anchor, glows, lastStrum); return }
+        shadow(anchor, cs * 0.5f, u)
         drawIntoCanvas {
             it.nativeCanvas.save()
-            it.nativeCanvas.translate(companion.x - cs / 2, companion.y - cs * 0.95f)
+            it.nativeCanvas.translate(anchor.x - cs / 2, anchor.y - cs * 0.95f)
             CharacterPainter.draw(it.nativeCanvas, avatar, mood, cs, accessories = worn)
             it.nativeCanvas.restore()
         }
@@ -198,15 +201,15 @@ fun DrawScope.drawClearing(
     val ground = Clearing.spots.filter { it.kind != SpotKind.ABOVE }.sortedBy { SpotPositions.getValue(it.id).y }
     for (spot in ground) {
         val p = at(spot.id)
-        if (!companionDrawn && p.y > companion.y) { drawCompanion(); companionDrawn = true }
+        if (!companionDrawn && p.y > anchor.y) { drawActor(lights); companionDrawn = true }
         if (spot.kind == SpotKind.FIRE) firePitStones(p, u)
         val thing = placed[spot.id]
-        if (thing != null) {
+        if (thing != null && !(use?.spot == spot.id && thing in Uses.redrawn)) {
             if (spot.id != 7) shadow(p, u * thingWidth(thing) * 0.5f, u)
             drawThing(thing, p, u, lights)
-        } else if (showSpots) emptySpot(p, u, spot.kind, selected == spot.id)
+        } else if (thing == null && showSpots) emptySpot(p, u, spot.kind, selected == spot.id)
     }
-    if (!companionDrawn) drawCompanion()
+    if (!companionDrawn) drawActor(lights)
 
     // What friends did: toilet paper over the trees on the right, a rubber duck for each visit.
     if (paper > 0f) toiletPaper(paper)
@@ -225,10 +228,9 @@ fun DrawScope.drawClearing(
         drawIntoCanvas {
             val paint = android.graphics.Paint().apply { colorFilter = android.graphics.LightingColorFilter(0xFF9DA6C4.toInt(), 0x101410) }
             it.nativeCanvas.saveLayer(null, paint)
-            it.nativeCanvas.translate(companion.x - cs / 2, companion.y - cs * 0.95f)
-            CharacterPainter.draw(it.nativeCanvas, avatar, mood, cs, accessories = worn)
-            it.nativeCanvas.restore()
         }
+        drawActor(mutableListOf())
+        drawIntoCanvas { it.nativeCanvas.restore() }
         lights.forEach { l ->
             drawCircle(Brush.radialGradient(listOf(Glow.copy(alpha = 0.55f * l.strength), Color.Transparent), center = l.at, radius = l.radius), l.radius, l.at)
         }
@@ -584,12 +586,12 @@ private fun DrawScope.firePitStones(c: Offset, u: Float) {
 
 /** How wide a thing is, in scene heights, for its shadow. */
 private fun thingWidth(id: String): Float = when (id) {
-    "cabin", "workshop" -> 0.22f
+    "cabin" -> 0.22f
     "bell_tent", "tent" -> 0.16f
-    "picnic_table", "log_bench", "camp_chairs" -> 0.11f
+    "picnic_table", "log_bench" -> 0.11f
     "canoe" -> 0.16f
     "campfire", "kettle", "grill", "pizza_oven" -> 0.1f
-    "hammock", "swing", "bike", "treehouse" -> 0.08f
+    "hammock", "swing", "treehouse" -> 0.08f
     else -> 0.04f
 }
 
@@ -604,7 +606,7 @@ private fun DrawScope.emptySpot(p: Offset, u: Float, kind: SpotKind, selected: B
 
 // ---- Things ----
 
-/** Strung between two trees: bunting or string lights, hanging in a soft curve. */
+/** Strung between two trees: string lights, hanging in a soft curve. */
 private fun DrawScope.overhead(id: String, a: Offset, b: Offset, u: Float, lights: MutableList<Light>) {
     val sag = u * 0.07f
     fun point(t: Float) = Offset(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t + sag * 4 * t * (1 - t))
@@ -612,13 +614,6 @@ private fun DrawScope.overhead(id: String, a: Offset, b: Offset, u: Float, light
         moveTo(a.x, a.y); quadraticTo((a.x + b.x) / 2, (a.y + b.y) / 2 + sag * 2, b.x, b.y)
     }, BarkDark.copy(alpha = 0.7f), style = Stroke(u * 0.003f))
     when (id) {
-        "bunting" -> {
-            val colors = listOf(Color(0xFFE07A5F), Color(0xFFF2CC8F), Color(0xFF81B29A), Color(0xFF3D405B), Color(0xFFE9C46A), Color(0xFFB5838D))
-            for (i in 0 until 16) {
-                val p = point((i + 0.5f) / 16f)
-                drawPath(Path().apply { moveTo(p.x - u * 0.012f, p.y); lineTo(p.x + u * 0.012f, p.y); lineTo(p.x, p.y + u * 0.032f); close() }, colors[i % colors.size])
-            }
-        }
         "string_lights" -> for (i in 0 until 20) {
             val p = point((i + 0.5f) / 20f) + Offset(0f, u * 0.008f)
             drawCircle(Glow.copy(alpha = 0.35f), u * 0.012f, p)
@@ -642,13 +637,6 @@ fun DrawScope.drawThing(id: String, p: Offset, u: Float, lights: MutableList<Lig
                 drawCircle(listOf(Color.White, Color(0xFFC9A6E3), Color(0xFFF2D27A), Color(0xFFE9A0A0))[k % 4], u * 0.006f, top)
             }
         }
-        "mushrooms" -> for ((dx, s) in listOf(-0.012f to 1f, 0.01f to 0.7f, 0.024f to 0.5f)) {
-            val b = p + Offset(u * dx, 0f)
-            drawRoundRect(Color(0xFFF1E6D3), b + Offset(-u * 0.004f * s, -u * 0.022f * s), Size(u * 0.008f * s, u * 0.022f * s), CornerRadius(u * 0.004f))
-            drawArc(Color(0xFFC0502F), 180f, 180f, true, b + Offset(-u * 0.015f * s, -u * 0.034f * s), Size(u * 0.03f * s, u * 0.026f * s))
-            drawCircle(Color(0xFFF7EBD8), u * 0.0028f * s, b + Offset(-u * 0.005f * s, -u * 0.027f * s))
-            drawCircle(Color(0xFFF7EBD8), u * 0.0022f * s, b + Offset(u * 0.005f * s, -u * 0.03f * s))
-        }
         "lantern" -> {
             val c = p + Offset(0f, -u * 0.026f)
             drawRoundRect(Metal, c + Offset(-u * 0.012f, -u * 0.03f), Size(u * 0.024f, u * 0.006f), CornerRadius(u * 0.002f))
@@ -666,18 +654,42 @@ fun DrawScope.drawThing(id: String, p: Offset, u: Float, lights: MutableList<Lig
                 drawCircle(WoodLight, u * 0.0025f * (0.7f + rnd.nextFloat() * 0.6f), c)
             }
         }
-        "backpack" -> {
-            drawRoundRect(Olive, p + Offset(-u * 0.016f, -u * 0.042f), Size(u * 0.032f, u * 0.042f), CornerRadius(u * 0.01f))
-            drawRoundRect(OliveDark, p + Offset(-u * 0.016f, -u * 0.044f), Size(u * 0.032f, u * 0.014f), CornerRadius(u * 0.008f))
-            drawRoundRect(OliveDark, p + Offset(-u * 0.01f, -u * 0.02f), Size(u * 0.02f, u * 0.014f), CornerRadius(u * 0.003f))
-            drawLine(BarkDark, p + Offset(-u * 0.004f, -u * 0.033f), p + Offset(-u * 0.004f, -u * 0.026f), strokeWidth = u * 0.002f)
-        }
         "guitar" -> rotate(-14f, p) {
             drawLine(BarkDark, p + Offset(0f, -u * 0.04f), p + Offset(0f, -u * 0.085f), strokeWidth = u * 0.006f, cap = StrokeCap.Round)
             drawRoundRect(BarkDark, p + Offset(-u * 0.005f, -u * 0.095f), Size(u * 0.01f, u * 0.014f), CornerRadius(u * 0.003f))
             drawOval(Color(0xFFC98B4A), p + Offset(-u * 0.018f, -u * 0.035f), Size(u * 0.036f, u * 0.034f))
             drawOval(Color(0xFFC98B4A), p + Offset(-u * 0.014f, -u * 0.054f), Size(u * 0.028f, u * 0.026f))
             drawCircle(Color(0xFF3A2414), u * 0.006f, p + Offset(0f, -u * 0.033f))
+        }
+        "fishing_rod" -> {
+            // A rod resting on a forked stick, its line out to a red-and-white float, and a small tackle box.
+            val fork = p + Offset(u * 0.012f, 0f)
+            drawLine(Bark, fork, fork + Offset(0f, -u * 0.03f), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
+            drawLine(Bark, fork + Offset(0f, -u * 0.026f), fork + Offset(-u * 0.006f, -u * 0.036f), strokeWidth = u * 0.003f, cap = StrokeCap.Round)
+            drawLine(Bark, fork + Offset(0f, -u * 0.026f), fork + Offset(u * 0.006f, -u * 0.036f), strokeWidth = u * 0.003f, cap = StrokeCap.Round)
+            val butt = p + Offset(u * 0.035f, -u * 0.004f)
+            val tip = p + Offset(-u * 0.045f, -u * 0.09f)
+            drawLine(BarkDark, butt, tip, strokeWidth = u * 0.004f, cap = StrokeCap.Round)
+            drawLine(Color(0xFF2B2B2B), butt, butt + (tip - butt) * 0.22f, strokeWidth = u * 0.006f, cap = StrokeCap.Round) // grip
+            drawCircle(Metal, u * 0.006f, butt + (tip - butt) * 0.16f + Offset(0f, u * 0.006f)) // reel
+            val float = p + Offset(-u * 0.06f, -u * 0.012f)
+            drawPath(Path().apply { moveTo(tip.x, tip.y); quadraticTo(tip.x - u * 0.02f, tip.y + u * 0.05f, float.x, float.y) }, Color.White.copy(alpha = 0.6f), style = Stroke(u * 0.0012f))
+            drawArc(Color(0xFFD64541), 180f, 180f, true, float + Offset(-u * 0.005f, -u * 0.005f), Size(u * 0.01f, u * 0.01f))
+            drawArc(Color.White, 0f, 180f, true, float + Offset(-u * 0.005f, -u * 0.005f), Size(u * 0.01f, u * 0.01f))
+            drawRoundRect(Color(0xFF3F6E5A), p + Offset(u * 0.02f, -u * 0.014f), Size(u * 0.024f, u * 0.014f), CornerRadius(u * 0.003f))
+            drawLine(Color(0xFF2E5244), p + Offset(u * 0.02f, -u * 0.009f), p + Offset(u * 0.044f, -u * 0.009f), strokeWidth = u * 0.0015f)
+        }
+        "telescope" -> {
+            // A brass telescope on a wooden tripod, pointing up at the sky.
+            val head = p + Offset(0f, -u * 0.06f)
+            for (dx in listOf(-0.022f, 0f, 0.022f)) drawLine(Wood, head, p + Offset(u * dx, 0f), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
+            rotate(-32f, head) {
+                drawRoundRect(Color(0xFFB8893B), head + Offset(-u * 0.035f, -u * 0.008f), Size(u * 0.07f, u * 0.016f), CornerRadius(u * 0.004f))
+                drawRoundRect(Color(0xFFD9AE5C), head + Offset(-u * 0.035f, -u * 0.008f), Size(u * 0.07f, u * 0.005f), CornerRadius(u * 0.003f))
+                drawRoundRect(Color(0xFF8C6526), head + Offset(u * 0.03f, -u * 0.011f), Size(u * 0.012f, u * 0.022f), CornerRadius(u * 0.003f))
+                drawRoundRect(Color(0xFF8C6526), head + Offset(-u * 0.045f, -u * 0.005f), Size(u * 0.012f, u * 0.01f), CornerRadius(u * 0.002f))
+            }
+            drawCircle(BarkDark, u * 0.004f, head)
         }
         "campfire" -> campfire(p, u, lights)
         "kettle" -> {
@@ -717,15 +729,6 @@ fun DrawScope.drawThing(id: String, p: Offset, u: Float, lights: MutableList<Lig
             drawRect(Color(0xFFB5523B), p + Offset(-u * 0.025f, -u * 0.031f), Size(u * 0.035f, u * 0.024f))
             for (k in 0 until 4) drawRect(listOf(Color(0xFFE9C46A), Color(0xFF2A9D8F), Color(0xFFF1E6D3), Color(0xFF264653))[k], p + Offset(-u * 0.025f + k * u * 0.009f, -u * 0.031f), Size(u * 0.003f, u * 0.024f))
         }
-        "camp_chairs" -> for ((dx, cloth) in listOf(-0.025f to Color(0xFF2A6F6B), 0.025f to Color(0xFFB5523B))) {
-            val b = p + Offset(u * dx, 0f)
-            drawLine(Wood, b + Offset(-u * 0.016f, 0f), b + Offset(u * 0.012f, -u * 0.03f), strokeWidth = u * 0.003f)
-            drawLine(Wood, b + Offset(u * 0.016f, 0f), b + Offset(-u * 0.012f, -u * 0.03f), strokeWidth = u * 0.003f)
-            drawRect(CanvasCloth, b + Offset(-u * 0.018f, -u * 0.034f), Size(u * 0.036f, u * 0.008f))
-            drawRect(cloth, b + Offset(-u * 0.016f, -u * 0.064f), Size(u * 0.032f, u * 0.026f))
-            drawLine(Wood, b + Offset(-u * 0.018f, -u * 0.066f), b + Offset(-u * 0.018f, -u * 0.03f), strokeWidth = u * 0.003f)
-            drawLine(Wood, b + Offset(u * 0.018f, -u * 0.066f), b + Offset(u * 0.018f, -u * 0.03f), strokeWidth = u * 0.003f)
-        }
         "picnic_table" -> {
             drawRect(Wood, p + Offset(-u * 0.055f, -u * 0.05f), Size(u * 0.11f, u * 0.01f))
             drawRect(WoodLight, p + Offset(-u * 0.055f, -u * 0.05f), Size(u * 0.11f, u * 0.003f))
@@ -755,19 +758,6 @@ fun DrawScope.drawThing(id: String, p: Offset, u: Float, lights: MutableList<Lig
             drawLine(Wood, p + Offset(0f, -th), p + Offset(0f, -th - u * 0.02f), strokeWidth = u * 0.004f)
             drawLine(Color(0xFF8A7F68), p + Offset(tw * 0.42f, -th * 0.35f), p + Offset(tw * 0.62f, 0f), strokeWidth = u * 0.0015f)
             lights += Light(p + Offset(0f, -th * 0.2f), u * 0.06f, 0.6f)
-        }
-        "workshop" -> {
-            val sw = u * 0.18f
-            val sh = u * 0.12f
-            val l = p.x - sw / 2
-            drawRect(WoodLight, Offset(l, p.y - sh), Size(sw, sh))
-            for (k in 1 until 8) drawLine(Wood.copy(alpha = 0.5f), Offset(l + sw * k / 8f, p.y - sh), Offset(l + sw * k / 8f, p.y), strokeWidth = u * 0.0015f)
-            drawPath(Path().apply { moveTo(l - sw * 0.06f, p.y - sh); lineTo(l + sw * 1.06f, p.y - sh - u * 0.04f); lineTo(l + sw * 1.06f, p.y - sh - u * 0.03f); lineTo(l - sw * 0.06f, p.y - sh + u * 0.012f); close() }, Color(0xFF3F4A45))
-            drawRect(Color(0xFF2A1F17), Offset(l + sw * 0.1f, p.y - sh * 0.78f), Size(sw * 0.42f, sh * 0.78f))
-            drawLine(Color(0xFFBFC6CC), Offset(l + sw * 0.2f, p.y - sh * 0.64f), Offset(l + sw * 0.2f, p.y - sh * 0.3f), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
-            drawRect(Color(0xFFBFC6CC), Offset(l + sw * 0.32f, p.y - sh * 0.62f), Size(sw * 0.13f, sh * 0.08f))
-            drawRoundRect(Glow.copy(alpha = 0.85f), Offset(l + sw * 0.64f, p.y - sh * 0.72f), Size(sw * 0.22f, sh * 0.3f), CornerRadius(u * 0.003f))
-            lights += Light(Offset(l + sw * 0.75f, p.y - sh * 0.57f), u * 0.07f, 0.7f)
         }
         "cabin" -> {
             val cw = u * 0.22f
@@ -803,20 +793,6 @@ fun DrawScope.drawThing(id: String, p: Offset, u: Float, lights: MutableList<Lig
             }, Color(0xFFE7DCC4))
             for (k in 1..3) drawPath(Path().apply { moveTo(a.x, a.y); quadraticTo(p.x, p.y + u * 0.01f - k * u * 0.011f, b.x, b.y) }, Color(0xFFB5523B).copy(alpha = 0.7f), style = Stroke(u * 0.003f))
         }
-        "bike" -> {
-            val r = u * 0.022f
-            val c = p + Offset(0f, -r)
-            val back = c + Offset(-r * 1.25f, 0f)
-            val front = c + Offset(r * 1.25f, 0f)
-            drawCircle(Metal, r, back, style = Stroke(r * 0.15f))
-            drawCircle(Metal, r, front, style = Stroke(r * 0.15f))
-            val seat = c + Offset(-r * 0.45f, -r * 1.1f)
-            val bar = c + Offset(r * 0.8f, -r * 1.25f)
-            val crank = c + Offset(-r * 0.1f, 0f)
-            for ((x1, x2) in listOf(back to crank, crank to seat, seat to back, crank to bar, seat to bar, bar to front))
-                drawLine(Color(0xFF2A6F6B), x1, x2, strokeWidth = r * 0.14f, cap = StrokeCap.Round)
-            drawLine(BarkDark, seat + Offset(-r * 0.25f, -r * 0.1f), seat + Offset(r * 0.25f, -r * 0.1f), strokeWidth = r * 0.2f, cap = StrokeCap.Round)
-        }
         "treehouse" -> {
             val floor = p + Offset(0f, -u * 0.2f)
             drawLine(Bark, p + Offset(-u * 0.045f, 0f), floor + Offset(-u * 0.045f, 0f), strokeWidth = u * 0.005f)
@@ -837,17 +813,6 @@ fun DrawScope.drawThing(id: String, p: Offset, u: Float, lights: MutableList<Lig
             }, Color(0xFF8E5A36))
             drawPath(Path().apply { moveTo(p.x - u * 0.092f, p.y - u * 0.036f); quadraticTo(p.x, p.y - u * 0.018f, p.x + u * 0.092f, p.y - u * 0.036f) }, WoodLight, style = Stroke(u * 0.004f))
             for (dx in listOf(-0.04f, 0f, 0.04f)) drawLine(WoodPale, p + Offset(u * dx, -u * 0.026f), p + Offset(u * dx, -u * 0.012f), strokeWidth = u * 0.003f)
-        }
-        "boat" -> {
-            drawOval(Color.White.copy(alpha = 0.25f), p + Offset(-u * 0.11f, -u * 0.006f), Size(u * 0.22f, u * 0.014f))
-            drawPath(Path().apply {
-                moveTo(p.x - u * 0.1f, p.y - u * 0.036f); lineTo(p.x + u * 0.1f, p.y - u * 0.036f)
-                quadraticTo(p.x + u * 0.085f, p.y, p.x + u * 0.05f, p.y)
-                lineTo(p.x - u * 0.075f, p.y); quadraticTo(p.x - u * 0.095f, p.y - u * 0.01f, p.x - u * 0.1f, p.y - u * 0.036f); close()
-            }, Color(0xFFE9E1CF))
-            drawRect(Color(0xFF2A6F6B), p + Offset(-u * 0.098f, -u * 0.036f), Size(u * 0.196f, u * 0.008f))
-            drawLine(Wood, p + Offset(-u * 0.04f, -u * 0.05f), p + Offset(-u * 0.12f, u * 0.01f), strokeWidth = u * 0.003f, cap = StrokeCap.Round)
-            drawLine(Wood, p + Offset(u * 0.02f, -u * 0.05f), p + Offset(u * 0.1f, u * 0.012f), strokeWidth = u * 0.003f, cap = StrokeCap.Round)
         }
         "dock" -> {
             // Planks out from our bank into the river, on posts.
@@ -897,24 +862,22 @@ fun clearingBitmap(
 /** Rough size of each thing (width, height) in scene heights, to fit it into an icon. */
 private fun thingSize(id: String): Pair<Float, Float> = when (id) {
     "cabin" -> 0.25f to 0.24f
-    "workshop" -> 0.2f to 0.17f
     "bell_tent" -> 0.2f to 0.18f
     "tent" -> 0.17f to 0.12f
     "treehouse" -> 0.14f to 0.32f
     "swing" -> 0.1f to 0.21f
     "hammock" -> 0.15f to 0.1f
-    "bike" -> 0.1f to 0.05f
     "canoe" -> 0.21f to 0.05f
-    "boat" -> 0.24f to 0.07f
     "dock" -> 0.2f to 0.05f
     "kettle" -> 0.11f to 0.13f
     "grill" -> 0.08f to 0.11f
     "campfire" -> 0.08f to 0.09f
     "pizza_oven" -> 0.11f to 0.13f
     "picnic_table" -> 0.13f to 0.08f
-    "camp_chairs" -> 0.09f to 0.07f
     "log_bench" -> 0.12f to 0.035f
     "guitar" -> 0.04f to 0.1f
+    "fishing_rod" -> 0.12f to 0.1f
+    "telescope" -> 0.09f to 0.1f
     else -> 0.06f to 0.05f
 }
 
@@ -922,7 +885,7 @@ private fun thingSize(id: String): Pair<Float, Float> = when (id) {
 fun DrawScope.drawThingIcon(id: String) {
     val s = size.minDimension
     val c = Offset(size.width / 2, size.height / 2)
-    if (id == "bunting" || id == "string_lights") {
+    if (id == "string_lights") {
         overhead(id, Offset(c.x - s * 0.45f, c.y - s * 0.15f), Offset(c.x + s * 0.45f, c.y - s * 0.15f), s * 0.9f, mutableListOf())
         return
     }
