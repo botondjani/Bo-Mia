@@ -51,7 +51,7 @@ object RecapReminder {
         val recap = Recap.of(store.config, store.today(), store.worthItToday())
         val name = store.avatar.displayName
         val text = recap.tonightsPlant
-            ?.let { "You got back ${recap.gotBackMinutes} min today. A new ${it.displayName} grows tonight in $name's garden." }
+            ?.let { "You got back ${recap.gotBackMinutes} min today. ${store.world.tonight(it)} at $name's ${store.world.place}." }
             ?: "Today used it all, and that's okay. $name saved you a seat for tomorrow."
 
         val nm = context.getSystemService(NotificationManager::class.java)

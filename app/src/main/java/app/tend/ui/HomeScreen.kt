@@ -81,6 +81,13 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     /** Shares this week's garden card. */
     onShare: () -> Unit = {},
+    /** The companion's level and the three skills; null hides the strip. */
+    level: app.tend.core.Level? = null,
+    skills: Map<app.tend.core.Skill, app.tend.core.Level> = emptyMap(),
+    challenge: app.tend.core.Challenge? = null,
+    /** A new level to celebrate, once. */
+    levelUp: Int? = null,
+    onLevelUpSeen: () -> Unit = {},
     onOpenGarden: () -> Unit,
     onOpenRecap: () -> Unit,
     /** Show the one-time widget tip; called with true when it was handled. */
@@ -158,9 +165,10 @@ fun HomeScreen(
                         .tappable(onClick = onOpenGarden).padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    TendIcons.Glyph("sprout", 20.dp)
+                    val world = LocalWorld.current
+                    TendIcons.Glyph(if (world == app.tend.core.World.BASE) "outside" else "sprout", 20.dp)
                     Spacer(Modifier.width(6.dp))
-                    Text(if (plantCount > 0) "Garden · $plantCount" else "Garden", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
+                    Text(if (plantCount > 0) "${world.label} · $plantCount" else world.label, style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
                 }
             }
             val available = (cfg.freeMinutes + day.earnedMinutes).coerceAtLeast(1)
@@ -170,6 +178,9 @@ fun HomeScreen(
             }
             Text("+${Budget.earnableFrom(cfg, day, tasks)} min still to earn", style = MaterialTheme.typography.bodyMedium)
         }
+
+        if (level != null) ProgressStrip(level, skills, challenge)
+        if (levelUp != null) LevelUpDialog(avatar, levelUp, onLevelUpSeen)
 
         if (onShareCrash != null) Notice("alert", "tend crashed last time", "Sorry! Tap to share the crash report.", onShareCrash)
         if (brokenTimer != null) Notice(
@@ -435,6 +446,69 @@ private fun NextSteps(
             val on = i == pager.currentPage
             Box(Modifier.padding(horizontal = 3.dp).size(if (on) 8.dp else 6.dp).clip(CircleShape).background(if (on) Brand.Moss else Brand.Mint.copy(alpha = 0.45f)))
         }
+    }
+}
+
+/**
+ * Level and skills in one slim card, with this week's challenge under them. Every activity is XP
+ * for Body, Mind or Rest; a finished challenge adds a bonus.
+ */
+@Composable
+private fun ProgressStrip(level: app.tend.core.Level, skills: Map<app.tend.core.Skill, app.tend.core.Level>, challenge: app.tend.core.Challenge?) = Column(
+    Modifier.fillMaxWidth().surface(radius = 22.dp).padding(horizontal = 14.dp, vertical = 12.dp),
+    verticalArrangement = Arrangement.spacedBy(10.dp),
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        // Level badge: a ring that fills toward the next level.
+        Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                val stroke = 4.dp.toPx()
+                drawArc(Brand.Mint.copy(alpha = 0.35f), 0f, 360f, false, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
+                drawArc(Brand.Moss, -90f, 360f * level.fraction, false, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("LV", style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = Brand.Muted)
+                Text("${level.level}", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        app.tend.core.Skill.entries.forEach { skill ->
+            val l = skills[skill] ?: app.tend.core.Level(1, 0, 40)
+            Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                Text("${skill.label} ${l.level}", style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), maxLines = 1)
+                Box(Modifier.padding(top = 4.dp).fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)).background(Brand.Sage)) {
+                    Box(Modifier.fillMaxWidth(l.fraction.coerceIn(0.04f, 1f)).height(6.dp).clip(RoundedCornerShape(50)).background(Brand.Moss))
+                }
+            }
+        }
+    }
+    if (challenge != null) Row(verticalAlignment = Alignment.CenterVertically) {
+        TendIcons.Badge(if (challenge.done) "sparkle" else "sun", 32.dp)
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text("THIS WEEK", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Brand.Muted)
+            Text(challenge.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        }
+        Text(
+            if (challenge.done) "Done · +${app.tend.core.Progress.XP_PER_CHALLENGE} XP" else "${challenge.progress.coerceAtMost(challenge.target)} / ${challenge.target}",
+            style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+        )
+    }
+}
+
+@Composable
+private fun LevelUpDialog(avatar: Avatar, level: Int, onDone: () -> Unit) = androidx.compose.ui.window.Dialog(onDismissRequest = onDone) {
+    Column(
+        Modifier.fillMaxWidth().surface(radius = 28.dp).padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        BobbingCharacter(avatar, app.tend.core.Mood.OUTSIDE, 120.dp)
+        Text("Level $level!", style = MaterialTheme.typography.headlineMedium, color = Brand.Moss)
+        Text(
+            "${avatar.displayName} levelled up. Every activity is XP for Body, Mind or Rest, and the weekly challenge gives a bonus.",
+            style = MaterialTheme.typography.bodyMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+        PrimaryButton("Nice", onDone)
     }
 }
 

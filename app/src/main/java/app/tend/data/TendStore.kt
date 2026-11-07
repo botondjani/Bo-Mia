@@ -135,6 +135,26 @@ class TendStore(private val context: Context) {
         edit { putString("notes_day", LocalDate.now().toString()); putInt("notes_count", n) }
     }
 
+    /** Garden or base: what the unused minutes build. */
+    var world: app.tend.core.World
+        get() = runCatching { app.tend.core.World.valueOf(prefs.getString("world", "GARDEN")!!) }.getOrDefault(app.tend.core.World.GARDEN)
+        set(v) = edit { putString("world", v.name) }
+
+    /** The companion's level the user has already seen celebrated. */
+    var levelSeen: Int
+        get() = prefs.getInt("level_seen", 1)
+        set(v) = edit { putInt("level_seen", v) }
+
+    /** Weeks whose challenge was completed ("2026-W45"), each worth bonus XP. */
+    var challengesDone: Set<String>
+        get() = prefs.getStringSet("challenges_done", emptySet())!!.toSet()
+        set(v) = edit { putStringSet("challenges_done", v) }
+
+    /** All XP: activities plus completed weekly challenges. */
+    fun skillXp(): Map<app.tend.core.Skill, Int> = app.tend.core.Progress.skillXp(daySummaries())
+
+    fun totalXp(): Int = skillXp().values.sum() + challengesDone.size * app.tend.core.Progress.XP_PER_CHALLENGE
+
     /** The Play review sheet was offered (once). */
     var reviewAsked: Boolean
         get() = prefs.getBoolean("review_asked", false)

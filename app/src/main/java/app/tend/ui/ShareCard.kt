@@ -37,6 +37,9 @@ object ShareCard {
         val gotBackMinutes: Int,
         val activeDays: Int,
         val letGo: Int,
+        val world: app.tend.core.World = app.tend.core.World.GARDEN,
+        /** The companion's level, shown next to the name. */
+        val level: Int = 1,
     )
 
     fun playUrl(context: Context) = "https://play.google.com/store/apps/details?id=${context.packageName}"
@@ -77,7 +80,7 @@ object ShareCard {
 
         val name = w.avatar.displayName
         // A small label chip, then the headline: what the week gave back.
-        val label = "${name.uppercase()}'S GARDEN · THIS WEEK"
+        val label = "${name.uppercase()}'S ${w.world.place.uppercase()} · LEVEL ${w.level}"
         paint.typeface = nunitoBold; paint.textSize = 28f; paint.letterSpacing = 0.12f
         val lw = paint.measureText(label)
         paint.color = MINT_SOFT
@@ -88,20 +91,24 @@ object ShareCard {
             text(duration(w.gotBackMinutes), 64f, 340f, 124f, MOSS, fredoka)
             text("from scrolling this week.", 64f, 418f, 54f, INK, fredoka)
         } else {
-            text("We're growing", 64f, 236f, 84f, INK, fredoka)
-            text("a garden.", 64f, 336f, 84f, MOSS, fredoka)
+            text(if (w.world == app.tend.core.World.BASE) "We're building" else "We're growing", 64f, 236f, 84f, INK, fredoka)
+            text("a ${w.world.place}.", 64f, 336f, 84f, MOSS, fredoka)
             text("One small thing at a time.", 64f, 416f, 48f, INK, fredoka)
         }
 
         // The garden, as it is today, in a white frame that lifts off the page.
         val frame = RectF(52f, 456f, W - 52f, 1012f)
         card(frame, 52f)
-        val garden = gardenBitmap(w.avatar, w.plants, w.homeStage, w.worn, (frame.width() - 28).toInt(), (frame.height() - 28).toInt())
+        val garden = gardenBitmap(w.avatar, w.plants, w.homeStage, w.worn, (frame.width() - 28).toInt(), (frame.height() - 28).toInt(), world = w.world)
         c.drawBitmap(garden, frame.left + 14, frame.top + 14, null)
 
         // Three small facts, each its own little card.
         val facts = listOf(
-            "${w.plants.size}" to if (w.plants.size == 1) "plant" else "plants",
+            "${w.plants.size}" to when {
+                w.world == app.tend.core.World.BASE -> if (w.plants.size == 1) "supply" else "supplies"
+                w.plants.size == 1 -> "plant"
+                else -> "plants"
+            },
             "${w.activeDays}" to if (w.activeDays == 1) "active day" else "active days",
             "${w.letGo}" to if (w.letGo == 1) "scroll let go" else "scrolls let go",
         )
@@ -135,13 +142,13 @@ object ShareCard {
         val file = File(dir, "tend-garden.png")
         file.outputStream().use { render(activity, w).compress(Bitmap.CompressFormat.PNG, 100, it) }
         val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.share", file)
-        val line = if (w.gotBackMinutes > 0) "I got back ${duration(w.gotBackMinutes)} from scrolling this week, and ${w.avatar.displayName}'s garden grew."
-            else "${w.avatar.displayName} and I are growing a garden instead of scrolling."
+        val line = if (w.gotBackMinutes > 0) "I got back ${duration(w.gotBackMinutes)} from scrolling this week, and ${w.avatar.displayName}'s ${w.world.place} grew."
+            else "${w.avatar.displayName} and I are building a ${w.world.place} instead of scrolling."
         val send = Intent(Intent.ACTION_SEND).setType("image/png")
             .putExtra(Intent.EXTRA_STREAM, uri)
             .putExtra(Intent.EXTRA_TEXT, "$line\n\ntend: a little pause before you scroll\n${playUrl(activity)}")
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        activity.startActivity(Intent.createChooser(send, "Share your garden"))
+        activity.startActivity(Intent.createChooser(send, "Share your ${w.world.place}"))
     }
 
     private fun drawQr(c: Canvas, url: String, x: Float, y: Float, size: Float, paint: Paint) {

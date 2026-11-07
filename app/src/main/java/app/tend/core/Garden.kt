@@ -5,6 +5,27 @@ import java.time.LocalTime
 /** One plant per day, grown from that day's unused minutes. */
 enum class Plant(val displayName: String) { SPROUT("sprout"), TULIP("tulip"), SUNFLOWER("sunflower") }
 
+/**
+ * Where the unused minutes go: a garden that blooms, or a base camp in the woods that gets built
+ * up (a tent first, then a cabin, then a workshop). Same days, same rules, a different picture.
+ */
+enum class World(val label: String, val place: String) {
+    GARDEN("Garden", "garden"),
+    BASE("Base", "base");
+
+    /** What a night's unused minutes become here. */
+    fun itemName(p: Plant): String = when (this) {
+        GARDEN -> p.displayName
+        BASE -> when (p) { Plant.SPROUT -> "log"; Plant.TULIP -> "log pile"; Plant.SUNFLOWER -> "supply crate" }
+    }
+
+    /** "A new sunflower grows tonight" / "A supply crate arrives tonight". */
+    fun tonight(p: Plant): String = when (this) {
+        GARDEN -> "A new ${p.displayName} grows tonight"
+        BASE -> "A new ${itemName(p)} arrives tonight"
+    }
+}
+
 object Garden {
     fun plantFor(unusedMinutes: Int): Plant? = when {
         unusedMinutes <= 0 -> null

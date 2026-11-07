@@ -109,6 +109,8 @@ fun Onboarding(
     blocked: Set<String>,
     perms: PermissionActions,
     onAvatar: (Avatar) -> Unit,
+    world: app.tend.core.World = app.tend.core.World.GARDEN,
+    onWorld: (app.tend.core.World) -> Unit = {},
     onConfig: (BudgetConfig) -> Unit,
     onToggleApp: (String) -> Unit,
     tasks: List<TaskDef>,
@@ -141,6 +143,8 @@ fun Onboarding(
                 Step.COMPANION -> StepPage(cta = "Continue with ${avatar.displayName}", onCta = next) {
                     Title("Who's keeping you company?", "Same heart, different hair. You can switch later.")
                     CompanionPicker(avatar, onAvatar)
+                    Text("WHAT YOUR SAVED MINUTES BUILD", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
+                    WorldPicker(avatar, world, onWorld)
                 }
 
                 Step.APPS -> StepPage(
@@ -273,6 +277,36 @@ fun CompanionPicker(avatar: Avatar, onAvatar: (Avatar) -> Unit, compact: Boolean
             ) {
                 if (selected) BobbingCharacter(a, Mood.HAPPY, 110.dp) else CharacterView(a, Mood.HAPPY, 110.dp)
                 Text(a.displayName, style = MaterialTheme.typography.titleLarge)
+            }
+        }
+    }
+
+/** Garden or base: two small live scenes, side by side. */
+@Composable
+fun WorldPicker(avatar: Avatar, world: app.tend.core.World, onWorld: (app.tend.core.World) -> Unit) =
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        app.tend.core.World.entries.forEach { w ->
+            val selected = w == world
+            Column(
+                Modifier.weight(1f).clip(RoundedCornerShape(20.dp)).background(if (selected) Brand.Picked else Brand.Card)
+                    .border(if (selected) 2.dp else 1.dp, if (selected) Brand.Moss else Brand.Mint.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
+                    .clickable { onWorld(w) }.padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                // A few weeks in, so the choice shows what it grows into.
+                androidx.compose.runtime.CompositionLocalProvider(LocalWorld provides w, LocalAccessories provides setOf(app.tend.core.Accessory.BUNTING)) {
+                    GardenScene(avatar, listOf(app.tend.core.Plant.TULIP, app.tend.core.Plant.SUNFLOWER, app.tend.core.Plant.TULIP, app.tend.core.Plant.SUNFLOWER), 2, night = false)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) {
+                    Column(Modifier.weight(1f)) {
+                        Text(w.label, style = MaterialTheme.typography.titleMedium, color = if (selected) Brand.Moss else Brand.Ink)
+                        Text(
+                            if (w == app.tend.core.World.BASE) "Tent to cabin" else "Flowers to a tree",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), maxLines = 1,
+                        )
+                    }
+                    if (selected) androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, tint = Brand.Moss, modifier = Modifier.size(18.dp))
+                }
             }
         }
     }

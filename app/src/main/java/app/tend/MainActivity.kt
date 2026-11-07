@@ -120,7 +120,7 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
         setContent {
             TendTheme {
-                androidx.compose.runtime.CompositionLocalProvider(app.tend.ui.LocalAccessories provides shelf.first) {
+                androidx.compose.runtime.CompositionLocalProvider(app.tend.ui.LocalAccessories provides shelf.first, app.tend.ui.LocalWorld provides store.world) {
                     Box(Modifier.fillMaxSize().safeDrawingPadding()) { Content(catalog) }
                 }
             }
@@ -159,6 +159,7 @@ class MainActivity : ComponentActivity() {
             app.tend.ui.ShareCard.Week(
                 store.avatar, store.plants, app.tend.core.Garden.homeStage(store.daysTended), store.accessories().first,
                 gotBackMinutes = week.gotBackMinutes, activeDays = week.days.count { it.tasksDone > 0 }, letGo = week.letGo,
+                world = store.world, level = app.tend.core.Progress.level(store.totalXp()).level,
             ),
         )
     }
@@ -364,6 +365,8 @@ class MainActivity : ComponentActivity() {
                 blocked = store.blockedPackages,
                 perms = permissionActions(),
                 onAvatar = { store.avatar = it; refresh++ },
+                world = store.world,
+                onWorld = { store.world = it; app.tend.widget.Widgets.refresh(this, force = true); refresh++ },
                 onConfig = { store.config = it; refresh++ },
                 onToggleApp = toggleApp,
                 tasks = store.selectedTasks,
@@ -386,6 +389,8 @@ class MainActivity : ComponentActivity() {
                 cfg = store.config,
                 blocked = store.blockedPackages,
                 onAvatar = { store.avatar = it; refresh++ },
+                world = store.world,
+                onWorld = { store.world = it; app.tend.widget.Widgets.refresh(this, force = true); refresh++ },
                 onConfig = { store.config = it; refresh++ },
                 onToggleApp = toggleApp,
                 tasks = store.selectedTasks,
@@ -460,7 +465,11 @@ class MainActivity : ComponentActivity() {
                 onCancel = { TaskSync.stopTimer(this@MainActivity); refresh++ },
             )
 
-            else -> HomeScreen(
+            else -> {
+              // Levels and the weekly challenge: read from the history once per change, not every second.
+              val done = store.today().completedTasks
+              val progress = remember(refresh, done) { homeProgress() }
+              HomeScreen(
                 avatar = store.avatar,
                 cfg = store.config,
                 day = store.today(),
@@ -540,8 +549,33 @@ class MainActivity : ComponentActivity() {
                 onTourDone = { store.tourDone = true; refresh++ },
                 brokenTimer = Tasks.presets.firstOrNull { it.id == store.timerBroken },
                 onDismissBroken = { store.timerBroken = ""; refresh++ },
+                level = progress.level,
+                skills = progress.skills,
+                challenge = progress.challenge,
+                levelUp = progress.level.level.takeIf { it > store.levelSeen && store.tourDone },
+                onLevelUpSeen = { store.levelSeen = progress.level.level; refresh++ },
             )
+            }
         }
+    }
+
+    private class HomeProgress(val level: app.tend.core.Level, val skills: Map<app.tend.core.Skill, app.tend.core.Level>, val challenge: app.tend.core.Challenge)
+
+    /** XP from all activities, the week's challenge (banked once when finished), and the levels. */
+    private fun homeProgress(): HomeProgress {
+        val days = store.daySummaries()
+        val challenge = app.tend.core.Progress.challenge(LocalDate.now(), store.selectedTasks.map { it.id }, days)
+        if (challenge.done && challenge.weekKey !in store.challengesDone) {
+            store.challengesDone = store.challengesDone + challenge.weekKey
+            app.tend.data.Stats.log(this, "challenge_done", mapOf("target" to challenge.target))
+        }
+        val skillXp = app.tend.core.Progress.skillXp(days)
+        val total = skillXp.values.sum() + store.challengesDone.size * app.tend.core.Progress.XP_PER_CHALLENGE
+        return HomeProgress(
+            app.tend.core.Progress.level(total),
+            skillXp.mapValues { app.tend.core.Progress.level(it.value) },
+            challenge,
+        )
     }
 
     private fun permissionActions(): PermissionActions {

@@ -80,10 +80,11 @@ fun GardenScene(
     fill: Boolean = false,
 ) {
     val accessories = LocalAccessories.current
+    val world = LocalWorld.current
     val context = androidx.compose.ui.platform.LocalContext.current
     val isNight = night ?: androidx.compose.runtime.remember { Garden.isNight(app.tend.data.TendStore(context).eveningFrom) }
     Canvas((if (fill) modifier.fillMaxSize() else modifier.fillMaxWidth().aspectRatio(1.3f)).clip(RoundedCornerShape(28.dp))) {
-        drawGarden(avatar, plants, homeStage, mood, preview, accessories, isNight)
+        drawGarden(avatar, plants, homeStage, mood, preview, accessories, isNight, world)
     }
 }
 
@@ -97,36 +98,15 @@ fun DrawScope.drawGarden(
     accessories: Set<Accessory> = emptySet(),
     /** Evening: the same garden at night, with the moon, stars and a lit window. */
     night: Boolean = false,
+    world: app.tend.core.World = app.tend.core.World.GARDEN,
 ) {
+    if (world == app.tend.core.World.BASE) return drawBase(avatar, plants, homeStage, mood, preview, accessories, night)
     val w = size.width
     val h = size.height
     val groundY = h * 0.5f
     val grass = if (night) Color(0xFF3E7A5B) else Brand.Mint
 
-    if (night) { // Night sky, moon, a few stars
-        drawRect(Brush.verticalGradient(listOf(Color(0xFF1C2B47), Color(0xFF2B4A4A)), endY = groundY), size = Size(w, groundY))
-        val moon = Offset(w * 0.12f, h * 0.12f)
-        val r = h * 0.055f
-        drawCircle(Color(0xFFF3EBC8).copy(alpha = 0.12f), r * 1.7f, moon)
-        // A crescent: the disc minus a slightly larger disc shifted up and right.
-        val crescent = Path().apply {
-            op(
-                Path().apply { addOval(androidx.compose.ui.geometry.Rect(moon, r)) },
-                Path().apply { addOval(androidx.compose.ui.geometry.Rect(moon + Offset(r * 0.55f, -r * 0.35f), r * 0.95f)) },
-                androidx.compose.ui.graphics.PathOperation.Difference,
-            )
-        }
-        drawPath(crescent, Color(0xFFF3EBC8))
-        for ((sx, sy, r) in listOf(Triple(0.3f, 0.08f, 1f), Triple(0.45f, 0.18f, 0.7f), Triple(0.58f, 0.06f, 0.9f), Triple(0.72f, 0.14f, 0.6f), Triple(0.9f, 0.07f, 1f), Triple(0.36f, 0.27f, 0.6f)))
-            drawCircle(Color.White.copy(alpha = 0.85f), h * 0.008f * r, Offset(w * sx, h * sy))
-    } else { // Sky, sun, clouds
-        // Daytime stays light in either theme.
-        drawRect(Brush.verticalGradient(listOf(Color(0xFFC3DFEF), Color(0xFFF1F4ED)), endY = groundY), size = Size(w, groundY))
-        drawCircle(Brand.Sunny.copy(alpha = 0.35f), h * 0.085f, Offset(w * 0.12f, h * 0.12f))
-        drawCircle(Brand.Sunny, h * 0.06f, Offset(w * 0.12f, h * 0.12f))
-        cloud(Offset(w * 0.42f, h * 0.1f), h * 0.035f)
-        cloud(Offset(w * 0.78f, h * 0.17f), h * 0.028f)
-    }
+    drawSky(night, groundY)
     drawOval(grass.copy(alpha = 0.55f), Offset(-w * 0.2f, groundY - h * 0.08f), Size(w * 0.9f, h * 0.2f))
     drawRect(grass, topLeft = Offset(0f, groundY), size = Size(w, h - groundY))
 
@@ -247,6 +227,37 @@ fun DrawScope.drawGarden(
     }
 }
 
+
+/** Sky for both worlds: day with sun and clouds, or night with moon and stars. */
+internal fun DrawScope.drawSky(night: Boolean, groundY: Float) {
+    val w = size.width
+    val h = size.height
+    if (night) { // Night sky, moon, a few stars
+        drawRect(Brush.verticalGradient(listOf(Color(0xFF1C2B47), Color(0xFF2B4A4A)), endY = groundY), size = Size(w, groundY))
+        val moon = Offset(w * 0.12f, h * 0.12f)
+        val r = h * 0.055f
+        drawCircle(Color(0xFFF3EBC8).copy(alpha = 0.12f), r * 1.7f, moon)
+        // A crescent: the disc minus a slightly larger disc shifted up and right.
+        val crescent = Path().apply {
+            op(
+                Path().apply { addOval(androidx.compose.ui.geometry.Rect(moon, r)) },
+                Path().apply { addOval(androidx.compose.ui.geometry.Rect(moon + Offset(r * 0.55f, -r * 0.35f), r * 0.95f)) },
+                androidx.compose.ui.graphics.PathOperation.Difference,
+            )
+        }
+        drawPath(crescent, Color(0xFFF3EBC8))
+        for ((sx, sy, r) in listOf(Triple(0.3f, 0.08f, 1f), Triple(0.45f, 0.18f, 0.7f), Triple(0.58f, 0.06f, 0.9f), Triple(0.72f, 0.14f, 0.6f), Triple(0.9f, 0.07f, 1f), Triple(0.36f, 0.27f, 0.6f)))
+            drawCircle(Color.White.copy(alpha = 0.85f), h * 0.008f * r, Offset(w * sx, h * sy))
+    } else { // Sky, sun, clouds
+        // Daytime stays light in either theme.
+        drawRect(Brush.verticalGradient(listOf(Color(0xFFC3DFEF), Color(0xFFF1F4ED)), endY = groundY), size = Size(w, groundY))
+        drawCircle(Brand.Sunny.copy(alpha = 0.35f), h * 0.085f, Offset(w * 0.12f, h * 0.12f))
+        drawCircle(Brand.Sunny, h * 0.06f, Offset(w * 0.12f, h * 0.12f))
+        cloud(Offset(w * 0.42f, h * 0.1f), h * 0.035f)
+        cloud(Offset(w * 0.78f, h * 0.17f), h * 0.028f)
+    }
+}
+
 private fun DrawScope.cloud(c: Offset, r: Float) {
     val white = Color.White.copy(alpha = 0.9f)
     drawCircle(white, r, c)
@@ -255,14 +266,17 @@ private fun DrawScope.cloud(c: Offset, r: Float) {
 }
 
 /** The garden as a bitmap with rounded corners, for the home screen widget. */
-fun gardenBitmap(avatar: Avatar, plants: List<Plant>, homeStage: Int, accessories: Set<Accessory>, widthPx: Int, heightPx: Int, night: Boolean = false): android.graphics.Bitmap {
+fun gardenBitmap(
+    avatar: Avatar, plants: List<Plant>, homeStage: Int, accessories: Set<Accessory>, widthPx: Int, heightPx: Int, night: Boolean = false,
+    world: app.tend.core.World = app.tend.core.World.GARDEN,
+): android.graphics.Bitmap {
     val image = androidx.compose.ui.graphics.ImageBitmap(widthPx, heightPx)
     val canvas = androidx.compose.ui.graphics.Canvas(image)
     val size = Size(widthPx.toFloat(), heightPx.toFloat())
     canvas.clipPath(Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(androidx.compose.ui.geometry.Rect(Offset.Zero, size), CornerRadius(widthPx * 0.16f))) })
     androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(
         androidx.compose.ui.unit.Density(1f), androidx.compose.ui.unit.LayoutDirection.Ltr, canvas, size,
-    ) { drawGarden(avatar, plants, homeStage, accessories = accessories, night = night) }
+    ) { drawGarden(avatar, plants, homeStage, accessories = accessories, night = night, world = world) }
     return image.asAndroidBitmap()
 }
 
@@ -302,9 +316,13 @@ fun DrawScope.drawPlant(plant: Plant, base: Offset, s: Float) {
 }
 
 @Composable
-fun PlantIcon(plant: Plant, size: androidx.compose.ui.unit.Dp) = Canvas(Modifier.size(size)) {
-    drawPlant(plant, Offset(this.size.width / 2, this.size.height * 0.95f), this.size.height * 0.85f)
+fun PlantIcon(plant: Plant, size: androidx.compose.ui.unit.Dp) {
+    val world = LocalWorld.current
+    Canvas(Modifier.size(size)) { drawItem(world, plant, Offset(this.size.width / 2, this.size.height * 0.95f), this.size.height * 0.85f) }
 }
+
+/** Garden or base, for every scene below it. */
+val LocalWorld = androidx.compose.runtime.staticCompositionLocalOf { app.tend.core.World.GARDEN }
 
 @Composable
 fun GardenScreen(
@@ -327,7 +345,7 @@ fun GardenScreen(
     Row(verticalAlignment = Alignment.CenterVertically) {
         IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, "Back", onBack)
         Spacer(Modifier.width(Space.m))
-        Text("${avatar.displayName}'s garden & week", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+        Text("${avatar.displayName}'s ${LocalWorld.current.place} & week", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
         IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Share, "Share your garden", onShare)
         Spacer(Modifier.width(Space.s))
         IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Settings, "Settings", onOpenSettings)
@@ -439,7 +457,7 @@ private fun ThingTile(a: Accessory, worn: Set<Accessory>, onShelf: Set<Accessory
             maxLines = 1, textAlign = TextAlign.Center, color = if (a in worn) Brand.Ink else Brand.Muted, modifier = Modifier.padding(top = 4.dp),
         )
         Text(
-            when (a) { in worn -> if (a.garden) "In the garden" else "Wearing it"; in onShelf -> "On the shelf"; else -> a.short },
+            when (a) { in worn -> if (a.garden) "At the ${LocalWorld.current.place}" else "Wearing it"; in onShelf -> "On the shelf"; else -> a.short },
             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp), textAlign = TextAlign.Center,
         )
     }
@@ -507,7 +525,7 @@ fun RecapScreen(
         style = MaterialTheme.typography.headlineLarge,
     )
     Text(
-        recap.tonightsPlant?.let { "Minutes you could have scrolled, and didn't. A new ${it.displayName} grows tonight." }
+        recap.tonightsPlant?.let { "Minutes you could have scrolled, and didn't. ${LocalWorld.current.tonight(it)}." }
             ?: "That happens. No plant tonight, and tomorrow's a fresh start.",
         style = MaterialTheme.typography.bodyLarge, color = Brand.Muted,
     )

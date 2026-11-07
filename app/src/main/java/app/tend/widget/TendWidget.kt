@@ -86,7 +86,7 @@ object Widgets {
         if (garden.isNotEmpty()) manager.updateAppWidget(garden, RemoteViews(context.packageName, R.layout.widget_garden).apply {
             setImageViewBitmap(R.id.garden, gardenBitmap(
                 store.avatar, plants, Garden.homeStage(store.daysTended), worn, 440, 440,
-                night = night,
+                night = night, world = store.world,
             ))
             setTextViewText(R.id.minutes, minutes)
             setOnClickPendingIntent(R.id.root, open)

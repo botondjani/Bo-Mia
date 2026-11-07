@@ -38,6 +38,8 @@ fun SettingsScreen(
     cfg: BudgetConfig,
     blocked: Set<String>,
     onAvatar: (Avatar) -> Unit,
+    world: app.tend.core.World = app.tend.core.World.GARDEN,
+    onWorld: (app.tend.core.World) -> Unit = {},
     onConfig: (BudgetConfig) -> Unit,
     onToggleApp: (String) -> Unit,
     tasks: List<TaskDef>,
@@ -87,6 +89,7 @@ fun SettingsScreen(
     }
     Text("COMPANION", style = MaterialTheme.typography.labelSmall)
     CompanionPicker(avatar, onAvatar, compact = true)
+    WorldPicker(avatar, world, onWorld)
     Text("APPS TO PAUSE", style = MaterialTheme.typography.labelSmall)
     AppPicker(catalog, blocked, onToggleApp)
     Text("INSTEAD OF SCROLLING", style = MaterialTheme.typography.labelSmall)
