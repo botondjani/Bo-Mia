@@ -133,6 +133,9 @@ fun DrawScope.drawClearing(
     }, Brush.verticalGradient(listOf(Color(0xFF9DB874), Meadow, MeadowDeep), startY = horizon, endY = h))
     drawOval(Brush.radialGradient(listOf(Color(0x40F7E7A8), Color.Transparent), center = Offset(w * 0.66f, h * 0.78f), radius = w * 0.35f), Offset(w * 0.3f, h * 0.55f), Size(w * 0.72f, h * 0.45f))
 
+    // Smaller trees and bushes along the meadow's far edge, hazier the smaller (and farther) they are.
+    distantTrees(horizon)
+
     // The river, winding out of the forest on the left and widening towards us.
     val river = Path().apply {
         moveTo(0f, h * 0.6f)
@@ -163,6 +166,10 @@ fun DrawScope.drawClearing(
     pine(Offset(w * 0.69f, h * 0.57f), h * 0.34f)
     birch(Offset(w * 0.88f, h * 0.73f), h * 0.5f)
     broadleaf(Offset(w * 0.975f, h * 0.76f), h * 0.56f)
+
+    // Bushes at the feet of the trees.
+    for ((x, y, r) in listOf(Triple(0.395f, 0.605f, 0.024f), Triple(0.655f, 0.585f, 0.02f), Triple(0.855f, 0.635f, 0.024f), Triple(0.94f, 0.665f, 0.028f)))
+        bush(Offset(w * x, h * y), h * r)
 
     // The bridge built together with friends, over the narrow part of the river.
     if (bridge) bridge(Offset(w * 0.13f, h * 0.578f), Offset(w * 0.35f, h * 0.62f), u, night, lights)
@@ -497,6 +504,54 @@ private fun DrawScope.rubberDuck(p: Offset, u: Float) {
     drawCircle(Color.White.copy(alpha = 0.5f), s * 0.12f, head + Offset(s * 0.12f, -s * 0.2f)) // shine
     drawPath(Path().apply { moveTo(head.x - s * 0.35f, head.y - s * 0.02f); lineTo(head.x - s * 0.85f, head.y + s * 0.08f); lineTo(head.x - s * 0.35f, head.y + s * 0.22f); close() }, Color(0xFFF07F2B))
     drawCircle(Color(0xFF1D2A23), s * 0.07f, head + Offset(-s * 0.12f, -s * 0.1f))
+}
+
+/** A row of small trees at the meadow's far edge: little pines and round trees, blended into the haze. */
+private fun DrawScope.distantTrees(horizon: Float) {
+    val w = size.width
+    val h = size.height
+    // (x, height, round?) — bases sit on the meadow's edge, a little lower the closer they are.
+    val trees = listOf(
+        Triple(0.34f, 0.07f, false), Triple(0.37f, 0.1f, false), Triple(0.395f, 0.06f, true), Triple(0.48f, 0.08f, true),
+        Triple(0.5f, 0.12f, false), Triple(0.53f, 0.07f, false), Triple(0.565f, 0.09f, true), Triple(0.6f, 0.06f, false),
+        Triple(0.645f, 0.11f, false), Triple(0.72f, 0.075f, true), Triple(0.745f, 0.1f, false), Triple(0.775f, 0.065f, false),
+        Triple(0.82f, 0.12f, false), Triple(0.85f, 0.07f, true), Triple(0.9f, 0.09f, false), Triple(0.93f, 0.06f, true),
+    )
+    for ((x, th, round) in trees.sortedBy { it.second }) {
+        val haze = (0.12f - th) / 0.06f * 0.5f + 0.25f // smaller: more haze
+        val base = Offset(w * x, horizon + h * (0.012f + th * 0.12f))
+        val height = h * th
+        val dark = androidx.compose.ui.graphics.lerp(PineMid, Haze2, haze.coerceIn(0f, 0.85f))
+        val lit = androidx.compose.ui.graphics.lerp(PineLit, Haze1, haze.coerceIn(0f, 0.85f))
+        if (round) {
+            drawRect(androidx.compose.ui.graphics.lerp(Bark, Haze2, 0.5f), Offset(base.x - height * 0.03f, base.y - height * 0.5f), Size(height * 0.06f, height * 0.5f))
+            drawCircle(dark, height * 0.34f, Offset(base.x, base.y - height * 0.62f))
+            drawCircle(dark, height * 0.26f, Offset(base.x + height * 0.2f, base.y - height * 0.48f))
+            drawCircle(lit, height * 0.22f, Offset(base.x - height * 0.12f, base.y - height * 0.72f))
+        } else {
+            for (i in 0 until 3) {
+                val y = base.y - height * (0.15f + 0.28f * i)
+                val half = height * (0.24f - 0.06f * i)
+                drawPath(Path().apply { moveTo(base.x, y - height * 0.4f); lineTo(base.x - half, y); lineTo(base.x + half, y); close() }, dark)
+                drawPath(Path().apply { moveTo(base.x, y - height * 0.4f); lineTo(base.x - half, y); lineTo(base.x - half * 0.2f, y); close() }, lit)
+            }
+        }
+    }
+    // Low bushes along the edge, between the trees.
+    for ((x, r) in listOf(0.33f to 0.018f, 0.43f to 0.02f, 0.58f to 0.016f, 0.69f to 0.02f, 0.8f to 0.017f, 0.96f to 0.02f))
+        bush(Offset(w * x, horizon + h * 0.03f), h * r, haze = 0.45f)
+}
+
+/** A round bush: a few overlapping clumps, lit from the left. */
+private fun DrawScope.bush(base: Offset, r: Float, haze: Float = 0f) {
+    val dark = androidx.compose.ui.graphics.lerp(LeafMid, Haze2, haze)
+    val mid = androidx.compose.ui.graphics.lerp(androidx.compose.ui.graphics.lerp(LeafMid, LeafLit, 0.35f), Haze2, haze)
+    val lit = androidx.compose.ui.graphics.lerp(LeafLit, Haze1, haze)
+    if (haze == 0f) drawOval(Color.Black.copy(alpha = 0.08f), Offset(base.x - r * 1.5f, base.y - r * 0.2f), Size(r * 3f, r * 0.5f))
+    drawCircle(dark, r * 0.9f, Offset(base.x + r * 0.7f, base.y - r * 0.6f))
+    drawCircle(mid, r, Offset(base.x - r * 0.5f, base.y - r * 0.7f))
+    drawCircle(mid, r * 1.05f, Offset(base.x + r * 0.15f, base.y - r * 1.05f))
+    drawCircle(lit, r * 0.5f, Offset(base.x - r * 0.45f, base.y - r * 1.15f))
 }
 
 private fun DrawScope.foreground(w: Float, h: Float) {

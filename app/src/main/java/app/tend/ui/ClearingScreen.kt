@@ -96,6 +96,7 @@ fun ClearingScreen(
     val paperLeft by androidx.compose.animation.core.animateFloatAsState(if (paper) 1f else 0f, androidx.compose.animation.core.tween(1400), label = "paper")
     val ducksNow by androidx.compose.runtime.rememberUpdatedState(ducks)
     val paperNow by androidx.compose.runtime.rememberUpdatedState(paper)
+    val bridgeNow by androidx.compose.runtime.rememberUpdatedState(bridge)
     var caught by remember { mutableStateOf<String?>(null) }
 
     // The camp. Tapping it shows the spots; tapping a spot opens the shop for it.
@@ -114,6 +115,8 @@ fun ClearingScreen(
                             return@detectTapGestures
                         }
                         if (paperNow && fx > PAPER_LEFT && fy < PAPER_BOTTOM) { onUnroll(); caught = "All clean again."; return@detectTapGestures }
+                        // The bridge leads to friends' camps along the river.
+                        if (bridgeNow && fx in 0.1f..0.37f && fy in 0.5f..0.64f) { onOpenRiver(null); return@detectTapGestures }
                     }
                     val spot = spotAt(Offset(tap.x / size.width, tap.y / size.height), size.width / size.height.toFloat())
                     if (!editing) editing = true
@@ -130,6 +133,7 @@ fun ClearingScreen(
                 paper -> "Someone toilet-papered your oak! Tap it to unroll."
                 ducks.isNotEmpty() -> "A rubber duck: someone visited. Tap it to fish it out."
                 caught != null -> caught!!
+                bridge -> "Cross the bridge to visit your friends' camps."
                 else -> "Earn acorns by living; spend them here."
             },
             style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f),
@@ -185,7 +189,7 @@ fun AcornIcon(size: Dp) = Canvas(Modifier.size(size)) {
 private fun NextThing(acorns: Int, placed: Map<Int, String>) {
     val owned = placed.values.toSet()
     val next = Things.all.filter { it.id !in owned && it.price > acorns }.minByOrNull { it.price } ?: return
-    val canToday = Things.all.filter { it.price <= acorns }.maxByOrNull { it.price }
+    val canToday = Things.all.filter { it.id !in owned && it.price <= acorns }.maxByOrNull { it.price }
     Row(Modifier.fillMaxWidth().surface(radius = 22.dp).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)).background(Brand.Sage), contentAlignment = Alignment.Center) {
             Canvas(Modifier.size(48.dp)) { drawThingIcon(next.id) }
