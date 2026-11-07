@@ -144,6 +144,93 @@ class TendStore(private val context: Context) {
             ?: if (avatar == Avatar.BO) app.tend.core.World.BASE else app.tend.core.World.GARDEN
         set(v) = edit { putString("world", v.name) }
 
+    // ---- The clearing: acorns and things ----
+
+    /** Acorns to spend. New users start with a few; old plants and logs are turned into acorns once. */
+    val acorns: Int
+        get() {
+            if (!prefs.contains("acorns")) {
+                val old = prefs.getString("plants", "")!!.split(',').filter { it.isNotEmpty() }
+                    .mapNotNull { runCatching { Plant.valueOf(it) }.getOrNull() }
+                prefs.edit().putInt("acorns", app.tend.core.Clearing.STARTING_ACORNS + app.tend.core.Clearing.acornsFor(old)).apply()
+            }
+            return prefs.getInt("acorns", 0)
+        }
+
+    /** Adds (or takes back) acorns and notes why, for "today you earned". */
+    @Synchronized
+    fun addAcorns(amount: Int, why: String, on: LocalDate = LocalDate.now(), refreshWidgets: Boolean = true) {
+        val now = acorns
+        if (refreshWidgets) edit { putInt("acorns", (now + amount).coerceAtLeast(0)) }
+        else prefs.edit().putInt("acorns", (now + amount).coerceAtLeast(0)).apply()
+        append("acorns.csv", "$on,$why,$amount")
+    }
+
+    /** Acorns earned today, by source ("activities", "not_now", ...); buying and selling aren't counted. */
+    fun acornsToday(): Map<String, Int> = lines("acorns.csv").mapNotNull { line ->
+        val p = line.split(',')
+        if (p.size == 3 && p[0] == LocalDate.now().toString() && p[1] != "spent" && p[1] != "sold") p[1] to (p[2].toIntOrNull() ?: 0) else null
+    }.groupBy({ it.first }, { it.second }).mapValues { it.value.sum() }
+
+    /** What stands where: spot id to thing id. */
+    var placed: Map<Int, String>
+        get() = app.tend.core.Clearing.parse(prefs.getString("placed", "")!!)
+        set(v) = edit { putString("placed", app.tend.core.Clearing.format(v)) }
+
+    /** Buys [thingId] for [spotId]; a thing already there is sold first. False when it doesn't fit or isn't affordable. */
+    @Synchronized
+    fun buy(spotId: Int, thingId: String): Boolean {
+        val spot = app.tend.core.Clearing.spot(spotId) ?: return false
+        val thing = app.tend.core.Things.byId(thingId) ?: return false
+        if (thing.kind != spot.kind) return false
+        val refund = placed[spotId]?.let(app.tend.core.Things::byId)?.let(app.tend.core.Clearing::sellValue) ?: 0
+        if (acorns + refund < thing.price) return false
+        if (refund > 0) addAcorns(refund, "sold")
+        addAcorns(-thing.price, "spent")
+        placed = placed + (spotId to thingId)
+        return true
+    }
+
+    /** Sells what stands on [spotId] for half its price. */
+    @Synchronized
+    fun sell(spotId: Int) {
+        val thing = placed[spotId]?.let(app.tend.core.Things::byId) ?: return
+        addAcorns(app.tend.core.Clearing.sellValue(thing), "sold")
+        placed = placed - spotId
+    }
+
+    /** Your normal: minutes a day in the picked apps before tend; null until known. */
+    var normalMinutes: Int?
+        get() = prefs.getInt("normal_min", -1).takeIf { it >= 0 }
+        set(v) = edit { putInt("normal_min", v ?: -1) }
+
+    /**
+     * Learns your normal once from the phone's own usage stats: the picked apps' daily average in
+     * the 14 days before tend. Without usage access (or with no data) it tries again next time; if
+     * it never works, the first week with tend becomes the normal (see [closeDayAcorns]).
+     */
+    fun learnNormal() {
+        if (normalMinutes != null || blockedPackages.isEmpty()) return
+        val until = onboardedAt.takeIf { it > 0 } ?: System.currentTimeMillis()
+        val from = until - 14 * 86_400_000L
+        val stats = runCatching {
+            context.getSystemService(android.app.usage.UsageStatsManager::class.java).queryAndAggregateUsageStats(from, until)
+        }.getOrNull()
+        if (stats.isNullOrEmpty()) return
+        normalMinutes = (blockedPackages.sumOf { stats[it]?.totalTimeInForeground ?: 0L } / 60_000L / 14).toInt()
+    }
+
+    /** At day close: within the budget, and below your normal (or, without one, a first week's average). */
+    private fun closeDayAcorns(d: DayState) {
+        val used = ((d.usedSeconds + 59) / 60).toInt()
+        val available = Budget.remainingMinutes(config, d) + used
+        // Plain writes here: refreshing the widgets would read today() again before the new day is saved.
+        val normal = normalMinutes ?: app.tend.core.Acorns.normalFrom(lines("history.csv").mapNotNull { it.split(',').getOrNull(1)?.toIntOrNull() })
+            ?.also { prefs.edit().putInt("normal_min", it).apply() }
+        val earned = app.tend.core.Acorns.atDayClose(used, available, normal)
+        if (earned > 0) addAcorns(earned, "day", on = d.date, refreshWidgets = false)
+    }
+
     /** The companion's level the user has already seen celebrated. */
     var levelSeen: Int
         get() = prefs.getInt("level_seen", 1)
@@ -241,6 +328,7 @@ class TendStore(private val context: Context) {
         val fresh = DayState(now)
         val plant = stored?.let { Garden.plantFor(Budget.gardenMinutesAtClose(config, it)) }
         val plants = prefs.getString("plants", "")!!
+        stored?.let { d -> closeDayAcorns(d) }
         stored?.let { d -> summary(d).let { Stats.log(context, "day_closed", mapOf("used_min" to it.usedMinutes, "unused_min" to it.unusedMinutes, "tasks" to it.tasksDone)); append("history.csv", "${it.date},${it.usedMinutes},${it.unusedMinutes},${it.tasksDone},${it.done.joinToString(";")}") } }
         writeDay(fresh) {
             if (plant != null) putString("plants", if (plants.isEmpty()) plant.name else "$plants,${plant.name}")
@@ -254,6 +342,9 @@ class TendStore(private val context: Context) {
         val before = today()
         return change(before).also { after ->
             writeDay(after)
+            // Acorns follow today's activities (an undo takes them back), up to the daily cap.
+            val delta = app.tend.core.Acorns.forActivities(after.completedTasks.size) - app.tend.core.Acorns.forActivities(before.completedTasks.size)
+            if (delta != 0) addAcorns(delta, "activities")
             (after.completedTasks - before.completedTasks).forEach { id ->
                 Stats.log(context, "activity_done", mapOf("task" to if (id.startsWith("custom:")) "custom" else id))
             }
@@ -306,6 +397,13 @@ class TendStore(private val context: Context) {
     /** Answers to "What are you looking for?" and "Worth it?" — source of the weekly patterns. */
     fun logAnswer(kind: String, pkg: String, answer: String, sessionSeconds: Long = 0) {
         Stats.log(context, kind, mapOf((if (kind == "pause") "outcome" else "answer") to answer))
+        if (kind == "pause" && answer == "not_now") {
+            val today = LocalDate.now().toString()
+            val n = if (prefs.getString("not_now_day", "") == today) prefs.getInt("not_now_count", 0) else 0
+            edit { putString("not_now_day", today); putInt("not_now_count", n + 1) }
+            val delta = app.tend.core.Acorns.forNotNows(n + 1) - app.tend.core.Acorns.forNotNows(n)
+            if (delta > 0) addAcorns(delta, "not_now")
+        }
         append("answers.csv", "${LocalDateTime.now()},$kind,$pkg,$answer,$sessionSeconds")
     }
 

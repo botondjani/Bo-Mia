@@ -7,18 +7,33 @@ are spent on things for it. Friends' clearings sit next to yours along the river
 
 - The clearing replaces the garden and the base. Their pieces become things you can buy.
 - Fixed spots: about 10 places (bank, water, under the trees, fire pit); you pick what goes where.
-- Sign-in: Google only, and only when you want friends or a backup. The app works fully without it.
+- Sign-in: "Continue with Google", and a small "Log in with email instead" (6-digit code by e-mail,
+  no password). Only when you want friends or a backup; the app works fully without it. E-mail needs
+  our own sender (Supabase's built-in one allows only a few mails an hour), e.g. Resend with a domain.
 - No chat, no free text between people, no public leaderboard.
 
 ## Economy
 
-- Currency: **saved minutes**. Every night, the day's unused minutes go into your wallet
-  (the same number that grew a plant until now). Weekly challenge: +60. Level up: +30.
-- Prices: first thing on day one (flowers 15), weekly goals (hammock 120, grill 200),
-  long goals (boat 600, dock 900, cabin 1500). Typical day: 20 to 40 saved.
-- Things can be moved between spots any time; selling gives half back.
-- Existing users: plants or logs collected so far become a starting balance
-  (15 / 25 / 40 per night by size). Accessories worn by Bo stay as they are (earned, not bought).
+- Currency: **acorns**. Earned for what you do and for doing better than your own normal, never
+  for the size of your budget (a 4-hour budget must not earn more than a 2-hour one).
+
+| Source | Acorns | Cap per day |
+| - | - | - |
+| An activity done | +10 | 50 |
+| "Not now" on a pause | +2 | 10 |
+| Stayed within your budget (at day close) | +10 | 10 |
+| Below your own normal (at day close) | +1 per 10 min | 20 |
+| Weekly challenge done | +60 | |
+| Level up | +30 | |
+
+- Your normal: average daily minutes in the picked apps in the 14 days before tend (from usage
+  stats); without that data, the first 7 days with tend.
+- A good day is about 40 to 50, a weak one about 15. New users start with 25.
+- Prices so something is in reach every day: small things 10 to 15 (always buyable, about 20 small
+  spots), medium 40 to 90, big 150 to 300, long goals 500 to 900. The shop shows how many acorns
+  are missing for the next thing.
+- Existing users: plants and logs so far become acorns (15 / 25 / 40 per night by size).
+- Selling gives half back.
 
 ## Things (first set, about 18)
 
@@ -65,9 +80,12 @@ Bo uses them: sits on the bench, naps in the hammock (evening), stands at the gr
 Each phase ends with: unit tests, renders of every touched screen (large font, light and dark),
 lint and tests on both flavors, a sideload APK to try on the phone.
 
-1. **Clearing (offline).** Wallet, inventory, spots, prices, migration; the riverside scene and the
-   things; shop and placing UI; Bo using things; home, world page, recap, widget, share card,
-   intro and notes switched to the clearing. Then delete what's left of the garden and the base.
+1. **Clearing (offline)**, in small steps, each verified and committed:
+   - 1a. Acorns, the catalogue of things, spots, placement, your normal, migration (logic and tests).
+   - 1b. The riverside scene and the things, drawn (renders).
+   - 1c. Shop and placing UI, acorns on home.
+   - 1d. Home, recap, widget, share card, intro and notes switched to the clearing; garden and base
+     code deleted.
 2. **Account.** Google sign-in, profile, backup and restore, account deletion, privacy updates.
    Needs from you first: a Google Cloud OAuth client (Android with the upload and Play signing
    SHA-1s, plus a Web client) and the Google provider switched on in Supabase.

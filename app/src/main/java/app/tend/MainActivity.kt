@@ -289,7 +289,10 @@ class MainActivity : ComponentActivity() {
         app.tend.data.Stats.flush(this)
         refresh++
         // Usage access is enough to count minutes; without the overlay the monitor nudges by notification.
-        if (store.onboarded && permissions().usageAccess) MonitorService.start(this)
+        if (store.onboarded && permissions().usageAccess) {
+            MonitorService.start(this)
+            store.learnNormal()
+        }
     }
 
     override fun onStop() {
@@ -551,7 +554,11 @@ class MainActivity : ComponentActivity() {
                 skills = progress.skills,
                 challenge = progress.challenge,
                 levelUp = progress.level.level.takeIf { it > store.levelSeen && store.tourDone },
-                onLevelUpSeen = { store.levelSeen = progress.level.level; refresh++ },
+                onLevelUpSeen = {
+                    store.addAcorns(app.tend.core.Acorns.LEVEL_UP * (progress.level.level - store.levelSeen).coerceAtLeast(0), "level")
+                    store.levelSeen = progress.level.level
+                    refresh++
+                },
             )
             }
         }
@@ -565,6 +572,7 @@ class MainActivity : ComponentActivity() {
         val challenge = app.tend.core.Progress.challenge(LocalDate.now(), store.selectedTasks.map { it.id }, days)
         if (challenge.done && challenge.weekKey !in store.challengesDone) {
             store.challengesDone = store.challengesDone + challenge.weekKey
+            store.addAcorns(app.tend.core.Acorns.CHALLENGE, "challenge")
             app.tend.data.Stats.log(this, "challenge_done", mapOf("target" to challenge.target))
         }
         val skillXp = app.tend.core.Progress.skillXp(days)
