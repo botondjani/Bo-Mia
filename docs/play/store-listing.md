@@ -7,9 +7,11 @@ Everything to paste into Play Console, in the order Play asks for it.
 Most screen-time apps sell restriction ("block apps", "limit social media") and compete in Productivity / Tools for the same few keywords. tend is positioned as a **cozy habit pet**: a companion you care for by living well (walks, sleep, reading, friends), where less scrolling is the reward, not the punishment. That puts it next to self-care and habit apps, a different shelf and a different set of searches, and it still catches the screen-time ones through the description.
 
 - **Primary promise:** "Care for Bo by caring for yourself."
+- **Two looks, one app:** Bo builds a base camp (levels, a weekly challenge, tent → cabin → workshop); Mia grows a garden. Either can be switched in settings.
 - **Shelf:** Health & Fitness (self-care, habits, wellbeing), not Productivity.
 - **Keyword clusters** (woven into title, short and full description, not stuffed):
   - Companion / cozy: habit pet, virtual pet, cozy, self care, wellbeing, cute
+  - Progress: level up, habit RPG, XP, weekly challenge, self improvement
   - Habits: habit tracker, daily goals, walk, steps, sleep goal, reading timer, focus timer
   - The problem, in people's words: doomscrolling, phone addiction, social media detox, dopamine detox, touch grass
   - The classic ones: screen time, app limits, digital wellbeing
@@ -35,16 +37,18 @@ A cozy habit pet: walk, sleep, read, and earn your screen time back.
 ```
 Meet Bo, a little habit pet who grows when you live your real day.
 
-Go for a walk, sleep well, read, learn, meet friends, cook, or add your own habits. Every one you do makes Bo happy, grows your garden, and earns back screen time. Scroll less without trying harder: tend makes the offline part the fun part.
+Go for a walk, sleep well, read, learn, meet friends, cook, or add your own habits. Every one you do makes Bo happy, levels you up, and earns back screen time. Scroll less without trying harder: tend makes the offline part the fun part.
 
 CARE FOR BO BY CARING FOR YOURSELF
 • Daily goals you pick: steps, workouts, sleep, reading, learning, friends, hobbies, tidying, cooking, or your own
 • Walks, workouts and sleep count by themselves with Health Connect (great with a smartwatch)
 • Focus timers and phone-free timers for everything else
-• Bo earns little things for good habits: a lucky leaf, a sun hat, a nightcap. The garden gets bunting, a birdhouse and lanterns
+• Level up Body, Mind and Rest: every activity is XP
+• A weekly challenge picked from your habits, with bonus XP
+• Bo earns little things for good habits: a lucky leaf, a sun hat, a nightcap
 
-A GARDEN THAT GROWS WITH YOU
-Minutes you don't scroll become a plant every night. Week by week, Bo's home grows too. Share your garden with friends.
+BUILD A BASE, OR GROW A GARDEN
+Minutes you don't scroll become something every night. Build a base camp in the woods, from a tent to a log cabin and a workshop, or grow a garden with flowers, a bench and a tree of your own. Share it with friends.
 
 A KIND PAUSE, NOT A BLOCK
 When you open TikTok, Instagram or another app you picked, Bo pops up for a breath. Often that's all it takes to stop doomscrolling. Still want in? Take a quick look, or open it for 5 or 15 minutes; Bo checks in when the time is up. No guilt, no shame.

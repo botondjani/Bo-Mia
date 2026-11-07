@@ -16,8 +16,16 @@ enum class World(val label: String, val place: String) {
     /** What a night's unused minutes become here. */
     fun itemName(p: Plant): String = when (this) {
         GARDEN -> p.displayName
-        BASE -> when (p) { Plant.SPROUT -> "log"; Plant.TULIP -> "log pile"; Plant.SUNFLOWER -> "supply crate" }
+        BASE -> when (p) { Plant.SPROUT -> "log"; Plant.TULIP -> "log pile"; Plant.SUNFLOWER -> "crate" }
     }
+
+    /** The garden things have their own look at the base: pennants, a bike, string lights. */
+    fun title(a: Accessory): String = if (this == BASE) when (a) {
+        Accessory.BUNTING -> "Pennants"
+        Accessory.BIRDHOUSE -> "Bike"
+        Accessory.LANTERNS -> "String lights"
+        else -> a.title
+    } else a.title
 
     /** "A new sunflower grows tonight" / "A supply crate arrives tonight". */
     fun tonight(p: Plant): String = when (this) {

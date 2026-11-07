@@ -135,9 +135,13 @@ class TendStore(private val context: Context) {
         edit { putString("notes_day", LocalDate.now().toString()); putInt("notes_count", n) }
     }
 
-    /** Garden or base: what the unused minutes build. */
+    /**
+     * Garden or base: what the unused minutes build. Until it's picked in settings it follows the
+     * companion: Bo builds a base, Mia grows a garden.
+     */
     var world: app.tend.core.World
-        get() = runCatching { app.tend.core.World.valueOf(prefs.getString("world", "GARDEN")!!) }.getOrDefault(app.tend.core.World.GARDEN)
+        get() = prefs.getString("world", null)?.let { runCatching { app.tend.core.World.valueOf(it) }.getOrNull() }
+            ?: if (avatar == Avatar.BO) app.tend.core.World.BASE else app.tend.core.World.GARDEN
         set(v) = edit { putString("world", v.name) }
 
     /** The companion's level the user has already seen celebrated. */

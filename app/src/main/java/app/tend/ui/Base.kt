@@ -212,6 +212,22 @@ private fun DrawScope.bike(c: Offset, r: Float) {
     drawLine(wheel, seat + Offset(-r * 0.25f, -r * 0.1f), seat + Offset(r * 0.25f, -r * 0.1f), strokeWidth = r * 0.2f, cap = StrokeCap.Round)
 }
 
+/** Icon for a base thing (pennants or the bike) in a [s]-sized square; false for the rest. */
+fun DrawScope.baseThingIcon(a: Accessory): Boolean {
+    val s = size.minDimension
+    val c = Offset(size.width / 2, size.height / 2)
+    when (a) {
+        Accessory.BIRDHOUSE -> bike(c + Offset(0f, s * 0.12f), s * 0.2f)
+        Accessory.BUNTING -> {
+            drawRect(WoodDark, Offset(c.x - s * 0.22f, c.y - s * 0.32f), Size(s * 0.05f, s * 0.64f))
+            drawPath(Path().apply { moveTo(c.x - s * 0.17f, c.y - s * 0.32f); lineTo(c.x + s * 0.28f, c.y - s * 0.2f); lineTo(c.x - s * 0.17f, c.y - s * 0.08f); close() }, Brand.Coral)
+            drawPath(Path().apply { moveTo(c.x - s * 0.17f, c.y - s * 0.04f); lineTo(c.x + s * 0.16f, c.y + s * 0.06f); lineTo(c.x - s * 0.17f, c.y + s * 0.16f); close() }, Brand.Sunny)
+        }
+        else -> return false
+    }
+    return true
+}
+
 /** One night's supplies: a log, a log pile or a crate, standing at [base]; [s] is its size. */
 fun DrawScope.supply(item: Plant, base: Offset, s: Float) {
     fun log(c: Offset, len: Float) {

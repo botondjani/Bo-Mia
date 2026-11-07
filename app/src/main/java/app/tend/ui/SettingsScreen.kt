@@ -89,6 +89,7 @@ fun SettingsScreen(
     }
     Text("COMPANION", style = MaterialTheme.typography.labelSmall)
     CompanionPicker(avatar, onAvatar, compact = true)
+    Text("WHAT YOUR SAVED MINUTES BUILD", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
     WorldPicker(avatar, world, onWorld)
     Text("APPS TO PAUSE", style = MaterialTheme.typography.labelSmall)
     AppPicker(catalog, blocked, onToggleApp)
@@ -146,7 +147,8 @@ fun SettingsScreen(
     }
     Text("HOME SCREEN", style = MaterialTheme.typography.labelSmall)
     WidgetButton(avatar, onAddWidget)
-    Text(
+    // Testers only: the Play build doesn't show it.
+    if (!app.tend.BuildConfig.PLAY) Text(
         if (missCount == 0) "Diagnostics · no blocking misses logged" else "Diagnostics · $missCount blocking misses logged",
         style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = Space.s),
     )

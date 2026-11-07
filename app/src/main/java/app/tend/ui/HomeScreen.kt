@@ -166,7 +166,7 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     val world = LocalWorld.current
-                    TendIcons.Glyph(if (world == app.tend.core.World.BASE) "outside" else "sprout", 20.dp)
+                    TendIcons.Glyph(if (world == app.tend.core.World.BASE) "chores" else "sprout", 20.dp)
                     Spacer(Modifier.width(6.dp))
                     Text(if (plantCount > 0) "${world.label} · $plantCount" else world.label, style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
                 }
@@ -390,11 +390,11 @@ private fun NextSteps(
         if (battery) Step("sparkle", "Keep $name awake", "Keeps the pause working in the background.", "Allow", onBattery) else null,
         health?.let {
             Step(
-                "heart", if (it == HealthConnect.Status.NEEDS_INSTALL) "Get Health Connect" else "Connect Health Connect",
-                "Walks, workouts and sleep count by themselves.", "Connect", onHealth,
+                "heart", "Health Connect",
+                "Walks, workouts and sleep count by themselves.", if (it == HealthConnect.Status.NEEDS_INSTALL) "Install" else "Connect", onHealth,
             )
         },
-        if (widget) Step("sun", "Put $name on your home screen", "$name at a glance, next to your apps.", "Add", onWidget) else null,
+        if (widget) Step("sun", "Home screen widget", "$name at a glance, next to your apps.", "Add", onWidget) else null,
         if (notes) Step("moon", "Calm evenings", "An evening recap, sleepy pauses at night and a Sunday letter.", "Turn on", onNotes) else null,
     )
     val pager = androidx.compose.foundation.pager.rememberPagerState { steps.size }

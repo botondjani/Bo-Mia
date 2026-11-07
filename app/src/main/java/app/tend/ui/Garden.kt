@@ -345,8 +345,8 @@ fun GardenScreen(
     Row(verticalAlignment = Alignment.CenterVertically) {
         IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, "Back", onBack)
         Spacer(Modifier.width(Space.m))
-        Text("${avatar.displayName}'s ${LocalWorld.current.place} & week", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-        IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Share, "Share your garden", onShare)
+        Text("${avatar.displayName}'s ${LocalWorld.current.place}", style = MaterialTheme.typography.headlineMedium, maxLines = 1, modifier = Modifier.weight(1f))
+        IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Share, "Share", onShare)
         Spacer(Modifier.width(Space.s))
         IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Settings, "Settings", onOpenSettings)
     }
@@ -354,7 +354,8 @@ fun GardenScreen(
     Things(avatar, worn, onShelf)
 
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Stat("${plants.size}", if (plants.size == 1) "plant" else "plants", Modifier.weight(1f))
+        val base = LocalWorld.current == app.tend.core.World.BASE
+        Stat("${plants.size}", when { base && plants.size == 1 -> "supply"; base -> "supplies"; plants.size == 1 -> "plant"; else -> "plants" }, Modifier.weight(1f))
         Stat("${daysTended + 1}", "days tending", Modifier.weight(1f))
         Stat("$unusedToday min", "unused today", Modifier.weight(1f))
     }
@@ -365,15 +366,16 @@ fun GardenScreen(
             if (tonight != null) PlantIcon(tonight, 44.dp)
             Spacer(Modifier.width(10.dp))
             Text(
-                tonight?.let { "If the day ends like this, a ${it.displayName} grows tonight (the see-through one)." }
-                    ?: "No minutes left to grow a plant tonight. Tomorrow's a fresh start.",
+                tonight?.let { "If the day ends like this: ${LocalWorld.current.tonight(it).replaceFirstChar { c -> c.lowercase() }} (the see-through one)." }
+                    ?: "No minutes left for tonight. Tomorrow's a fresh start.",
                 style = MaterialTheme.typography.bodyLarge,
             )
         }
     }
 
     Card {
-        Text("HOW IT GROWS", style = MaterialTheme.typography.labelSmall)
+        val world = LocalWorld.current
+        Text(if (world == app.tend.core.World.BASE) "HOW IT BUILDS UP" else "HOW IT GROWS", style = MaterialTheme.typography.labelSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
             listOf(Plant.SPROUT to "1–14 min", Plant.TULIP to "15–29 min", Plant.SUNFLOWER to "30+ min").forEach { (p, m) ->
                 Column(
@@ -381,12 +383,12 @@ fun GardenScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     PlantIcon(p, 40.dp)
-                    Text(p.displayName.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleMedium)
+                    Text(world.itemName(p).replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleMedium, maxLines = 1)
                     Text(m, style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }
-        Text("Minutes you don't use become one plant each night.", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
+        Text(if (world == app.tend.core.World.BASE) "Minutes you don't use become supplies each night." else "Minutes you don't use become one plant each night.", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
     }
     HomeStages(daysTended)
     week()
@@ -447,13 +449,16 @@ private fun ThingTile(a: Accessory, worn: Set<Accessory>, onShelf: Set<Accessory
                 .background(if (a in worn) Brand.Mint.copy(alpha = 0.35f) else if (Brand.dark) Color(0xFFDCE2DD) else Brand.Sage),
             contentAlignment = Alignment.Center,
         ) {
-            androidx.compose.foundation.Image(
-                CharacterPainter.accessoryIcon(a, 96).asImageBitmap(), a.title,
+            val world = LocalWorld.current
+            if (world == app.tend.core.World.BASE && (a == Accessory.BIRDHOUSE || a == Accessory.BUNTING))
+                Canvas(Modifier.size(40.dp).graphicsLayer { alpha = if (a in worn) 1f else if (a in onShelf) 0.6f else 0.3f }) { baseThingIcon(a) }
+            else androidx.compose.foundation.Image(
+                CharacterPainter.accessoryIcon(a, 96).asImageBitmap(), world.title(a),
                 Modifier.size(40.dp).graphicsLayer { alpha = if (a in worn) 1f else if (a in onShelf) 0.6f else 0.3f },
             )
         }
         Text(
-            a.title.removePrefix("Reading ").replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
+            LocalWorld.current.title(a).removePrefix("Reading ").replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
             maxLines = 1, textAlign = TextAlign.Center, color = if (a in worn) Brand.Ink else Brand.Muted, modifier = Modifier.padding(top = 4.dp),
         )
         Text(
@@ -466,9 +471,11 @@ private fun ThingTile(a: Accessory, worn: Set<Accessory>, onShelf: Set<Accessory
 @Composable
 fun HomeStages(daysTended: Int) = Card {
     val stage = Garden.homeStage(daysTended)
-    val milestones = listOf(Triple("sprout", 0, "First sprouts"), Triple("bench", 7, "Lit window & bench"), Triple("outside", 21, "A tree of your own"))
+    val milestones = if (LocalWorld.current == app.tend.core.World.BASE)
+        listOf(Triple("outside", 0, "Tent & fire"), Triple("chores", 7, "Log cabin"), Triple("hobby", 21, "Workshop"))
+    else listOf(Triple("sprout", 0, "First sprouts"), Triple("bench", 7, "Lit window & bench"), Triple("outside", 21, "A tree of your own"))
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("YOUR HOME GROWS WITH YOU", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+        Text("IT GROWS WITH YOU", style = MaterialTheme.typography.labelSmall, maxLines = 1, modifier = Modifier.weight(1f))
         Text("Day ${daysTended + 1}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
     }
     // Track: halfway at day 7, full at day 21.

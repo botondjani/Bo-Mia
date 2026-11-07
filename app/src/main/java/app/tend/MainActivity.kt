@@ -120,7 +120,7 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
         setContent {
             TendTheme {
-                androidx.compose.runtime.CompositionLocalProvider(app.tend.ui.LocalAccessories provides shelf.first, app.tend.ui.LocalWorld provides store.world) {
+                androidx.compose.runtime.CompositionLocalProvider(app.tend.ui.LocalAccessories provides shelf.first, app.tend.ui.LocalWorld provides refresh.let { store.world }) { // re-read when settings change
                     Box(Modifier.fillMaxSize().safeDrawingPadding()) { Content(catalog) }
                 }
             }
@@ -365,8 +365,6 @@ class MainActivity : ComponentActivity() {
                 blocked = store.blockedPackages,
                 perms = permissionActions(),
                 onAvatar = { store.avatar = it; refresh++ },
-                world = store.world,
-                onWorld = { store.world = it; app.tend.widget.Widgets.refresh(this, force = true); refresh++ },
                 onConfig = { store.config = it; refresh++ },
                 onToggleApp = toggleApp,
                 tasks = store.selectedTasks,

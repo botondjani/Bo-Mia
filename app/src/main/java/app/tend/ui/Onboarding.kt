@@ -109,8 +109,6 @@ fun Onboarding(
     blocked: Set<String>,
     perms: PermissionActions,
     onAvatar: (Avatar) -> Unit,
-    world: app.tend.core.World = app.tend.core.World.GARDEN,
-    onWorld: (app.tend.core.World) -> Unit = {},
     onConfig: (BudgetConfig) -> Unit,
     onToggleApp: (String) -> Unit,
     tasks: List<TaskDef>,
@@ -143,8 +141,6 @@ fun Onboarding(
                 Step.COMPANION -> StepPage(cta = "Continue with ${avatar.displayName}", onCta = next) {
                     Title("Who's keeping you company?", "Same heart, different hair. You can switch later.")
                     CompanionPicker(avatar, onAvatar)
-                    Text("WHAT YOUR SAVED MINUTES BUILD", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
-                    WorldPicker(avatar, world, onWorld)
                 }
 
                 Step.APPS -> StepPage(

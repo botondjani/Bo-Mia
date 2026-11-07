@@ -62,11 +62,13 @@ private class Slide(val title: String, val body: String)
 @Composable
 fun IntroSlides(avatar: Avatar, freeMinutes: Int, onDone: () -> Unit) {
     val name = avatar.displayName
+    val world = LocalWorld.current
     val slides = listOf(
         Slide("Hi! I'm $name.", "We tend to scroll more than we mean to. That's not you being weak: apps are built that way. Let me show you how tend helps."),
         Slide("A breath before you scroll", "Open an app you picked and I'll pop up for a few seconds. Often that's all it takes to choose something better."),
         Slide("Live a little, earn minutes", "You get $freeMinutes free minutes a day. A walk, a workout or a good book earns more. Steps and workouts count by themselves."),
-        Slide("What you don't use, grows", "At midnight, unused minutes become a plant in our garden. Week by week, our home grows too."),
+        if (world == app.tend.core.World.BASE) Slide("What you don't use, builds up", "At midnight, unused minutes become supplies for our base. Week by week, the tent becomes a cabin.")
+        else Slide("What you don't use, grows", "At midnight, unused minutes become a plant in our garden. Week by week, our home grows too."),
     )
     val pager = rememberPagerState { slides.size }
     val scope = rememberCoroutineScope()
@@ -246,6 +248,7 @@ private fun EarnDemo(active: Boolean, freeMinutes: Int) {
 @Composable
 private fun GardenDemo(active: Boolean, avatar: Avatar) {
     val t = ticker(active, 900, 11)
+    val base = LocalWorld.current == app.tend.core.World.BASE
     val flowers = listOf(Plant.TULIP, Plant.SUNFLOWER, Plant.TULIP, Plant.SUNFLOWER, Plant.TULIP, Plant.SUNFLOWER)
     val nights = t.coerceAtMost(flowers.size)
     val stage = when { t >= 9 -> 2; t >= 7 -> 1; else -> 0 }
@@ -262,6 +265,9 @@ private fun GardenDemo(active: Boolean, avatar: Avatar) {
             when {
                 t == 0 -> "Tonight"
                 t <= flowers.size -> "Night $nights"
+                base && t == 7 -> "Week 2: a log cabin and a sun hat"
+                base && t == 8 -> "A bike for walks outside"
+                base -> "Week 4: a workshop of your own"
                 t == 7 -> "Week 2: a bench and a sun hat"
                 t == 8 -> "A birdhouse for walks outside"
                 else -> "Week 4: a tree of your own"
