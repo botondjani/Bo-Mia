@@ -175,7 +175,7 @@ class TendStore(private val context: Context) {
         set(v) = edit { putBoolean("widget_tip_done", v) }
 
     /** Evening mode starts at this hour (until 5 am); -1 = off. */
-    /** When the evening starts (21, 22 or 23): tonight's recap, its reminder and, if on, the sleepy pause. */
+    /** When the evening starts (any of [app.tend.core.Budget.EVENING_HOURS]): tonight's recap, its reminder and, if on, the sleepy pause. */
     var eveningFrom: Int
         get() = prefs.getInt("evening_from", 22).let { if (it < 0) 22 else it } // -1 was "evening mode off"
         set(v) = edit { putInt("evening_from", v) }

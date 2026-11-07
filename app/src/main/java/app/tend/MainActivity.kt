@@ -473,7 +473,7 @@ class MainActivity : ComponentActivity() {
                 day = store.today(),
                 tasks = store.selectedTasks,
                 plantCount = store.plants.size,
-                isEvening = LocalTime.now().hour >= store.eveningFrom,
+                isEvening = app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour),
                 permissions = permissions(),
                 onShareCrash = TendApp.crashFile(this).takeIf { it.exists() }?.let { file ->
                     {

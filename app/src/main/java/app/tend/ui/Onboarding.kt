@@ -585,7 +585,7 @@ fun WidgetButton(avatar: Avatar, onAddWidget: () -> Boolean) {
         SecondaryButton("Put ${avatar.displayName} on your home screen", { if (!onAddWidget()) guide = true })
         // The bigger ones (with minutes, the garden) are in the phone's own widget list.
         Text(
-            "Other sizes: your phone's widget list", style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+            "Other sizes in your phone's widget list", style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
             textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { guide = true }.padding(vertical = 8.dp),
         )
     }

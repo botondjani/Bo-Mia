@@ -87,9 +87,8 @@ fun SettingsScreen(
         Spacer(Modifier.width(Space.m))
         Text("Settings", style = MaterialTheme.typography.headlineMedium)
     }
-    Text("COMPANION", style = MaterialTheme.typography.labelSmall)
+    Text("COMPANION & WORLD", style = MaterialTheme.typography.labelSmall)
     CompanionPicker(avatar, onAvatar, compact = true)
-    Text("WHAT YOUR SAVED MINUTES BUILD", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
     WorldPicker(avatar, world, onWorld)
     Text("APPS TO PAUSE", style = MaterialTheme.typography.labelSmall)
     AppPicker(catalog, blocked, onToggleApp)
@@ -97,37 +96,34 @@ fun SettingsScreen(
     ActivitySummary(tasks, onToggleTask)
     Text("DAILY BUDGET", style = MaterialTheme.typography.labelSmall)
     BudgetPicker(cfg, onConfig)
+
+    // Everything about the evening in one place: when it starts, the pause, the recap, the lock.
+    val bedtime = lockSchedules.firstOrNull { it.label == app.tend.core.LockSchedule.BEDTIME.label }
+    val work = lockSchedules.firstOrNull { it.label == app.tend.core.LockSchedule.WORK.label }
     Text("EVENING", style = MaterialTheme.typography.labelSmall)
     Card {
-        Text("Evening starts at", style = MaterialTheme.typography.bodyLarge)
-        Text("Tonight's recap is ready from then.", style = MaterialTheme.typography.bodyMedium)
-        HourChips(listOf(21, 22, 23), eveningFrom, onEvening)
-        SwitchRow("Sleepy pauses", "From then until 5:00 the pause waits 15 s and ${avatar.displayName} gets sleepy", eveningPause, onEveningPause)
-    }
-    Text("SCHEDULED LOCK", style = MaterialTheme.typography.labelSmall)
-    Card {
-        Text("The picked apps stay closed, whatever the minutes say. Only \"Not now\" or something better.", style = MaterialTheme.typography.bodyMedium)
-        lockSchedules.forEach { lock ->
-            SwitchRow(
-                lock.label,
-                "%d:00 – %d:00 · %s".format(lock.from, lock.to, if (lock.weekdaysOnly) "weekdays" else "every day"),
-                lock.on,
-            ) { onLockSchedule(lock.copy(on = it)) }
-            if (lock.on) Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(bottom = 6.dp)) {
-                HourStepper("From", lock.from, Modifier.weight(1f)) { onLockSchedule(lock.copy(from = it)) }
-                HourStepper("To", lock.to, Modifier.weight(1f)) { onLockSchedule(lock.copy(to = it)) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Evening starts at", style = MaterialTheme.typography.bodyLarge)
+                Text("Until 5:00", style = MaterialTheme.typography.bodyMedium)
             }
+            EveningStepper(eveningFrom, onEvening)
         }
+        SwitchRow("Sleepy pauses", "The pause waits 15 s and ${avatar.displayName} gets sleepy", eveningPause, onEveningPause)
+        SwitchRow("Evening recap", "A note when the evening starts", reminderEnabled, onReminder)
+        bedtime?.let { LockRow(it, "Bedtime lock", onLockSchedule) }
     }
-    Text("NOTIFICATIONS", style = MaterialTheme.typography.labelSmall)
+    Text("DURING THE DAY", style = MaterialTheme.typography.labelSmall)
     Card {
-        Text("At most 3 a day, and none at night.", style = MaterialTheme.typography.bodyMedium)
         SwitchRow("Morning plan", "8:30: today's minutes and what's worth the most", notesMorning) { onNotes("morning", it) }
         SwitchRow("Gentle nudges", "When 10 minutes are left", notesNudges) { onNotes("nudges", it) }
-        SwitchRow("Evening recap", "When the evening starts", reminderEnabled, onReminder)
         SwitchRow("Sunday letter", "Your week, on Sunday evening", weeklyLetter, onWeeklyLetter)
+        work?.let { LockRow(it, "Work hours lock", onLockSchedule) }
+        Text("At most 3 notes a day. A lock keeps the picked apps closed; only \"Not now\" or something better.", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
     }
-    Text("APPEARANCE", style = MaterialTheme.typography.labelSmall)
+
+    Text("MORE", style = MaterialTheme.typography.labelSmall)
+    var confirmReset by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     Card {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("light" to "Light", "dark" to "Dark", "system" to "Auto").forEach { (key, label) ->
@@ -139,46 +135,69 @@ fun SettingsScreen(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
                         .background(if (on) Brand.Moss else Brand.Sage)
-                        .clickable { onTheme(key) }.padding(vertical = 12.dp),
+                        .clickable { onTheme(key) }.padding(vertical = 10.dp),
                 )
             }
         }
-        Text("Auto follows your phone.", style = MaterialTheme.typography.bodyMedium)
-    }
-    Text("HOME SCREEN", style = MaterialTheme.typography.labelSmall)
-    WidgetButton(avatar, onAddWidget)
-    // Testers only: the Play build doesn't show it.
-    if (!app.tend.BuildConfig.PLAY) Text(
-        if (missCount == 0) "Diagnostics · no blocking misses logged" else "Diagnostics · $missCount blocking misses logged",
-        style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = Space.s),
-    )
-    SecondaryButton("Show the tour again", onReplayTour)
-    onRate?.let { SecondaryButton("Rate tend on Google Play", it) }
-    Text("ABOUT", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = Space.s))
-    var confirmReset by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
-    Card {
-        Text("tend $version", style = MaterialTheme.typography.bodyLarge)
-        Text(if (shareStats) "Your data stays on this phone; only anonymous counts are shared." else "Everything stays on this phone.", style = MaterialTheme.typography.bodyMedium)
-        SwitchRow("Share anonymous usage stats", "Counts like \"a pause ended in Not now\". No names, apps or health data.", shareStats, onShareStats)
-        androidx.compose.foundation.layout.FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(top = 6.dp),
-        ) {
-            ChipButton("Privacy", onPrivacy, filled = false)
-            onFeedback?.let { ChipButton("Send feedback", it, filled = false) }
-            ChipButton("Start over", { confirmReset = true }, filled = false)
+        WidgetButton(avatar, onAddWidget)
+        SwitchRow("Share anonymous stats", "No names, apps or health data", shareStats, onShareStats)
+        // Small things, two to a row, all the same width.
+        val links = listOfNotNull(
+            "Tour" to onReplayTour,
+            onRate?.let { "Rate tend" to it },
+            "Privacy" to onPrivacy,
+            onFeedback?.let { "Feedback" to it },
+            onExport?.let { "Export data" to it },
+            "Start over" to { confirmReset = true },
+        )
+        links.chunked(2).forEach { pair ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                pair.forEach { (label, action) ->
+                    Text(
+                        label, style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = TextAlign.Center, maxLines = 1,
+                        modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(Brand.Sage).clickable(onClick = action).padding(vertical = 10.dp),
+                    )
+                }
+                if (pair.size == 1) Spacer(Modifier.weight(1f))
+            }
         }
+        // Testers only: the Play build doesn't show it.
+        val diagnostics = if (app.tend.BuildConfig.PLAY) "" else if (missCount == 0) " · no blocking misses" else " · $missCount blocking misses"
+        Text("tend $version$diagnostics", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
     }
     if (confirmReset) androidx.compose.material3.AlertDialog(
         onDismissRequest = { confirmReset = false },
         title = { Text("Start over?") },
-        text = { Text("This deletes your minutes, activities, garden and settings on this phone. It can't be undone.") },
+        text = { Text("This deletes your minutes, activities, ${world.place} and settings on this phone. It can't be undone.") },
         confirmButton = { androidx.compose.material3.TextButton(onClick = { confirmReset = false; onStartOver() }) { Text("Delete everything", color = Brand.Coral) } },
         dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmReset = false }) { Text("Keep") } },
         containerColor = Brand.Card,
     )
-    onExport?.let { SecondaryButton("Export test data", it) }
-    PrimaryButton("Done", onDone, enabled = blocked.isNotEmpty(), modifier = Modifier.padding(vertical = 20.dp))
+    Spacer(Modifier.padding(bottom = 24.dp))
+}
+
+/** A lock as one switch; its hours show while it's on. */
+@Composable
+private fun LockRow(lock: app.tend.core.LockSchedule, title: String, onLockSchedule: (app.tend.core.LockSchedule) -> Unit) {
+    SwitchRow(title, "%d:00 – %d:00 · %s".format(lock.from, lock.to, if (lock.weekdaysOnly) "weekdays" else "every day"), lock.on) { onLockSchedule(lock.copy(on = it)) }
+    if (lock.on) Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(bottom = 6.dp)) {
+        HourStepper("From", lock.from, Modifier.weight(1f)) { onLockSchedule(lock.copy(from = it)) }
+        HourStepper("To", lock.to, Modifier.weight(1f)) { onLockSchedule(lock.copy(to = it)) }
+    }
+}
+
+/** Any hour from 16:00 round to 3:00, one step at a time. */
+@Composable
+private fun EveningStepper(hour: Int, onChange: (Int) -> Unit) {
+    val hours = app.tend.core.Budget.EVENING_HOURS
+    val i = hours.indexOf(hour).let { if (it < 0) hours.indexOf(22) else it }
+    Row(Modifier.clip(RoundedCornerShape(14.dp)).background(Brand.Sage).padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("−", style = MaterialTheme.typography.titleLarge, color = if (i > 0) Brand.Moss else Brand.Muted.copy(alpha = 0.4f),
+            modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable(enabled = i > 0) { onChange(hours[i - 1]) }.padding(horizontal = 10.dp, vertical = 2.dp))
+        Text("%d:00".format(hours[i]), style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
+        Text("+", style = MaterialTheme.typography.titleLarge, color = if (i < hours.lastIndex) Brand.Moss else Brand.Muted.copy(alpha = 0.4f),
+            modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable(enabled = i < hours.lastIndex) { onChange(hours[i + 1]) }.padding(horizontal = 10.dp, vertical = 2.dp))
+    }
 }
 
 @Composable
@@ -203,23 +222,6 @@ private fun SwitchRow(title: String, body: String, checked: Boolean, onChange: (
         }
         Spacer(Modifier.width(12.dp))
         Switch(checked = checked, onCheckedChange = onChange)
-    }
-
-@Composable
-private fun HourChips(hours: List<Int>, selected: Int, onPick: (Int) -> Unit) =
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
-        hours.forEach { h ->
-            val on = h == selected
-            Text(
-                "$h:00",
-                style = MaterialTheme.typography.labelLarge,
-                color = if (on) Color.White else Brand.Moss,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
-                    .background(if (on) Brand.Moss else Brand.Sage)
-                    .clickable { onPick(h) }.padding(vertical = 12.dp),
-            )
-        }
     }
 
 /** Shown when a permission was revoked after onboarding. */

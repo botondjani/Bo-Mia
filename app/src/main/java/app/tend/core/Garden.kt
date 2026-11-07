@@ -16,7 +16,7 @@ enum class World(val label: String, val place: String) {
     /** What a night's unused minutes become here. */
     fun itemName(p: Plant): String = when (this) {
         GARDEN -> p.displayName
-        BASE -> when (p) { Plant.SPROUT -> "log"; Plant.TULIP -> "log pile"; Plant.SUNFLOWER -> "crate" }
+        BASE -> when (p) { Plant.SPROUT -> "few logs"; Plant.TULIP -> "log pile"; Plant.SUNFLOWER -> "big log pile" }
     }
 
     /** The garden things have their own look at the base: pennants, a bike, string lights. */
@@ -30,7 +30,7 @@ enum class World(val label: String, val place: String) {
     /** "A new sunflower grows tonight" / "A supply crate arrives tonight". */
     fun tonight(p: Plant): String = when (this) {
         GARDEN -> "A new ${p.displayName} grows tonight"
-        BASE -> "A new ${itemName(p)} arrives tonight"
+        BASE -> if (p == Plant.SPROUT) "A few more logs tonight" else "A new ${itemName(p)} tonight"
     }
 }
 

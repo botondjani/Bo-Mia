@@ -68,7 +68,15 @@ object Budget {
     }
 
     /** Evening mode runs from [fromHour] until 5 am; a negative hour means it's off. */
-    fun isEvening(fromHour: Int, hour: Int): Boolean = fromHour >= 0 && (hour >= fromHour || hour < 5)
+    /** From [fromHour] until 5:00. A start after midnight (0–4) means only those small hours. */
+    fun isEvening(fromHour: Int, hour: Int): Boolean = when {
+        fromHour < 0 -> false
+        fromHour < 5 -> hour in fromHour until 5
+        else -> hour >= fromHour || hour < 5
+    }
+
+    /** The hours the evening can start at: from 16:00 round to 3:00. */
+    val EVENING_HOURS: List<Int> = (16..23).toList() + (0..3).toList()
 
     /**
      * Credits a completed task. Each task counts once per day; the credit is clamped

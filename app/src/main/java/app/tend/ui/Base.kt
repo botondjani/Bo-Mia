@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.nativeCanvas
 import app.tend.core.Accessory
 import app.tend.core.Avatar
@@ -146,27 +147,11 @@ fun DrawScope.drawBase(
         drawCircle(WoodLight, h * 0.017f, Offset(w * 0.41f, groundY + h * 0.1575f))
     }
 
-    // Supplies stacked in the yard: 2 rows of 6, newest last.
-    val perRow = 6
-    val rows = 2
-    val slots = perRow * rows
-    val shown = items.takeLast(if (preview != null) slots - 1 else slots)
-    val left = w * 0.04f
-    val right = w * 0.5f
-    val step = (right - left) / perRow
-    for (i in 0 until slots) {
-        val base = Offset(left + step * (i % perRow + 0.5f), groundY + (h - groundY) * (0.62f + (i / perRow) * 0.25f))
-        val item = shown.getOrNull(i)
-        when {
-            item != null -> supply(item, base, h * 0.1f)
-            i == shown.size && preview != null -> drawIntoCanvas {
-                it.saveLayer(androidx.compose.ui.geometry.Rect(Offset.Zero, size), androidx.compose.ui.graphics.Paint().apply { alpha = 0.4f })
-                supply(preview, base, h * 0.1f)
-                it.restore()
-            }
-            else -> drawOval(Color.Black.copy(alpha = 0.06f), Offset(base.x - step * 0.3f, base.y - h * 0.01f), Size(step * 0.6f, h * 0.02f))
-        }
-    }
+    // Firewood: every night's split logs land on one heap that grows wider and taller; tonight's
+    // pieces wait see-through on top.
+    val pieces = items.sumOf { piecesOf(it) }.coerceAtMost(MAX_PIECES)
+    val extra = preview?.let { piecesOf(it) } ?: 0
+    woodpile(Offset(w * 0.2f, groundY + (h - groundY) * 0.88f), w * 0.038f, pieces, extra)
 
     // The companion in the clearing, in front of everything.
     val cs = h * 0.24f
@@ -228,30 +213,55 @@ fun DrawScope.baseThingIcon(a: Accessory): Boolean {
     return true
 }
 
-/** One night's supplies: a log, a log pile or a crate, standing at [base]; [s] is its size. */
-fun DrawScope.supply(item: Plant, base: Offset, s: Float) {
-    fun log(c: Offset, len: Float) {
-        drawRoundRect(Wood, Offset(c.x - len / 2, c.y - s * 0.14f), Size(len, s * 0.28f), CornerRadius(s * 0.14f))
-        drawCircle(WoodLight, s * 0.13f, Offset(c.x + len / 2 - s * 0.1f, c.y))
-        drawCircle(WoodDark.copy(alpha = 0.5f), s * 0.05f, Offset(c.x + len / 2 - s * 0.1f, c.y))
+private const val MAX_PIECES = 64
+
+/** Split logs a night brings: a few, a pile, a big pile. */
+private fun piecesOf(item: Plant) = when (item) { Plant.SPROUT -> 2; Plant.TULIP -> 4; Plant.SUNFLOWER -> 7 }
+
+/**
+ * A heap of split firewood with its base centred on [base]: the narrowest triangle that holds
+ * [count] pieces, bottom rows first, so it always looks like a heap. [extra] pieces are drawn
+ * see-through on top. [piece] is one piece's length.
+ */
+fun DrawScope.woodpile(base: Offset, piece: Float, count: Int, extra: Int = 0) {
+    val total = count + extra
+    if (total == 0) {
+        drawOval(Color.Black.copy(alpha = 0.07f), Offset(base.x - piece * 2, base.y - piece * 0.25f), Size(piece * 4, piece * 0.5f))
+        return
     }
-    when (item) {
-        Plant.SPROUT -> log(base + Offset(0f, -s * 0.14f), s * 0.8f)
-        Plant.TULIP -> {
-            log(base + Offset(-s * 0.16f, -s * 0.14f), s * 0.7f)
-            log(base + Offset(s * 0.16f, -s * 0.14f), s * 0.7f)
-            log(base + Offset(0f, -s * 0.4f), s * 0.7f)
+    var bottom = 1
+    while (bottom * (bottom + 1) / 2 < total) bottom++ // rows bottom, bottom-1, ... 1
+    drawOval(Color.Black.copy(alpha = 0.1f), Offset(base.x - bottom * piece * 0.5f, base.y - piece * 0.25f), Size(bottom * piece, piece * 0.6f))
+    var i = 0
+    var row = 0
+    while (i < total) {
+        val n = bottom - row
+        for (c in 0 until n) {
+            if (i >= total) break
+            // Fixed jitter per spot, so the heap doesn't shuffle between frames.
+            val seed = (i * 7919 + 17) % 101 / 100f
+            val x = base.x + (c - (n - 1) / 2f) * piece * 0.92f + (seed - 0.5f) * piece * 0.3f
+            val y = base.y - piece * 0.32f - row * piece * 0.48f
+            val angle = (seed - 0.5f) * 50f
+            rotate(angle, Offset(x, y)) { splitLog(Offset(x, y), piece, if (i >= count) 0.4f else 1f, seed > 0.5f) }
+            i++
         }
-        Plant.SUNFLOWER -> {
-            val box = s * 0.62f
-            val tl = Offset(base.x - box / 2, base.y - box)
-            drawRoundRect(WoodLight, tl, Size(box, box), CornerRadius(s * 0.05f))
-            drawRect(Wood, tl, Size(box, box), style = Stroke(s * 0.07f))
-            drawLine(Wood, tl, tl + Offset(box, box), strokeWidth = s * 0.07f)
-            drawLine(Wood, tl + Offset(box, 0f), tl + Offset(0f, box), strokeWidth = s * 0.07f)
-        }
+        row++
     }
 }
+
+/** One piece of split firewood: pale cut wood with a strip of dark bark. */
+private fun DrawScope.splitLog(c: Offset, len: Float, alpha: Float, flip: Boolean) {
+    val h = len * 0.38f
+    val tl = Offset(c.x - len / 2, c.y - h / 2)
+    drawRoundRect(Color(0xFFE8C99A).copy(alpha = alpha), tl, Size(len, h), CornerRadius(h * 0.2f))
+    val barkY = if (flip) tl.y else tl.y + h * 0.62f
+    drawRoundRect(WoodDark.copy(alpha = alpha), Offset(tl.x, barkY), Size(len, h * 0.38f), CornerRadius(h * 0.18f))
+    drawRect(Color(0xFFD2A877).copy(alpha = alpha), Offset(tl.x + len - h * 0.35f, tl.y), Size(h * 0.3f, h)) // the cut end
+}
+
+/** One night's wood as a small heap, standing at [base]; [s] is its size (lists and the recap). */
+fun DrawScope.supply(item: Plant, base: Offset, s: Float) = woodpile(base, s * 0.32f, piecesOf(item))
 
 /** A small icon of a night's item in [world], for lists and the recap. */
 fun DrawScope.drawItem(world: app.tend.core.World, item: Plant, base: Offset, s: Float) =

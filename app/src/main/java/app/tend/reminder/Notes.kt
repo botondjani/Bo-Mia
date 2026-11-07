@@ -42,7 +42,8 @@ object Notes {
 
     private fun quietNow(store: TendStore): Boolean {
         val hour = LocalTime.now().hour
-        return hour < 8 || hour > store.eveningFrom
+        // Quiet before 8 and once the evening is under way (its first hour still gets the recap).
+        return hour < 8 || (app.tend.core.Budget.isEvening(store.eveningFrom, hour) && hour != store.eveningFrom)
     }
 
     private fun enabled(store: TendStore, kind: Kind) = when (kind) {
