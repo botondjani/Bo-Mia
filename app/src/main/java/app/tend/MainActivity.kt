@@ -52,6 +52,7 @@ import androidx.health.connect.client.PermissionController
 import app.tend.data.TendStore
 import app.tend.monitor.MonitorService
 import app.tend.ui.AppCatalog
+import app.tend.ui.drawClearing
 import app.tend.ui.FocusTimerScreen
 import app.tend.ui.HomeScreen
 import app.tend.ui.Onboarding
@@ -597,6 +598,16 @@ class MainActivity : ComponentActivity() {
                 onShare = ::shareCamp,
                 onOpenClearing = { screen = Screen.CLEARING },
                 steps = remember(refresh) { firstSteps() },
+                camp = {
+                    val night = app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour)
+                    val mood = app.tend.core.Moods.atNight(app.tend.core.Moods.of(store.config, store.today()), night)
+                    val paper = remember(refresh) { app.tend.data.Friends.paperOnMe(this@MainActivity).isNotEmpty() }
+                    val ducks = remember(refresh) { app.tend.data.Friends.ducks(this@MainActivity).size.coerceAtMost(3) }
+                    val visitor = remember(refresh) { store.visitorWaiting() }
+                    androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                        drawClearing(store.avatar, store.placed, mood, shelf.first, night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, visitor = visitor)
+                    }
+                },
                 onOpenRecap = { screen = Screen.RECAP },
                 // Right after the tour; after a "Not now", the important ones once more a week later.
                 showNextSteps = store.tourDone && (!store.widgetTipDone || store.nextStepsAgainAt in 1..now),

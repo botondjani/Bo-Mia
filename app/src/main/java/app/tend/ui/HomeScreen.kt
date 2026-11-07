@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -86,6 +87,8 @@ fun HomeScreen(
     levelUp: Int? = null,
     onLevelUpSeen: () -> Unit = {},
     onOpenClearing: () -> Unit,
+    /** The camp scene for the top of the page (drawn by the caller, which knows what's in it). */
+    camp: @Composable () -> Unit = {},
     steps: List<app.tend.core.StepState> = emptyList(),
     onOpenRecap: () -> Unit,
     /** Show the one-time widget tip; called with true when it was handled. */
@@ -145,35 +148,42 @@ fun HomeScreen(
             Box(Modifier.tourTarget(tour, "settings")) { IconButtonSoft(Icons.Filled.Settings, "Settings", onOpenSettings) }
         }
 
-        // Hero: the companion and today's minutes
-        Column(Modifier.fillMaxWidth().tourTarget(tour, "minutes").surface(radius = 28.dp).padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(Space.s)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                CharacterView(avatar, mood, 88.dp)
-                Spacer(Modifier.width(Space.l))
-                Column(Modifier.weight(1f)) {
-                    Text(Moods.status(avatar.displayName, mood).uppercase(), style = MaterialTheme.typography.labelSmall, color = Brand.Moss)
-                    Text(Moods.line(cfg, day, tasks, welcomeBack), style = MaterialTheme.typography.titleMedium)
-                }
+        // Hero: the camp, with the companion living in it; what they say, today's minutes, and the
+        // acorns to spend. Tapping it opens the camp.
+        Box(
+            Modifier.fillMaxWidth().aspectRatio(1.5f).tourTarget(tour, "minutes").clip(RoundedCornerShape(28.dp)).tappable(onClick = onOpenClearing),
+        ) {
+            camp()
+            Column(
+                Modifier.align(Alignment.TopStart).padding(10.dp).fillMaxWidth(0.7f)
+                    .clip(RoundedCornerShape(18.dp)).background(Color(0xF0FFFFFF)).padding(horizontal = 12.dp, vertical = 8.dp),
+            ) {
+                Text(Moods.status(avatar.displayName, mood).uppercase(), style = MaterialTheme.typography.labelSmall, color = Brand.Moss)
+                Text(Moods.line(cfg, day, tasks, welcomeBack), style = MaterialTheme.typography.titleSmall, color = Brand.Ink, maxLines = 3)
             }
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(if (remaining > 0) "$remaining" else "0", style = MaterialTheme.typography.displayLarge, color = if (remaining > 0) Brand.Moss else Brand.Coral)
-                Spacer(Modifier.width(Space.s))
-                Text("min left today", style = MaterialTheme.typography.titleMedium, color = Brand.Muted, modifier = Modifier.weight(1f).padding(bottom = 10.dp))
-                // The clearing is one tap away, next to today's minutes, with the acorns to spend there.
-                Row(
-                    Modifier.padding(bottom = 6.dp).tourTarget(tour, "garden").clip(RoundedCornerShape(50)).background(Brand.Mint.copy(alpha = 0.32f))
-                        .border(1.dp, Brand.Mint, RoundedCornerShape(50))
-                        .tappable(onClick = onOpenClearing).padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    AcornIcon(20.dp)
-                    Spacer(Modifier.width(6.dp))
-                    Text("$acorns", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
-                }
+            Row(
+                Modifier.align(Alignment.TopEnd).padding(10.dp).tourTarget(tour, "garden")
+                    .clip(RoundedCornerShape(50)).background(Color(0xF0FFFFFF)).padding(horizontal = 10.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AcornIcon(18.dp)
+                Spacer(Modifier.width(5.dp))
+                Text("$acorns", style = MaterialTheme.typography.titleMedium, color = Color(0xFF3D2A1C))
             }
+            Row(
+                Modifier.align(Alignment.BottomStart).padding(10.dp)
+                    .clip(RoundedCornerShape(18.dp)).background(Color(0xF0FFFFFF)).padding(start = 12.dp, end = 12.dp, top = 2.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                Text(if (remaining > 0) "$remaining" else "0", style = MaterialTheme.typography.headlineLarge, color = if (remaining > 0) Brand.Moss else Brand.Coral)
+                Spacer(Modifier.width(5.dp))
+                Text("min left", style = MaterialTheme.typography.bodyMedium, color = Brand.Ink, modifier = Modifier.padding(bottom = 5.dp))
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             val available = (cfg.freeMinutes + day.earnedMinutes).coerceAtLeast(1)
             val left by animateFloatAsState((remaining.toFloat() / available).coerceIn(0f, 1f), tween(700), label = "left")
-            Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(50)).background(Brand.Sage)) {
+            Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(50)).background(Brand.Card)) {
                 Box(Modifier.fillMaxWidth(left).height(8.dp).clip(RoundedCornerShape(50)).background(if (remaining > 0) Brand.Mint else Brand.Coral))
             }
             Text("+${Budget.earnableFrom(cfg, day, tasks)} min still to earn", style = MaterialTheme.typography.bodyMedium)
@@ -367,9 +377,9 @@ private fun DoneRow(task: TaskDef, day: DayState, onUndo: (TaskDef) -> Unit) = R
 }
 
 private fun homeTour(name: String, free: Int) = listOf(
-    TourStep("minutes", "Your minutes for today", "Every app you picked draws from here. You start with $free, and I'll pause you before each open."),
+    TourStep("minutes", "Our camp, and your minutes", "I live here. Your minutes for today are in the corner: every app you picked draws from them. You start with $free, and I'll pause you before each open."),
     TourStep("activity", "Do one, earn minutes", "Finish one of these and I add minutes back. Walks and workouts count by themselves; the rest you start or tick off here."),
-    TourStep("garden", "Your camp", "Activities earn acorns; spend them on things for your camp by the river. Come visit, and see how the week went."),
+    TourStep("garden", "Acorns for the camp", "Activities earn acorns. Tap the camp to spend them on things, and I'll use every one of them."),
     TourStep("settings", "Make it yours", "Apps, activities, your budget and the evening mode live here. Change them any time."),
 )
 
