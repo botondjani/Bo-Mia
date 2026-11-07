@@ -51,10 +51,11 @@ object Widgets {
         val mood = Moods.atNight(Moods.of(cfg, day), night)
         val next = Tasks.next(day, store.selectedTasks)
         val placed = store.placed
-        val pranks = app.tend.data.Friends.pranksOnMe(context).map { it.id }.toSet()
+        val paper = app.tend.data.Friends.paperOnMe(context).isNotEmpty()
+        val ducks = app.tend.data.Friends.ducks(context).size.coerceAtMost(3)
         val fresh = app.tend.data.Friends.unseen(context)
         // Evening (from the evening hour until 5:00): the camp at night, a dark card and a sleepy companion.
-        val shown = listOf(store.avatar, mood, remaining, next?.id, day.completedTasks.sorted(), placed, night, pranks, fresh?.id).joinToString("|")
+        val shown = listOf(store.avatar, mood, remaining, next?.id, day.completedTasks.sorted(), placed, night, paper, ducks, fresh?.id).joinToString("|")
         if (!force && shown == lastShown) return
         lastShown = shown
 
@@ -86,7 +87,7 @@ object Widgets {
             setOnClickPendingIntent(R.id.root, open)
         })
         if (garden.isNotEmpty()) manager.updateAppWidget(garden, RemoteViews(context.packageName, R.layout.widget_garden).apply {
-            setImageViewBitmap(R.id.garden, clearingBitmap(store.avatar, placed, worn, 440, 440, night = night, pranks = pranks))
+            setImageViewBitmap(R.id.garden, clearingBitmap(store.avatar, placed, worn, 440, 440, night = night, paper = paper, ducks = ducks))
             setViewVisibility(R.id.note, if (fresh != null) android.view.View.VISIBLE else android.view.View.GONE)
             setTextViewText(R.id.note, fresh?.let { "${it.name}: ${it.kind.short}" } ?: "")
             setInt(R.id.note, "setBackgroundResource", if (night) R.drawable.widget_pill_night else R.drawable.widget_pill)

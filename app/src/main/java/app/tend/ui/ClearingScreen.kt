@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -69,7 +70,10 @@ fun ClearingScreen(
     onShare: () -> Unit,
     onOpenSettings: () -> Unit = {},
     onOpenRiver: (friendId: String?) -> Unit = {},
-    pranks: Set<String> = emptySet(),
+    paper: Boolean = false,
+    ducks: List<app.tend.data.Friends.Note> = emptyList(),
+    onUnroll: () -> Unit = {},
+    onCatchDuck: (app.tend.data.Friends.Note) -> Int = { 0 },
     week: @Composable ColumnScope.() -> Unit,
 ) = Column(
     Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState())
@@ -86,22 +90,46 @@ fun ClearingScreen(
         IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Share, "Share", onShare)
     }
 
+    // What friends did: toilet paper unrolls when tapped; a visitor's duck is fished out.
+    val paperLeft by androidx.compose.animation.core.animateFloatAsState(if (paper) 1f else 0f, androidx.compose.animation.core.tween(1400), label = "paper")
+    val ducksNow by androidx.compose.runtime.rememberUpdatedState(ducks)
+    val paperNow by androidx.compose.runtime.rememberUpdatedState(paper)
+    var caught by remember { mutableStateOf<String?>(null) }
+
     // The camp. Tapping it shows the spots; tapping a spot opens the shop for it.
     Box(Modifier.fillMaxWidth().aspectRatio(SCENE_RATIO).clip(RoundedCornerShape(26.dp))) {
         Canvas(
             Modifier.fillMaxSize().pointerInput(editing) {
                 detectTapGestures { tap ->
+                    val fx = tap.x / size.width
+                    val fy = tap.y / size.height
+                    if (!editing) {
+                        val duck = DuckSpots.take(ducksNow.size).indexOfFirst { kotlin.math.abs(it.x - fx) * size.width < size.height * 0.08f && kotlin.math.abs(it.y - fy) < 0.09f }
+                        if (duck >= 0) {
+                            val n = ducksNow[duck]
+                            val total = onCatchDuck(n)
+                            caught = "${n.name}'s duck from their visit. You have $total."
+                            return@detectTapGestures
+                        }
+                        if (paperNow && fx > PAPER_LEFT && fy < PAPER_BOTTOM) { onUnroll(); caught = "All clean again."; return@detectTapGestures }
+                    }
                     val spot = spotAt(Offset(tap.x / size.width, tap.y / size.height), size.width / size.height.toFloat())
                     if (!editing) editing = true
                     selected = spot
                 }
             },
-        ) { drawClearing(avatar, placed, worn = worn, night = night, showSpots = editing, selected = selected, pranks = pranks) }
+        ) { drawClearing(avatar, placed, worn = worn, night = night, showSpots = editing, selected = selected, paper = paperLeft, ducks = ducks.size) }
         AcornBadge(acorns, Modifier.align(Alignment.TopEnd).padding(10.dp))
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
-            if (editing) "Tap a spot to put something there." else "Earn acorns by living; spend them here.",
+            when {
+                editing -> "Tap a spot to put something there."
+                paper -> "Someone toilet-papered your oak! Tap it to unroll."
+                ducks.isNotEmpty() -> "A rubber duck: someone visited. Tap it to fish it out."
+                caught != null -> caught!!
+                else -> "Earn acorns by living; spend them here."
+            },
             style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f),
         )
         ChipButton(if (editing) "Done" else "Place things", { editing = !editing; selected = null }, filled = !editing)
@@ -180,7 +208,6 @@ private fun EarnedToday(earned: Map<String, Int>, lastNight: Int) {
         earned["not_now"]?.takeIf { it > 0 }?.let { "\"Not now\"" to it },
         earned["challenge"]?.takeIf { it > 0 }?.let { "Weekly challenge" to it },
         earned["level"]?.takeIf { it > 0 }?.let { "Level up" to it },
-        earned["gift"]?.takeIf { it > 0 }?.let { "Gifts from friends" to it },
         lastNight.takeIf { it > 0 }?.let { "Last night" to it },
     )
     Card {

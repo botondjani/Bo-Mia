@@ -47,27 +47,34 @@ fun RiverScreen(
     night: Boolean,
     focus: String?,
     onBack: () -> Unit,
-    myPranks: Set<String> = emptySet(),
-    onGift: () -> Boolean = { false },
-    onRefund: () -> Unit = {},
+    myPaper: Boolean = false,
+    myDucks: Int = 0,
     friends: List<Friends.Friend>? = null,
 ) {
     val context = LocalContext.current
     var list by remember { mutableStateOf(friends) }
     var offline by remember { mutableStateOf(false) }
-    // What went to whom in the last day: their pranks show in their camps, and each kind waits a day.
-    var sent by remember { mutableStateOf<Map<String, Set<Friends.Kind>>>(emptyMap()) }
+    // What you did to whom: waves and visits wait a day; your paper stays up until they unroll it.
+    var sent by remember { mutableStateOf(Friends.Sent(emptyMap(), emptySet())) }
     var note by remember { mutableStateOf<Pair<String, String>?>(null) } // friend id to a short line under their camp
-    var pranking by remember { mutableStateOf<Friends.Friend?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    fun send(f: Friends.Friend, kind: Friends.Kind) {
-        if (kind in sent[f.id].orEmpty()) { note = f.id to "Already sent today. Again tomorrow."; return }
-        if (kind == Friends.Kind.GIFT && !onGift()) { note = f.id to "A gift is ${Friends.GIFT_ACORNS} acorns, and you don't have that many."; return }
+    fun wave(f: Friends.Friend) {
+        if (Friends.Kind.WAVE in sent.used[f.id].orEmpty()) { note = f.id to "You waved today. Again tomorrow."; return }
         scope.launch {
-            val ok = Friends.send(context, f.id, kind)
-            if (ok) sent = sent + (f.id to (sent[f.id].orEmpty() + kind))
-            else if (kind == Friends.Kind.GIFT) onRefund()
-            note = f.id to if (ok) "Sent! ${f.name} will see it." else "Couldn't send it. Try again in a moment."
+            val ok = Friends.send(context, f.id, Friends.Kind.WAVE)
+            if (ok) sent = Friends.Sent(sent.used + (f.id to (sent.used[f.id].orEmpty() + Friends.Kind.WAVE)), sent.paperUp)
+            note = f.id to if (ok) "${f.name} will see your wave." else "Couldn't wave. Try again in a moment."
+        }
+    }
+    fun paper(f: Friends.Friend) {
+        when {
+            f.id in sent.paperUp -> { note = f.id to "Your paper's still up. ${f.name} has to unroll it first."; return }
+            Friends.Kind.TP in sent.used[f.id].orEmpty() -> { note = f.id to "${f.name} already unrolled it. Again tomorrow."; return }
+        }
+        scope.launch {
+            val ok = Friends.send(context, f.id, Friends.Kind.TP)
+            if (ok) sent = Friends.Sent(sent.used + (f.id to (sent.used[f.id].orEmpty() + Friends.Kind.TP)), sent.paperUp + f.id)
+            note = f.id to if (ok) "Done. It stays up until ${f.name} unrolls it." else "Couldn't do it. Try again in a moment."
         }
     }
     val state = rememberLazyListState()
@@ -76,6 +83,14 @@ fun RiverScreen(
         Friends.sent(context)?.let { sent = it }
         val i = list.orEmpty().indexOfFirst { it.id == focus }
         if (i >= 0) state.scrollToItem(i + 2)
+        // A camp you look at counts as a visit: the friend finds a rubber duck in their river.
+        val visited = mutableSetOf<String>()
+        androidx.compose.runtime.snapshotFlow { state.layoutInfo.visibleItemsInfo.map { it.key } }.collect { keys ->
+            list.orEmpty().filter { it.id in keys && it.id !in visited && Friends.Kind.VISIT !in sent.used[it.id].orEmpty() }.forEach { f ->
+                visited += f.id
+                launch { Friends.send(context, f.id, Friends.Kind.VISIT) }
+            }
+        }
     }
 
     LazyColumn(
@@ -90,15 +105,15 @@ fun RiverScreen(
                 Text("Along the river", style = MaterialTheme.typography.headlineMedium, maxLines = 1)
             }
         }
-        item { Camp(me, "Your camp", worn, night, myPranks) }
+        item { Camp(me, "Your camp", worn, night, myPaper, myDucks) }
         items(list.orEmpty(), key = { it.id }) { f ->
-            val done = sent[f.id].orEmpty()
+            val done = sent.used[f.id].orEmpty()
+            val up = f.id in sent.paperUp
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Camp(f, f.name, emptySet(), night, done.filter { it.prank }.map { it.id }.toSet())
+                Camp(f, f.name, emptySet(), night, paper = up)
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ChipButton(if (Friends.Kind.WAVE in done) "Waved" else "Wave", { send(f, Friends.Kind.WAVE) }, filled = Friends.Kind.WAVE !in done)
-                    ChipButton(if (Friends.Kind.GIFT in done) "Gift sent" else Friends.Kind.GIFT.label, { send(f, Friends.Kind.GIFT) }, filled = false)
-                    ChipButton("Prank…", { pranking = f }, filled = false)
+                    ChipButton(if (Friends.Kind.WAVE in done) "Waved" else "Wave", { wave(f) }, filled = Friends.Kind.WAVE !in done)
+                    ChipButton(if (up) "Paper's up" else "Toilet-paper their oak", { paper(f) }, filled = false)
                 }
                 note?.takeIf { it.first == f.id }?.let { Text(it.second, style = MaterialTheme.typography.bodyMedium, color = Brand.Muted) }
             }
@@ -111,44 +126,14 @@ fun RiverScreen(
             )
         }
     }
-
-    pranking?.let { f ->
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { pranking = null },
-            title = { Text("Prank ${f.name}'s camp") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("It stays in their camp for a day. One of each a day.", style = MaterialTheme.typography.bodyMedium, color = Brand.Muted)
-                    Friends.Kind.entries.filter { it.prank }.forEach { k ->
-                        val done = k in sent[f.id].orEmpty()
-                        Column(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).tappable { pranking = null; send(f, k) }.padding(vertical = 8.dp, horizontal = 4.dp),
-                        ) {
-                            Text(k.label + if (done) " (sent)" else "", style = MaterialTheme.typography.titleSmall, color = if (done) Brand.Muted else Brand.Moss)
-                            Text(PRANK_LINES.getValue(k), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp), color = Brand.Muted)
-                        }
-                    }
-                }
-            },
-            confirmButton = { androidx.compose.material3.TextButton(onClick = { pranking = null }) { Text("Close") } },
-            containerColor = Brand.Card,
-        )
-    }
 }
-
-private val PRANK_LINES = mapOf(
-    Friends.Kind.DUCK to "Bobs in their river.",
-    Friends.Kind.GNOME to "Stands by their camp, watching.",
-    Friends.Kind.FLAMINGO to "Very pink. Very classy.",
-    Friends.Kind.TP to "All over their oak.",
-)
 
 /** One camp: the scene, and under it whose it is. */
 @Composable
-private fun Camp(f: Friends.Friend, title: String, worn: Set<Accessory>, night: Boolean, pranks: Set<String> = emptySet()) = Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun Camp(f: Friends.Friend, title: String, worn: Set<Accessory>, night: Boolean, paper: Boolean = false, ducks: Int = 0) = Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
     val avatar = runCatching { app.tend.core.Avatar.valueOf(f.companion) }.getOrDefault(app.tend.core.Avatar.BO)
     Box(Modifier.fillMaxWidth().aspectRatio(1.6f).clip(RoundedCornerShape(26.dp))) {
-        Canvas(Modifier.fillMaxSize()) { drawClearing(avatar, f.placed, worn = worn, night = night, pranks = pranks) }
+        Canvas(Modifier.fillMaxSize()) { drawClearing(avatar, f.placed, worn = worn, night = night, paper = if (paper) 1f else 0f, ducks = ducks) }
     }
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) {
         Face(f.companion, 32)

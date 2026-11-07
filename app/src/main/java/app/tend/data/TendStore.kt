@@ -166,10 +166,10 @@ class TendStore(private val context: Context) {
         lines("acorns.csv").sumOf { line -> line.split(',').takeIf { it.size == 3 && it[0] == y && it[1] == "day" }?.get(2)?.toIntOrNull() ?: 0 }
     }
 
-    /** The newest friend's gift already added to the acorns (see Friends.syncInbox). */
-    var giftsUpTo: Long
-        get() = prefs.getLong("gifts_up_to", 0)
-        set(v) { prefs.edit().putLong("gifts_up_to", v).apply() }
+    /** Rubber ducks fished out of the river: one for each friend's visit. */
+    var ducksCaught: Int
+        get() = prefs.getInt("ducks_caught", 0)
+        set(v) { prefs.edit().putInt("ducks_caught", v).apply() }
 
     /** What stands where: spot id to thing id. */
     var placed: Map<Int, String>

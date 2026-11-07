@@ -102,7 +102,8 @@ fun DrawScope.drawClearing(
     night: Boolean = false,
     showSpots: Boolean = false,
     selected: Int? = null,
-    pranks: Set<String> = emptySet(),
+    paper: Float = 0f,
+    ducks: Int = 0,
 ) {
     val w = size.width
     val h = size.height
@@ -196,11 +197,9 @@ fun DrawScope.drawClearing(
     }
     if (!companionDrawn) drawCompanion()
 
-    // What friends left here today, for a laugh.
-    if ("tp" in pranks) toiletPaper(Offset(w * 0.975f, h * 0.76f), h * 0.56f)
-    if ("duck" in pranks) rubberDuck(Offset(w * 0.13f, h * 0.88f), u)
-    if ("gnome" in pranks) gnome(Offset(w * 0.355f, h * 0.775f), u)
-    if ("flamingo" in pranks) flamingo(Offset(w * 0.715f, h * 0.745f), u)
+    // What friends did: toilet paper over the trees on the right, a rubber duck for each visit.
+    if (paper > 0f) toiletPaper(paper)
+    DuckSpots.take(ducks).forEach { rubberDuck(Offset(it.x * w, it.y * h), u) }
 
     // Grass and a few flowers along the bottom edge frame the picture.
     foreground(w, h)
@@ -342,31 +341,100 @@ private fun DrawScope.broadleaf(base: Offset, height: Float) {
     ).forEach { drawCircle(it.color, height * it.r, Offset(base.x + height * it.dx, base.y - height * it.dy)) }
 }
 
-// ---- Pranks ----
+// ---- What friends do ----
 
-private val PaperWhite = Color(0xFFF7F5EE)
-private val PaperShade = Color(0xFFDCD8CC)
+/** Where visitors' rubber ducks bob in the river, as fractions of the scene; the first ones fill first. */
+val DuckSpots = listOf(Offset(0.12f, 0.885f), Offset(0.045f, 0.8f), Offset(0.2f, 0.965f))
 
-/** Loops of toilet paper over the oak's crown, and streamers hanging down. */
-private fun DrawScope.toiletPaper(base: Offset, height: Float) {
-    fun pt(dx: Float, dy: Float) = Offset(base.x + height * dx, base.y - height * dy)
-    val band = height * 0.022f
-    // Loops draped over the crown: (start, end, how far it sags).
-    for ((a, b, sag) in listOf(Triple(pt(-0.26f, 0.9f), pt(0.2f, 0.95f), 0.1f), Triple(pt(-0.24f, 0.74f), pt(0.22f, 0.76f), 0.08f), Triple(pt(-0.18f, 1.04f), pt(0.08f, 1.06f), 0.06f))) {
-        val mid = Offset((a.x + b.x) / 2, (a.y + b.y) / 2 + height * sag)
-        val path = Path().apply { moveTo(a.x, a.y); quadraticTo(mid.x, mid.y, b.x, b.y) }
-        drawPath(path, PaperShade, style = Stroke(band * 1.25f, cap = StrokeCap.Round))
-        drawPath(path, PaperWhite, style = Stroke(band, cap = StrokeCap.Round))
+/** The toilet-papered trees on the right, for taps: anything right of this and above [PAPER_BOTTOM]. */
+const val PAPER_LEFT = 0.82f
+const val PAPER_BOTTOM = 0.78f
+
+private val Paper = Color(0xFFFBFAF6)
+private val PaperShadow = Color(0xFFC9C5B8)
+private val PaperFold = Color(0xFFE6E2D7)
+
+/**
+ * A ribbon of toilet paper along a curve: it twists (its width breathes), throws a soft shadow,
+ * and has faint perforations. [t] (0..1) is how much of it is still there, from the start.
+ */
+private fun DrawScope.ribbon(a: Offset, c1: Offset, c2: Offset, b: Offset, band: Float, twists: Float, t: Float = 1f, alpha: Float = 1f) {
+    if (t <= 0f) return
+    val n = 48
+    fun at(k: Float): Offset {
+        val m = 1 - k
+        return Offset(
+            m * m * m * a.x + 3 * m * m * k * c1.x + 3 * m * k * k * c2.x + k * k * k * b.x,
+            m * m * m * a.y + 3 * m * m * k * c1.y + 3 * m * k * k * c2.y + k * k * k * b.y,
+        )
     }
-    // Streamers fluttering down from the branches.
-    for ((dx, top, len) in listOf(Triple(-0.25f, 0.82f, 0.3f), Triple(-0.1f, 0.7f, 0.22f), Triple(0.04f, 0.66f, 0.34f), Triple(0.17f, 0.74f, 0.26f))) {
-        val s = pt(dx, top)
-        val path = Path().apply {
-            moveTo(s.x, s.y)
-            cubicTo(s.x + height * 0.03f, s.y + height * len * 0.35f, s.x - height * 0.03f, s.y + height * len * 0.65f, s.x + height * 0.01f, s.y + height * len)
-        }
-        drawPath(path, PaperShade, style = Stroke(band * 1.2f))
-        drawPath(path, PaperWhite, style = Stroke(band * 0.9f))
+    val pts = (0..n).map { at(it / n.toFloat() * t) }
+    val left = ArrayList<Offset>(); val right = ArrayList<Offset>(); val widths = ArrayList<Float>()
+    for (i in pts.indices) {
+        val p0 = pts[maxOf(0, i - 1)]; val p1 = pts[minOf(pts.size - 1, i + 1)]
+        val d = p1 - p0
+        val len = kotlin.math.sqrt(d.x * d.x + d.y * d.y).coerceAtLeast(0.001f)
+        val nx = -d.y / len; val ny = d.x / len
+        val k = i / n.toFloat() * t
+        val wdt = band * (0.4f + 0.6f * kotlin.math.abs(kotlin.math.cos(k * twists * Math.PI.toFloat())))
+        widths += wdt
+        left += Offset(pts[i].x + nx * wdt / 2, pts[i].y + ny * wdt / 2)
+        right += Offset(pts[i].x - nx * wdt / 2, pts[i].y - ny * wdt / 2)
+    }
+    fun strip(dx: Float, dy: Float) = Path().apply {
+        moveTo(left[0].x + dx, left[0].y + dy)
+        left.drop(1).forEach { lineTo(it.x + dx, it.y + dy) }
+        right.asReversed().forEach { lineTo(it.x + dx, it.y + dy) }
+        close()
+    }
+    drawPath(strip(band * 0.25f, band * 0.35f), Color.Black.copy(alpha = 0.12f * alpha)) // shadow on what's behind
+    drawPath(strip(0f, 0f), PaperShadow.copy(alpha = alpha))
+    drawPath(strip(-band * 0.06f, -band * 0.08f), Paper.copy(alpha = alpha))
+    // Where it turns edge-on, the fold shows.
+    for (i in 1 until pts.size) if (widths[i] < band * 0.5f) drawLine(PaperFold.copy(alpha = alpha), left[i], right[i], strokeWidth = band * 0.18f)
+    // Perforations every few sheets.
+    for (i in 4 until pts.size step 6) drawLine(PaperShadow.copy(alpha = 0.7f * alpha), left[i], right[i], strokeWidth = band * 0.05f)
+}
+
+/** A roll of toilet paper, as seen from the side, at [c]. */
+private fun DrawScope.paperRoll(c: Offset, r: Float, angle: Float) {
+    rotate(angle, c) {
+        drawRoundRect(PaperShadow, Offset(c.x - r * 1.1f, c.y - r), Size(r * 2.2f, r * 2f), CornerRadius(r * 0.35f))
+        drawRoundRect(Paper, Offset(c.x - r * 1.1f, c.y - r), Size(r * 2.0f, r * 1.85f), CornerRadius(r * 0.35f))
+        drawOval(PaperFold, Offset(c.x + r * 0.55f, c.y - r), Size(r * 0.7f, r * 2f))
+        drawOval(Color(0xFFB98F63), Offset(c.x + r * 0.72f, c.y - r * 0.45f), Size(r * 0.36f, r * 0.9f)) // cardboard core
+    }
+}
+
+/**
+ * Toilet paper thrown over the birch and the oak on the right: loops over the crowns, long strands
+ * hanging down and drifting, a roll stuck in the branches and another on the grass. [amount] (0..1)
+ * unrolls it: the strands pull back up and fade.
+ */
+private fun DrawScope.toiletPaper(amount: Float) {
+    val w = size.width
+    val h = size.height
+    fun o(x: Float, y: Float) = Offset(w * x, h * y)
+    val band = h * 0.019f
+    val a = amount.coerceIn(0f, 1f)
+    val fade = (a * 1.6f).coerceAtMost(1f)
+    // Loops over the crowns (drawn first: they're behind the strands).
+    ribbon(o(0.845f, 0.27f), o(0.88f, 0.36f), o(0.93f, 0.36f), o(0.965f, 0.22f), band, 1.1f, a, fade)
+    ribbon(o(0.88f, 0.2f), o(0.92f, 0.3f), o(0.98f, 0.31f), o(1.02f, 0.2f), band, 0.9f, a, fade)
+    ribbon(o(0.86f, 0.36f), o(0.9f, 0.44f), o(0.97f, 0.45f), o(1.01f, 0.35f), band, 1.3f, a, fade)
+    // A long garland from the birch to the oak.
+    ribbon(o(0.875f, 0.31f), o(0.9f, 0.52f), o(0.95f, 0.53f), o(0.985f, 0.4f), band, 3f, a, fade)
+    // Strands hanging down, swaying; the longest nearly reach the grass.
+    ribbon(o(0.852f, 0.33f), o(0.86f, 0.42f), o(0.84f, 0.5f), o(0.855f, 0.6f), band, 1.7f, a, fade)
+    ribbon(o(0.905f, 0.42f), o(0.92f, 0.52f), o(0.895f, 0.6f), o(0.912f, 0.7f), band, 1.9f, a, fade)
+    ribbon(o(0.945f, 0.44f), o(0.93f, 0.5f), o(0.955f, 0.56f), o(0.94f, 0.63f), band, 1.3f, a, fade)
+    ribbon(o(0.99f, 0.4f), o(1.0f, 0.5f), o(0.975f, 0.6f), o(0.99f, 0.74f), band, 2.1f, a, fade)
+    // A roll caught in the oak, its tail fluttering.
+    if (a > 0.5f) paperRoll(o(0.93f, 0.25f), h * 0.022f, -25f)
+    // And one that rolled away over the grass, unrolling as it went.
+    if (a > 0.3f) {
+        ribbon(o(0.99f, 0.77f), o(0.98f, 0.8f), o(0.96f, 0.79f), o(0.945f, 0.815f), band * 0.9f, 1f, a, fade)
+        paperRoll(o(0.935f, 0.81f), h * 0.02f, 8f)
     }
 }
 
@@ -374,8 +442,8 @@ private fun DrawScope.toiletPaper(base: Offset, height: Float) {
 private fun DrawScope.rubberDuck(p: Offset, u: Float) {
     val yellow = Color(0xFFFFD43B)
     val shade = Color(0xFFE9B21C)
-    val s = u * 0.05f
-    drawOval(Color.White.copy(alpha = 0.35f), Offset(p.x - s * 1.2f, p.y - s * 0.12f), Size(s * 2.4f, s * 0.4f)) // ripple
+    val s = u * 0.045f
+    drawOval(Color.White.copy(alpha = 0.35f), Offset(p.x - s * 1.3f, p.y - s * 0.12f), Size(s * 2.6f, s * 0.4f)) // ripple
     drawPath(Path().apply { // body, tail up on the right
         moveTo(p.x - s, p.y - s * 0.35f)
         cubicTo(p.x - s * 1.05f, p.y + s * 0.1f, p.x + s * 0.9f, p.y + s * 0.15f, p.x + s, p.y - s * 0.4f)
@@ -385,31 +453,9 @@ private fun DrawScope.rubberDuck(p: Offset, u: Float) {
     drawOval(shade, Offset(p.x - s * 0.1f, p.y - s * 0.55f), Size(s * 0.75f, s * 0.35f)) // wing
     val head = Offset(p.x - s * 0.55f, p.y - s * 1.0f)
     drawCircle(yellow, s * 0.45f, head)
+    drawCircle(Color.White.copy(alpha = 0.5f), s * 0.12f, head + Offset(s * 0.12f, -s * 0.2f)) // shine
     drawPath(Path().apply { moveTo(head.x - s * 0.35f, head.y - s * 0.02f); lineTo(head.x - s * 0.85f, head.y + s * 0.08f); lineTo(head.x - s * 0.35f, head.y + s * 0.22f); close() }, Color(0xFFF07F2B))
     drawCircle(Color(0xFF1D2A23), s * 0.07f, head + Offset(-s * 0.12f, -s * 0.1f))
-}
-
-/** A garden gnome: red hat, white beard, blue coat. */
-private fun DrawScope.gnome(p: Offset, u: Float) {
-    val s = u * 0.075f
-    shadow(p, s * 0.4f, u)
-    drawRoundRect(Color(0xFF3F6FA8), Offset(p.x - s * 0.28f, p.y - s * 0.62f), Size(s * 0.56f, s * 0.6f), CornerRadius(s * 0.18f)) // coat
-    drawRect(Color(0xFF5B3A26), Offset(p.x - s * 0.28f, p.y - s * 0.32f), Size(s * 0.56f, s * 0.07f)) // belt
-    drawCircle(Color(0xFFF1C9A5), s * 0.16f, Offset(p.x, p.y - s * 0.74f)) // face
-    drawPath(Path().apply { moveTo(p.x - s * 0.2f, p.y - s * 0.7f); quadraticTo(p.x, p.y - s * 0.22f, p.x + s * 0.2f, p.y - s * 0.7f); close() }, Color.White) // beard
-    drawCircle(Color(0xFFE38B7A), s * 0.05f, Offset(p.x, p.y - s * 0.7f)) // nose
-    drawPath(Path().apply { moveTo(p.x - s * 0.22f, p.y - s * 0.8f); quadraticTo(p.x - s * 0.02f, p.y - s * 1.2f, p.x + s * 0.12f, p.y - s * 1.35f); lineTo(p.x + s * 0.22f, p.y - s * 0.8f); close() }, Color(0xFFD64541)) // hat
-}
-
-/** A pink plastic flamingo on one wire leg. */
-private fun DrawScope.flamingo(p: Offset, u: Float) {
-    val pink = Color(0xFFF58FB4)
-    val s = u * 0.09f
-    drawLine(Color(0xFF6B6B6B), p, p + Offset(0f, -s * 0.55f), strokeWidth = u * 0.004f)
-    drawOval(pink, Offset(p.x - s * 0.3f, p.y - s * 0.78f), Size(s * 0.55f, s * 0.3f)) // body
-    drawPath(Path().apply { moveTo(p.x + s * 0.18f, p.y - s * 0.7f); cubicTo(p.x + s * 0.32f, p.y - s * 0.95f, p.x + s * 0.05f, p.y - s * 1.05f, p.x + s * 0.12f, p.y - s * 1.22f) }, pink, style = Stroke(u * 0.007f, cap = StrokeCap.Round)) // neck
-    drawCircle(pink, s * 0.07f, Offset(p.x + s * 0.13f, p.y - s * 1.24f))
-    drawPath(Path().apply { moveTo(p.x + s * 0.18f, p.y - s * 1.26f); lineTo(p.x + s * 0.3f, p.y - s * 1.16f); lineTo(p.x + s * 0.17f, p.y - s * 1.19f); close() }, Color(0xFF2B2B2B)) // beak
 }
 
 private fun DrawScope.foreground(w: Float, h: Float) {
@@ -740,7 +786,7 @@ private fun DrawScope.campfire(p: Offset, u: Float, lights: MutableList<Light>) 
 
 /** The clearing as a bitmap with rounded corners, for the widget and the share card. */
 fun clearingBitmap(
-    avatar: Avatar, placed: Map<Int, String>, worn: Set<Accessory>, widthPx: Int, heightPx: Int, night: Boolean = false, pranks: Set<String> = emptySet(),
+    avatar: Avatar, placed: Map<Int, String>, worn: Set<Accessory>, widthPx: Int, heightPx: Int, night: Boolean = false, paper: Boolean = false, ducks: Int = 0,
 ): android.graphics.Bitmap {
     val image = androidx.compose.ui.graphics.ImageBitmap(widthPx, heightPx)
     val canvas = androidx.compose.ui.graphics.Canvas(image)
@@ -748,7 +794,7 @@ fun clearingBitmap(
     canvas.clipPath(Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(Rect(Offset.Zero, size), CornerRadius(widthPx * 0.05f))) })
     androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(
         androidx.compose.ui.unit.Density(1f), androidx.compose.ui.unit.LayoutDirection.Ltr, canvas, size,
-    ) { drawClearing(avatar, placed, worn = worn, night = night, pranks = pranks) }
+    ) { drawClearing(avatar, placed, worn = worn, night = night, paper = if (paper) 1f else 0f, ducks = ducks) }
     return image.asAndroidBitmap()
 }
 

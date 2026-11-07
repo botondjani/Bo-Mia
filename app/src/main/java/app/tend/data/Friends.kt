@@ -58,57 +58,48 @@ object Friends {
         }
     }.getOrDefault(emptyList())
 
-    // ---- Notes: a wave, a gift, a prank ----
+    // ---- Notes: a wave, a visit, toilet paper ----
 
-    /** What friends can send each other. Pranks sit in the friend's camp for a day. */
-    enum class Kind(val id: String, val label: String, val prank: Boolean = false) {
-        WAVE("wave", "Wave"),
-        GIFT("gift", "Gift $GIFT_ACORNS acorns"),
-        DUCK("duck", "Rubber duck", prank = true),
-        GNOME("gnome", "Garden gnome", prank = true),
-        FLAMINGO("flamingo", "Plastic flamingo", prank = true),
-        TP("tp", "Toilet paper", prank = true);
+    /** What friends do to each other's camps. */
+    enum class Kind(val id: String) {
+        WAVE("wave"), VISIT("visit"), TP("tp");
 
-        /** How it reads for whoever got it: "Anna waved". */
+        /** How it reads for whoever got it: "Anna waved at you". */
         fun received(name: String) = when (this) {
             WAVE -> "$name waved at you"
-            GIFT -> "$name sent you $GIFT_ACORNS acorns"
-            DUCK -> "$name put a rubber duck in your river"
-            GNOME -> "$name snuck a garden gnome into your camp"
-            FLAMINGO -> "$name planted a plastic flamingo in your camp"
+            VISIT -> "$name visited your camp"
             TP -> "$name toilet-papered your oak"
         }
 
-        /** For the widget's small label: "Anna: a rubber duck". */
-        val short: String get() = when (this) {
-            WAVE -> "waved"; GIFT -> "+$GIFT_ACORNS acorns"; DUCK -> "a rubber duck"
-            GNOME -> "a gnome"; FLAMINGO -> "a flamingo"; TP -> "toilet paper!"
-        }
+        /** For the widget's small label: "Anna: visited". */
+        val short: String get() = when (this) { WAVE -> "waved"; VISIT -> "visited"; TP -> "toilet paper!" }
 
         companion object { fun of(id: String) = entries.firstOrNull { it.id == id } }
     }
 
-    data class Note(val id: Long, val from: String, val name: String, val companion: String, val kind: Kind, val at: Long)
+    data class Note(val id: Long, val from: String, val name: String, val companion: String, val kind: Kind, val at: Long, val cleared: Boolean = false)
 
-    /** Sends [kind] to a friend; true when it went (false: not friends, already sent today, or offline). */
+    /** Sends [kind] to a friend; true when it went (false: not friends, already sent, or offline). */
     suspend fun send(c: Context, to: String, kind: Kind): Boolean {
         val reply = Account.rpc(c, "tend_send_note", JSONObject().put("p_to", to).put("p_kind", kind.id)) ?: return false
         return reply.ok && reply.body.trim() == "true"
     }
 
-    /** What you sent in the last day, as friend id to kinds; null when offline. */
-    suspend fun sent(c: Context): Map<String, Set<Kind>>? {
+    /** What you did to friends' camps: kinds used in the last day, and whose oak still has your paper. */
+    class Sent(val used: Map<String, Set<Kind>>, val paperUp: Set<String>)
+
+    suspend fun sent(c: Context): Sent? {
         val reply = Account.rpc(c, "tend_sent")?.takeIf { it.ok } ?: return null
         return runCatching {
             val a = JSONArray(reply.body)
-            (0 until a.length()).mapNotNull { i -> a.getJSONObject(i).let { o -> Kind.of(o.optString("kind"))?.let { o.optString("to_id") to it } } }
-                .groupBy({ it.first }, { it.second }).mapValues { it.value.toSet() }
+            val rows = (0 until a.length()).mapNotNull { i -> a.getJSONObject(i).let { o -> Kind.of(o.optString("kind"))?.let { Triple(o.optString("to_id"), it, o.optBoolean("cleared")) } } }
+            Sent(rows.groupBy({ it.first }, { it.second }).mapValues { it.value.toSet() }, rows.filter { it.second == Kind.TP && !it.third }.map { it.first }.toSet())
         }.getOrNull()
     }
 
     /**
-     * Fetches notes from friends (last 7 days) and keeps them for the clearing page and the
-     * widget; gifts not seen before are added to the acorns. True when something new came.
+     * Fetches what friends did to your camp and keeps it for the clearing page and the widget; tells
+     * you with a notification when something new happened. True when something new came.
      */
     suspend fun syncInbox(c: Context): Boolean {
         if (Account.user(c) == null) return false
@@ -117,23 +108,44 @@ object Friends {
         val p = prefs(c)
         val known = p.getLong("notes_newest", 0)
         p.edit().putString("notes", reply.body).putLong("notes_newest", maxOf(known, notes.maxOfOrNull { it.id } ?: 0)).apply()
-        // Gifts count once: the newest gift id credited is kept with the acorns (and so in the backup).
-        val store = TendStore(c)
-        val credited = store.giftsUpTo
-        val gifts = notes.filter { it.kind == Kind.GIFT && it.id > credited }
-        if (gifts.isNotEmpty()) {
-            store.addAcorns(GIFT_ACORNS * gifts.size, "gift")
-            store.giftsUpTo = gifts.maxOf { it.id }
-        }
+        // Paper taken down while offline: tell the server now.
+        if (notes.any { it.kind == Kind.TP && !it.cleared && it.id <= p.getLong("paper_down", 0) }) Account.rpc(c, "tend_clear_paper")
+        val fresh = notes.filter { it.id > known && System.currentTimeMillis() - it.at < 6 * 3_600_000L }
+        if (fresh.isNotEmpty()) notify(c, fresh)
         return notes.any { it.id > known }
     }
 
     /** Notes kept from the last sync, newest first. */
     fun notes(c: Context): List<Note> = parseNotes(prefs(c).getString("notes", null) ?: "[]")
 
-    /** Pranks in your own camp right now (sent in the last day). */
-    fun pranksOnMe(c: Context, now: Long = System.currentTimeMillis()): Set<Kind> =
-        notes(c).filter { it.kind.prank && now - it.at < DAY_MS }.map { it.kind }.toSet()
+    /** Who toilet-papered your oak (paper still up), newest first; empty when it's clean. */
+    fun paperOnMe(c: Context): List<Note> = notes(c).filter { it.kind == Kind.TP && !it.cleared && it.id > prefs(c).getLong("paper_down", 0) }
+
+    /** Takes the paper down: at once on this phone, and on the server when it can be reached. */
+    suspend fun clearPaper(c: Context) {
+        val newest = paperOnMe(c).maxOfOrNull { it.id } ?: return
+        prefs(c).edit().putLong("paper_down", newest).apply()
+        app.tend.widget.Widgets.refresh(c)
+        Account.rpc(c, "tend_clear_paper")
+    }
+
+    /** Rubber ducks in your river: one for each visit in the last week that you haven't fished out. */
+    fun ducks(c: Context): List<Note> {
+        val caught = prefs(c).getStringSet("ducks_caught", emptySet())!!
+        return notes(c).filter { it.kind == Kind.VISIT && it.id.toString() !in caught }
+    }
+
+    /** Fishes a duck out of the river; it joins the collection. */
+    fun catchDuck(c: Context, note: Note) {
+        val p = prefs(c)
+        val caught = p.getStringSet("ducks_caught", emptySet())!!
+        if (note.id.toString() in caught) return
+        // Only ids still in the inbox are worth remembering.
+        val live = notes(c).map { it.id.toString() }.toSet()
+        p.edit().putStringSet("ducks_caught", caught.filter { it in live }.toSet() + note.id.toString()).apply()
+        TendStore(c).ducksCaught += 1
+        app.tend.widget.Widgets.refresh(c)
+    }
 
     /** The newest note not yet seen on the clearing page, from the last day; for the widget. */
     fun unseen(c: Context, now: Long = System.currentTimeMillis()): Note? =
@@ -147,17 +159,41 @@ object Friends {
         }
     }
 
+    /** One notification for what's new: "Anna toilet-papered your oak" (and how many more). */
+    private fun notify(c: Context, fresh: List<Note>) {
+        if (!app.tend.reminder.RecapReminder.canNotify(c)) return
+        val nm = c.getSystemService(android.app.NotificationManager::class.java)
+        nm.createNotificationChannel(android.app.NotificationChannel(CHANNEL, "Friends", android.app.NotificationManager.IMPORTANCE_DEFAULT))
+        val first = fresh.first()
+        val text = when (first.kind) {
+            Kind.TP -> "Tap the oak in your camp to unroll it."
+            Kind.VISIT -> "They left a rubber duck in your river."
+            Kind.WAVE -> "Wave back from your camp."
+        } + if (fresh.size > 1) " And ${fresh.size - 1} more from friends." else ""
+        val open = android.app.PendingIntent.getActivity(
+            c, 21, android.content.Intent(c, app.tend.MainActivity::class.java).putExtra(app.tend.reminder.RecapReminder.EXTRA_OPEN, app.tend.reminder.WeeklyLetter.OPEN_CLEARING).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+            android.app.PendingIntent.FLAG_IMMUTABLE,
+        )
+        nm.notify(
+            NOTIFICATION_ID,
+            android.app.Notification.Builder(c, CHANNEL).setSmallIcon(app.tend.R.drawable.ic_notification)
+                .setContentTitle(first.kind.received(first.name)).setContentText(text)
+                .setContentIntent(open).setAutoCancel(true).build(),
+        )
+    }
+
     private fun parseNotes(body: String): List<Note> = runCatching {
         val a = JSONArray(body)
         (0 until a.length()).mapNotNull { i ->
             val o = a.getJSONObject(i)
             val kind = Kind.of(o.optString("kind")) ?: return@mapNotNull null
             val at = runCatching { java.time.OffsetDateTime.parse(o.optString("created_at")).toInstant().toEpochMilli() }.getOrDefault(0L)
-            Note(o.optLong("id"), o.optString("from_id"), o.optString("name").ifBlank { "A friend" }, o.optString("companion", "BO"), kind, at)
+            Note(o.optLong("id"), o.optString("from_id"), o.optString("name").ifBlank { "A friend" }, o.optString("companion", "BO"), kind, at, o.optBoolean("cleared"))
         }
     }.getOrDefault(emptyList())
 
-    const val GIFT_ACORNS = 10
+    private const val CHANNEL = "friends"
+    private const val NOTIFICATION_ID = 31
     private const val DAY_MS = 24 * 3_600_000L
 
     // An invite opened before logging in waits here until there's an account.

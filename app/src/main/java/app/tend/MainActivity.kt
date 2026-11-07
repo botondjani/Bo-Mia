@@ -478,7 +478,10 @@ class MainActivity : ComponentActivity() {
                 onSell = { spot -> store.sell(spot); saveProfile(); refresh++ },
                 onOpenSettings = { screen = Screen.SETTINGS },
                 onOpenRiver = { id -> riverFocus = id; screen = Screen.RIVER },
-                pranks = app.tend.data.Friends.pranksOnMe(this).map { it.id }.toSet(),
+                paper = app.tend.data.Friends.paperOnMe(this).isNotEmpty(),
+                ducks = app.tend.data.Friends.ducks(this).take(3),
+                onUnroll = { lifecycleScope.launch { app.tend.data.Friends.clearPaper(this@MainActivity) }; refresh++ },
+                onCatchDuck = { n -> app.tend.data.Friends.catchDuck(this, n); refresh++; store.ducksCaught },
                 onBack = { screen = Screen.HOME },
                 onShare = ::shareCamp,
             ) {
@@ -495,9 +498,8 @@ class MainActivity : ComponentActivity() {
                 night = app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour),
                 focus = riverFocus,
                 onBack = { screen = Screen.CLEARING },
-                myPranks = app.tend.data.Friends.pranksOnMe(this).map { it.id }.toSet(),
-                onGift = { (store.acorns >= app.tend.data.Friends.GIFT_ACORNS).also { if (it) { store.addAcorns(-app.tend.data.Friends.GIFT_ACORNS, "spent"); refresh++ } } },
-                onRefund = { store.addAcorns(app.tend.data.Friends.GIFT_ACORNS, "spent"); refresh++ },
+                myPaper = app.tend.data.Friends.paperOnMe(this).isNotEmpty(),
+                myDucks = app.tend.data.Friends.ducks(this).size.coerceAtMost(3),
             )
 
             (TaskSync.focusSecondsLeft(store, now) ?: 0) > 0 -> FocusTimerScreen(

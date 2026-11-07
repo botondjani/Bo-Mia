@@ -93,6 +93,9 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
         } else {
             val list = friends.orEmpty()
             notes.forEach { n -> NoteRow(n) }
+            app.tend.data.TendStore(context).ducksCaught.takeIf { it > 0 }?.let { n ->
+                Text("Rubber ducks from visits: $n", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+            }
             if (list.isEmpty()) Text(
                 if (offline) "Can't reach the server right now." else "No friends yet. Invite someone: when they accept, you'll see each other's camps.",
                 style = MaterialTheme.typography.bodyMedium,
