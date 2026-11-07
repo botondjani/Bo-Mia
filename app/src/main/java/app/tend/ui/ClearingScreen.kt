@@ -68,6 +68,7 @@ fun ClearingScreen(
     onBack: () -> Unit,
     onShare: () -> Unit,
     onOpenSettings: () -> Unit = {},
+    onOpenRiver: (friendId: String?) -> Unit = {},
     week: @Composable ColumnScope.() -> Unit,
 ) = Column(
     Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState())
@@ -107,7 +108,7 @@ fun ClearingScreen(
 
     NextThing(acorns, placed)
     EarnedToday(earnedToday, lastNight)
-    FriendsCard(onOpenSettings)
+    FriendsCard(onOpenSettings, onOpenRiver)
     Things(avatar, worn, onShelf)
     week()
 

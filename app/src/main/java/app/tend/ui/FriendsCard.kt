@@ -47,7 +47,7 @@ import kotlinx.coroutines.launch
  * Without an account it says what an account gives and links to Settings.
  */
 @Composable
-fun FriendsCard(onOpenSettings: () -> Unit) {
+fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val signedIn = Account.user(context) != null
@@ -94,9 +94,10 @@ fun FriendsCard(onOpenSettings: () -> Unit) {
                 if (offline) "Can't reach the server right now." else "No friends yet. Invite someone: when they accept, you'll see each other's camps.",
                 style = MaterialTheme.typography.bodyMedium,
             )
-            list.forEach { f -> FriendRow(f) { removing = f } }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
-                ChipButton("Invite a friend", { inviting = true })
+            list.forEach { f -> FriendRow(f, onVisit = { onOpenRiver(f.id) }) { removing = f } }
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+                if (list.isNotEmpty()) ChipButton("Along the river", { onOpenRiver(null) })
+                ChipButton("Invite a friend", { inviting = true }, filled = list.isEmpty())
                 ChipButton("Enter a code", { typing = true }, filled = false)
             }
         }
@@ -136,7 +137,7 @@ fun FriendsCard(onOpenSettings: () -> Unit) {
 }
 
 @Composable
-private fun FriendRow(f: Friends.Friend, onRemove: () -> Unit) = Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun FriendRow(f: Friends.Friend, onVisit: () -> Unit, onRemove: () -> Unit) = Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).tappable(onClick = onVisit).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
     Face(f.companion, 40)
     Spacer(Modifier.width(10.dp))
     Column(Modifier.weight(1f)) {
@@ -149,7 +150,7 @@ private fun FriendRow(f: Friends.Friend, onRemove: () -> Unit) = Row(Modifier.fi
 
 /** A friend's companion, as a small round face. */
 @Composable
-private fun Face(companion: String, sizeDp: Int) {
+internal fun Face(companion: String, sizeDp: Int) {
     val avatar = runCatching { Avatar.valueOf(companion) }.getOrDefault(Avatar.BO)
     val bmp = remember(avatar) { CharacterPainter.bitmap(avatar, app.tend.core.Mood.HAPPY, sizeDp * 3).asImageBitmap() }
     Box(Modifier.size(sizeDp.dp).clip(CircleShape).background(Brand.Sage), contentAlignment = Alignment.Center) {

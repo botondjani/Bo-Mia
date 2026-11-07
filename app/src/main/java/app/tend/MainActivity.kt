@@ -85,7 +85,7 @@ class MainActivity : ComponentActivity() {
 
     private enum class Launched { NONE, TRIP, APP_INFO, OVERLAY, USAGE }
 
-    private enum class Screen { HOME, SETTINGS, PERMISSIONS, CLEARING, RECAP, SLEEP }
+    private enum class Screen { HOME, SETTINGS, PERMISSIONS, CLEARING, RIVER, RECAP, SLEEP }
 
     /** Set when the evening notification was tapped. */
     private var openRecap by mutableStateOf(false)
@@ -328,6 +328,7 @@ class MainActivity : ComponentActivity() {
             enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
         }
         var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
+        var riverFocus by rememberSaveable { mutableStateOf<String?>(null) }
         var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
         var health by remember { mutableStateOf<HealthConnect.Status?>(null) }
         var celebrate by remember { mutableStateOf<TaskSync.Done?>(null) }
@@ -358,7 +359,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         // System back always leads home from inner pages.
-        androidx.activity.compose.BackHandler(enabled = store.onboarded && screen != Screen.HOME) { screen = Screen.HOME }
+        androidx.activity.compose.BackHandler(enabled = store.onboarded && screen != Screen.HOME) { screen = if (screen == Screen.RIVER) Screen.CLEARING else Screen.HOME }
         LaunchedEffect(openRecap) { if (openRecap) { screen = Screen.RECAP; openRecap = false } }
         LaunchedEffect(openClearing) { if (openClearing) { screen = Screen.CLEARING; openClearing = false } }
         celebrate?.let { done ->
@@ -474,6 +475,7 @@ class MainActivity : ComponentActivity() {
                 onBuy = { spot, thing -> store.buy(spot, thing).also { if (it) { app.tend.data.Stats.log(this, "bought", mapOf("thing" to thing)); saveProfile(); refresh++ } } },
                 onSell = { spot -> store.sell(spot); saveProfile(); refresh++ },
                 onOpenSettings = { screen = Screen.SETTINGS },
+                onOpenRiver = { id -> riverFocus = id; screen = Screen.RIVER },
                 onBack = { screen = Screen.HOME },
                 onShare = ::shareCamp,
             ) {
@@ -483,6 +485,14 @@ class MainActivity : ComponentActivity() {
                     appLabel = { pkg -> runCatching { packageManager.getApplicationInfo(pkg, 0).loadLabel(packageManager).toString() }.getOrDefault(pkg) },
                 )
             }
+
+            screen == Screen.RIVER -> app.tend.ui.RiverScreen(
+                me = app.tend.data.Friends.Friend("", store.avatar.displayName, store.avatar.name, app.tend.core.Progress.level(store.totalXp()).level, store.placed),
+                worn = shelf.first,
+                night = app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour),
+                focus = riverFocus,
+                onBack = { screen = Screen.CLEARING },
+            )
 
             (TaskSync.focusSecondsLeft(store, now) ?: 0) > 0 -> FocusTimerScreen(
                 store.avatar, store.focusTask, TaskSync.focusSecondsLeft(store, now)!!,
