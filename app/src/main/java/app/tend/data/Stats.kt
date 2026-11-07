@@ -16,8 +16,8 @@ import java.util.UUID
  * small file on the phone; "no" deletes them and stops logging, "yes" sends them in batches.
  */
 object Stats {
-    private const val URL_RPC = "https://tnrwkgcjqbnewsnfbkvi.supabase.co/rest/v1/rpc/tend_log"
-    private const val KEY = "sb_publishable_3A9vBgp4nRblyuukPo2wBQ_VDBA3Izg"
+    private const val URL_RPC = "${Supabase.URL_BASE}/rest/v1/rpc/tend_log"
+    private const val KEY = Supabase.KEY
     private const val MAX_QUEUED = 300
     const val PREFS = "tend_stats"
 

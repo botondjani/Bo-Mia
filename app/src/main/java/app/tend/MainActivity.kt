@@ -1,5 +1,8 @@
 package app.tend
 
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+
 import android.app.AppOpsManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -186,7 +189,7 @@ class MainActivity : ComponentActivity() {
     private fun startOver() {
         TaskSync.stopTimer(this)
         stopService(Intent(this, MonitorService::class.java))
-        for (name in listOf("tend", "tend_monitor", "tend_ui", app.tend.data.Stats.PREFS)) getSharedPreferences(name, MODE_PRIVATE).edit().clear().commit()
+        for (name in listOf("tend", "tend_monitor", "tend_ui", app.tend.data.Stats.PREFS, app.tend.data.Account.PREFS_NAME)) getSharedPreferences(name, MODE_PRIVATE).edit().clear().commit()
         filesDir.listFiles()?.forEach { it.deleteRecursively() }
         cacheDir.listFiles()?.forEach { it.deleteRecursively() }
         app.tend.widget.Widgets.refresh(this, force = true)
@@ -387,7 +390,8 @@ class MainActivity : ComponentActivity() {
                 avatar = store.avatar,
                 cfg = store.config,
                 blocked = store.blockedPackages,
-                onAvatar = { store.avatar = it; refresh++ },
+                onAvatar = { store.avatar = it; saveProfile(); refresh++ },
+                onAccountChanged = { saveProfile(); refresh++ },
                 onConfig = { store.config = it; refresh++ },
                 onToggleApp = toggleApp,
                 tasks = store.selectedTasks,
@@ -564,6 +568,13 @@ class MainActivity : ComponentActivity() {
             )
             }
         }
+    }
+
+    /** Name, companion and level on the server, when signed in (friends will see them). */
+    private fun saveProfile() {
+        if (app.tend.data.Account.user(this) == null) return
+        val level = app.tend.core.Progress.level(store.totalXp()).level
+        lifecycleScope.launch { app.tend.data.Account.saveProfile(this@MainActivity, store.avatar.name, level) }
     }
 
     private class HomeProgress(val level: app.tend.core.Level, val skills: Map<app.tend.core.Skill, app.tend.core.Level>, val challenge: app.tend.core.Challenge)

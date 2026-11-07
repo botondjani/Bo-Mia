@@ -38,6 +38,8 @@ fun SettingsScreen(
     cfg: BudgetConfig,
     blocked: Set<String>,
     onAvatar: (Avatar) -> Unit,
+    /** After signing in or out: save the profile, redraw. */
+    onAccountChanged: () -> Unit = {},
     onConfig: (BudgetConfig) -> Unit,
     onToggleApp: (String) -> Unit,
     tasks: List<TaskDef>,
@@ -118,6 +120,9 @@ fun SettingsScreen(
         work?.let { LockRow(it, "Work hours lock", onLockSchedule) }
         Text("At most 3 notes a day. A lock keeps the picked apps closed; only \"Not now\" or something better.", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
     }
+
+    Text("ACCOUNT", style = MaterialTheme.typography.labelSmall)
+    AccountCard(onAccountChanged)
 
     Text("MORE", style = MaterialTheme.typography.labelSmall)
     var confirmReset by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }

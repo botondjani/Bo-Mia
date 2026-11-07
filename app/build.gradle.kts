@@ -71,6 +71,10 @@ dependencies {
     implementation(libs.rive)
     // QR code on the shareable garden card.
     implementation("com.google.zxing:core:3.5.3")
+    // Sign in with Google (Credential Manager); the ID token goes to Supabase Auth.
+    implementation("androidx.credentials:credentials:1.5.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     // In-app review prompt (Play build only).
     "playImplementation"("com.google.android.play:review-ktx:2.0.2")
     // The review library brings an old Fragment; activity-result calls need 1.3+.
