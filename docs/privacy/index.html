@@ -19,10 +19,10 @@
 <body>
 <main>
   <h1>tend privacy policy</h1>
-  <p class="muted">Last updated: 1 November 2026</p>
+  <p class="muted">Last updated: 7 November 2026</p>
 
   <div class="card">
-    <strong>In short:</strong> everything tend knows stays on your phone. tend has no account, no ads and no tracking. The only thing that can leave the phone is anonymous usage counts, and only if you say yes.
+    <strong>In short:</strong> your data stays on your phone. tend has no ads and no tracking, and needs no account. Two things can leave the phone, both only if you choose them: anonymous usage counts, and, if you log in, your account and a backup of your camp.
   </div>
 
   <h2>What tend uses, and why</h2>
@@ -40,6 +40,16 @@
   <h2>Anonymous usage stats (optional, off until you say yes)</h2>
   <p>tend asks once whether you'd like to share anonymous counts that help make it better. If you tap yes, it sends small events such as "the app was opened", "a pause ended in Not now", "a walk was done" or "yesterday: 40 minutes used, 20 left". Each comes with a random id made on your phone (not linked to you, your account or your device), the day since you installed tend, the app version and the Android version.</p>
   <p>It never sends your name, contacts, which apps you use, health data or what you typed. Until you answer, these counts stay on your phone; if you say no, they are deleted and nothing is sent. You can turn it off any time in Settings, and Start over gives you a new random id. The counts are stored with Supabase (our database host), used only to improve tend, and never sold or used for ads. Sent over HTTPS.</p>
+
+  <h2>Your account (optional)</h2>
+  <p>tend works fully without an account. If you log in (with Google, or with a 6-digit code sent to your e-mail), we keep:</p>
+  <ul>
+    <li><strong>Your name and e-mail address</strong>: to log you in. With Google we get your name and e-mail from Google; we never see your Google password.</li>
+    <li><strong>Your profile</strong>: the name you use in tend, your companion (Bo or Mia) and your level. Later, friends you add will see these and your camp; nobody else does.</li>
+    <li><strong>A backup</strong>: your settings, your camp and acorns, which activities you did on which day, minutes used per day and your "Worth it?" answers, so you can restore them on a new phone. It is saved when you log in, about twice a day, and when you tap "Back up now".</li>
+  </ul>
+  <p>The backup never contains your health readings (steps, exercise, sleep) or which other apps you use. Account data is stored with Supabase (our database host, servers in Ireland, EU), sent over HTTPS, used only to run tend, and never sold, shared or used for ads.</p>
+  <p><strong>Deleting it:</strong> Settings → Account → Delete account removes your account, profile and backup from the server right away. You can also e-mail <a href="mailto:botondjani@gmail.com" style="color: var(--moss)">botondjani@gmail.com</a> and we'll delete it for you. Logging out or uninstalling leaves the backup on the server until you delete the account.</p>
 
   <h2>Sharing on purpose</h2>
   <p>If you tap "Export test data" or "Share crash report", tend opens your phone's share sheet with that text, and you choose where it goes. Nothing is sent without that tap.</p>

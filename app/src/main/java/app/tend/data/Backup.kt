@@ -8,16 +8,19 @@ import java.io.File
 /**
  * A backup of what makes tend yours: settings, today, acorns and the camp (the "tend" preferences)
  * and the logs behind the history, levels and patterns. Not included: the background monitor's
- * moment-to-moment state, crash reports, the anonymous stats queue, the account itself.
+ * moment-to-moment state, crash reports, the anonymous stats queue, the account itself, and no
+ * health readings: today's steps, exercise and sleep stay on the phone (Health Connect fills them
+ * again); only which activities were done is saved.
  */
 object Backup {
     private const val VERSION = 1
+    private val HEALTH_KEYS = setOf("day_steps", "day_exercise", "day_sleep")
     private val FILES = listOf("history.csv", "answers.csv", "acorns.csv")
 
     /** Everything to save, as one JSON object. */
     fun snapshot(c: Context): JSONObject {
         val prefs = JSONObject()
-        c.getSharedPreferences("tend", Context.MODE_PRIVATE).all.forEach { (key, value) ->
+        c.getSharedPreferences("tend", Context.MODE_PRIVATE).all.filterKeys { it !in HEALTH_KEYS }.forEach { (key, value) ->
             val entry = when (value) {
                 is String -> JSONObject().put("t", "s").put("v", value)
                 is Int -> JSONObject().put("t", "i").put("v", value)

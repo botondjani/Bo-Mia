@@ -39,7 +39,7 @@ class PrivacyActivity : ComponentActivity() {
                 ) {
                     Text("Your privacy", style = MaterialTheme.typography.headlineLarge)
                     Text(
-                        "Everything tend knows stays on your phone. No account, no ads, no tracking.",
+                        "Your data stays on your phone unless you choose otherwise. No ads, no tracking, no account needed.",
                         style = MaterialTheme.typography.bodyLarge,
                     )
                     Text("WHAT TEND USES, AND WHY", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
@@ -52,9 +52,12 @@ class PrivacyActivity : ComponentActivity() {
                         "Your installed apps: only to let you pick which ones to pause.",
                         "Anonymous usage stats, only if you say yes: counts like \"a pause ended in Not now\" or \"a walk was done\", " +
                             "with a random id and the day since install. No names, app names or health data. Off any time in Settings.",
+                        "An account, only if you log in (Google or an e-mail code): your name and e-mail, your companion and level, " +
+                            "and a backup of your settings, camp, acorns and history so you can restore them. " +
+                            "Never your health readings or which apps you use. Delete it any time: Settings → Account → Delete account.",
                     ).forEach { Text("• $it", style = MaterialTheme.typography.bodyLarge) }
                     Text(
-                        "To delete everything: Settings → Start over, or uninstall tend. Health Connect access can be turned off any time in Health Connect.",
+                        "To delete everything on this phone: Settings → Start over, or uninstall tend. To delete your account and backup: Settings → Account → Delete account. Health Connect access can be turned off any time in Health Connect.",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     PrimaryButton("Got it", ::finish, modifier = Modifier.padding(top = 12.dp))

@@ -60,7 +60,7 @@ CALM BY DESIGN
 • Home screen widgets, light and dark theme
 
 PRIVATE
-Your data stays on your phone. No account, no ads, no tracking. Anonymous usage stats only if you say yes.
+No ads, no tracking, no account needed. Log in only if you want a backup; your health data never leaves your phone.
 
 For a digital detox that sticks: less screen time, more of your life, and a small friend cheering you on.
 ```
@@ -74,12 +74,22 @@ For a digital detox that sticks: less screen time, more of your life, and a smal
 ## App content forms
 
 ### Data safety
-- Does your app collect or share user data? **Yes, collects** (only the opt-in anonymous usage stats). Shared with third parties: **No** (Supabase is a service provider, not sharing).
-- Data types collected: **App activity → App interactions** (e.g. "pause ended in Not now", "activity done"); **App info and performance → Other** (app version, Android version). Not collected: location, personal info, health, app list, messages.
-- For each: collected, not shared; **optional** (user can choose); processed ephemerally: no; purpose: **Analytics**.
+- Does your app collect or share user data? **Yes, collects.** Shared with third parties: **No** (Supabase and Google sign-in are service providers, not sharing).
 - Is data encrypted in transit? **Yes** (HTTPS).
-- Can users request deletion? **Yes**: turn stats off in Settings, Start over (new random id), or e-mail botondjani@gmail.com.
-- Everything else (minutes, answers, Health Connect data) stays on the device.
+- Can users request deletion? **Yes**: in the app (Settings → Account → Delete account, removes it right away), and by e-mail to botondjani@gmail.com.
+- Account creation: **optional**; methods: Google sign-in, e-mail with a one-time code. Account deletion URL: the privacy page's "Your account" section (Play asks for a web link: use the privacy policy URL).
+
+| Data type (Play's names) | Collected | Optional | Purpose | Notes |
+| - | - | - | - | - |
+| Personal info → Name | Yes | Yes (only with an account) | Account management, App functionality | From Google, or the e-mail's first part |
+| Personal info → Email address | Yes | Yes (only with an account) | Account management | Log-in |
+| App activity → App interactions | Yes | Yes | Analytics (opt-in stats), App functionality (backup) | Stats: anonymous counts; backup: activities done per day, pauses, acorns, camp |
+| App activity → Other user-generated content | Yes | Yes (only with an account) | App functionality | The camp, settings and "Worth it?" answers in the backup |
+| App info and performance → Other | Yes | Yes | Analytics | App and Android version with the opt-in stats |
+
+- Not collected: location, health and fitness (steps, exercise, sleep stay on the phone), the list of installed or used apps, messages, contacts, photos, financial info.
+- Data is processed ephemerally: No. Linked to the user's identity: account data and backup yes; opt-in stats no.
+- Everything else (minutes, Health Connect readings) stays on the device.
 
 ### Content rating (IARC questionnaire)
 - Category: Utility / Productivity. No violence, sexuality, language, controlled substances, gambling, user-generated content, location sharing or purchases. Expected rating: Everyone / PEGI 3.
