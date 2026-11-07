@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
  * [onChanged] runs after signing in or out, so the app can save the profile and redraw.
  */
 @Composable
-fun AccountCard(onChanged: () -> Unit) {
+fun AccountCard(onChanged: () -> Unit, onRestored: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var user by androidx.compose.runtime.remember { mutableStateOf(Account.user(context)) }
@@ -42,12 +42,27 @@ fun AccountCard(onChanged: () -> Unit) {
     var code by rememberSaveable { mutableStateOf("") }
     var codeSent by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    var lastBackup by androidx.compose.runtime.remember { mutableStateOf(app.tend.data.Backup.lastBackupAt(context)) }
+    // A backup found on the server right after logging in, waiting for "Restore" or "Keep this phone's".
+    var found by androidx.compose.runtime.remember { mutableStateOf<app.tend.data.Backup.Saved?>(null) }
+
+    /** Right after logging in: offer the server's backup, or send this phone's if there's none. */
+    suspend fun afterLogin() {
+        val saved = app.tend.data.Backup.fetch(context)
+        if (saved != null) found = saved
+        else if (app.tend.data.Backup.upload(context)) lastBackup = app.tend.data.Backup.lastBackupAt(context)
+    }
 
     fun run(block: suspend () -> Account.Result) {
         busy = true; message = null
         scope.launch {
             when (val r = block()) {
-                Account.Result.Ok -> { user = Account.user(context); onChanged() }
+                Account.Result.Ok -> {
+                    val wasSignedIn = user != null
+                    user = Account.user(context)
+                    onChanged()
+                    if (!wasSignedIn && user != null) afterLogin()
+                }
                 is Account.Result.Failed -> message = r.message.ifBlank { null }
             }
             busy = false
@@ -59,8 +74,20 @@ fun AccountCard(onChanged: () -> Unit) {
         if (u != null) {
             Text(u.name.ifBlank { u.email }, style = MaterialTheme.typography.titleMedium)
             Text(u.email, style = MaterialTheme.typography.bodyMedium)
-            Text("Your camp can be backed up; friends are coming soon.", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+            Text(
+                if (lastBackup > 0) "Backed up ${android.text.format.DateUtils.getRelativeTimeSpanString(lastBackup, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS)}; it saves itself twice a day."
+                else "Not backed up yet.",
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted,
+            )
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+                ChipButton(if (busy) "Saving…" else "Back up now", {
+                    busy = true; message = null
+                    scope.launch {
+                        if (app.tend.data.Backup.upload(context)) lastBackup = app.tend.data.Backup.lastBackupAt(context)
+                        else message = "Couldn't back up. Check the connection and try again."
+                        busy = false
+                    }
+                }, filled = false)
                 ChipButton("Sign out", { scope.launch { Account.signOut(context); user = null; onChanged() } }, filled = false)
                 ChipButton("Delete account", { confirmDelete = true }, filled = false)
             }
@@ -96,6 +123,29 @@ fun AccountCard(onChanged: () -> Unit) {
             }
         }
         message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = if (it.startsWith("Check")) Brand.Moss else Brand.Coral) }
+    }
+
+    found?.let { saved ->
+        val date = runCatching { java.time.OffsetDateTime.parse(saved.updatedAt).toLocalDate().toString() }.getOrDefault("")
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Restore your camp?") },
+            text = { Text("There's a backup from $date. Restoring replaces what's on this phone with it. Keeping this phone's data replaces the backup instead.") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    found = null
+                    app.tend.data.Backup.restore(context, saved.data)
+                    onRestored()
+                }) { Text("Restore", color = Brand.Moss) }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    found = null
+                    scope.launch { if (app.tend.data.Backup.upload(context)) lastBackup = app.tend.data.Backup.lastBackupAt(context) }
+                }) { Text("Keep this phone's") }
+            },
+            containerColor = Brand.Card,
+        )
     }
 
     if (confirmDelete) androidx.compose.material3.AlertDialog(

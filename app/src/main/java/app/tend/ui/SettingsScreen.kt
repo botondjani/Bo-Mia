@@ -40,6 +40,8 @@ fun SettingsScreen(
     onAvatar: (Avatar) -> Unit,
     /** After signing in or out: save the profile, redraw. */
     onAccountChanged: () -> Unit = {},
+    /** After a backup was restored: start the app again on the restored data. */
+    onRestored: () -> Unit = {},
     onConfig: (BudgetConfig) -> Unit,
     onToggleApp: (String) -> Unit,
     tasks: List<TaskDef>,
@@ -122,7 +124,7 @@ fun SettingsScreen(
     }
 
     Text("ACCOUNT", style = MaterialTheme.typography.labelSmall)
-    AccountCard(onAccountChanged)
+    AccountCard(onAccountChanged, onRestored)
 
     Text("MORE", style = MaterialTheme.typography.labelSmall)
     var confirmReset by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }

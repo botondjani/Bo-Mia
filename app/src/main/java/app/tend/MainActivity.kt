@@ -198,6 +198,16 @@ class MainActivity : ComponentActivity() {
         finish()
     }
 
+    /** After a restore: stop what runs on the old data, then start again on the restored one. */
+    private fun restartFresh() {
+        TaskSync.stopTimer(this)
+        stopService(Intent(this, MonitorService::class.java))
+        app.tend.widget.Widgets.refresh(this, force = true)
+        app.tend.ui.ThemeChoice.mode = null
+        startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        finish()
+    }
+
     private fun openPlayListing() = open(
         Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName")),
         Intent(Intent.ACTION_VIEW, Uri.parse(app.tend.ui.ShareCard.playUrl(this))),
@@ -290,6 +300,7 @@ class MainActivity : ComponentActivity() {
         app.tend.data.Stats.flush(this)
         refresh++
         // Usage access is enough to count minutes; without the overlay the monitor nudges by notification.
+        if (store.onboarded) lifecycleScope.launch { app.tend.data.Backup.uploadIfDue(this@MainActivity) }
         if (store.onboarded && permissions().usageAccess) {
             MonitorService.start(this)
             store.learnNormal()
@@ -392,6 +403,7 @@ class MainActivity : ComponentActivity() {
                 blocked = store.blockedPackages,
                 onAvatar = { store.avatar = it; saveProfile(); refresh++ },
                 onAccountChanged = { saveProfile(); refresh++ },
+                onRestored = ::restartFresh,
                 onConfig = { store.config = it; refresh++ },
                 onToggleApp = toggleApp,
                 tasks = store.selectedTasks,
