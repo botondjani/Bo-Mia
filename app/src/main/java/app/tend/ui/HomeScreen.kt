@@ -66,7 +66,8 @@ fun HomeScreen(
     cfg: BudgetConfig,
     day: DayState,
     tasks: List<TaskDef>,
-    plantCount: Int,
+    /** Acorns to spend in the clearing. */
+    acorns: Int,
     isEvening: Boolean,
     permissions: Permissions,
     health: HealthConnect.Status?,
@@ -158,17 +159,16 @@ fun HomeScreen(
                 Text(if (remaining > 0) "$remaining" else "0", style = MaterialTheme.typography.displayLarge, color = if (remaining > 0) Brand.Moss else Brand.Coral)
                 Spacer(Modifier.width(Space.s))
                 Text("min left today", style = MaterialTheme.typography.titleMedium, color = Brand.Muted, modifier = Modifier.weight(1f).padding(bottom = 10.dp))
-                // The garden is one tap away, next to today's minutes.
+                // The clearing is one tap away, next to today's minutes, with the acorns to spend there.
                 Row(
                     Modifier.padding(bottom = 6.dp).tourTarget(tour, "garden").clip(RoundedCornerShape(50)).background(Brand.Mint.copy(alpha = 0.32f))
                         .border(1.dp, Brand.Mint, RoundedCornerShape(50))
                         .tappable(onClick = onOpenGarden).padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    val world = LocalWorld.current
-                    TendIcons.Glyph(if (world == app.tend.core.World.BASE) "chores" else "sprout", 20.dp)
+                    AcornIcon(20.dp)
                     Spacer(Modifier.width(6.dp))
-                    Text(if (plantCount > 0) "${world.label} · $plantCount" else world.label, style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
+                    Text("$acorns", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
                 }
             }
             val available = (cfg.freeMinutes + day.earnedMinutes).coerceAtLeast(1)

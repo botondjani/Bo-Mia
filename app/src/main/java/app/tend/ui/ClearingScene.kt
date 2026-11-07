@@ -674,3 +674,40 @@ fun clearingBitmap(
     ) { drawClearing(avatar, placed, worn = worn, night = night) }
     return image.asAndroidBitmap()
 }
+
+/** Rough size of each thing (width, height) in scene heights, to fit it into an icon. */
+private fun thingSize(id: String): Pair<Float, Float> = when (id) {
+    "cabin" -> 0.25f to 0.24f
+    "workshop" -> 0.2f to 0.17f
+    "bell_tent" -> 0.2f to 0.18f
+    "tent" -> 0.17f to 0.12f
+    "treehouse" -> 0.14f to 0.32f
+    "swing" -> 0.1f to 0.21f
+    "hammock" -> 0.15f to 0.1f
+    "bike" -> 0.1f to 0.05f
+    "canoe" -> 0.21f to 0.05f
+    "boat" -> 0.24f to 0.07f
+    "dock" -> 0.2f to 0.05f
+    "kettle" -> 0.11f to 0.13f
+    "grill" -> 0.08f to 0.11f
+    "campfire" -> 0.08f to 0.09f
+    "pizza_oven" -> 0.11f to 0.13f
+    "picnic_table" -> 0.13f to 0.08f
+    "camp_chairs" -> 0.09f to 0.07f
+    "log_bench" -> 0.12f to 0.035f
+    "guitar" -> 0.04f to 0.1f
+    else -> 0.06f to 0.05f
+}
+
+/** One thing as an icon, filling this canvas, standing on its bottom. */
+fun DrawScope.drawThingIcon(id: String) {
+    val s = size.minDimension
+    val c = Offset(size.width / 2, size.height / 2)
+    if (id == "bunting" || id == "string_lights") {
+        overhead(id, Offset(c.x - s * 0.45f, c.y - s * 0.15f), Offset(c.x + s * 0.45f, c.y - s * 0.15f), s * 0.9f, mutableListOf())
+        return
+    }
+    val (tw, th) = thingSize(id)
+    val u = minOf(s * 0.85f / tw, s * 0.8f / th)
+    drawThing(id, Offset(c.x, c.y + s * 0.4f), u)
+}

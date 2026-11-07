@@ -172,6 +172,11 @@ class TendStore(private val context: Context) {
         if (p.size == 3 && p[0] == LocalDate.now().toString() && p[1] != "spent" && p[1] != "sold") p[1] to (p[2].toIntOrNull() ?: 0) else null
     }.groupBy({ it.first }, { it.second }).mapValues { it.value.sum() }
 
+    /** What last night's day close gave (within budget, below your normal). */
+    fun acornsLastNight(): Int = LocalDate.now().minusDays(1).toString().let { y ->
+        lines("acorns.csv").sumOf { line -> line.split(',').takeIf { it.size == 3 && it[0] == y && it[1] == "day" }?.get(2)?.toIntOrNull() ?: 0 }
+    }
+
     /** What stands where: spot id to thing id. */
     var placed: Map<Int, String>
         get() = app.tend.core.Clearing.parse(prefs.getString("placed", "")!!)

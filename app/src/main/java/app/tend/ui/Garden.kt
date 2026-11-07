@@ -399,7 +399,7 @@ fun GardenScreen(
  * there now; "See all" opens the whole list with how to get each.
  */
 @Composable
-private fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory>) {
+internal fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory>) {
     var all by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     Card {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -616,7 +616,7 @@ fun SleepScreen(avatar: Avatar, onDone: () -> Unit) {
 }
 
 @Composable
-private fun Stat(value: String, label: String, modifier: Modifier) = Column(
+internal fun Stat(value: String, label: String, modifier: Modifier) = Column(
     modifier.clip(RoundedCornerShape(20.dp)).background(Brand.Card).padding(vertical = 14.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
 ) {

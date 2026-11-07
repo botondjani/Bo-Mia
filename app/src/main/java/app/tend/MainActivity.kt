@@ -446,11 +446,17 @@ class MainActivity : ComponentActivity() {
                 screen = Screen.HOME
             }
 
-            screen == Screen.GARDEN -> GardenScreen(
-                store.avatar, store.plants, store.daysTended, Budget.gardenMinutesAtClose(store.config, store.today()),
+            screen == Screen.GARDEN -> app.tend.ui.ClearingScreen(
+                avatar = store.avatar,
+                placed = store.placed,
+                acorns = store.acorns,
+                earnedToday = store.acornsToday(),
+                lastNight = store.acornsLastNight(),
                 worn = shelf.first, onShelf = shelf.second,
+                night = app.tend.core.Garden.isNight(store.eveningFrom),
+                onBuy = { spot, thing -> store.buy(spot, thing).also { if (it) { app.tend.data.Stats.log(this, "bought", mapOf("thing" to thing)); refresh++ } } },
+                onSell = { spot -> store.sell(spot); refresh++ },
                 onBack = { screen = Screen.HOME },
-                onOpenSettings = { screen = Screen.SETTINGS },
                 onShare = ::shareGarden,
             ) {
                 WeekSections(
@@ -475,7 +481,7 @@ class MainActivity : ComponentActivity() {
                 cfg = store.config,
                 day = store.today(),
                 tasks = store.selectedTasks,
-                plantCount = store.plants.size,
+                acorns = store.acorns,
                 isEvening = app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour),
                 permissions = permissions(),
                 onShareCrash = TendApp.crashFile(this).takeIf { it.exists() }?.let { file ->
