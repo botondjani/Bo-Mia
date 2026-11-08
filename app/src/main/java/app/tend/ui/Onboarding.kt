@@ -15,6 +15,9 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -93,7 +96,7 @@ class PermissionActions(
 /** Where Android's restricted-settings lock stands: none, locked, or refused once (the unlock option now shows). */
 enum class PermissionLock { NONE, LOCKED, TRIPPED }
 
-private enum class Step { INTRO, COMPANION, USAGE, APPS, ACTIVITIES, PAUSE, ACCOUNT, CAMP }
+private enum class Step { WELCOME, USAGE, APPS, ACTIVITIES, PAUSE, ACCOUNT, CAMP }
 
 @Composable
 fun Onboarding(
@@ -111,11 +114,11 @@ fun Onboarding(
     onToggleTask: (TaskDef) -> Unit = {},
     onDefaultTasks: (reset: Boolean) -> Unit = {},
     account: @Composable (onDone: () -> Unit) -> Unit = {},
-    /** The camp at the end: what's in it, the acorns, getting the campfire lit, and buying a first thing. */
+    /** The camp at the end: what's in it, the acorns, buying the campfire, and the companion using it. */
     placed: Map<Int, String> = emptyMap(),
     acorns: Int = 0,
-    onCampReady: () -> Unit = {},
     onBuy: (String) -> Boolean = { false },
+    onUsed: (String) -> Unit = {},
     onFinish: () -> Unit,
 ) {
     var stepIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -125,9 +128,7 @@ fun Onboarding(
     androidx.activity.compose.BackHandler(enabled = stepIndex > 0) { stepIndex-- }
 
     Column(Modifier.fillMaxSize().background(Brand.Sage)) {
-        if (step != Step.INTRO) {
-            Progress(stepIndex, Step.entries.size) { stepIndex-- }
-        }
+        Progress(stepIndex + 1, Step.entries.size + 1) { if (stepIndex > 0) stepIndex-- }
         AnimatedContent(
             targetState = step,
             transitionSpec = {
@@ -139,11 +140,15 @@ fun Onboarding(
             label = "onboarding",
         ) { s ->
             when (s) {
-                Step.INTRO -> IntroSlides(avatar, cfg.freeMinutes, onDone = next)
-
-                Step.COMPANION -> StepPage(cta = "Continue with ${avatar.displayName}", onCta = next) {
-                    Title("Who's keeping you company?", "Same heart, different hair. You can switch later.")
+                // One page to say hello: what tend does, in two lines, and who keeps you company.
+                Step.WELCOME -> StepPage(cta = "Continue with ${avatar.displayName}", onCta = next) {
+                    Title(
+                        "Hi! I'm ${avatar.displayName}.",
+                        "When you open an app you picked, I pop up for a breath first. Walks, workouts and books win your minutes back, and acorns for our camp by the river.",
+                    )
+                    Text("WHO KEEPS YOU COMPANY?", style = MaterialTheme.typography.labelSmall)
                     CompanionPicker(avatar, onAvatar)
+                    Text("Same heart, different hair. You can switch any time.", style = MaterialTheme.typography.bodyMedium, color = Brand.Muted)
                 }
 
                 Step.USAGE -> StepPage(cta = "Continue", ctaEnabled = perms.permissions.usageAccess, onCta = next) {
@@ -210,30 +215,65 @@ fun Onboarding(
                     account(next)
                 }
 
-                // The end: the camp, its fire already lit, and the first thing bought right here.
+                // The end, guided: an empty camp; get the campfire, then tap it and watch.
                 Step.CAMP -> {
-                    LaunchedEffect(Unit) { onCampReady() }
-                    val firsts = listOf("wildflowers", "lantern", "woodpile")
-                    val picked = placed.values.any { it in firsts }
-                    StepPage(cta = if (picked) "Start" else "Pick your first thing", ctaEnabled = picked, onCta = onFinish) {
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    val fire = app.tend.core.Things.byId("campfire")!!
+                    val lit = placed[0] != null
+                    // Tapping the fire: the companion walks over and roasts a marshmallow.
+                    var roastStart by remember { mutableStateOf(-1L) }
+                    var frame by remember { mutableStateOf(0L) }
+                    val roasting = roastStart >= 0
+                    LaunchedEffect(roasting) {
+                        if (!roasting) return@LaunchedEffect
+                        while (true) androidx.compose.runtime.withFrameNanos { frame = it; if (roastStart == 0L) roastStart = it }
+                    }
+                    val pulse by rememberInfiniteTransition(label = "hint").animateFloat(0f, 1f, infiniteRepeatable(tween(1100), RepeatMode.Restart), label = "pulse")
+                    StepPage(cta = if (!lit) "Get the campfire first" else "Start", ctaEnabled = lit, onCta = onFinish) {
                         Title(
                             "Your camp",
-                            "${avatar.displayName} lives here. Activities and \"Not now\" earn acorns; spend them on things, and ${avatar.displayName} uses every one.",
+                            when {
+                                !lit -> "This is where ${avatar.displayName} will live. It's empty for now: start with a campfire."
+                                !roasting -> "Lovely. Now tap the fire."
+                                else -> "${avatar.displayName} uses everything you get. Activities and \"Not now\" earn acorns for more: a tent, a canoe, a guitar."
+                            },
                         )
                         val appear = rememberAppear(placed)
                         Box(Modifier.fillMaxWidth().aspectRatio(1.35f).clip(RoundedCornerShape(26.dp)).campEntrance()) {
-                            Canvas(Modifier.fillMaxSize()) { drawClearing(avatar, placed, Mood.HAPPY, appear = appear) }
+                            Canvas(
+                                Modifier.fillMaxSize().pointerInput(lit) {
+                                    detectTapGestures { tap ->
+                                        val p = SpotPositions.getValue(0)
+                                        val near = kotlin.math.abs(tap.x / size.width - p.x) < 0.18f && kotlin.math.abs(tap.y / size.height - p.y + 0.05f) < 0.2f
+                                        if (lit && near && !roasting) {
+                                            roastStart = 0L
+                                            Sounds.forUse(context, "campfire", (Uses.WALK * 1000).toLong())
+                                            onUsed("campfire")
+                                        }
+                                    }
+                                },
+                            ) {
+                                val use = if (roasting && roastStart > 0) InUse(0, "campfire", (frame - roastStart) / 1e9f, Uses.WALK) else null
+                                drawClearing(avatar, placed, Mood.HAPPY, appear = appear, use = use)
+                                // Where to tap: a soft ring pulsing around the fire.
+                                if (lit && !roasting && appear.isEmpty()) {
+                                    val c = SpotPositions.getValue(0).let { Offset(it.x * size.width, it.y * size.height - size.height * 0.04f) }
+                                    drawCircle(Color.White.copy(alpha = 0.7f * (1f - pulse)), size.height * (0.06f + 0.08f * pulse), c, style = androidx.compose.ui.graphics.drawscope.Stroke(size.height * 0.008f))
+                                }
+                            }
                             AcornBadge(acorns, Modifier.align(Alignment.TopEnd).padding(10.dp))
                         }
-                        Text(if (picked) "IN YOUR CAMP" else "PICK YOUR FIRST THING", style = MaterialTheme.typography.labelSmall)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            firsts.mapNotNull { app.tend.core.Things.byId(it) }.forEach { t ->
-                                ShopTile(t, owned = t.id in placed.values, affordable = !picked && acorns >= t.price, Modifier.weight(1f), background = Brand.Card) { if (!picked) onBuy(t.id) }
+                        if (!lit) {
+                            Text("THE SHOP", style = MaterialTheme.typography.labelSmall)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                ShopTile(fire, owned = false, affordable = acorns >= fire.price, Modifier.weight(1f), background = Brand.Card) { onBuy(fire.id) }
+                                Text(
+                                    "You have $acorns acorns. The campfire is ${fire.price}: tap it to get it.",
+                                    style = MaterialTheme.typography.bodyMedium, color = Brand.Muted, modifier = Modifier.weight(2f).align(Alignment.CenterVertically),
+                                )
                             }
-                        }
-                        Text(
-                            if (picked) "Nice. You have $acorns acorns left for the next one, and every activity adds more."
-                            else "The campfire is on us. You have $acorns acorns: pick one of these to start.",
+                        } else Text(
+                            "$acorns acorns left. Every activity adds 10; a \"Not now\" adds 2.",
                             style = MaterialTheme.typography.bodyMedium, color = Brand.Muted,
                         )
                     }

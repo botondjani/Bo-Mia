@@ -474,9 +474,9 @@ class MainActivity : ComponentActivity() {
                     account = { done -> app.tend.ui.AccountCard(onChanged = { refresh++ }, onRestored = ::restartFresh, onSignedIn = done) },
                     placed = store.placed,
                     acorns = store.acorns,
-                    // A new camp starts with its fire lit.
-                    onCampReady = { if (store.placed.isEmpty()) { store.placed = mapOf(0 to "campfire"); refresh++ } },
+                    // The camp starts empty: the first thing (the campfire) is bought, guided, at the end of setup.
                     onBuy = { thing -> store.buy(thing).also { if (it) refresh++ } },
+                    onUsed = { thing -> store.markUsed(thing); refresh++ },
                     onFinish = finish,
                 )
             }
