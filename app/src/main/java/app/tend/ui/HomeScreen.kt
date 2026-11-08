@@ -87,6 +87,9 @@ fun HomeScreen(
     /** On a break until then (epoch ms); in the past = none. */
     pausedUntil: Long = 0,
     onResume: () -> Unit = {},
+    /** Ask once whether anonymous usage counts may be shared; answered with true or false. */
+    askStats: Boolean = false,
+    onStats: (Boolean) -> Unit = {},
     /** A new level to celebrate, once. */
     levelUp: Int? = null,
     onLevelUpSeen: () -> Unit = {},
@@ -120,7 +123,6 @@ fun HomeScreen(
     /** Notes haven't been offered yet: the last of the next steps. */
     notesOff: Boolean = false,
     onAllowNotes: () -> Unit = {},
-    /** Not asked yet about anonymous usage stats: the last, optional step. */
     /** Asks the launcher to place the widget in its own dialog; false when it can't. */
     onAddWidget: () -> Boolean = { false },
     /** Something writes workouts to Health Connect; otherwise the workout is a phone-off timer. */
@@ -249,6 +251,8 @@ fun HomeScreen(
             )
         }
 
+        if (askStats && !nextSteps && !firstDays) StatsAsk(onStats)
+
         val active = tasks.filter { it.id !in day.completedTasks }
         val done = tasks.filter { it.id in day.completedTasks }
         SectionHeader("Instead of scrolling", "${done.size} of ${tasks.size} done")
@@ -321,6 +325,26 @@ fun HomeScreen(
         val week = app.tend.core.WeekOverview.of(history.filter { it.date != day.date } + today, day.date)
         if (week.days.count { it != null } >= 2) Box(Modifier.padding(bottom = Space.xl)) { WeekCard(week) }
     }
+    }
+}
+
+/** Once: may tend send anonymous counts? Both answers are one tap, and it can be changed in settings. */
+@Composable
+private fun StatsAsk(onStats: (Boolean) -> Unit) = Column(
+    Modifier.fillMaxWidth().surface().padding(horizontal = 16.dp, vertical = 14.dp),
+    verticalArrangement = Arrangement.spacedBy(6.dp),
+) {
+    Text("Help make tend better?", style = MaterialTheme.typography.titleMedium)
+    Text("Share anonymous counts, like which screens get used. Never your apps, name or health data.", style = MaterialTheme.typography.bodyMedium)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+        Text(
+            "Sure", style = MaterialTheme.typography.labelLarge, color = Color.White, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(Brand.Moss).tappable { onStats(true) }.padding(vertical = 10.dp),
+        )
+        Text(
+            "No thanks", style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(Brand.Sage).tappable { onStats(false) }.padding(vertical = 10.dp),
+        )
     }
 }
 

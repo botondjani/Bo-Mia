@@ -124,6 +124,9 @@ fun Onboarding(
     var stepIndex by rememberSaveable { mutableIntStateOf(0) }
     val step = Step.entries[stepIndex]
     val next = { stepIndex = (stepIndex + 1).coerceAtMost(Step.entries.lastIndex) }
+    // Where people leave the setup, if they share counts: each step once, as it's reached.
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    androidx.compose.runtime.LaunchedEffect(step) { app.tend.data.Stats.log(ctx, "onboarding_step", mapOf("step" to step.name.lowercase(), "n" to step.ordinal + 1)) }
     // System back goes one step back instead of leaving the app mid-setup.
     androidx.activity.compose.BackHandler(enabled = stepIndex > 0) { stepIndex-- }
 

@@ -715,6 +715,8 @@ class MainActivity : ComponentActivity() {
                 history = progress.days,
                 pausedUntil = store.pausedUntil,
                 onResume = { store.resume(); refresh++ },
+                askStats = app.tend.data.Stats.consent(this@MainActivity) == null && store.daysTended >= 1,
+                onStats = { app.tend.data.Stats.setConsent(this@MainActivity, it); refresh++ },
                 levelUp = progress.level.level.takeIf { it > store.levelSeen && store.tourDone },
                 onLevelUpSeen = {
                     store.addAcorns(app.tend.core.Acorns.LEVEL_UP * (progress.level.level - store.levelSeen).coerceAtLeast(0), "level")

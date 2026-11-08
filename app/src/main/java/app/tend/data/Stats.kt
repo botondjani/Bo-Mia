@@ -18,7 +18,8 @@ import java.util.UUID
 object Stats {
     private const val URL_RPC = "${Supabase.URL_BASE}/rest/v1/rpc/tend_log"
     private const val KEY = Supabase.KEY
-    private const val MAX_QUEUED = 300
+    // The server takes at most 200 events a batch.
+    private const val MAX_QUEUED = 200
     const val PREFS = "tend_stats"
 
     private fun prefs(c: Context) = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
