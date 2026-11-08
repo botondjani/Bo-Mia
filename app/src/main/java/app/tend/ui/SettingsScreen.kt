@@ -13,6 +13,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -82,6 +86,15 @@ fun SettingsScreen(
     pausedUntil: Long = 0,
     /** Starts a break of that many days; 0 ends it. */
     onPause: (Int) -> Unit = {},
+    /** Each paused app's own daily limit (minutes), and its seconds today. */
+    appLimits: Map<String, Int> = emptyMap(),
+    appSecondsToday: Map<String, Long> = emptyMap(),
+    /** Sets or (null) removes an app's own limit. */
+    onAppLimit: (String, Int?) -> Unit = { _, _ -> },
+    strict: Boolean = false,
+    /** Strict mode was turned off and ends then (epoch ms); 0 = it isn't ending. */
+    strictEndsAt: Long = 0,
+    onStrict: (Boolean) -> Unit = {},
     onDone: () -> Unit,
 ) = Column(
     Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
@@ -96,11 +109,16 @@ fun SettingsScreen(
     CompanionPicker(avatar, onAvatar, compact = true)
     Text("APPS TO PAUSE", style = MaterialTheme.typography.labelSmall)
     AppPicker(catalog, blocked, onToggleApp)
+    if (blocked.isNotEmpty()) {
+        Text("A LIMIT FOR EACH APP", style = MaterialTheme.typography.labelSmall)
+        AppLimitsCard(catalog, blocked, appLimits, appSecondsToday, strict, onAppLimit)
+    }
     Text("INSTEAD OF SCROLLING", style = MaterialTheme.typography.labelSmall)
     ActivitySummary(tasks, onToggleTask)
     Text("DAILY BUDGET", style = MaterialTheme.typography.labelSmall)
     BudgetPicker(cfg, onConfig)
-    BreakCard(pausedUntil, onPause)
+    BreakCard(pausedUntil, strict, onPause)
+    StrictCard(strict, strictEndsAt, onStrict)
 
     // Everything about the evening in one place: when it starts, the pause, the recap, the lock.
     val bedtime = lockSchedules.firstOrNull { it.label == app.tend.core.LockSchedule.BEDTIME.label }
@@ -248,7 +266,7 @@ fun PermissionsScreen(avatar: Avatar, perms: PermissionActions, onDone: () -> Un
 
 /** A holiday, a sick day: every limit off for a while, and those days don't count against you. */
 @Composable
-private fun BreakCard(pausedUntil: Long, onPause: (Int) -> Unit) = Card {
+private fun BreakCard(pausedUntil: Long, strict: Boolean, onPause: (Int) -> Unit) = Card {
     if (pausedUntil > System.currentTimeMillis()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -262,8 +280,11 @@ private fun BreakCard(pausedUntil: Long, onPause: (Int) -> Unit) = Card {
         }
     } else {
         Text("Take a break", style = MaterialTheme.typography.bodyLarge)
-        Text("Holiday or a sick day: every limit off, and those days don't count.", style = MaterialTheme.typography.bodyMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+        Text(
+            if (strict) "Not while strict mode is on." else "Holiday or a sick day: every limit off, and those days don't count.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        if (!strict) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
             listOf(1 to "Today", 3 to "3 days", 7 to "A week").forEach { (days, label) ->
                 Text(
                     label, style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = TextAlign.Center,
@@ -279,4 +300,83 @@ fun breakEnd(until: Long): String {
     val end = java.time.Instant.ofEpochMilli(until).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
     val last = end.minusDays(1)
     return if (last == java.time.LocalDate.now()) "tonight" else "the end of " + last.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH)
+}
+
+/** Picked apps, each with its own daily limit (or none): tap one to set it. */
+@Composable
+private fun AppLimitsCard(
+    catalog: AppCatalog, blocked: Set<String>, limits: Map<String, Int>, secondsToday: Map<String, Long>, strict: Boolean,
+    onAppLimit: (String, Int?) -> Unit,
+) = Card {
+    var editing by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    Text("On top of your daily minutes: when an app's own minutes are used, it stays closed until tomorrow.", style = MaterialTheme.typography.bodyMedium)
+    blocked.sortedBy { catalog.label(it).lowercase() }.forEach { pkg ->
+        val limit = limits[pkg]
+        val used = ((secondsToday[pkg] ?: 0L) / 60).toInt()
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tappable { editing = pkg }.padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val icon = remember(pkg) { catalog.icon(pkg) }
+            if (icon != null) androidx.compose.foundation.Image(icon, null, Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)))
+            else Box(Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(Brand.Mint))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(catalog.label(pkg), style = MaterialTheme.typography.bodyLarge, maxLines = 1)
+                if (limit != null) Text(
+                    if (used >= limit) "Used up today" else "${limit - used} of $limit min left today",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = if (used >= limit) Brand.Coral else Brand.Muted,
+                )
+            }
+            Text(
+                limit?.let { "$it min" } ?: "No limit", style = MaterialTheme.typography.labelLarge, color = if (limit != null) Color.White else Brand.Moss,
+                modifier = Modifier.clip(RoundedCornerShape(50)).background(if (limit != null) Brand.Moss else Brand.Sage).padding(horizontal = 12.dp, vertical = 6.dp),
+            )
+        }
+    }
+    editing?.let { pkg ->
+        val now = limits[pkg]
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { editing = null },
+            title = { Text(catalog.label(pkg)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Minutes a day, at most:", style = MaterialTheme.typography.bodyMedium)
+                    // Strict mode: only tighter.
+                    val options = listOf<Int?>(null, 10, 15, 20, 30, 45, 60, 90)
+                    options.chunked(4).forEach { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            row.forEach { m ->
+                                val allowed = !strict || (m != null && (now == null || m <= now))
+                                val on = m == now
+                                Text(
+                                    m?.let { "$it" } ?: "None", style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center,
+                                    color = when { on -> Color.White; allowed -> Brand.Moss; else -> Brand.Muted.copy(alpha = 0.4f) },
+                                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if (on) Brand.Moss else Brand.Sage)
+                                        .clickable(enabled = allowed) { onAppLimit(pkg, m); editing = null }.padding(vertical = 10.dp),
+                                )
+                            }
+                        }
+                    }
+                    if (strict) Text("Strict mode is on: a limit can only get tighter.", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+                }
+            },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { editing = null }) { Text("Done", color = Brand.Moss) } },
+            containerColor = Brand.Card,
+        )
+    }
+}
+
+/** No shortcuts, and loosening waits until tomorrow: for the days you don't trust yourself. */
+@Composable
+private fun StrictCard(strict: Boolean, endsAt: Long, onStrict: (Boolean) -> Unit) = Card {
+    SwitchRow(
+        "Strict mode",
+        when {
+            endsAt > 0 -> "Turned off: it ends at midnight."
+            strict -> "On. Turning it off takes effect tomorrow."
+            else -> "No 1-minute looks, no 5 minutes for acorns, no waking the apps, no breaks; limits only get tighter."
+        },
+        strict && endsAt == 0L, onStrict,
+    )
 }

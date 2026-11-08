@@ -87,6 +87,8 @@ fun HomeScreen(
     /** On a break until then (epoch ms); in the past = none. */
     pausedUntil: Long = 0,
     onResume: () -> Unit = {},
+    /** Strict mode: good night can't be undone before 7:00. */
+    strict: Boolean = false,
     /** Opens the full picture: time won back, the weeks, each app. */
     onOpenInsights: () -> Unit = {},
     /** Ask once whether anonymous usage counts may be shared; answered with true or false. */
@@ -221,7 +223,7 @@ fun HomeScreen(
         )
         if (pausedUntil > System.currentTimeMillis()) Notice("sun", "On a break until ${breakEnd(pausedUntil)}", "No pauses, locks or counting. Tap to come back.", onResume)
         // After "Good night": the paused apps rest until morning, with a way back.
-        else if (sleeping) Notice("moon", "Good night: your apps rest until 7:00", "Up again? Tap to wake them", onWakeUp)
+        else if (sleeping) Notice("moon", "Good night: your apps rest until 7:00", if (strict) "Strict mode: they wake at 7:00" else "Up again? Tap to wake them", onWakeUp)
         else if (isEvening) {
             val seen = app.tend.data.TendStore(context).recapSeenOn == day.date.toString()
             Notice("moon", if (seen) "Tonight's recap" else "Tonight's recap is ready", if (seen) "See it again" else "See what today gave back", onOpenRecap)

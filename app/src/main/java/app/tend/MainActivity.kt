@@ -431,8 +431,9 @@ class MainActivity : ComponentActivity() {
 
         val toggleApp: (String) -> Unit = { pkg ->
             val b = store.blockedPackages
-            store.blockedPackages = if (pkg in b) b - pkg else b + pkg
-            refresh++
+            // Strict mode: apps can be added, not taken off.
+            if (pkg in b && store.isStrict) strictNo()
+            else { store.blockedPackages = if (pkg in b) b - pkg else b + pkg; refresh++ }
         }
 
         // Pages fade into each other; the camp is the same size and place on home and in the camp, so it stays put.
@@ -490,7 +491,10 @@ class MainActivity : ComponentActivity() {
                 onAvatar = { store.avatar = it; saveProfile(); refresh++ },
                 onAccountChanged = { saveProfile(); refresh++ },
                 onRestored = ::restartFresh,
-                onConfig = { store.config = it; refresh++ },
+                onConfig = {
+                    val now = store.config
+                    if (store.isStrict && (it.freeMinutes > now.freeMinutes || it.totalMinutes > now.totalMinutes)) strictNo() else { store.config = it; refresh++ }
+                },
                 onToggleApp = toggleApp,
                 tasks = store.selectedTasks,
                 onToggleTask = toggleTask,
@@ -518,9 +522,19 @@ class MainActivity : ComponentActivity() {
                 theme = app.tend.ui.ThemeChoice.mode ?: store.themeMode,
                 onTheme = { store.themeMode = it; app.tend.ui.ThemeChoice.mode = it },
                 lockSchedules = store.lockSchedules,
-                onLockSchedule = { store.setLockSchedule(it); refresh++ },
+                onLockSchedule = { new ->
+                    val was = store.lockSchedules.firstOrNull { it.label == new.label }
+                    // Strict mode: a lock can be turned on, not off or shortened.
+                    if (store.isStrict && was?.on == true) strictNo() else { store.setLockSchedule(new); refresh++ }
+                },
                 pausedUntil = store.pausedUntil,
-                onPause = { if (it == 0) store.resume() else store.pause(it); refresh++ },
+                onPause = { if (it == 0) store.resume() else if (store.isStrict) strictNo() else store.pause(it); refresh++ },
+                appLimits = store.appLimits,
+                appSecondsToday = store.appSecondsToday(),
+                onAppLimit = { pkg, m -> if (store.setAppLimit(pkg, m)) refresh++ else strictNo() },
+                strict = store.isStrict,
+                strictEndsAt = store.strictEndsAt,
+                onStrict = { store.setStrict(it); refresh++ },
                 onDone = { screen = Screen.HOME },
             )
 
@@ -729,6 +743,7 @@ class MainActivity : ComponentActivity() {
                 pausedUntil = store.pausedUntil,
                 onResume = { store.resume(); refresh++ },
                 onOpenInsights = { screen = Screen.INSIGHTS },
+                strict = store.isStrict,
                 askStats = app.tend.data.Stats.consent(this@MainActivity) == null && store.daysTended >= 1,
                 onStats = { app.tend.data.Stats.setConsent(this@MainActivity, it); refresh++ },
                 levelUp = progress.level.level.takeIf { it > store.levelSeen && store.tourDone },
@@ -742,6 +757,9 @@ class MainActivity : ComponentActivity() {
         }
         }
     }
+
+    private fun strictNo() =
+        android.widget.Toast.makeText(this, "Strict mode is on: things can only get tighter until it ends.", android.widget.Toast.LENGTH_LONG).show()
 
     /** Where the user put things in the camp, for drawing it. */
     private fun campLayout() = store.layout.mapValues { androidx.compose.ui.geometry.Offset(it.value.first, it.value.second) }

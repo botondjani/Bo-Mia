@@ -141,9 +141,12 @@ class MonitorService : Service() {
         } else if (fg != null && fg == sessionPkg && store.borrowing(fg)) {
             // Borrowed minutes: not counted, and the session's own end checks in again.
         } else if (fg != null && fg == sessionPkg) {
-            store.update { it.copy(usedSeconds = it.usedSeconds + (now - lastTick) / 1000) }
+            val seconds = (now - lastTick) / 1000
+            store.update { it.copy(usedSeconds = it.usedSeconds + seconds) }
+            store.addAppSeconds(fg, seconds)
             app.tend.reminder.Notes.checkLowMinutes(this)
-            if (store.isLocked()) {
+            // The day's minutes are used up, or this app's own limit is.
+            if (store.isLocked() || store.appLocked(fg)) {
                 endSession(now, askWorthIt = false)
                 intercept(fg, now)
             }
@@ -174,7 +177,7 @@ class MonitorService : Service() {
         }
         if (store.onboarded && new in store.blockedPackages && !store.isPaused) {
             if (sessionPkg != null) endSession(now, askWorthIt = false) // another paused app: the pause takes over
-            val pass = if ((store.isLocked() && !store.borrowing(new)) || scheduledLock() != null) null else store.consumePass(new)
+            val pass = if (((store.isLocked() || store.appLocked(new)) && !store.borrowing(new)) || scheduledLock() != null) null else store.consumePass(new)
             if (pass != null) {
                 sessionPkg = new
                 sessionStart = now

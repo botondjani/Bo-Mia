@@ -259,7 +259,8 @@ class TendStore(private val context: Context) {
         if (isPaused) null else LockSchedule.activeOf(lockSchedules) ?: LockSchedule.GOOD_NIGHT.takeIf { System.currentTimeMillis() < sleepUntil }
 
     /** Woken up before 7:00: the apps are back. */
-    fun wakeUp() { sleepUntil = 0 }
+    /** Up again before 7:00: the apps wake (not in strict mode). */
+    fun wakeUp() { if (!isStrict) sleepUntil = 0 }
 
     /** Rubber ducks fished out of the river: one for each friend's visit. */
     var ducksCaught: Int
@@ -350,6 +351,7 @@ class TendStore(private val context: Context) {
 
     /** A break for [days] days: today counts as the first, it ends at midnight after the last. */
     fun pause(days: Int) {
+        if (isStrict) return
         val start = LocalDate.now()
         val end = start.plusDays(days.toLong())
         pausedUntil = end.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
@@ -535,9 +537,71 @@ class TendStore(private val context: Context) {
     fun credit(taskId: String, minutes: Int, manual: Boolean) =
         update { Budget.credit(config, it, taskId, minutes, manual) }
 
+    // ---- Limits for single apps ----
+
+    /** An app's own daily limit in minutes, on top of the shared budget (pkg to minutes). */
+    val appLimits: Map<String, Int>
+        get() = prefs.getString("app_limits", "")!!.split(';').mapNotNull {
+            val (pkg, m) = it.split('=').takeIf { p -> p.size == 2 } ?: return@mapNotNull null
+            m.toIntOrNull()?.takeIf { v -> v > 0 }?.let { v -> pkg to v }
+        }.toMap()
+
+    /** Sets (or with null, removes) [pkg]'s own limit; in strict mode only a tighter one. False when it wasn't allowed. */
+    fun setAppLimit(pkg: String, minutes: Int?): Boolean {
+        val now = appLimits[pkg]
+        if (isStrict && (minutes == null || (now != null && minutes > now))) return false
+        val next = if (minutes == null) appLimits - pkg else appLimits + (pkg to minutes)
+        edit { putString("app_limits", next.entries.joinToString(";") { "${it.key}=${it.value}" }) }
+        return true
+    }
+
+    /** Seconds in each paused app today. */
+    fun appSecondsToday(): Map<String, Long> {
+        if (prefs.getString("app_sec_day", "") != LocalDate.now().toString()) return emptyMap()
+        return prefs.getString("app_sec", "")!!.split(';').mapNotNull {
+            val (pkg, v) = it.split('=').takeIf { p -> p.size == 2 } ?: return@mapNotNull null
+            v.toLongOrNull()?.let { s -> pkg to s }
+        }.toMap()
+    }
+
+    fun addAppSeconds(pkg: String, seconds: Long) {
+        if (seconds <= 0) return
+        val now = appSecondsToday()
+        val next = now + (pkg to (now[pkg] ?: 0) + seconds)
+        // Plain write: this runs every second while an app is open, and the widgets don't show it.
+        prefs.edit().putString("app_sec_day", LocalDate.now().toString()).putString("app_sec", next.entries.joinToString(";") { "${it.key}=${it.value}" }).apply()
+    }
+
+    /** [pkg] has used up its own limit today. */
+    fun appLocked(pkg: String?): Boolean {
+        val limit = pkg?.let { appLimits[it] } ?: return false
+        return (appSecondsToday()[pkg] ?: 0) >= limit * 60L
+    }
+
+    // ---- Strict mode ----
+
+    /**
+     * No shortcuts: no 1-minute looks, no 5 minutes for acorns, no waking the apps after good night,
+     * no break; limits only get tighter. Turning it off takes effect the next day.
+     */
+    val isStrict: Boolean
+        get() = prefs.getBoolean("strict", false) && prefs.getLong("strict_ends", 0).let { it == 0L || System.currentTimeMillis() < it }
+
+    /** Strict mode was turned off and ends at this moment (the coming midnight); 0 when it isn't ending. */
+    val strictEndsAt: Long get() = if (isStrict) prefs.getLong("strict_ends", 0) else 0
+
+    fun setStrict(on: Boolean) {
+        if (on) edit { putBoolean("strict", true); putLong("strict_ends", 0) }
+        else if (isStrict) {
+            val midnight = LocalDate.now().plusDays(1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+            edit { putLong("strict_ends", midnight) }
+        }
+        Stats.log(context, "strict", mapOf("on" to on))
+    }
+
     /** Out of minutes: today's one "5 minutes now" is still there, and there are acorns for it. */
     val canBorrow: Boolean
-        get() = prefs.getString("borrow_on", "") != LocalDate.now().toString() && acorns >= app.tend.core.Acorns.BORROW
+        get() = !isStrict && prefs.getString("borrow_on", "") != LocalDate.now().toString() && acorns >= app.tend.core.Acorns.BORROW
 
     /** Spends acorns on five uncounted minutes in [pkg], once a day. */
     fun borrow(pkg: String): Boolean {
@@ -570,7 +634,7 @@ class TendStore(private val context: Context) {
     }
 
     /** "Quick look": open for one minute without the wait, a few times a day. */
-    fun quickLooksLeft(): Int =
+    fun quickLooksLeft(): Int = if (isStrict) 0 else
         QUICK_LOOKS_PER_DAY - if (prefs.getString("quick_day", "") == LocalDate.now().toString()) prefs.getInt("quick_used", 0) else 0
 
     fun useQuickLook() {

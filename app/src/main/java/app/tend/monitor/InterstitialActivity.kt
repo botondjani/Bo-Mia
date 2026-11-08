@@ -69,6 +69,10 @@ class InterstitialActivity : ComponentActivity() {
         val timeUp: Boolean = false,
         /** A scheduled lock is on (bedtime, work hours): only "Not now" and something better. */
         val scheduled: app.tend.core.LockSchedule? = null,
+        /** This app's own limit (minutes) is used up today; earning doesn't open it again. */
+        val appLimit: Int? = null,
+        /** Minutes left of this app's own limit today, when it has one. */
+        val appLeft: Int? = null,
     )
 
     /** How this pause ended: open, not_now, instead or earn. Logged once; it's what the test measures. */
@@ -104,7 +108,9 @@ class InterstitialActivity : ComponentActivity() {
         // Show the card in the very first frame from what we already know...
         val cfg = store.config
         var day = store.today()
-        val locked = Budget.isLocked(cfg, day)
+        // Locked: the day's minutes are used up, or this app's own limit is.
+        val appLimit = store.appLimits[pkg]?.takeIf { store.appLocked(pkg) }
+        val locked = Budget.isLocked(cfg, day) || appLimit != null
         val evening = Budget.isEvening(if (store.eveningPause) store.eveningFrom else -1, java.time.LocalTime.now().hour)
         val delaySeconds = Budget.openDelaySeconds(cfg, day, evening)
         val scheduled = store.activeLock()
@@ -114,6 +120,8 @@ class InterstitialActivity : ComponentActivity() {
             label, locked, day.opensToday, delaySeconds, Budget.remainingMinutes(cfg, day), evening,
             timeUp = intent.getBooleanExtra(EXTRA_TIME_UP, false),
             scheduled = scheduled,
+            appLimit = appLimit,
+            appLeft = store.appLimits[pkg]?.let { (it - ((store.appSecondsToday()[pkg] ?: 0L) / 60).toInt()).coerceAtLeast(0) },
         )
         val worn = store.accessories().first
         setContent {
@@ -125,7 +133,7 @@ class InterstitialActivity : ComponentActivity() {
         lifecycleScope.launch {
             withTimeoutOrNull(SYNC_TIMEOUT_MS) { TaskSync.sync(this@InterstitialActivity) }
             val now = store.today()
-            view = view?.copy(locked = Budget.isLocked(cfg, now), remaining = Budget.remainingMinutes(cfg, now))
+            view = view?.copy(locked = Budget.isLocked(cfg, now) || appLimit != null, remaining = Budget.remainingMinutes(cfg, now))
         }
     }
 
@@ -147,16 +155,18 @@ class InterstitialActivity : ComponentActivity() {
                 Text(
                     when {
                         v.scheduled != null -> "${v.label} · ${v.scheduled.label.lowercase()}"
+                        v.appLimit != null -> "${v.label} · its ${v.appLimit} min are used"
                         v.locked -> "${v.label} · out of minutes"
                         v.timeUp -> "${v.label} · time's up"
                         v.evening -> "${v.label} · evening mode"
-                        else -> "${v.label} · ${ordinal(v.opensToday)} open today"
+                        else -> "${v.label} · ${ordinal(v.opensToday)} open today" + (v.appLeft?.let { " · $it min of its own left" } ?: "")
                     },
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
                     app.tend.ui.brandTend(when {
                         v.scheduled != null -> "Closed until ${"%d:00".format(v.scheduled.to)}. That's the deal we made."
+                        v.appLimit != null -> "That's all for ${v.label} today."
                         v.locked -> "Today's budget is used up."
                         v.timeUp -> "Those were your minutes. Still worth it?"
                         v.evening -> "It's late. We tend to regret the late-night scrolls the most."
@@ -274,7 +284,7 @@ class InterstitialActivity : ComponentActivity() {
             if (instead != null) PrimaryButton(instead.first, { decide("instead"); instead.second() })
             SecondaryButton("Not now", ::notNow)
             // Good night is a promise to yourself, not a cage: a way out when something really can't wait.
-            if (lock == app.tend.core.LockSchedule.GOOD_NIGHT) Text(
+            if (lock == app.tend.core.LockSchedule.GOOD_NIGHT && !store.isStrict) Text(
                 "I need it now: wake the apps", style = MaterialTheme.typography.labelLarge, color = Brand.Muted, textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
                     decide("woke")
@@ -293,14 +303,15 @@ class InterstitialActivity : ComponentActivity() {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Header(v)
         Text(
-            next?.let { "${it.title} brings back ${it.rewardMinutes} min. Want to do it together?" }
+            if (v.appLimit != null) "You gave it ${v.appLimit} minutes a day. It opens again tomorrow; the other apps still have your minutes."
+            else next?.let { "${it.title} brings back ${it.rewardMinutes} min. Want to do it together?" }
                 ?: "That's all for today. Tomorrow's a fresh start.",
             style = MaterialTheme.typography.bodyLarge,
         )
         }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp)) {
-        PrimaryButton("Let's earn some", {
-            decide("earn")
+        PrimaryButton(if (v.appLimit != null) "Do something with ${store.avatar.displayName} instead" else "Let's earn some", {
+            decide(if (v.appLimit != null) "instead" else "earn")
             startActivity(Intent(this@InterstitialActivity, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             finish()
         })
