@@ -112,6 +112,8 @@ fun DrawScope.drawClearing(
     nightClock: Float = 100f,
     /** Things popping into the camp just now: spot to how far along (0..1). */
     appear: Map<Int, Float> = emptyMap(),
+    /** Sparkle bursts (where, as scene fractions, and how far along 0..1): an animal greeted, a duck caught. */
+    bursts: List<Pair<Offset, Float>> = emptyList(),
 ) {
     val w = size.width
     val h = size.height
@@ -256,6 +258,8 @@ fun DrawScope.drawClearing(
     // Today's visitor, waiting to be greeted.
     visitor?.let { drawVisitor(it, Offset(it.x * w, it.y * h), u * VISITOR_SCALE) }
 
+    bursts.forEach { (at, k) -> sparkles(Offset(at.x * w, at.y * h), u * 1.3f, k) }
+
     // What friends did: toilet paper over the trees on the right, a rubber duck for each visit.
     if (paper > 0f) toiletPaper(paper)
     DuckSpots.take(ducks).forEach { rubberDuck(Offset(it.x * w, it.y * h), u) }
@@ -360,6 +364,7 @@ private fun DrawScope.shore(w: Float, h: Float) {
 }
 
 private fun DrawScope.pine(base: Offset, height: Float) {
+    shadow(base, height * 0.12f, size.height)
     val trunkW = height * 0.035f
     drawRect(Bark, Offset(base.x - trunkW / 2, base.y - height), Size(trunkW, height))
     // Tiers of needles, widest at the bottom; the sun side (left) is lighter.
@@ -386,6 +391,7 @@ private fun DrawScope.pine(base: Offset, height: Float) {
  * tones, lit from the upper left, with a soft shadow under the crown. [seed] varies the clumps.
  */
 private fun DrawScope.roundTree(base: Offset, height: Float, seed: Int, branch: Float? = null) {
+    shadow(base, height * 0.16f, size.height)
     val rnd = java.util.Random(seed * 31L)
     val trunkW = height * 0.07f
     val forkY = base.y - height * 0.45f
@@ -432,6 +438,7 @@ private fun DrawScope.roundTree(base: Offset, height: Float, seed: Int, branch: 
 private class Blob(val dx: Float, val dy: Float, val r: Float, val color: Color)
 
 private fun DrawScope.broadleaf(base: Offset, height: Float) {
+    shadow(base, height * 0.14f, size.height)
     val trunkW = height * 0.05f
     drawPath(Path().apply {
         moveTo(base.x - trunkW, base.y); lineTo(base.x - trunkW * 0.45f, base.y - height * 0.6f)
@@ -688,8 +695,12 @@ private fun DrawScope.foreground(w: Float, h: Float) {
     }
 }
 
-private fun DrawScope.shadow(at: Offset, halfWidth: Float, u: Float) =
-    drawOval(Color.Black.copy(alpha = 0.16f), Offset(at.x - halfWidth, at.y - u * 0.012f), Size(halfWidth * 2, u * 0.026f))
+/** A soft contact shadow, falling a little to the right (the sun is low on the left). */
+private fun DrawScope.shadow(at: Offset, halfWidth: Float, u: Float) {
+    val c = at + Offset(halfWidth * 0.25f, 0f)
+    drawOval(Color.Black.copy(alpha = 0.07f), Offset(c.x - halfWidth * 1.25f, c.y - u * 0.016f), Size(halfWidth * 2.5f, u * 0.034f))
+    drawOval(Color.Black.copy(alpha = 0.12f), Offset(c.x - halfWidth * 0.95f, c.y - u * 0.011f), Size(halfWidth * 1.9f, u * 0.022f))
+}
 
 private fun DrawScope.firePitStones(c: Offset, u: Float) {
     val rnd = java.util.Random(13L)

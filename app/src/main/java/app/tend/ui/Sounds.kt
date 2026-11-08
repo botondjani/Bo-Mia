@@ -187,7 +187,7 @@ object Sounds {
                     if (start + i >= out.size) break
                     val x = i / (RATE * 0.07f)
                     ph += 2 * PI * (f0 + 1400f * x) / RATE
-                    out[start + i] += (sin(ph) * sin(PI * x) * 0.18).toFloat()
+                    out[start + i] += (sin(ph) * sin(PI * x) * 0.4).toFloat()
                 }
             }
             t += 0.6f + rnd.nextFloat() * 0.9f

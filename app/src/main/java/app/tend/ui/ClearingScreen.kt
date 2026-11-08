@@ -29,6 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -143,6 +144,27 @@ fun ClearingScreen(
     val placedNow by androidx.compose.runtime.rememberUpdatedState(placed)
     val nightClock = rememberNightClock(night)
     val appear = rememberAppear(placed)
+    // A light tick under the finger when a tap does something; a firmer one for a purchase.
+    val view = androidx.compose.ui.platform.LocalView.current
+    fun tick(firm: Boolean = false) = view.performHapticFeedback(
+        if (firm && android.os.Build.VERSION.SDK_INT >= 30) android.view.HapticFeedbackConstants.CONFIRM else android.view.HapticFeedbackConstants.KEYBOARD_TAP,
+    )
+    // Sparkles where an animal was greeted or a duck caught, as they vanish.
+    val bursts = remember { androidx.compose.runtime.mutableStateListOf<Pair<Offset, androidx.compose.animation.core.Animatable<Float, androidx.compose.animation.core.AnimationVector1D>>>() }
+    fun burst(at: Offset) {
+        val a = androidx.compose.animation.core.Animatable(0f)
+        bursts += at to a
+        scope.launch { a.animateTo(1f, androidx.compose.animation.core.tween(800)); bursts.removeAll { it.second === a } }
+    }
+    // The camp pans left and right; after buying something it slides to show it popping up.
+    val pan = rememberScrollState()
+    var sceneWidthPx by remember { mutableIntStateOf(0) }
+    fun showSpot(spot: Int) = scope.launch {
+        scroll.animateScrollTo(0)
+        val x = (SpotPositions[spot]?.x ?: 0.5f) * sceneWidthPx
+        val viewport = sceneWidthPx - pan.maxValue
+        pan.animateScrollTo((x - viewport / 2f).toInt().coerceIn(0, pan.maxValue))
+    }
     // Once in bed, they stay there: next time it doesn't walk again.
     androidx.compose.runtime.LaunchedEffect(nightClock > Uses.WALK + 2f) {
         val bed = bedOf(placed)
@@ -160,13 +182,12 @@ fun ClearingScreen(
         },
     ) {
         val sceneHeight = maxWidth * 1.0f
-        val pan = rememberScrollState()
         // Starts in the middle of the camp.
         var centered by rememberSaveable { mutableStateOf(false) }
         androidx.compose.runtime.LaunchedEffect(pan.maxValue) { if (!centered && pan.maxValue > 0) { pan.scrollTo(pan.maxValue / 2); centered = true } }
         Box(Modifier.fillMaxWidth().height(sceneHeight).campEntrance().horizontalScroll(pan)) {
             Canvas(
-                Modifier.width(sceneHeight * CAMP_RATIO).height(sceneHeight).pointerInput(Unit) {
+                Modifier.width(sceneHeight * CAMP_RATIO).height(sceneHeight).onSizeChanged { sceneWidthPx = it.width }.pointerInput(Unit) {
                     detectTapGestures { tap ->
                         val fx = tap.x / size.width
                         val fy = tap.y / size.height
@@ -175,22 +196,24 @@ fun ClearingScreen(
                             val n = ducksNow[duck]
                             val total = onCatchDuck(n)
                             caught = "${n.name}'s duck from their visit. You have $total."
+                            burst(DuckSpots[duck]); tick()
                             Sounds.chime(context)
                             return@detectTapGestures
                         }
                         visitorNow?.let { v ->
                             if (kotlin.math.abs(v.x - fx) * size.width < size.height * 0.08f && fy in (v.y - 0.16f)..(v.y + 0.03f)) {
-                                onGreet()?.let { greeted = it; caught = null; Sounds.chime(context) }
+                                onGreet()?.let { greeted = it; caught = null; burst(Offset(v.x, v.y - 0.05f)); tick(firm = true); Sounds.chime(context) }
                                 return@detectTapGestures
                             }
                         }
-                        if (paperNow && fx > PAPER_LEFT && fy < PAPER_BOTTOM) { onUnroll(); caught = "All clean again."; return@detectTapGestures }
+                        if (paperNow && fx > PAPER_LEFT && fy < PAPER_BOTTOM) { onUnroll(); tick(); caught = "All clean again."; return@detectTapGestures }
                         // The bridge leads to friends' camps along the river.
                         if (bridgeNow && fx in 0.06f..0.37f && fy in 0.48f..0.62f) { onOpenRiver(null); return@detectTapGestures } // the bridge or its signpost
                         // A thing in the camp: the companion uses it (the guitar: another strum).
                         val hit = spotAt(Offset(fx, fy), size.width / size.height.toFloat())
                         val thing = hit?.let { placedNow[it] }
                         if (thing != null) {
+                            tick()
                             if (using?.second == thing && thing == "guitar") { strumAt = frame; useStart = frame - ((walk + 1f) * 1e9f).toLong(); Sounds.strum(context) }
                             else {
                                 // Walk over first, unless already there; the sound starts on arrival.
@@ -206,6 +229,7 @@ fun ClearingScreen(
                 drawClearing(
                     avatar, placed, mood, worn = worn, night = night, paper = paperLeft, ducks = ducks.size, bridge = bridge,
                     use = use, lastStrum = (frame - strumAt) / 1e9f - walk, visitor = visitor, rest = rest, nightClock = nightClock, appear = appear,
+                    bursts = bursts.map { it.first to it.second.value },
                 )
             }
         }
@@ -244,7 +268,11 @@ fun ClearingScreen(
     // One thing at a time below the camp: the shop, friends, or what's been collected.
     Tabs(listOf("Shop", "Friends", "Collection"), tab) { tab = it }
     when (tab) {
-        0 -> Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, onBuy, onSell)
+        0 -> Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, onBuy = { id ->
+            // Bought: a firm tick, a chime, and up to the camp to watch it pop in.
+            val spot = Things.byId(id)?.let { Clearing.spotFor(placed, it) }
+            onBuy(id).also { ok -> if (ok) { tick(firm = true); Sounds.chime(context); spot?.let { showSpot(it) } } }
+        }, onSell = onSell)
         1 -> FriendsCard(onOpenSettings, onOpenRiver, onFriendsChanged, openInvite)
         else -> {
             Guestbook(guestbook)

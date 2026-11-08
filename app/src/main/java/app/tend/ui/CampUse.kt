@@ -173,8 +173,11 @@ private fun DrawScope.actor(
     c.restore()
 }
 
-private fun DrawScope.shadowAt(p: Offset, half: Float) =
-    drawOval(Color.Black.copy(alpha = 0.14f), Offset(p.x - half, p.y - half * 0.12f), Size(half * 2, half * 0.24f))
+private fun DrawScope.shadowAt(p: Offset, half: Float) {
+    val c = p + Offset(half * 0.25f, 0f)
+    drawOval(Color.Black.copy(alpha = 0.06f), Offset(c.x - half * 1.25f, c.y - half * 0.16f), Size(half * 2.5f, half * 0.32f))
+    drawOval(Color.Black.copy(alpha = 0.11f), Offset(c.x - half * 0.95f, c.y - half * 0.11f), Size(half * 1.9f, half * 0.22f))
+}
 
 /** A little music note. */
 private fun DrawScope.note(at: Offset, s: Float, alpha: Float) {
