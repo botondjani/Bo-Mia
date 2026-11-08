@@ -502,6 +502,26 @@ class TendStore(private val context: Context) {
     fun credit(taskId: String, minutes: Int, manual: Boolean) =
         update { Budget.credit(config, it, taskId, minutes, manual) }
 
+    /** Out of minutes: today's one "5 minutes now" is still there, and there are acorns for it. */
+    val canBorrow: Boolean
+        get() = prefs.getString("borrow_on", "") != LocalDate.now().toString() && acorns >= app.tend.core.Acorns.BORROW
+
+    /** Spends acorns on five uncounted minutes in [pkg], once a day. */
+    fun borrow(pkg: String): Boolean {
+        if (!canBorrow) return false
+        addAcorns(-app.tend.core.Acorns.BORROW, "borrow")
+        // A minute's grace to get the app open; the session itself ends after the five minutes.
+        val until = System.currentTimeMillis() + (app.tend.core.Acorns.BORROW_MINUTES + 1) * 60_000L
+        edit { putString("borrow_on", LocalDate.now().toString()); putString("borrow_pkg", pkg); putLong("borrow_until", until) }
+        grantPass(pkg, app.tend.core.Acorns.BORROW_MINUTES)
+        Stats.log(context, "borrowed", emptyMap())
+        return true
+    }
+
+    /** [pkg] is open on borrowed minutes: they aren't counted and don't close it. */
+    fun borrowing(pkg: String?): Boolean =
+        pkg != null && prefs.getString("borrow_pkg", null) == pkg && System.currentTimeMillis() < prefs.getLong("borrow_until", 0)
+
     /** Short-lived permission to open a package after the delay screen. */
     /** [minutes] > 0: the open lasts that long, then tend checks in again ("Open for 5 min"). */
     fun grantPass(pkg: String, minutes: Int = 0) =

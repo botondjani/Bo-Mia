@@ -28,12 +28,12 @@ fun MinutesDialog(cfg: BudgetConfig, tasks: List<TaskDef>, canClose: Boolean = t
         if (canClose) "At 0, the picked apps stay closed for the rest of the day. Do an activity to open them again. Midnight starts a fresh day."
         else "At 0 you get a notification, but the apps stay open: without \"display over other apps\" tend can't close them. Turn it on in Settings.",
     )
-    Para("Acorns never turn into minutes.")
+    Para("Once a day, if it really can't wait: 5 minutes for ${app.tend.core.Acorns.BORROW} acorns, from the pause screen. Otherwise acorns never turn into minutes.")
 }
 
 @Composable
 fun AcornsDialog(onDismiss: () -> Unit) = Sheet("Acorns", onDismiss) {
-    Para("For the camp: spend them in the shop. They never buy minutes.")
+    Para("For the camp: spend them in the shop. They don't buy minutes, except one 5-minute emergency a day.")
     Line("An activity", "+${Acorns.PER_ACTIVITY} (up to ${Acorns.ACTIVITY_CAP} a day)")
     Line("\"Not now\" on a paused app", "+${Acorns.PER_NOT_NOW} (up to ${Acorns.NOT_NOW_CAP})")
     Line("A day within your minutes", "+${Acorns.WITHIN_BUDGET}")

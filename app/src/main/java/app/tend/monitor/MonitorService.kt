@@ -132,6 +132,8 @@ class MonitorService : Service() {
             val timeUp = now > sessionEnds
             endSession(now, askWorthIt = false)
             intercept(fg, now, timeUp = timeUp)
+        } else if (fg != null && fg == sessionPkg && store.borrowing(fg)) {
+            // Borrowed minutes: not counted, and the session's own end checks in again.
         } else if (fg != null && fg == sessionPkg) {
             store.update { it.copy(usedSeconds = it.usedSeconds + (now - lastTick) / 1000) }
             app.tend.reminder.Notes.checkLowMinutes(this)
@@ -166,7 +168,7 @@ class MonitorService : Service() {
         }
         if (store.onboarded && new in store.blockedPackages && !store.isPaused) {
             if (sessionPkg != null) endSession(now, askWorthIt = false) // another paused app: the pause takes over
-            val pass = if (store.isLocked() || scheduledLock() != null) null else store.consumePass(new)
+            val pass = if ((store.isLocked() && !store.borrowing(new)) || scheduledLock() != null) null else store.consumePass(new)
             if (pass != null) {
                 sessionPkg = new
                 sessionStart = now

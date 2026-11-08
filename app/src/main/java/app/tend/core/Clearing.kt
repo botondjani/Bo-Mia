@@ -116,6 +116,9 @@ object Acorns {
     const val BELOW_NORMAL_CAP = 20
     const val CHALLENGE = 60
     const val LEVEL_UP = 30
+    /** Out of minutes, once a day: five minutes now, not counted, for this many acorns. */
+    const val BORROW = 20
+    const val BORROW_MINUTES = 5
 
     fun forActivities(done: Int): Int = (done * PER_ACTIVITY).coerceIn(0, ACTIVITY_CAP)
 

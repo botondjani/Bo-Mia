@@ -305,6 +305,17 @@ class InterstitialActivity : ComponentActivity() {
             finish()
         })
         SecondaryButton("Not now", ::notNow)
+        // Once a day, when it really can't wait: five minutes now, paid in acorns.
+        if (store.canBorrow) Text(
+            "I need 5 minutes now (${app.tend.core.Acorns.BORROW} acorns, once a day)",
+            style = MaterialTheme.typography.labelLarge, color = Brand.Muted, textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
+                if (!store.borrow(pkgName)) return@clickable
+                decide("borrowed")
+                packageManager.getLaunchIntentForPackage(pkgName)?.let { startActivity(it) }
+                finish()
+            }.padding(vertical = 10.dp),
+        )
         }
     }
 
