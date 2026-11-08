@@ -50,6 +50,22 @@ fun ActivityPicker(selected: List<TaskDef>, onToggle: (TaskDef) -> Unit) {
     var writing by rememberSaveable { mutableStateOf(false) }
     PickCounter(selected.size)
 
+    // Your own, right at the top, so it's never missed under the suggestions.
+    Row(
+        Modifier.fillMaxWidth().surface(radius = 18.dp).border(1.5.dp, Brand.Mint, RoundedCornerShape(18.dp))
+            .then(if (!full) Modifier.tappable { writing = true } else Modifier.graphicsLayer { alpha = 0.5f })
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TendIcons.Badge("pen", 34.dp)
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text("Add your own", style = MaterialTheme.typography.titleSmall)
+            Text("Anything better than scrolling: walking the dog, guitar, a call home", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+        }
+        Text("+", style = MaterialTheme.typography.headlineMedium, color = Brand.Moss, modifier = Modifier.padding(start = 8.dp))
+    }
+
     Text("SUGGESTIONS", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
     // Two equal columns; tiles in a row share one height, whatever wraps.
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

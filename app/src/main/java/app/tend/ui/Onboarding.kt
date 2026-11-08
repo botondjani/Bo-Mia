@@ -181,8 +181,8 @@ fun Onboarding(
                         onCta = next,
                     ) {
                         Title("What would you rather do?", "We picked three to start. Tap to change them, or add your own. Each one gives screen time back.")
-                        ActivityPicker(tasks, onToggleTask)
                         LinkText("Skip, use the defaults", { onDefaultTasks(true); next() })
+                        ActivityPicker(tasks, onToggleTask)
                     }
                 }
 
