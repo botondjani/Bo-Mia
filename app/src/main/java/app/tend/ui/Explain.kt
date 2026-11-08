@@ -21,10 +21,13 @@ import app.tend.core.TaskDef
 /** Two currencies, kept apart: minutes are for your apps, acorns are for the camp. */
 
 @Composable
-fun MinutesDialog(cfg: BudgetConfig, tasks: List<TaskDef>, onDismiss: () -> Unit) = Sheet("Your minutes", onDismiss) {
+fun MinutesDialog(cfg: BudgetConfig, tasks: List<TaskDef>, canClose: Boolean = true, onDismiss: () -> Unit) = Sheet("Your minutes", onDismiss) {
     Para("Time in the apps you picked. ${cfg.freeMinutes} min are free every day; activities win more back, up to ${cfg.totalMinutes} a day.")
     tasks.forEach { Line(it.title, "+${it.rewardMinutes} min") }
-    Para("At 0, the picked apps stay closed for the rest of the day. Do an activity to open them again. Midnight starts a fresh day.")
+    Para(
+        if (canClose) "At 0, the picked apps stay closed for the rest of the day. Do an activity to open them again. Midnight starts a fresh day."
+        else "At 0 you get a notification, but the apps stay open: without \"display over other apps\" tend can't close them. Turn it on in Settings.",
+    )
     Para("Acorns never turn into minutes.")
 }
 

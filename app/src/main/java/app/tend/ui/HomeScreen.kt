@@ -130,7 +130,7 @@ fun HomeScreen(
     var widgetGuide by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     if (widgetGuide) WidgetGuideDialog(avatar) { widgetGuide = false }
     var explain by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf("") }
-    if (explain == "minutes") MinutesDialog(cfg, tasks) { explain = "" }
+    if (explain == "minutes") MinutesDialog(cfg, tasks, canClose = permissions.overlay) { explain = "" }
     if (explain == "acorns") AcornsDialog { explain = "" }
     val remaining = Budget.remainingMinutes(cfg, day)
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -177,7 +177,7 @@ fun HomeScreen(
             camp()
             // What the companion says: one small bubble, so the camp shows.
             Text(
-                Moods.line(cfg, day, tasks, welcomeBack),
+                Moods.line(cfg, day, tasks, welcomeBack, canClose = permissions.overlay),
                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 17.sp), color = Brand.Ink, maxLines = 2,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier.align(Alignment.TopStart).padding(16.dp).fillMaxWidth(0.58f)
@@ -220,7 +220,10 @@ fun HomeScreen(
         }
         when {
             !permissions.usageAccess -> Notice("alert", "Limited mode", "${avatar.displayName} can't see screen time. Tap to turn it on.", onFixPermissions)
-            !permissions.overlay -> Notice("alert", "No pause before scrolling", "Only a notification for now. Tap to fix.", onFixPermissions)
+            !permissions.overlay -> Notice(
+                "alert", if (remaining <= 0) "Out of minutes, but your apps are open" else "No pause before scrolling",
+                if (remaining <= 0) "tend can only notify you, not close them. Tap to fix." else "Only a notification for now. Tap to fix.", onFixPermissions,
+            )
         }
         val needsHealth = tasks.any { it.verification == Verification.AUTOMATIC } &&
             (health == HealthConnect.Status.NEEDS_PERMISSION || health == HealthConnect.Status.NEEDS_INSTALL)

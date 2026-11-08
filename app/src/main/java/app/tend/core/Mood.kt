@@ -34,12 +34,12 @@ object Moods {
      * Companion line. Before anything is done: one gentle idea. After that: a look back at what
      * we already did today, with praise that grows with the day. Never a to-do list, never shaming.
      */
-    fun line(cfg: BudgetConfig, day: DayState, selected: List<TaskDef>, welcomeBack: Boolean = false): String {
+    fun line(cfg: BudgetConfig, day: DayState, selected: List<TaskDef>, welcomeBack: Boolean = false, canClose: Boolean = true): String {
         val done = selected.filter { it.id in day.completedTasks }
         val next = Tasks.next(day, selected)
         if (selected.isEmpty()) return "Pick a few things you'd rather do, and we'll do them together."
         // Out of minutes: say plainly what that means and the way back.
-        if (Budget.isLocked(cfg, day) && !welcomeBack) return next?.let { "Out of minutes: your apps are closed. ${it.title} opens them again (+${it.rewardMinutes} min)." }
+        if (Budget.isLocked(cfg, day) && !welcomeBack && canClose) return next?.let { "Out of minutes: your apps are closed. ${it.title} opens them again (+${it.rewardMinutes} min)." }
             ?: "Out of minutes: your apps are closed until tomorrow."
         if (done.isEmpty()) return when {
             // Back after a few days: no catching up, just one small thing.
