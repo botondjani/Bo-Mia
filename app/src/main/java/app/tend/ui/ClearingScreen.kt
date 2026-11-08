@@ -99,6 +99,9 @@ fun ClearingScreen(
     layout: Map<Int, Offset> = emptyMap(),
     /** Puts the thing at a spot somewhere else on the meadow. */
     onPlace: (spot: Int, at: Offset) -> Unit = { _, _ -> },
+    /** Plus is on: the season's own things can be bought; otherwise a tap on one shows Plus. */
+    plus: Boolean = true,
+    onPlus: () -> Unit = {},
 ) {
     val scroll = rememberScrollState()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -377,7 +380,7 @@ fun ClearingScreen(
     // One thing at a time below the camp: the shop, friends, or what's been collected.
     Tabs(listOf("Shop", "Friends", "Collection"), tab) { tab = it }
     when (tab) {
-        0 -> Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, onBuy = { id ->
+        0 -> Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, plus = plus, onPlus = onPlus, onBuy = { id ->
             // Bought: a firm tick, a chime, and up to the camp to watch it pop in.
             val spot = Things.byId(id)?.let { Clearing.spotFor(placed, it) }
             onBuy(id).also { ok -> if (ok) { tick(firm = true); Sounds.chime(context); spot?.let { showSpot(it) } } }
@@ -412,7 +415,7 @@ private fun Tabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) =
  * cheaper thing there for half back), or sell it.
  */
 @Composable
-private fun Shop(acorns: Int, placed: Map<Int, String>, earnedToday: Int, name: String, onBuy: (String) -> Boolean, onSell: (String) -> Unit) {
+private fun Shop(acorns: Int, placed: Map<Int, String>, earnedToday: Int, name: String, plus: Boolean, onPlus: () -> Unit, onBuy: (String) -> Boolean, onSell: (String) -> Unit) {
     var open by remember { mutableStateOf<app.tend.core.Thing?>(null) }
     Card {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -429,11 +432,12 @@ private fun Shop(acorns: Int, placed: Map<Int, String>, earnedToday: Int, name: 
         val season = app.tend.core.Season.of(java.time.LocalDate.now())
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)) {
             Text("THIS ${season.title.uppercase()} ONLY", style = MaterialTheme.typography.labelSmall, color = Brand.Coral, modifier = Modifier.weight(1f))
-            Text("Yours to keep", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted)
+            if (plus) Text("Yours to keep", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted) else PlusMark()
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
             Things.forSeason(season).forEach { thing ->
-                ShopTile(thing, owned = thing.id in placed.values, affordable = acorns >= thing.price, Modifier.weight(1f), background = Brand.Coral.copy(alpha = 0.12f)) { open = thing }
+                val owned = thing.id in placed.values
+                ShopTile(thing, owned = owned, affordable = plus && acorns >= thing.price, Modifier.weight(1f), background = Brand.Coral.copy(alpha = 0.12f)) { if (plus || owned) open = thing else onPlus() }
             }
         }
         listOf(SpotKind.SMALL, SpotKind.FIRE, SpotKind.SEAT, SpotKind.SHELTER, SpotKind.TREES, SpotKind.WATER, SpotKind.ABOVE).forEach { kind ->

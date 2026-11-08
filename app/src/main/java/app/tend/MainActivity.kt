@@ -85,7 +85,7 @@ class MainActivity : ComponentActivity() {
 
     private enum class Launched { NONE, TRIP, APP_INFO, OVERLAY, USAGE }
 
-    private enum class Screen { HOME, SETTINGS, PERMISSIONS, CLEARING, RIVER, RECAP, SLEEP, INSIGHTS }
+    private enum class Screen { HOME, SETTINGS, PERMISSIONS, CLEARING, RIVER, RECAP, SLEEP, INSIGHTS, PLUS }
 
     /** Set when the evening notification was tapped. */
     private var openRecap by mutableStateOf(false)
@@ -352,6 +352,19 @@ class MainActivity : ComponentActivity() {
             enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
         }
         var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
+        // tend Plus: where it was opened from (for the counts), and where to go back to.
+        var plusFrom by rememberSaveable { mutableStateOf(app.tend.ui.PlusFrom.SETTINGS) }
+        var plusBack by rememberSaveable { mutableStateOf(Screen.HOME) }
+        val openPlus: (app.tend.ui.PlusFrom) -> Unit = { from ->
+            plusFrom = from
+            plusBack = if (screen == Screen.PLUS) Screen.HOME else screen
+            app.tend.data.Stats.log(this, "plus_shown", mapOf("from" to from.name.lowercase(), "trial_days_left" to store.trialDaysLeft))
+            screen = Screen.PLUS
+        }
+        // The trial just ended: Plus once, with a way to go on free.
+        LaunchedEffect(store.onboarded, refresh) {
+            if (store.onboarded && !store.isPlus && !store.trialEndShown) { store.trialEndShown = true; openPlus(app.tend.ui.PlusFrom.TRIAL_END) }
+        }
         var riverFocus by rememberSaveable { mutableStateOf<String?>(null) }
         // A first step tapped: open the camp (the shop), or with the invite open.
         var campInvite by rememberSaveable { mutableStateOf(false) }
@@ -410,7 +423,7 @@ class MainActivity : ComponentActivity() {
         // System back always leads home from inner pages.
         androidx.activity.compose.BackHandler(enabled = store.onboarded && screen != Screen.HOME) {
             if (screen == Screen.CLEARING) campInvite = false
-            screen = if (screen == Screen.RIVER) Screen.CLEARING else Screen.HOME
+            screen = when (screen) { Screen.RIVER -> Screen.CLEARING; Screen.PLUS -> plusBack; else -> Screen.HOME }
         }
         LaunchedEffect(openRecap) { if (openRecap) { screen = Screen.RECAP; openRecap = false } }
         LaunchedEffect(openClearing) { if (openClearing) { screen = Screen.CLEARING; openClearing = false } }
@@ -535,7 +548,27 @@ class MainActivity : ComponentActivity() {
                 strict = store.isStrict,
                 strictEndsAt = store.strictEndsAt,
                 onStrict = { store.setStrict(it); refresh++ },
+                plus = store.isPlus,
+                trialDaysLeft = store.trialDaysLeft.takeIf { store.isPlus && !store.plusPaid },
+                plusPaid = store.plusPaid,
+                onPlus = openPlus,
+                onTestTrial = if (BuildConfig.PLAY) null else { days -> store.setTrialStart(days); refresh++ },
                 onDone = { screen = Screen.HOME },
+            )
+
+            p == "PLUS" -> app.tend.ui.PlusScreen(
+                store.avatar,
+                trialDaysLeft = store.trialDaysLeft.takeIf { store.isPlus && !store.plusPaid },
+                paid = store.plusPaid,
+                wonBack = remember(refresh) {
+                    app.tend.core.InsightsOf.of(store.daySummaries(), store.normalMinutes, 0, LocalDate.now()).wonBack.takeIf { store.normalMinutes != null }
+                },
+                canBuy = false, // Google Play billing: next
+                onBuy = {},
+                onClose = {
+                    if (!store.isPlus) app.tend.data.Stats.log(this, "plus_free", mapOf("from" to plusFrom.name.lowercase()))
+                    screen = plusBack
+                },
             )
 
             p == "INSIGHTS" -> {
@@ -546,7 +579,7 @@ class MainActivity : ComponentActivity() {
                     )
                 }
                 val apps = remember(refresh) { store.appMinutes().map { (pkg, before, now) -> app.tend.ui.AppTime(catalog.label(pkg), catalog.icon(pkg), before, now) } }
-                app.tend.ui.InsightsScreen(insights, apps) { screen = Screen.HOME }
+                app.tend.ui.InsightsScreen(insights, apps, plus = store.isPlus, onPlus = { openPlus(app.tend.ui.PlusFrom.INSIGHTS) }) { screen = Screen.HOME }
             }
 
             p == "SLEEP" -> app.tend.ui.SleepScreen(store.avatar, store.placed, shelf.first, goodNightAcorns, campLayout()) { screen = Screen.HOME }
@@ -582,6 +615,8 @@ class MainActivity : ComponentActivity() {
                 onSell = { thing -> store.sell(thing); saveProfile(); refresh++ },
                 layout = campLayout(),
                 onPlace = { spot, at -> if (store.place(spot, at.x, at.y)) { saveProfile(); refresh++ } },
+                plus = store.isPlus,
+                onPlus = { openPlus(app.tend.ui.PlusFrom.SEASON) },
                 onOpenSettings = { screen = Screen.SETTINGS },
                 onOpenRiver = { id -> riverFocus = id; screen = Screen.RIVER },
                 paper = app.tend.data.Friends.paperOnMe(this).isNotEmpty(),

@@ -190,6 +190,26 @@ class MonitorService : Service() {
 
     private fun scheduledLock() = store.activeLock()
 
+    /** Three days before the Plus trial ends: one note, with what it has given so far. */
+    private fun trialNote() {
+        if (!store.onboarded || store.plusPaid || store.trialNoteSent || !store.isPlus || store.trialDaysLeft > 3) return
+        if (java.time.LocalTime.now().hour !in 10..20 || !app.tend.reminder.RecapReminder.canNotify(this)) return
+        store.trialNoteSent = true
+        val won = store.normalMinutes?.let { app.tend.core.InsightsOf.of(store.daySummaries(), it, 0, java.time.LocalDate.now()).wonBack } ?: 0
+        val days = store.trialDaysLeft
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(NotificationChannel(PLUS_CHANNEL, "tend Plus", NotificationManager.IMPORTANCE_DEFAULT))
+        val open = PendingIntent.getActivity(this, 31, Intent(this, app.tend.MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_IMMUTABLE)
+        nm.notify(
+            31,
+            Notification.Builder(this, PLUS_CHANNEL).setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle("$days more day${if (days == 1) "" else "s"} of tend Plus")
+                .setContentText(if (won >= 60) "You've won back ${app.tend.core.InsightsOf.hours(won)} so far. Your time stays yours either way." else "Your weeks, each app's limit and strict mode are yours until then.")
+                .setContentIntent(open).setAutoCancel(true).build(),
+        )
+        app.tend.data.Stats.log(this, "trial_note")
+    }
+
     private fun intercept(pkg: String, now: Long, timeUp: Boolean = false) {
         if (!android.provider.Settings.canDrawOverlays(this)) return nudge(pkg)
         interceptedPkg = pkg
@@ -238,6 +258,7 @@ class MonitorService : Service() {
      * with a note when one completes (and when it brings a new accessory).
      */
     private suspend fun backgroundSync() {
+        trialNote()
         if (!store.onboarded || store.selectedTasks.none { it.verification == app.tend.core.Verification.AUTOMATIC }) return
         val done = runCatching { app.tend.health.TaskSync.sync(this) }.getOrNull() ?: return
         if (done.tasks.isEmpty() || !app.tend.reminder.RecapReminder.canNotify(this)) return
@@ -307,6 +328,7 @@ class MonitorService : Service() {
         private const val WORTH_IT_DELAY_MS = 1500L
         private const val SYNC_EVERY_MS = 15 * 60_000L
         private const val INBOX_EVERY_MS = 5 * 60_000L
+        private const val PLUS_CHANNEL = "plus"
         private const val AWAY_CONFIRM_MS = 8_000L
         private const val HELPER_MAX_MS = 10 * 60_000L
         private val HELPER_PACKAGES = setOf(

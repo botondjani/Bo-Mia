@@ -323,6 +323,7 @@ class TendStore(private val context: Context) {
         if (thing.kind != spot.kind) return false
         // A season's things are sold only in that season.
         if (thing.season != null && thing.season != app.tend.core.Season.of(LocalDate.now()) && thingId !in placed.values) return false
+        if (thing.season != null && !isPlus && thingId !in placed.values) return false // the season's own come with Plus
         val refund = placed[spotId]?.let(app.tend.core.Things::byId)?.let(app.tend.core.Clearing::sellValue) ?: 0
         if (acorns + refund < thing.price) return false
         if (refund > 0) addAcorns(refund, "sold")
@@ -539,6 +540,46 @@ class TendStore(private val context: Context) {
     fun credit(taskId: String, minutes: Int, manual: Boolean) =
         update { Budget.credit(config, it, taskId, minutes, manual) }
 
+    // ---- tend Plus ----
+
+    /**
+     * When the free Plus trial began: the first time this is asked (so everyone gets the full 14
+     * days, people already using tend included).
+     */
+    val plusTrialStart: Long
+        get() = prefs.getLong("plus_trial_start", 0).takeIf { it > 0 }
+            ?: System.currentTimeMillis().also { prefs.edit().putLong("plus_trial_start", it).apply(); Stats.log(context, "trial_started") }
+
+    /** Bought (to come with Google Play billing). */
+    var plusPaid: Boolean
+        get() = prefs.getBoolean("plus_paid", false)
+        set(v) = edit { putBoolean("plus_paid", v) }
+
+    val trialEndsAt: Long get() = plusTrialStart + PLUS_TRIAL_DAYS * 86_400_000L
+
+    /** Plus is on: bought, or still in the trial. */
+    val isPlus: Boolean get() = plusPaid || System.currentTimeMillis() < trialEndsAt
+
+    /** Whole days left of the trial (0 on its last day, or once it's over). */
+    val trialDaysLeft: Int
+        get() = if (plusPaid) 0 else ((trialEndsAt - System.currentTimeMillis()) / 86_400_000L).toInt().coerceAtLeast(0)
+
+    /** The trial ended and the end screen hasn't been shown yet. */
+    var trialEndShown: Boolean
+        get() = prefs.getBoolean("trial_end_shown", false)
+        set(v) = edit { putBoolean("trial_end_shown", v) }
+
+    /** The "a few days left" note went out. */
+    var trialNoteSent: Boolean
+        get() = prefs.getBoolean("trial_note_sent", false)
+        set(v) = edit { putBoolean("trial_note_sent", v) }
+
+    /** Test builds: move the trial's start ([daysAgo] days back; 0 restarts it), and forget the notes. */
+    fun setTrialStart(daysAgo: Int) = edit {
+        putLong("plus_trial_start", System.currentTimeMillis() - daysAgo * 86_400_000L)
+        putBoolean("trial_end_shown", false); putBoolean("trial_note_sent", false)
+    }
+
     // ---- Limits for single apps ----
 
     /** An app's own daily limit in minutes, on top of the shared budget (pkg to minutes). */
@@ -576,6 +617,7 @@ class TendStore(private val context: Context) {
 
     /** [pkg] has used up its own limit today. */
     fun appLocked(pkg: String?): Boolean {
+        if (!isPlus) return false // a Plus feature: without it, the limits rest (and come back with it)
         val limit = pkg?.let { appLimits[it] } ?: return false
         return (appSecondsToday()[pkg] ?: 0) >= limit * 60L
     }
@@ -587,7 +629,7 @@ class TendStore(private val context: Context) {
      * no break; limits only get tighter. Turning it off takes effect the next day.
      */
     val isStrict: Boolean
-        get() = prefs.getBoolean("strict", false) && prefs.getLong("strict_ends", 0).let { it == 0L || System.currentTimeMillis() < it }
+        get() = isPlus && prefs.getBoolean("strict", false) && prefs.getLong("strict_ends", 0).let { it == 0L || System.currentTimeMillis() < it }
 
     /** Strict mode was turned off and ends at this moment (the coming midnight); 0 when it isn't ending. */
     val strictEndsAt: Long get() = if (isStrict) prefs.getLong("strict_ends", 0) else 0
@@ -788,6 +830,7 @@ class TendStore(private val context: Context) {
 
     companion object {
         const val EARLY_NIGHT_ACORNS = 5
+        const val PLUS_TRIAL_DAYS = 14
         private const val PASS_VALID_MS = 15_000L
         const val QUICK_LOOKS_PER_DAY = 5
 

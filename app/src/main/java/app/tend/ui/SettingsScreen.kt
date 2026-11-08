@@ -95,6 +95,13 @@ fun SettingsScreen(
     /** Strict mode was turned off and ends then (epoch ms); 0 = it isn't ending. */
     strictEndsAt: Long = 0,
     onStrict: (Boolean) -> Unit = {},
+    /** Plus is on (bought or in the trial), and the trial's days left (null when over or bought). */
+    plus: Boolean = true,
+    trialDaysLeft: Int? = null,
+    plusPaid: Boolean = false,
+    onPlus: (PlusFrom) -> Unit = {},
+    /** Test builds only: move the trial's start this many days back (0 restarts it). */
+    onTestTrial: ((Int) -> Unit)? = null,
     onDone: () -> Unit,
 ) = Column(
     Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
@@ -105,20 +112,23 @@ fun SettingsScreen(
         Spacer(Modifier.width(Space.m))
         Text("Settings", style = MaterialTheme.typography.headlineMedium)
     }
+    PlusCard(plus, trialDaysLeft, plusPaid, onTestTrial) { onPlus(PlusFrom.SETTINGS) }
     Text("COMPANION", style = MaterialTheme.typography.labelSmall)
     CompanionPicker(avatar, onAvatar, compact = true)
     Text("APPS TO PAUSE", style = MaterialTheme.typography.labelSmall)
     AppPicker(catalog, blocked, onToggleApp)
     if (blocked.isNotEmpty()) {
         Text("A LIMIT FOR EACH APP", style = MaterialTheme.typography.labelSmall)
-        AppLimitsCard(catalog, blocked, appLimits, appSecondsToday, strict, onAppLimit)
+        if (plus) AppLimitsCard(catalog, blocked, appLimits, appSecondsToday, strict, onAppLimit)
+        else LockedCard("Its own minutes a day for each app, on top of your budget.") { onPlus(PlusFrom.APP_LIMITS) }
     }
     Text("INSTEAD OF SCROLLING", style = MaterialTheme.typography.labelSmall)
     ActivitySummary(tasks, onToggleTask)
     Text("DAILY BUDGET", style = MaterialTheme.typography.labelSmall)
     BudgetPicker(cfg, onConfig)
     BreakCard(pausedUntil, strict, onPause)
-    StrictCard(strict, strictEndsAt, onStrict)
+    if (plus) StrictCard(strict, strictEndsAt, onStrict)
+    else LockedCard("Strict mode: no shortcuts, for the days you need it.") { onPlus(PlusFrom.STRICT) }
 
     // Everything about the evening in one place: when it starts, the pause, the recap, the lock.
     val bedtime = lockSchedules.firstOrNull { it.label == app.tend.core.LockSchedule.BEDTIME.label }
@@ -379,4 +389,39 @@ private fun StrictCard(strict: Boolean, endsAt: Long, onStrict: (Boolean) -> Uni
         },
         strict && endsAt == 0L, onStrict,
     )
+}
+
+/** Plus: in the trial (days left), bought, or not; a tap shows what it is. */
+@Composable
+private fun PlusCard(plus: Boolean, daysLeft: Int?, paid: Boolean, onTestTrial: ((Int) -> Unit)?, onOpen: () -> Unit) = Card(Modifier.tappable(onClick = onOpen)) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("tend Plus", style = MaterialTheme.typography.titleMedium)
+            Text(
+                when {
+                    paid -> "Yours. Thank you!"
+                    plus && daysLeft != null -> if (daysLeft == 0) "Free trial: last day" else "Free trial: $daysLeft day${if (daysLeft == 1) "" else "s"} left"
+                    else -> "Your time in full, a limit for each app, strict mode, the season's things"
+                },
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+        PlusMark()
+    }
+    if (onTestTrial != null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Test:", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+        listOf(0 to "restart trial", 11 to "3 days left", 14 to "end trial").forEach { (d, label) ->
+            Text(label, style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp), color = Brand.Moss, modifier = Modifier.clickable { onTestTrial(d) })
+        }
+    }
+}
+
+/** A Plus feature, locked: what it does, and a tap to see Plus. */
+@Composable
+private fun LockedCard(text: String, onOpen: () -> Unit) = Card(Modifier.tappable(onClick = onOpen)) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        Spacer(Modifier.width(8.dp))
+        PlusMark()
+    }
 }
