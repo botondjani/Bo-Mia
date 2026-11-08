@@ -77,8 +77,6 @@ fun HomeScreen(
     onCheckOff: (TaskDef) -> Unit,
     onUndo: (TaskDef) -> Unit,
     onOpenSettings: () -> Unit,
-    /** Shares this week's camp card. */
-    onShare: () -> Unit = {},
     /** The companion's level and the three skills; null hides the strip. */
     level: app.tend.core.Level? = null,
     skills: Map<app.tend.core.Skill, app.tend.core.Level> = emptyMap(),
@@ -91,6 +89,8 @@ fun HomeScreen(
     camp: @Composable () -> Unit = {},
     steps: List<app.tend.core.StepState> = emptyList(),
     onStep: (app.tend.core.Step) -> Unit = {},
+    /** Bumped when 'Do one activity' is tapped: the list comes into view with a glow. */
+    focusActivities: Int = 0,
     onOpenRecap: () -> Unit,
     /** Show the one-time widget tip; called with true when it was handled. */
     showNextSteps: Boolean = false,
@@ -125,12 +125,10 @@ fun HomeScreen(
     val tour = androidx.compose.runtime.remember { TourTargets() }
     // The first days: one clear thing to do (the first steps), and nothing that's still empty.
     val firstDays = steps.isNotEmpty() && !steps.all { it.claimed }
-    val campEmpty = steps.firstOrNull { it.step == app.tend.core.Step.PLACE }?.done == false
     var widgetGuide by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     if (widgetGuide) WidgetGuideDialog(avatar) { widgetGuide = false }
     val remaining = Budget.remainingMinutes(cfg, day)
     val context = androidx.compose.ui.platform.LocalContext.current
-    val mood = Moods.atNight(Moods.of(cfg, day), app.tend.core.Budget.isEvening(app.tend.data.TendStore(context).eveningFrom, java.time.LocalTime.now().hour))
     Box(Modifier.fillMaxSize()) {
     // The page itself stays put; only the activity list scrolls, in the space that's left.
     Column(
@@ -144,24 +142,37 @@ fun HomeScreen(
                 Text(day.date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.ENGLISH)), style = MaterialTheme.typography.bodyMedium)
                 Text(greeting(), style = MaterialTheme.typography.headlineMedium)
             }
-            if (!campEmpty) IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Share, "Share your camp", onShare)
-            Spacer(Modifier.width(8.dp))
+            // Today's minutes, next to the greeting: what's left, a small bar, what's still to earn.
+            Column(Modifier.padding(end = 12.dp).width(96.dp), horizontalAlignment = Alignment.End) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(if (remaining > 0) "$remaining" else "0", style = MaterialTheme.typography.headlineMedium, color = if (remaining > 0) Brand.Moss else Brand.Coral)
+                    Spacer(Modifier.width(4.dp))
+                    Text("min left", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Ink, modifier = Modifier.padding(bottom = 4.dp))
+                }
+                val available = (cfg.freeMinutes + day.earnedMinutes).coerceAtLeast(1)
+                val left by animateFloatAsState((remaining.toFloat() / available).coerceIn(0f, 1f), tween(700), label = "left")
+                Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(50)).background(Brand.Card)) {
+                    Box(Modifier.fillMaxWidth(left).height(5.dp).clip(RoundedCornerShape(50)).background(if (remaining > 0) Brand.Mint else Brand.Coral))
+                }
+                Text("+${Budget.earnableFrom(cfg, day, tasks)} to earn", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted)
+            }
             IconButtonSoft(Icons.Filled.Settings, "Settings", onOpenSettings)
         }
 
         // Hero: the camp, with the companion living in it; what they say, today's minutes, and the
         // acorns to spend. Tapping it opens the camp.
         Box(
-            Modifier.fillMaxWidth().aspectRatio(CAMP_RATIO).tourTarget(tour, "minutes").clip(RoundedCornerShape(28.dp)).tappable(onClick = onOpenClearing),
+            Modifier.fillMaxWidth().aspectRatio(1.35f).tourTarget(tour, "minutes").clip(RoundedCornerShape(28.dp)).tappable(onClick = onOpenClearing),
         ) {
             camp()
-            Column(
-                Modifier.align(Alignment.TopStart).padding(10.dp).fillMaxWidth(0.66f)
-                    .clip(RoundedCornerShape(18.dp)).background(Color(0xF0FFFFFF)).padding(horizontal = 12.dp, vertical = 8.dp),
-            ) {
-                Text(Moods.status(avatar.displayName, mood).uppercase(), style = MaterialTheme.typography.labelSmall, color = Brand.Moss)
-                Text(Moods.line(cfg, day, tasks, welcomeBack), style = MaterialTheme.typography.bodyMedium, color = Brand.Ink, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-            }
+            // What the companion says: one small bubble, so the camp shows.
+            Text(
+                Moods.line(cfg, day, tasks, welcomeBack),
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 17.sp), color = Brand.Ink, maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.align(Alignment.TopStart).padding(10.dp).fillMaxWidth(0.58f)
+                    .clip(RoundedCornerShape(14.dp)).background(Color(0xE6FFFFFF)).padding(horizontal = 10.dp, vertical = 6.dp),
+            )
             Row(
                 Modifier.align(Alignment.TopEnd).padding(10.dp)
                     .clip(RoundedCornerShape(50)).background(Color(0xF0FFFFFF)).padding(horizontal = 10.dp, vertical = 5.dp),
@@ -170,23 +181,6 @@ fun HomeScreen(
                 AcornIcon(18.dp)
                 Spacer(Modifier.width(5.dp))
                 Text("$acorns", style = MaterialTheme.typography.titleMedium, color = Color(0xFF3D2A1C))
-            }
-            // Today's minutes: what's left, a small bar, and what's still to earn.
-            Column(
-                Modifier.align(Alignment.BottomEnd).padding(10.dp).width(124.dp)
-                    .clip(RoundedCornerShape(18.dp)).background(Color(0xF0FFFFFF)).padding(start = 12.dp, end = 12.dp, top = 2.dp, bottom = 8.dp),
-            ) {
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(if (remaining > 0) "$remaining" else "0", style = MaterialTheme.typography.headlineLarge, color = if (remaining > 0) Brand.Moss else Brand.Coral)
-                    Spacer(Modifier.width(5.dp))
-                    Text("min left", style = MaterialTheme.typography.bodyMedium, color = Brand.Ink, modifier = Modifier.padding(bottom = 5.dp))
-                }
-                val available = (cfg.freeMinutes + day.earnedMinutes).coerceAtLeast(1)
-                val left by animateFloatAsState((remaining.toFloat() / available).coerceIn(0f, 1f), tween(700), label = "left")
-                Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(50)).background(Brand.Sage)) {
-                    Box(Modifier.fillMaxWidth(left).height(5.dp).clip(RoundedCornerShape(50)).background(if (remaining > 0) Brand.Mint else Brand.Coral))
-                }
-                Text("+${Budget.earnableFrom(cfg, day, tasks)} to earn", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted, modifier = Modifier.padding(top = 3.dp))
             }
         }
 
@@ -231,130 +225,75 @@ fun HomeScreen(
         val done = tasks.filter { it.id in day.completedTasks }
         SectionHeader("Instead of scrolling", "${done.size} of ${tasks.size} done")
         if (tasks.isEmpty()) Notice("sparkle", "Pick what you'd rather do", "A few activities that give minutes back", onOpenSettings)
-        // The open activities share the space that's left and scroll on their own; the page never does.
-        // Cards fade and shrink a little as they slide in or out at the edges.
-        // Three or more open: an endless loop, so the list goes round and round.
-        val n = active.size
-        val loop = n >= 3
-        val count = if (loop) n * 1000 else n
-        val start = if (loop) count / 2 - (count / 2) % n else 0
-        val list = androidx.compose.runtime.remember(n) { androidx.compose.foundation.lazy.LazyListState(if (loop) start - 1 else 0) }
-        val centered by androidx.compose.runtime.remember(list) {
-            androidx.compose.runtime.derivedStateOf {
-                val info = list.layoutInfo
-                val mid = (info.viewportStartOffset + info.viewportEndOffset) / 2
-                info.visibleItemsInfo.minByOrNull { kotlin.math.abs(it.offset + it.size / 2 - mid) }?.index ?: 0
+        if (active.isNotEmpty()) {
+            // One at a time, swiped left and right; the next one peeks in from the side.
+            val pager = androidx.compose.foundation.pager.rememberPagerState { active.size }
+            // "Do one activity" tapped: back to the first one, and a short glow around it.
+            val glow = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(0f) }
+            androidx.compose.runtime.LaunchedEffect(focusActivities) {
+                if (focusActivities == 0) return@LaunchedEffect
+                pager.animateScrollToPage(0)
+                repeat(2) { glow.animateTo(1f, tween(300)); glow.animateTo(0f, tween(400)) }
+            }
+            androidx.compose.foundation.pager.HorizontalPager(
+                pager, Modifier.fillMaxWidth().tourTarget(tour, "activity"),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(end = if (active.size > 1) 36.dp else 0.dp),
+                pageSpacing = 12.dp, verticalAlignment = Alignment.Top,
+            ) { i ->
+                val task = active[i]
+                Box(Modifier.padding(vertical = 4.dp).border(2.dp, Brand.Moss.copy(alpha = if (i == 0) glow.value else 0f), RoundedCornerShape(22.dp))) {
+                    TaskRow(task, day, health, focusSecondsLeft?.takeIf { task.id == focusTaskId }, onStartFocus, onCheckOff, onUndo, exerciseTracked, sleepEstimated)
+                }
+            }
+            if (active.size > 1) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                repeat(active.size) { i ->
+                    val on = i == pager.currentPage
+                    Box(Modifier.padding(horizontal = 3.dp).size(if (on) 8.dp else 6.dp).clip(CircleShape).background(if (on) Brand.Moss else Brand.Mint.copy(alpha = 0.45f)))
+                }
+            }
+        } else if (done.isNotEmpty()) {
+            Row(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                TendIcons.Badge("sparkle", 40.dp)
+                Spacer(Modifier.width(12.dp))
+                Text("Everything done today. ${avatar.displayName} is proud of you.", style = MaterialTheme.typography.titleMedium)
             }
         }
-        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-            val reserve = when {
-                done.isNotEmpty() -> 60.dp + 50.dp * minOf(done.size, 3)
-                active.isNotEmpty() -> 116.dp
-                else -> 0.dp
-            }
-            // The open ones fill the space down to "Done today": about three cards on a typical phone.
-            val listMax = (maxHeight - reserve - if (loop) 18.dp else 0.dp).coerceAtLeast(80.dp)
-            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Space.m)) {
-                EdgeToEdge(Modifier.heightIn(max = listMax)) {
-                androidx.compose.foundation.lazy.LazyColumn(
-                    Modifier.fillMaxWidth(),
-                    state = list,
-                    flingBehavior = androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior(
-                        list, androidx.compose.foundation.gestures.snapping.SnapPosition.Center,
-                    ),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(Space.m),
-                ) {
-                    items(count) { idx ->
-                        val task = active[idx % n]
-                        Box(
-                            Modifier
-                                .then(if (idx == start) Modifier.tourTarget(tour, "activity") else Modifier)
-                                .graphicsLayer {
-                                    if (!loop) return@graphicsLayer
-                                    // Sharp in the middle; cards fade and shrink towards the top and bottom.
-                                    val info = list.layoutInfo
-                                    val item = info.visibleItemsInfo.firstOrNull { it.index == idx } ?: return@graphicsLayer
-                                    val mid = (info.viewportStartOffset + info.viewportEndOffset) / 2f
-                                    val half = ((info.viewportEndOffset - info.viewportStartOffset) / 2f).coerceAtLeast(1f)
-                                    val d = (kotlin.math.abs(item.offset + item.size / 2f - mid) / half).coerceIn(0f, 1f)
-                                    alpha = 1f - 0.75f * d * d
-                                    scaleX = 1f - 0.07f * d
-                                    scaleY = scaleX
-                                },
-                        ) {
-                            TaskRow(task, day, health, focusSecondsLeft?.takeIf { task.id == focusTaskId }, onStartFocus, onCheckOff, onUndo, exerciseTracked, sleepEstimated)
-                        }
-                    }
-                    if (active.isEmpty() && done.isNotEmpty()) item {
-                        Row(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            TendIcons.Badge("sparkle", 40.dp)
-                            Spacer(Modifier.width(12.dp))
-                            Text("Everything done today. ${avatar.displayName} is proud of you.", style = MaterialTheme.typography.titleMedium)
-                        }
-                    }
-                }
-            }
-                // One dot per open activity: there are more than the ones in view.
-                if (loop) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                    repeat(n) { i ->
-                        val on = i == centered % n
-                        Box(
-                            Modifier.padding(horizontal = 3.dp).size(if (on) 8.dp else 6.dp).clip(CircleShape)
-                                .background(if (on) Brand.Moss else Brand.Mint.copy(alpha = 0.45f)),
-                        )
-                    }
-                }
-            // "Done today" sits at the bottom of the screen; the open ones get the space above it.
-            Spacer(Modifier.weight(1f))
-            if (done.isEmpty() && active.isNotEmpty()) {
-                // Before the first one: an empty, dashed spot that says where finished things go.
-                SectionHeader("Done today", "0 min")
-                Row(
-                    Modifier.fillMaxWidth().padding(bottom = Space.s).drawBehind {
-                        drawRoundRect(
-                            Brand.Muted.copy(alpha = 0.45f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(16.dp.toPx()),
-                            style = androidx.compose.ui.graphics.drawscope.Stroke(
-                                1.5.dp.toPx(), pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 8f)),
-                            ),
-                        )
-                    }.padding(horizontal = 14.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(Modifier.size(24.dp).clip(CircleShape).border(1.5.dp, Brand.Muted.copy(alpha = 0.5f), CircleShape))
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        "Nothing yet. Your first one lands here.",
-                        style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        // "Done today" sits at the bottom of the screen.
+        Spacer(Modifier.weight(1f))
+        if (done.isEmpty() && active.isNotEmpty()) {
+            // Before the first one: an empty, dashed spot that says where finished things go.
+            SectionHeader("Done today", "0 min")
+            Row(
+                Modifier.fillMaxWidth().padding(bottom = Space.s).drawBehind {
+                    drawRoundRect(
+                        Brand.Muted.copy(alpha = 0.45f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(16.dp.toPx()),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(
+                            1.5.dp.toPx(), pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 8f)),
+                        ),
                     )
-                }
+                }.padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(24.dp).clip(CircleShape).border(1.5.dp, Brand.Muted.copy(alpha = 0.5f), CircleShape))
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    "Nothing yet. Your first one lands here.",
+                    style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
             }
-            if (done.isNotEmpty()) {
-                SectionHeader("Done today", "+${done.sumOf { day.grants[it.id] ?: 0 }} min")
-                // Thin rows; more than three scroll inside their own small box.
-                EdgeToEdge(Modifier.heightIn(max = 160.dp).padding(bottom = Space.s)) {
-                    Column(
-                        Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 2.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) { done.forEach { DoneRow(it, day, onUndo) } }
-                }
-            }
-            }
+        }
+        if (done.isNotEmpty()) {
+            SectionHeader("Done today", "+${done.sumOf { day.grants[it.id] ?: 0 }} min")
+            // Thin rows; more than three scroll inside their own small box.
+            Column(
+                Modifier.heightIn(max = 160.dp).verticalScroll(rememberScrollState()).padding(bottom = Space.s),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) { done.forEach { DoneRow(it, day, onUndo) } }
         }
     }
     if (showTour) TourOverlay(avatar, tour, homeTour(avatar.displayName, cfg.freeMinutes), onTourDone)
     }
 }
-
-/** Lets a list reach the screen edges, so the cards' shadows aren't cut off at the sides. */
-@Composable
-private fun EdgeToEdge(modifier: Modifier, content: @Composable () -> Unit) = Box(
-    modifier.fillMaxWidth().layout { m, c ->
-        val extra = 20.dp.roundToPx()
-        val p = m.measure(c.copy(minWidth = c.minWidth + 2 * extra, maxWidth = c.maxWidth + 2 * extra))
-        layout(c.maxWidth, p.height) { p.place(-extra, 0) }
-    },
-) { content() }
 
 /** A finished activity: one thin, quiet line. */
 @Composable

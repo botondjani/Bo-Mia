@@ -356,9 +356,10 @@ class MainActivity : ComponentActivity() {
         // A first step tapped: open the camp ready to place a thing, or with the invite open.
         var campEditing by rememberSaveable { mutableStateOf(false) }
         var campInvite by rememberSaveable { mutableStateOf(false) }
+        var activitiesFocus by remember { mutableIntStateOf(0) }
         val goToStep: (app.tend.core.Step) -> Unit = { step ->
             when (step) {
-                app.tend.core.Step.ACTIVITY -> screen = Screen.HOME
+                app.tend.core.Step.ACTIVITY -> { screen = Screen.HOME; activitiesFocus++ }
                 app.tend.core.Step.PLACE -> { campEditing = true; screen = Screen.CLEARING }
                 app.tend.core.Step.USE -> screen = Screen.CLEARING
                 app.tend.core.Step.NOT_NOW -> {
@@ -639,10 +640,10 @@ class MainActivity : ComponentActivity() {
                 },
                 onUndo = { TaskSync.undo(store, it); refresh++ },
                 onOpenSettings = { screen = Screen.SETTINGS },
-                onShare = ::shareCamp,
                 onOpenClearing = { screen = Screen.CLEARING },
                 steps = remember(refresh) { firstSteps() },
                 onStep = goToStep,
+                focusActivities = activitiesFocus,
                 camp = {
                     val night = app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour)
                     val mood = app.tend.core.Moods.atNight(app.tend.core.Moods.of(store.config, store.today()), night)
