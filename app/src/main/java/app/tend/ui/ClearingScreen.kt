@@ -200,6 +200,9 @@ fun ClearingScreen(
         if (night && nightClock > Uses.WALK + 2f && bed != null && rest != bed) onRest(bed)
     }
     val visitorNow by androidx.compose.runtime.rememberUpdatedState(visitor)
+    // Camp life: clouds and weather move, and the companion gets on with things when left alone.
+    val ambient = rememberAmbientClock()
+    val idle = rememberIdleLife(placed, rest, enabled = using == null && drag == null && settling == null && greeted == null && !night) { onRest(it) }
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { Sounds.stop() } }
 
     // The camp, big and edge to edge: wider than the screen, so it pans left and right.
@@ -314,7 +317,7 @@ fun ClearingScreen(
                     )
                 },
             ) {
-                val use = using?.takeIf { useStart >= 0 }?.let { (spot, thing) -> InUse(spot, thing, (frame - useStart) / 1e9f, walk) }
+                val use = using?.takeIf { useStart >= 0 }?.let { (spot, thing) -> InUse(spot, thing, (frame - useStart) / 1e9f, walk) } ?: idle
                 drawClearing(
                     avatar, placed, mood, worn = worn, night = night, paper = paperLeft, ducks = ducks.size, bridge = bridge,
                     use = use, lastStrum = (frame - strumAt) / 1e9f - walk, visitor = visitor, rest = rest, nightClock = nightClock, appear = appear,
@@ -323,6 +326,7 @@ fun ClearingScreen(
                     lifted = (drag?.first ?: settling)?.let { it to lift.value },
                     dust = dustAt?.let { it to dust.value },
                     restFrom = restFrom, restClock = restClock.value,
+                    ambient = ambient,
                 )
             }
             // Near the screen's edge while dragging: the camp slides along, and the thing with it.

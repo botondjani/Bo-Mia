@@ -149,6 +149,12 @@ fun DrawScope.drawClearing(
     bursts: List<Pair<Offset, Float>> = emptyList(),
     /** The time of year: how the trees and the meadow look. */
     season: app.tend.core.Season = app.tend.core.Season.of(java.time.LocalDate.now()),
+    /** The hour now (with minutes as a fraction): dawn, day, the golden hour and dusk colour the sky. */
+    hour: Float = java.time.LocalTime.now().let { it.hour + it.minute / 60f },
+    /** Today's weather. */
+    weather: app.tend.core.Weather = app.tend.core.Weather.of(java.time.LocalDate.now(), hour.toInt(), season),
+    /** Seconds of camp life, for what moves by itself: clouds, rain, snow, fireflies (0 for a still picture). */
+    ambient: Float = 0f,
     /** Where the user moved things to (spot to scene fraction). */
     layout: Map<Int, Offset> = emptyMap(),
     /** A thing picked up: its spot and how high (1 = held up; below 0 = squashing as it lands). */
@@ -171,8 +177,11 @@ fun DrawScope.drawClearing(
     fun at(id: Int) = spotPos(id, layout).let { Offset(it.x * w, it.y * h) }
 
     // Sky, with the low sun's warmth near the horizon.
-    drawRect(Brush.verticalGradient(listOf(SkyTop, SkyLow), endY = horizon), size = Size(w, horizon + 2))
-    drawCircle(Brush.radialGradient(listOf(Color(0x66FFF1C9), Color.Transparent), center = Offset(w * 0.2f, h * 0.18f), radius = h * 0.55f), h * 0.55f, Offset(w * 0.2f, h * 0.18f))
+    val sky = skyAt(hour, weather)
+    drawRect(Brush.verticalGradient(listOf(sky.first, sky.second), endY = horizon), size = Size(w, horizon + 2))
+    if (weather == app.tend.core.Weather.CLEAR || weather == app.tend.core.Weather.FOG)
+        drawCircle(Brush.radialGradient(listOf(Color(0x66FFF1C9), Color.Transparent), center = Offset(w * 0.2f, h * 0.18f), radius = h * 0.55f), h * 0.55f, Offset(w * 0.2f, h * 0.18f))
+    clouds(weather, ambient)
 
     // Snow-capped mountains far behind, pale with distance.
     mountains(horizon)
@@ -294,6 +303,22 @@ fun DrawScope.drawClearing(
             CharacterPainter.draw(it.nativeCanvas, avatar, if (night) Mood.SLEEPING else mood, cs, accessories = worn)
             it.nativeCanvas.restore()
         }
+        // In the rain, standing about: under a little umbrella.
+        if (weather == app.tend.core.Weather.RAIN && !night) {
+            val hand = anchor + Offset(cs * 0.3f, -cs * 0.38f)
+            val top = Offset(anchor.x + cs * 0.12f, anchor.y - cs * 1.18f)
+            drawLine(Color(0xFF3A2414), hand, top, strokeWidth = cs * 0.025f, cap = StrokeCap.Round)
+            drawArc(Color(0xFF3A2414), 0f, 180f, false, hand + Offset(-cs * 0.06f, -cs * 0.04f), Size(cs * 0.06f, cs * 0.08f), style = Stroke(cs * 0.022f))
+            val canopy = Path().apply {
+                moveTo(top.x - cs * 0.48f, top.y + cs * 0.2f)
+                quadraticTo(top.x, top.y - cs * 0.22f, top.x + cs * 0.48f, top.y + cs * 0.2f)
+                // A scalloped hem.
+                for (k in 0 until 4) quadraticTo(top.x + cs * (0.36f - k * 0.24f), top.y + cs * 0.1f, top.x + cs * (0.24f - k * 0.24f), top.y + cs * 0.2f)
+                close()
+            }
+            drawPath(canopy, Color(0xFFE07A5F))
+            drawPath(Path().apply { moveTo(top.x, top.y - cs * 0.01f); quadraticTo(top.x - cs * 0.06f, top.y + cs * 0.1f, top.x - cs * 0.12f, top.y + cs * 0.2f); lineTo(top.x + cs * 0.12f, top.y + cs * 0.2f); quadraticTo(top.x + cs * 0.06f, top.y + cs * 0.1f, top.x, top.y - cs * 0.01f); close() }, Color(0xFFF2D27A))
+        }
     }
     // A thing on the ground, at its size for where it stands. Glows it adds are moved and sized with it.
     fun thingAt(thing: String, p: Offset, k: Float, spot: Int, sx: Float = 1f, sy: Float = 1f, lift: Float = 0f) {
@@ -357,11 +382,14 @@ fun DrawScope.drawClearing(
 
     // Grass and a few flowers along the bottom edge frame the picture.
     foreground(w, h)
-    // Winter: snow falling, softly.
-    if (season == app.tend.core.Season.WINTER) {
-        val rnd = java.util.Random(23L)
-        repeat(70) { drawCircle(Color.White.copy(alpha = 0.55f + 0.4f * rnd.nextFloat()), u * (0.002f + 0.003f * rnd.nextFloat()), Offset(w * rnd.nextFloat(), h * rnd.nextFloat())) }
+    // The weather over everything: rain, snow, morning fog; and the light of the hour.
+    when (weather) {
+        app.tend.core.Weather.RAIN -> rain(ambient, u)
+        app.tend.core.Weather.SNOW -> snowfall(ambient, u)
+        app.tend.core.Weather.FOG -> drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.5f), Color.White.copy(alpha = 0.18f)), startY = horizon - h * 0.12f, endY = h * 0.85f), size = size)
+        else -> {}
     }
+    if (!night) hourTint(hour, weather)
 
     // Night: a blue veil over everything, then the lights.
     if (night) {
@@ -376,6 +404,17 @@ fun DrawScope.drawClearing(
         }
         drawActor(mutableListOf())
         drawIntoCanvas { it.nativeCanvas.restore() }
+        // Summer nights: fireflies over the meadow, each blinking in its own time.
+        if (season == app.tend.core.Season.SUMMER && weather != app.tend.core.Weather.RAIN) {
+            val rnd = java.util.Random(31L)
+            repeat(16) { i ->
+                val base = Offset(w * (0.4f + 0.58f * rnd.nextFloat()), h * (0.55f + 0.38f * rnd.nextFloat()))
+                val at = base + Offset(kotlin.math.sin(ambient * 0.6f + i) * w * 0.025f, kotlin.math.cos(ambient * 0.45f + i * 1.3f) * h * 0.03f)
+                val on = ((kotlin.math.sin(ambient * 1.8f + i * 1.7f) + 1f) / 2f).let { it * it }
+                drawCircle(Color(0xFFF7F3A0).copy(alpha = 0.3f + 0.7f * on), u * 0.0035f, at)
+                lights += Light(at, u * 0.035f, 0.5f * on)
+            }
+        }
         lights.forEach { l ->
             drawCircle(Brush.radialGradient(listOf(Glow.copy(alpha = 0.55f * l.strength), Color.Transparent), center = l.at, radius = l.radius), l.radius, l.at)
         }
@@ -799,6 +838,89 @@ private fun DrawScope.foreground(w: Float, h: Float) {
 }
 
 /** A soft contact shadow, falling a little to the right (the sun is low on the left). */
+/** The sky's two colours at [hour] in [weather]: lavender dawn, blue day, a warm golden hour, dusk; greyer when it's cloudy. */
+private fun skyAt(hour: Float, weather: app.tend.core.Weather): Pair<Color, Color> {
+    var top = SkyTop
+    var low = SkyLow
+    fun bump(from: Float, peak: Float, to: Float) = when { hour <= from || hour >= to -> 0f; hour < peak -> (hour - from) / (peak - from); else -> (to - hour) / (to - peak) }
+    val grey = when (weather) { app.tend.core.Weather.RAIN -> 0.6f; app.tend.core.Weather.CLOUDY -> 0.35f; app.tend.core.Weather.SNOW -> 0.3f; else -> 0f }
+    top = androidx.compose.ui.graphics.lerp(top, Color(0xFFA9B5BD), grey)
+    low = androidx.compose.ui.graphics.lerp(low, Color(0xFFD5D9D8), grey)
+    val clear = 1f - grey
+    bump(5f, 6.5f, 8.5f).let { k -> top = androidx.compose.ui.graphics.lerp(top, Color(0xFFC6B8D8), k * 0.7f * clear); low = androidx.compose.ui.graphics.lerp(low, Color(0xFFF7C6A6), k * 0.75f * clear) }
+    bump(16.5f, 18.6f, 19.6f).let { k -> top = androidx.compose.ui.graphics.lerp(top, Color(0xFFE6CFAE), k * 0.45f * clear); low = androidx.compose.ui.graphics.lerp(low, Color(0xFFF6B56C), k * 0.7f * clear) }
+    bump(19f, 20.5f, 23f).let { k -> top = androidx.compose.ui.graphics.lerp(top, Color(0xFF8292C2), k * 0.7f); low = androidx.compose.ui.graphics.lerp(low, Color(0xFFE5A28C), k * 0.65f * clear) }
+    return top to low
+}
+
+/** The light of the hour over the whole camp: rosy at dawn, golden late in the day, violet at dusk; dimmer in the rain. */
+private fun DrawScope.hourTint(hour: Float, weather: app.tend.core.Weather) {
+    fun bump(from: Float, peak: Float, to: Float) = when { hour <= from || hour >= to -> 0f; hour < peak -> (hour - from) / (peak - from); else -> (to - hour) / (to - peak) }
+    val wet = weather == app.tend.core.Weather.RAIN
+    if (wet) drawRect(Color(0xFF6E7C86).copy(alpha = 0.14f), size = size)
+    val k = if (wet) 0.4f else 1f
+    bump(5f, 6.5f, 8.5f).takeIf { it > 0f }?.let { drawRect(Color(0xFFFFB49A).copy(alpha = 0.07f * it * k), size = size) }
+    bump(16.5f, 18.6f, 19.6f).takeIf { it > 0f }?.let { drawRect(Color(0xFFFFA347).copy(alpha = 0.1f * it * k), size = size) }
+    bump(19f, 20.5f, 23f).takeIf { it > 0f }?.let { drawRect(Color(0xFF5E4FA0).copy(alpha = 0.16f * it), size = size) }
+}
+
+/** Soft clouds drifting slowly across: a couple on a clear day, more and greyer when it's cloudy. */
+private fun DrawScope.clouds(weather: app.tend.core.Weather, t: Float) {
+    val w = size.width
+    val h = size.height
+    val many = weather != app.tend.core.Weather.CLEAR && weather != app.tend.core.Weather.FOG
+    val color = if (weather == app.tend.core.Weather.RAIN) Color(0xFFE3E7E9) else Color.White
+    val rnd = java.util.Random(13L)
+    repeat(if (many) 6 else 3) { i ->
+        val x0 = rnd.nextFloat()
+        val y = h * (0.06f + 0.24f * rnd.nextFloat())
+        val r = h * (if (many) 0.05f else 0.035f) * (0.8f + 0.5f * rnd.nextFloat())
+        val speed = 0.004f + 0.003f * rnd.nextFloat()
+        val x = (((x0 + t * speed) % 1.4f) - 0.2f) * w
+        val alpha = if (many) 0.85f else 0.7f
+        drawCircle(color.copy(alpha = alpha), r, Offset(x, y))
+        drawCircle(color.copy(alpha = alpha), r * 0.75f, Offset(x - r * 0.9f, y + r * 0.25f))
+        drawCircle(color.copy(alpha = alpha), r * 0.85f, Offset(x + r * 0.95f, y + r * 0.2f))
+        drawRoundRect(color.copy(alpha = alpha), Offset(x - r * 1.6f, y + r * 0.1f), Size(r * 3.3f, r * 0.75f), CornerRadius(r * 0.4f))
+    }
+}
+
+/** Rain falling, slanting a little, and rings on the river. */
+private fun DrawScope.rain(t: Float, u: Float) {
+    val w = size.width
+    val h = size.height
+    val rnd = java.util.Random(41L)
+    repeat(110) {
+        val x0 = rnd.nextFloat()
+        val y0 = rnd.nextFloat()
+        val speed = 0.9f + 0.4f * rnd.nextFloat()
+        val y = ((y0 + t * speed) % 1.1f - 0.05f) * h
+        val x = x0 * w + y * 0.06f
+        drawLine(Color(0xFFDCE6EC).copy(alpha = 0.55f), Offset(x, y), Offset(x + h * 0.0025f, y + h * 0.028f), strokeWidth = u * 0.0022f, cap = StrokeCap.Round)
+    }
+    repeat(7) { i ->
+        val c = Offset(w * (0.04f + 0.22f * rnd.nextFloat()), h * (0.64f + 0.3f * rnd.nextFloat()))
+        val k = ((t * 0.7f + i / 7f) % 1f)
+        drawOval(Color.White.copy(alpha = 0.45f * (1f - k)), Offset(c.x - u * 0.03f * k, c.y - u * 0.006f * k), Size(u * 0.06f * k, u * 0.012f * k), style = Stroke(u * 0.0018f))
+    }
+}
+
+/** Snow coming down, swaying as it falls. */
+private fun DrawScope.snowfall(t: Float, u: Float) {
+    val w = size.width
+    val h = size.height
+    val rnd = java.util.Random(23L)
+    repeat(80) { i ->
+        val x0 = rnd.nextFloat()
+        val y0 = rnd.nextFloat()
+        val r = u * (0.002f + 0.003f * rnd.nextFloat())
+        val speed = 0.03f + 0.03f * rnd.nextFloat()
+        val y = ((y0 + t * speed) % 1f) * h
+        val x = (x0 + kotlin.math.sin(t * 0.6f + i) * 0.008f) * w
+        drawCircle(Color.White.copy(alpha = 0.6f + 0.35f * rnd.nextFloat()), r, Offset(x, y))
+    }
+}
+
 /** Dust kicked up where something lands: little puffs rolling out both ways and fading. */
 private fun DrawScope.dustPuff(p: Offset, u: Float, k: Float) {
     if (k <= 0f || k >= 1f) return

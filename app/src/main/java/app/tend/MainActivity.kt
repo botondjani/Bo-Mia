@@ -745,9 +745,11 @@ class MainActivity : ComponentActivity() {
                         val bed = app.tend.ui.bedOf(store.placed)
                         if (night && nightClock > app.tend.ui.Uses.WALK + 2f && bed != null && store.restSpot != bed) store.restSpot = bed
                     }
-                    val use = reaction?.takeIf { start >= 0 }?.let { app.tend.ui.InUse(-1, it, (frame - start) / 1e9f, if (it == "campfire") app.tend.ui.Uses.WALK else 0f) }
+                    val ambient = app.tend.ui.rememberAmbientClock()
+                    val idle = app.tend.ui.rememberIdleLife(store.placed, store.restSpot, enabled = reaction == null && !night) { store.restSpot = it }
+                    val use = reaction?.takeIf { start >= 0 }?.let { app.tend.ui.InUse(-1, it, (frame - start) / 1e9f, if (it == "campfire") app.tend.ui.Uses.WALK else 0f) } ?: idle
                     androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-                        drawClearing(store.avatar, store.placed, mood, shelf.first, night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor, rest = store.restSpot, nightClock = nightClock, appear = appear, layout = campLayout())
+                        drawClearing(store.avatar, store.placed, mood, shelf.first, night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor, rest = store.restSpot, nightClock = nightClock, appear = appear, layout = campLayout(), ambient = ambient)
                     }
                 },
                 onOpenRecap = { screen = Screen.RECAP },

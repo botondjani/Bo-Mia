@@ -641,6 +641,62 @@ fun rememberNightClock(night: Boolean): Float {
     return t
 }
 
+/**
+ * Seconds of camp life while the camp is on screen, for what moves by itself (clouds, rain, snow,
+ * fireflies). About 30 updates a second: smooth enough for drifting things, easy on the battery.
+ */
+@androidx.compose.runtime.Composable
+fun rememberAmbientClock(): Float {
+    var t by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        val start = androidx.compose.runtime.withFrameNanos { it }
+        while (true) {
+            t = (androidx.compose.runtime.withFrameNanos { it } - start) / 1e9f
+            kotlinx.coroutines.delay(33)
+        }
+    }
+    return t
+}
+
+/** What the companion likes to do by themselves, when nobody asks: not the shelters by day, nothing overhead. */
+private val IDLE_SKIP = setOf("tent", "bell_tent", "cabin", "wind_chimes", "bird_feeder", "string_lights")
+
+/**
+ * The companion getting on with camp life on their own: every so often they walk over to something
+ * and use it, quietly (no sound, no challenge counted), then stay there. Paused while [enabled] is
+ * false (something chosen by the user, the night, a thing being moved). With nothing to use, they
+ * stretch or cheer where they stand.
+ */
+@androidx.compose.runtime.Composable
+fun rememberIdleLife(placed: Map<Int, String>, rest: Int?, enabled: Boolean, onRest: (Int) -> Unit): InUse? {
+    var current by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<InUse?>(null) }
+    val placedNow by androidx.compose.runtime.rememberUpdatedState(placed)
+    val restNow by androidx.compose.runtime.rememberUpdatedState(rest)
+    val on by androidx.compose.runtime.rememberUpdatedState(enabled)
+    val onRestNow by androidx.compose.runtime.rememberUpdatedState(onRest)
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        val rnd = java.util.Random()
+        while (true) {
+            kotlinx.coroutines.delay(6_000L + rnd.nextInt(9_000))
+            if (!on) continue
+            val choices = placedNow.filter { (spot, thing) -> spot != restNow && spot in SpotPositions && thing !in IDLE_SKIP }.entries.toList()
+            val (spot, thing, walk) = if (choices.isEmpty()) Triple(-1, if (rnd.nextBoolean()) "act_stretch" else "act_cheer", 0f)
+                else choices[rnd.nextInt(choices.size)].let { Triple(it.key, it.value, Uses.WALK) }
+            val length = walk + minOf(Uses.seconds(thing), 7f)
+            val start = androidx.compose.runtime.withFrameNanos { it }
+            var t = 0f
+            while (on && t < length) {
+                t = (androidx.compose.runtime.withFrameNanos { it } - start) / 1e9f
+                current = InUse(spot, thing, t, walk)
+            }
+            current = null
+            // Got there: they stay (as after any use). Stopped on the way: back where they were.
+            if (spot >= 0 && t >= walk) onRestNow(spot)
+        }
+    }
+    return current
+}
+
 /** Overshoots a little and settles: things pop into the camp rather than just appearing. */
 fun easeOutBack(k: Float): Float {
     val c = 1.9f
