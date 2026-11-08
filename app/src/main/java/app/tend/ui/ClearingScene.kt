@@ -165,7 +165,7 @@ fun DrawScope.drawClearing(
     // in front of a trunk covers it and one behind is covered.
     val greenery: List<Pair<Float, () -> Unit>> = listOf(
         h * 0.6f to { pine(Offset(w * 0.035f, h * 0.6f), h * 0.44f) },
-        h * 0.575f to { pine(Offset(w * 0.105f, h * 0.575f), h * 0.36f) },
+        h * 0.578f to { pine(Offset(w * 0.07f, h * 0.578f), h * 0.36f) },
         h * 0.55f to { pine(Offset(w * 0.2f, h * 0.55f), h * 0.28f) },
         h * 0.575f to { roundTree(Offset(w * 0.505f, h * 0.575f), h * 0.2f, seed = 1) },
         h * 0.6f to { pine(Offset(w * 0.335f, h * 0.6f), h * 0.25f) },
@@ -185,7 +185,7 @@ fun DrawScope.drawClearing(
     greenery.sortedBy { it.first }.forEach { it.second() }
 
     // The bridge built together with friends, over the narrow part of the river.
-    if (bridge) bridge(Offset(w * 0.112f, h * 0.559f), Offset(w * 0.348f, h * 0.559f), u, night, lights)
+    if (bridge) bridge(Offset(w * 0.1f, h * 0.555f), Offset(w * 0.348f, h * 0.555f), u, night, lights)
 
     // Something strung between the trees, over the camp.
     placed[9]?.let { overhead(it, Offset(w * 0.445f, h * 0.4f), Offset(w * 0.955f, h * 0.38f), u, lights) }
@@ -432,17 +432,17 @@ const val VISITOR_SCALE = 1.4f
 private fun DrawScope.farTrail(w: Float, h: Float) {
     // From where the bridge lands on the far bank, left past the signpost and up into the forest.
     drawPath(Path().apply {
-        moveTo(w * 0.118f, h * 0.555f)
-        cubicTo(w * 0.1f, h * 0.552f, w * 0.082f, h * 0.545f, w * 0.07f, h * 0.53f)
-        quadraticTo(w * 0.062f, h * 0.52f, w * 0.058f, h * 0.508f)
-        lineTo(w * 0.068f, h * 0.508f)
-        quadraticTo(w * 0.073f, h * 0.518f, w * 0.082f, h * 0.527f)
-        cubicTo(w * 0.094f, h * 0.538f, w * 0.106f, h * 0.543f, w * 0.12f, h * 0.548f)
+        moveTo(w * 0.106f, h * 0.552f)
+        cubicTo(w * 0.09f, h * 0.548f, w * 0.076f, h * 0.54f, w * 0.066f, h * 0.527f)
+        quadraticTo(w * 0.06f, h * 0.518f, w * 0.057f, h * 0.506f)
+        lineTo(w * 0.066f, h * 0.506f)
+        quadraticTo(w * 0.07f, h * 0.516f, w * 0.078f, h * 0.524f)
+        cubicTo(w * 0.088f, h * 0.534f, w * 0.098f, h * 0.539f, w * 0.11f, h * 0.544f)
         close()
     }, Brush.verticalGradient(listOf(Dirt.copy(alpha = 0.5f), Dirt), startY = h * 0.508f, endY = h * 0.556f))
-    for ((x, y) in listOf(0.095f to 0.55f, 0.074f to 0.533f)) drawOval(Stone, Offset(w * x - h * 0.004f, h * y - h * 0.002f), Size(h * 0.008f, h * 0.005f))
+    for ((x, y) in listOf(0.088f to 0.546f, 0.07f to 0.53f)) drawOval(Stone, Offset(w * x - h * 0.004f, h * y - h * 0.002f), Size(h * 0.008f, h * 0.005f))
     // The signpost beside the bridge's end, pointing up the trail.
-    val post = Offset(w * 0.1f, h * 0.548f)
+    val post = Offset(w * 0.088f, h * 0.547f)
     drawLine(BarkDark, post, post + Offset(0f, -h * 0.05f), strokeWidth = h * 0.005f, cap = StrokeCap.Round)
     val b = post + Offset(0f, -h * 0.045f)
     drawPath(Path().apply {

@@ -176,7 +176,7 @@ fun ClearingScreen(
                         }
                         if (paperNow && fx > PAPER_LEFT && fy < PAPER_BOTTOM) { onUnroll(); caught = "All clean again."; return@detectTapGestures }
                         // The bridge leads to friends' camps along the river.
-                        if (bridgeNow && fx in 0.1f..0.37f && fy in 0.5f..0.64f) { onOpenRiver(null); return@detectTapGestures }
+                        if (bridgeNow && fx in 0.06f..0.37f && fy in 0.48f..0.62f) { onOpenRiver(null); return@detectTapGestures } // the bridge or its signpost
                         // A thing in the camp: the companion uses it (the guitar: another strum).
                         val hit = spotAt(Offset(fx, fy), size.width / size.height.toFloat())
                         val thing = hit?.let { placedNow[it] }
