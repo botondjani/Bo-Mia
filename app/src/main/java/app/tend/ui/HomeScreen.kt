@@ -127,6 +127,9 @@ fun HomeScreen(
     val firstDays = steps.isNotEmpty() && !steps.all { it.claimed }
     var widgetGuide by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     if (widgetGuide) WidgetGuideDialog(avatar) { widgetGuide = false }
+    var explain by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf("") }
+    if (explain == "minutes") MinutesDialog(cfg, tasks) { explain = "" }
+    if (explain == "acorns") AcornsDialog { explain = "" }
     val remaining = Budget.remainingMinutes(cfg, day)
     val context = androidx.compose.ui.platform.LocalContext.current
     Box(Modifier.fillMaxSize()) {
@@ -143,7 +146,7 @@ fun HomeScreen(
                 Text(greeting(), style = MaterialTheme.typography.headlineMedium)
             }
             // Today's minutes, next to the greeting: what's left, a small bar, what's still to earn.
-            Column(Modifier.padding(end = 12.dp).width(96.dp), horizontalAlignment = Alignment.End) {
+            Column(Modifier.padding(end = 12.dp).width(96.dp).tappable { explain = "minutes" }, horizontalAlignment = Alignment.End) {
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(if (remaining > 0) "$remaining" else "0", style = MaterialTheme.typography.headlineMedium, color = if (remaining > 0) Brand.Moss else Brand.Coral)
                     Spacer(Modifier.width(4.dp))
@@ -180,7 +183,7 @@ fun HomeScreen(
             )
             Row(
                 Modifier.align(Alignment.TopEnd).padding(16.dp)
-                    .clip(RoundedCornerShape(50)).background(Color(0xF0FFFFFF)).padding(horizontal = 10.dp, vertical = 5.dp),
+                    .clip(RoundedCornerShape(50)).background(Color(0xF0FFFFFF)).tappable { explain = "acorns" }.padding(horizontal = 10.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 AcornIcon(18.dp)

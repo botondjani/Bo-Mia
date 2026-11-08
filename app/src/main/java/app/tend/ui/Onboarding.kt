@@ -497,6 +497,7 @@ fun BudgetPicker(cfg: BudgetConfig, onConfig: (BudgetConfig) -> Unit) = Card {
     Stepper("Max per day", "With earned minutes", listOf(90, 120, 180, 240), cfg.totalMinutes) {
         onConfig(cfg.copy(totalMinutes = it, freeMinutes = minOf(cfg.freeMinutes, it)))
     }
+    Text("At 0 the picked apps stay closed until you earn more with an activity. Every day starts fresh.", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
 }
 
 @Composable

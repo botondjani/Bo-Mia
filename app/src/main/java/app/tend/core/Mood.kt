@@ -38,10 +38,12 @@ object Moods {
         val done = selected.filter { it.id in day.completedTasks }
         val next = Tasks.next(day, selected)
         if (selected.isEmpty()) return "Pick a few things you'd rather do, and we'll do them together."
+        // Out of minutes: say plainly what that means and the way back.
+        if (Budget.isLocked(cfg, day) && !welcomeBack) return next?.let { "Out of minutes: your apps are closed. ${it.title} opens them again (+${it.rewardMinutes} min)." }
+            ?: "Out of minutes: your apps are closed until tomorrow."
         if (done.isEmpty()) return when {
             // Back after a few days: no catching up, just one small thing.
             welcomeBack -> "Welcome back! I missed you. Let's start small today: ${next!!.title.lowercase()}?"
-            Budget.isLocked(cfg, day) -> "Budget's empty for now. Want to earn some back together?"
             next == Tasks.OUTSIDE -> "We haven't been outside in a while. Quick walk?"
             else -> "What shall we do today? ${next!!.title} sounds nice."
         }

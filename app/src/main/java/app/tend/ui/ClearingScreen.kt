@@ -389,12 +389,20 @@ private fun spotAt(tap: Offset, ratio: Float): Int? = SpotPositions.entries
 /** Acorns, as a small pill. */
 @Composable
 fun AcornBadge(acorns: Int, modifier: Modifier = Modifier) = Row(
-    modifier.clip(RoundedCornerShape(50)).background(Color(0xE6FFFFFF)).padding(horizontal = 10.dp, vertical = 5.dp),
+    modifier.clip(RoundedCornerShape(50)).background(Color(0xE6FFFFFF)).then(acornsExplained()).padding(horizontal = 10.dp, vertical = 5.dp),
     verticalAlignment = Alignment.CenterVertically,
 ) {
     AcornIcon(18.dp)
     Spacer(Modifier.width(5.dp))
     Text("$acorns", style = MaterialTheme.typography.titleMedium, color = Color(0xFF3D2A1C))
+}
+
+/** Tapping an acorn count explains acorns. */
+@Composable
+private fun acornsExplained(): Modifier {
+    var open by remember { mutableStateOf(false) }
+    if (open) AcornsDialog { open = false }
+    return Modifier.tappable { open = true }
 }
 
 /** An acorn: a warm brown nut under a darker cap with a stalk. */
