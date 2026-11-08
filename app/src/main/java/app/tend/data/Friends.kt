@@ -76,12 +76,20 @@ object Friends {
         Account.rpc(c, "tend_set_focus", args)
     }
 
+    /**
+     * Keeps who's at the fire now, and (for the together bonus) who was there in the last four hours:
+     * a friend who finished a few minutes before you still counts.
+     */
     private fun keepAtFire(c: Context, friends: List<Friend>) {
         val now = System.currentTimeMillis()
-        val a = JSONArray()
-        friends.filter { (it.focusUntil ?: 0) > now }.forEach { f ->
-            a.put(JSONObject().put("id", f.id).put("name", f.name).put("companion", f.companion).put("started", f.focusStarted ?: now).put("until", f.focusUntil).put("task", f.focusTask ?: ""))
+        val fresh = friends.filter { (it.focusUntil ?: 0) > now }.map { f ->
+            AtFire(f.id, f.name, f.companion, f.focusStarted ?: now, f.focusUntil!!, f.focusTask ?: "")
         }
+        // Earlier sessions not in the fresh list end at the latest now (stopped early, or over).
+        val earlier = atFire(c, now - 4 * 3_600_000L).filter { old -> fresh.none { it.id == old.id && it.started == old.started } }
+            .map { if (it.until > now) it.copy(until = now) else it }
+        val a = JSONArray()
+        (fresh + earlier).forEach { f -> a.put(JSONObject().put("id", f.id).put("name", f.name).put("companion", f.companion).put("started", f.started).put("until", f.until).put("task", f.task)) }
         prefs(c).edit().putString("at_fire", a.toString()).apply()
     }
 

@@ -147,7 +147,7 @@ fun Onboarding(
                 Step.WELCOME -> StepPage(cta = "Continue with ${avatar.displayName}", onCta = next) {
                     Title(
                         "Hi! I'm ${avatar.displayName}.",
-                        "When you open an app you picked, I pop up for a breath first. Walks, workouts and books win your minutes back, and acorns for our camp by the river.",
+                        "When you open an app you picked, I pop up for a breath first. Walks, workouts and books win your minutes back, and acorns for our camp by the river, where friends can join us at the fire.",
                     )
                     Text("WHO KEEPS YOU COMPANY?", style = MaterialTheme.typography.labelSmall)
                     CompanionPicker(avatar, onAvatar)
@@ -204,7 +204,7 @@ fun Onboarding(
                     val first = blocked.firstOrNull()?.let(catalog::label) ?: "an app"
                     Title(
                         "Let ${avatar.displayName} notice",
-                        "${if (perms.permissions.usageAccess) "One more switch" else "Two quick switches"} so ${avatar.displayName} can see when you open $first and give you a breath. Nothing leaves your phone.",
+                        "${if (perms.permissions.usageAccess) "One more switch" else "Two quick switches"} so ${avatar.displayName} can see when you open $first, give you a breath, and peek in after a long scroll. Nothing leaves your phone.",
                     )
                     PermissionSteps(perms)
                     if (!perms.permissions.allGranted) LinkText("Continue without", { askSkip = true })
@@ -213,7 +213,7 @@ fun Onboarding(
                 Step.ACCOUNT -> StepPage(cta = if (signedIn) "Continue" else "Skip for now", onCta = next) {
                     Title(
                         "Keep your camp safe",
-                        "With an account your camp is backed up, and friends can visit it. Optional: tend works fully without one.",
+                        "With an account your camp is backed up, and friends can join in: visits, cheers, and sitting at each other's campfire. Optional: tend works fully without one.",
                     )
                     account(next)
                 }
@@ -238,10 +238,11 @@ fun Onboarding(
                             when {
                                 !lit -> "This is where ${avatar.displayName} will live. It's empty for now: start with a campfire."
                                 !roasting -> "Lovely. Now tap the fire."
-                                else -> "${avatar.displayName} uses everything you get. Activities and \"Not now\" earn acorns for more: a tent, a canoe, a guitar."
+                                else -> "${avatar.displayName} uses everything you get, even when you're away. Activities and \"Not now\" earn acorns for more; hold a thing to move it anywhere."
                             },
                         )
                         val appear = rememberAppear(placed)
+                        val ambient = rememberAmbientClock()
                         Box(Modifier.fillMaxWidth().aspectRatio(1.35f).clip(RoundedCornerShape(26.dp)).campEntrance()) {
                             Canvas(
                                 Modifier.fillMaxSize().pointerInput(lit) {
@@ -257,7 +258,7 @@ fun Onboarding(
                                 },
                             ) {
                                 val use = if (roasting && roastStart > 0) InUse(0, "campfire", (frame - roastStart) / 1e9f, Uses.WALK) else null
-                                drawClearing(avatar, placed, Mood.HAPPY, appear = appear, use = use)
+                                drawClearing(avatar, placed, Mood.HAPPY, appear = appear, use = use, ambient = ambient.value)
                                 // Where to tap: a soft ring pulsing around the fire.
                                 if (lit && !roasting && appear.isEmpty()) {
                                     val c = SpotPositions.getValue(0).let { Offset(it.x * size.width, it.y * size.height - size.height * 0.04f) }

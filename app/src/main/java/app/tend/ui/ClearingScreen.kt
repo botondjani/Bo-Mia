@@ -207,7 +207,7 @@ fun ClearingScreen(
     val visitorNow by androidx.compose.runtime.rememberUpdatedState(visitor)
     // Cheered by friends: a card at the top, and the companion beaming (hearts) for a few seconds.
     var cheerCard by remember { mutableStateOf<String?>(null) }
-    var cheerT by remember { mutableStateOf(-1f) }
+    var cheerT by remember { androidx.compose.runtime.mutableFloatStateOf(-1f) }
     androidx.compose.runtime.LaunchedEffect(cheers) {
         if (cheers.isEmpty()) return@LaunchedEffect
         kotlinx.coroutines.delay(600)
@@ -343,7 +343,7 @@ fun ClearingScreen(
             ) {
                 // Cheered: hearts where they stand (spot -2: no acorns fly, nothing was earned).
                 val use = cheerT.takeIf { it >= 0f }?.let { InUse(-2, "act_hearts", it) }
-                    ?: using?.takeIf { useStart >= 0 }?.let { (spot, thing) -> InUse(spot, thing, (frame - useStart) / 1e9f, walk) } ?: idle
+                    ?: using?.takeIf { useStart >= 0 }?.let { (spot, thing) -> InUse(spot, thing, (frame - useStart) / 1e9f, walk) } ?: idle.value
                 drawClearing(
                     avatar, placed, mood, worn = worn, night = night, paper = paperLeft, ducks = ducks.size, bridge = bridge,
                     use = use, lastStrum = (frame - strumAt) / 1e9f - walk, visitor = visitor, rest = rest, nightClock = nightClock, appear = appear,
@@ -352,7 +352,7 @@ fun ClearingScreen(
                     lifted = (drag?.first ?: settling)?.let { it to lift.value },
                     dust = dustAt?.let { it to dust.value },
                     restFrom = restFrom, restClock = restClock.value,
-                    ambient = ambient, guests = guests,
+                    ambient = ambient.value, guests = guests,
                 )
             }
             // Near the screen's edge while dragging: the camp slides along, and the thing with it.

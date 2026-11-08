@@ -646,12 +646,13 @@ fun rememberNightClock(night: Boolean): Float {
  * fireflies). About 30 updates a second: smooth enough for drifting things, easy on the battery.
  */
 @androidx.compose.runtime.Composable
-fun rememberAmbientClock(): Float {
-    var t by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+fun rememberAmbientClock(): androidx.compose.runtime.State<Float> {
+    // Returned as state, to be read only where it's drawn: then each tick redraws, nothing recomposes.
+    val t = androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     androidx.compose.runtime.LaunchedEffect(Unit) {
         val start = androidx.compose.runtime.withFrameNanos { it }
         while (true) {
-            t = (androidx.compose.runtime.withFrameNanos { it } - start) / 1e9f
+            t.floatValue = (androidx.compose.runtime.withFrameNanos { it } - start) / 1e9f
             kotlinx.coroutines.delay(33)
         }
     }
@@ -668,8 +669,9 @@ private val IDLE_SKIP = setOf("tent", "bell_tent", "cabin", "wind_chimes", "bird
  * stretch or cheer where they stand.
  */
 @androidx.compose.runtime.Composable
-fun rememberIdleLife(placed: Map<Int, String>, rest: Int?, enabled: Boolean, onRest: (Int) -> Unit): InUse? {
-    var current by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<InUse?>(null) }
+fun rememberIdleLife(placed: Map<Int, String>, rest: Int?, enabled: Boolean, onRest: (Int) -> Unit): androidx.compose.runtime.State<InUse?> {
+    // Returned as state, read only where it's drawn: the walk redraws the camp, nothing else recomposes.
+    val current = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<InUse?>(null) }
     val placedNow by androidx.compose.runtime.rememberUpdatedState(placed)
     val restNow by androidx.compose.runtime.rememberUpdatedState(rest)
     val on by androidx.compose.runtime.rememberUpdatedState(enabled)
@@ -688,9 +690,9 @@ fun rememberIdleLife(placed: Map<Int, String>, rest: Int?, enabled: Boolean, onR
             var t = 0f
             while (on && t < length) {
                 t = (androidx.compose.runtime.withFrameNanos { it } - start) / 1e9f
-                current = InUse(spot, thing, t, walk)
+                current.value = InUse(spot, thing, t, walk)
             }
-            current = null
+            current.value = null
             // Got there: they stay (as after any use). Stopped on the way: back where they were.
             if (spot >= 0 && t >= walk) onRestNow(spot)
         }

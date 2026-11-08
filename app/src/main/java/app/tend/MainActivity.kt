@@ -458,8 +458,10 @@ class MainActivity : ComponentActivity() {
             }
         }
         val join: (app.tend.data.Friends.AtFire) -> Unit = { f ->
-            val timed = store.selectedTasks.filter { it.verification.timed && it.id !in store.today().completedTasks }
-            val task = timed.firstOrNull { it.id == f.task } ?: timed.firstOrNull()
+            // Theirs if you have it, else one not done yet today, else any (done again for the company, not the minutes).
+            val timed = store.selectedTasks.filter { it.verification.timed }
+            val open = timed.filter { it.id !in store.today().completedTasks }
+            val task = open.firstOrNull { it.id == f.task } ?: open.firstOrNull() ?: timed.firstOrNull { it.id == f.task } ?: timed.firstOrNull()
             if (task == null) {
                 android.widget.Toast.makeText(this, "Pick a phone-free activity first (like a hobby or reading), then join ${f.name}.", android.widget.Toast.LENGTH_LONG).show()
                 screen = Screen.SETTINGS
@@ -763,6 +765,8 @@ class MainActivity : ComponentActivity() {
                     val paper = remember(refresh) { app.tend.data.Friends.paperOnMe(this@MainActivity).isNotEmpty() }
                     val ducks = remember(refresh) { app.tend.data.Friends.ducks(this@MainActivity).size.coerceAtMost(3) }
                     val visitor = remember(refresh) { store.visitorWaiting() }
+                    // Where the companion stays (shared with the camp page through the store).
+                    var restSpot by remember(refresh) { mutableStateOf(store.restSpot) }
                     // The reaction's clock: frame by frame while it plays, then gone.
                     var start by remember { mutableLongStateOf(-1L) }
                     var frame by remember { mutableLongStateOf(0L) }
@@ -772,20 +776,23 @@ class MainActivity : ComponentActivity() {
                         while (true) {
                             androidx.compose.runtime.withFrameNanos { frame = it; if (start < 0) start = it }
                             // Acted out where they usually stand; they stay there.
-                            if ((frame - start) / 1e9f > app.tend.ui.Uses.WALK + app.tend.ui.Uses.seconds(r)) { reaction = null; if (r == "campfire") store.restSpot = 0; break }
+                            if ((frame - start) / 1e9f > app.tend.ui.Uses.WALK + app.tend.ui.Uses.seconds(r)) { reaction = null; if (r == "campfire") { store.restSpot = 0; restSpot = 0 }; break }
                         }
                     }
                     val nightClock = app.tend.ui.rememberNightClock(night)
-                    val appear = app.tend.ui.rememberAppear(store.placed)
+                    // Read once per change, not on every frame of the camp's life.
+                    val placed = remember(refresh) { store.placed }
+                    val layout = remember(refresh) { campLayout() }
+                    val appear = app.tend.ui.rememberAppear(placed)
                     LaunchedEffect(nightClock > app.tend.ui.Uses.WALK + 2f) {
                         val bed = app.tend.ui.bedOf(store.placed)
-                        if (night && nightClock > app.tend.ui.Uses.WALK + 2f && bed != null && store.restSpot != bed) store.restSpot = bed
+                        if (night && nightClock > app.tend.ui.Uses.WALK + 2f && bed != null && store.restSpot != bed) { store.restSpot = bed; restSpot = bed }
                     }
                     val ambient = app.tend.ui.rememberAmbientClock()
-                    val idle = app.tend.ui.rememberIdleLife(store.placed, store.restSpot, enabled = reaction == null && !night) { store.restSpot = it }
-                    val use = reaction?.takeIf { start >= 0 }?.let { app.tend.ui.InUse(-1, it, (frame - start) / 1e9f, if (it == "campfire") app.tend.ui.Uses.WALK else 0f) } ?: idle
+                    val idle = app.tend.ui.rememberIdleLife(placed, restSpot, enabled = reaction == null && !night) { store.restSpot = it; restSpot = it }
                     androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-                        drawClearing(store.avatar, store.placed, mood, shelf.first, night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor, rest = store.restSpot, nightClock = nightClock, appear = appear, layout = campLayout(), ambient = ambient, guests = fireGuests)
+                        val use = reaction?.takeIf { start >= 0 }?.let { app.tend.ui.InUse(-1, it, (frame - start) / 1e9f, if (it == "campfire") app.tend.ui.Uses.WALK else 0f) } ?: idle.value
+                        drawClearing(store.avatar, placed, mood, shelf.first, night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor, rest = restSpot, nightClock = nightClock, appear = appear, layout = layout, ambient = ambient.value, guests = fireGuests)
                     }
                 },
                 onOpenRecap = { screen = Screen.RECAP },

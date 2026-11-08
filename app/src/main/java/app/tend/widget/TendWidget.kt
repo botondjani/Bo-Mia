@@ -56,12 +56,13 @@ object Widgets {
         val fresh = app.tend.data.Friends.unseen(context)
         val visitor = store.visitorWaiting()
         // Evening (from the evening hour until 5:00): the camp at night, a dark card and a sleepy companion.
-        val worn = store.accessories().first
+        // Cheap things only before the "has anything changed?" check: this runs on every store write.
         val layout = store.layout
         val guests = app.tend.data.Friends.atFire(context).map { (runCatching { app.tend.core.Avatar.valueOf(it.companion) }.getOrDefault(app.tend.core.Avatar.BO)) to it.name }
-        val shown = listOf(store.avatar, mood, remaining, next?.id, day.completedTasks.sorted(), placed, night, paper, ducks, fresh?.id, store.bridgeBuilt, visitor, worn.sorted(), layout, guests).joinToString("|")
+        val shown = listOf(store.avatar, mood, remaining, next?.id, day.completedTasks.sorted(), placed, night, paper, ducks, fresh?.id, store.bridgeBuilt, visitor, store.outfitWorn, layout, guests).joinToString("|")
         if (!force && shown == lastShown) return
         lastShown = shown
+        val worn = store.accessories().first
 
         // Something from a friend: a tap goes straight to the camp, where it is (the paper, the duck, the wave).
         val open = if (fresh != null) PendingIntent.getActivity(
