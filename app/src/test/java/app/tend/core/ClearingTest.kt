@@ -95,4 +95,14 @@ class ClearingTest {
         assertEquals(0.5f to 0.9f, l.getValue(10))
         assertEquals(l, Clearing.parseLayout(Clearing.formatLayout(l), placed))
     }
+
+    @Test fun `seasons follow the months, and their things are sold apart`() {
+        assertEquals(Season.WINTER, Season.of(java.time.LocalDate.of(2026, 12, 1)))
+        assertEquals(Season.WINTER, Season.of(java.time.LocalDate.of(2027, 2, 28)))
+        assertEquals(Season.SPRING, Season.of(java.time.LocalDate.of(2027, 3, 1)))
+        assertEquals(Season.AUTUMN, Season.of(java.time.LocalDate.of(2026, 11, 8)))
+        Season.entries.forEach { s -> assertEquals(3, Things.forSeason(s).size) }
+        assertTrue(Things.forKind(SpotKind.SMALL).none { it.season != null })
+        assertTrue(Things.forSeason(Season.WINTER).all { Clearing.movable(it) })
+    }
 }

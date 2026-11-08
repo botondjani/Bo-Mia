@@ -11,8 +11,20 @@ enum class SpotKind { FIRE, SEAT, SHELTER, TREES, WATER, ABOVE, SMALL }
 /** A spot in the clearing; [id] is stable (it's what's saved). */
 data class Spot(val id: Int, val kind: SpotKind)
 
-/** [spot]: the one spot this thing always goes to (the hammock between two trees, the swing under the branch). */
-data class Thing(val id: String, val name: String, val price: Int, val kind: SpotKind, val spot: Int? = null)
+/** The camp's seasons (as the months go, north of the equator): the look changes, and each brings its own things. */
+enum class Season(val title: String) {
+    SPRING("Spring"), SUMMER("Summer"), AUTUMN("Autumn"), WINTER("Winter");
+
+    companion object {
+        fun of(date: java.time.LocalDate): Season = when (date.monthValue) { 3, 4, 5 -> SPRING; 6, 7, 8 -> SUMMER; 9, 10, 11 -> AUTUMN; else -> WINTER }
+    }
+}
+
+/**
+ * [spot]: the one spot this thing always goes to (the hammock between two trees, the swing under the branch).
+ * [season]: sold only in that season (once bought, it stays).
+ */
+data class Thing(val id: String, val name: String, val price: Int, val kind: SpotKind, val spot: Int? = null, val season: Season? = null)
 
 object Things {
     val all: List<Thing> = listOf(
@@ -47,6 +59,19 @@ object Things {
         Thing("wind_chimes", "Wind chimes", 40, SpotKind.ABOVE),
         Thing("bird_feeder", "Bird feeder", 50, SpotKind.ABOVE),
         Thing("string_lights", "String lights", 60, SpotKind.ABOVE),
+        // Each season brings three of its own, sold only while it lasts.
+        Thing("tulips", "Tulips", 20, SpotKind.SMALL, season = Season.SPRING),
+        Thing("watering_can", "Watering can", 25, SpotKind.SMALL, season = Season.SPRING),
+        Thing("birdhouse", "Birdhouse", 45, SpotKind.SMALL, season = Season.SPRING),
+        Thing("beach_ball", "Beach ball", 15, SpotKind.SMALL, season = Season.SUMMER),
+        Thing("watermelon", "Watermelon", 20, SpotKind.SMALL, season = Season.SUMMER),
+        Thing("deck_chair", "Deck chair", 50, SpotKind.SMALL, season = Season.SUMMER),
+        Thing("leaf_pile", "Leaf pile", 20, SpotKind.SMALL, season = Season.AUTUMN),
+        Thing("pumpkins", "Pumpkins", 30, SpotKind.SMALL, season = Season.AUTUMN),
+        Thing("scarecrow", "Scarecrow", 60, SpotKind.SMALL, season = Season.AUTUMN),
+        Thing("gift_boxes", "Presents", 25, SpotKind.SMALL, season = Season.WINTER),
+        Thing("sled", "Sled", 30, SpotKind.SMALL, season = Season.WINTER),
+        Thing("snowman", "Snowman", 40, SpotKind.SMALL, season = Season.WINTER),
     )
 
     /** Things no longer sold, with what they cost: whoever had one gets it back in acorns. */
@@ -56,7 +81,11 @@ object Things {
 
     fun byId(id: String): Thing? = all.firstOrNull { it.id == id }
 
-    fun forKind(kind: SpotKind): List<Thing> = all.filter { it.kind == kind }.sortedBy { it.price }
+    /** What the shop always has for [kind] (not the seasons' own). */
+    fun forKind(kind: SpotKind): List<Thing> = all.filter { it.kind == kind && it.season == null }.sortedBy { it.price }
+
+    /** The season's own things, cheapest first. */
+    fun forSeason(season: Season): List<Thing> = all.filter { it.season == season }.sortedBy { it.price }
 }
 
 object Clearing {

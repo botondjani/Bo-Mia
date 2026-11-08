@@ -321,6 +321,8 @@ class TendStore(private val context: Context) {
         val spot = app.tend.core.Clearing.spot(spotId) ?: return false
         val thing = app.tend.core.Things.byId(thingId) ?: return false
         if (thing.kind != spot.kind) return false
+        // A season's things are sold only in that season.
+        if (thing.season != null && thing.season != app.tend.core.Season.of(LocalDate.now()) && thingId !in placed.values) return false
         val refund = placed[spotId]?.let(app.tend.core.Things::byId)?.let(app.tend.core.Clearing::sellValue) ?: 0
         if (acorns + refund < thing.price) return false
         if (refund > 0) addAcorns(refund, "sold")

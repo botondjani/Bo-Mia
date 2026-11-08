@@ -55,6 +55,18 @@ object Uses {
         "raft" -> "$name drifts on the raft."
         "wind_chimes" -> "$name listens to the chimes."
         "bird_feeder" -> "$name watches the birds at the feeder."
+        "tulips" -> "$name smells the tulips."
+        "watering_can" -> "$name waters the flowers."
+        "birdhouse" -> "$name watches a little bird move in."
+        "beach_ball" -> "$name plays with the beach ball."
+        "watermelon" -> "$name has a slice of watermelon."
+        "deck_chair" -> "$name soaks up the sun."
+        "leaf_pile" -> "$name jumps into the leaves."
+        "pumpkins" -> "$name carves a smile into a pumpkin."
+        "scarecrow" -> "$name says hello to the scarecrow."
+        "gift_boxes" -> "$name peeks into a present."
+        "sled" -> "$name sits on the sled and dreams of hills."
+        "snowman" -> "$name gives the snowman a hug."
         else -> "$name looks around."
     }
 
@@ -98,7 +110,10 @@ private val GlowWarm = Color(0xFFFFD27A)
 internal fun depthScale(y: Float) = (0.55f + (y - 0.6f) * 1.6f).coerceIn(0.5f, 1f)
 
 /** Things used standing (or sitting at the fire): afterwards they stay right there. */
-private val STANDING = setOf("guitar", "campfire", "kettle", "pizza_oven", "woodpile", "wildflowers", "lantern", "telescope", "fishing_rod", "wind_chimes", "bird_feeder")
+private val STANDING = setOf(
+    "guitar", "campfire", "kettle", "pizza_oven", "woodpile", "wildflowers", "lantern", "telescope", "fishing_rod", "wind_chimes", "bird_feeder",
+    "tulips", "watering_can", "birdhouse", "beach_ball", "watermelon", "leaf_pile", "pumpkins", "scarecrow", "gift_boxes", "sled", "snowman",
+)
 
 /**
  * Where the companion stays after using the thing at [spot]: standing beside it, on the shore
@@ -154,7 +169,9 @@ fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>, here: Offset? = nu
             // Beside the fire pit, clear of the stones and the flames (or on the bench, if there is one).
             if (bench && use.thing != "woodpile") seat + Offset(0f, -u * 0.012f) else fire + Offset(-u * 0.21f, u * 0.03f)
         "fishing_rod" -> Offset(w * 0.335f, h * 0.84f)
-        "wildflowers", "lantern" -> p + Offset(u * 0.055f * k, u * 0.004f)
+        "wildflowers", "lantern", "tulips", "watering_can", "birdhouse", "beach_ball", "watermelon", "pumpkins", "scarecrow", "gift_boxes", "snowman" ->
+            p + Offset(u * 0.055f * k, u * 0.004f)
+        "leaf_pile", "sled", "deck_chair" -> p + Offset(0f, -u * 0.004f)
         "telescope" -> p + Offset(-u * 0.05f * k, u * 0.004f)
         "log_bench", "picnic_table" -> p + Offset(0f, -u * 0.012f * k)
         "tent", "bell_tent", "cabin" -> p + Offset(0f, u * 0.01f * k)
@@ -512,6 +529,59 @@ fun DrawScope.drawUse(
             shadowAt(base, s * 0.45f)
             actor(avatar, mood, worn, base + Offset(0f, -kotlin.math.abs(sin(t * 4f)) * u * 0.04f), s, bounce = -0.5f)
             rising(t, base + Offset(0f, -s * 1f), u * 0.012f, every = 0.8f, drift = 2f) { at, a -> drawCircle(GlowWarm.copy(alpha = a), u * 0.005f, at) }
+        }
+        // The seasons' own: beside it, with a little something happening.
+        "tulips", "watering_can", "birdhouse", "watermelon", "pumpkins", "scarecrow", "gift_boxes", "snowman" -> {
+            shadowAt(base, s * 0.45f)
+            actor(avatar, mood, worn, base, s, look = -0.8f, bounce = sin(t * 1.8f) * 0.4f)
+            when (use.thing) {
+                "watering_can" -> for (k in 0 until 4) { // drops falling on the ground in front
+                    val ph = (t * 1.6f + k / 4f) % 1f
+                    drawCircle(Color(0xFF8EC5E8).copy(alpha = 1f - ph), u * 0.003f, base + Offset(-s * 0.55f - k * u * 0.004f, -s * 0.5f + ph * s * 0.45f))
+                }
+                "birdhouse" -> {
+                    val k = ((t % 4f) / 1.5f).coerceAtMost(1f) // a bird flies to the perch, then sits
+                    val perch = p + Offset(0f, -u * 0.068f)
+                    val from = perch + Offset(-u * 0.12f, -u * 0.08f)
+                    val at = Offset(from.x + (perch.x - from.x) * k, from.y + (perch.y - from.y) * k - sin(k * PI.toFloat()) * u * 0.03f)
+                    drawOval(Color(0xFF8C6A4A), at + Offset(-u * 0.007f, -u * 0.005f), Size(u * 0.014f, u * 0.009f))
+                    drawCircle(Color(0xFF8C6A4A), u * 0.0045f, at + Offset(u * 0.006f, -u * 0.006f))
+                    if (k < 1f) drawLine(Color(0xFF6B4F37), at, at + Offset(-u * 0.004f, -u * 0.008f * sin(t * 30f)), strokeWidth = u * 0.003f)
+                }
+                "gift_boxes", "snowman", "scarecrow" -> rising(t, base + Offset(-s * 0.35f, -s * 0.8f), u * 0.012f, every = 1.4f) { at, a -> heart(at, u * 0.011f, a) }
+                else -> rising(t, p + Offset(0f, -u * 0.05f), u * 0.012f, every = 1.6f) { at, a -> heart(at, u * 0.012f, a) }
+            }
+        }
+        "beach_ball" -> {
+            shadowAt(base, s * 0.45f)
+            actor(avatar, mood, worn, base, s, look = -0.6f, bounce = kotlin.math.abs(sin(t * 3f)) * 0.6f)
+            // Bounced up and caught, again and again.
+            val up = kotlin.math.abs(sin(t * 3f))
+            val ball = base + Offset(-s * 0.45f, -s * (0.75f + up * 0.6f))
+            drawCircle(Color(0xFFE5677A), u * 0.014f, ball)
+            drawArc(Color.White, t * 200f, 60f, true, ball - Offset(u * 0.014f, u * 0.014f), Size(u * 0.028f, u * 0.028f))
+            drawArc(Color(0xFF5FA8D3), t * 200f + 120f, 60f, true, ball - Offset(u * 0.014f, u * 0.014f), Size(u * 0.028f, u * 0.028f))
+        }
+        "leaf_pile" -> {
+            // A jump, then leaves everywhere.
+            val hop = (t % 2.4f) / 2.4f
+            actor(avatar, mood, worn, base + Offset(0f, -sin(hop * PI.toFloat()).coerceAtLeast(0f) * u * 0.05f), s * 0.95f, bounce = 0.6f)
+            for (k in 0 until 6) {
+                val ph = ((t * 0.8f + k / 6f) % 1f)
+                val at = base + Offset((k - 2.5f) * u * 0.015f * (1 + ph * 2), -s * 0.4f * sin(ph * PI.toFloat()) - u * 0.01f)
+                rotate(ph * 400f + k * 50f, at) { drawOval(listOf(Color(0xFFD9822B), Color(0xFFE0A341), Color(0xFFB5502E))[k % 3].copy(alpha = 1f - ph * 0.6f), at - Offset(u * 0.006f, u * 0.0035f), Size(u * 0.012f, u * 0.007f)) }
+            }
+        }
+        "sled" -> {
+            actor(avatar, mood, worn, base + Offset(0f, -u * 0.008f), s * 0.85f, look = 1f, sleepy = t > 5f, bounce = sin(t * 2f) * 0.3f)
+            for (k in 0 until 6) { // snow drifting down
+                val ph = ((t * 0.3f + k / 6f) % 1f)
+                drawCircle(Color.White.copy(alpha = 0.9f - ph * 0.5f), u * 0.0035f, base + Offset((k - 2.5f) * u * 0.025f + sin(t + k) * u * 0.006f, -s * 1.6f + ph * s * 1.5f))
+            }
+        }
+        "deck_chair" -> {
+            actor(avatar, mood, worn, base + Offset(-u * 0.004f, -u * 0.006f), s * 0.85f, rotation = -22f, sleepy = t > 2.5f)
+            rising(t, base + Offset(s * 0.2f, -s * 0.8f), u * 0.012f, every = 1.5f) { at, a -> zee(at, u * 0.014f, a) }
         }
         else -> actor(avatar, mood, worn, base, s)
     }

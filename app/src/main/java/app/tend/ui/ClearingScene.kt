@@ -29,21 +29,45 @@ import app.tend.core.SpotKind
  */
 
 // Palette: warm greens, soft wood, canvas; small bright details only.
-private val SkyTop = Color(0xFFB9D3DF)
-private val SkyLow = Color(0xFFF4E3BC)
-private val Haze1 = Color(0xFFA7BFA9)
-private val Haze2 = Color(0xFF7FA184)
+// The colours that change with the season (summer's here; see [applySeason]).
+private var SkyTop = Color(0xFFB9D3DF)
+private var SkyLow = Color(0xFFF4E3BC)
+private var Haze1 = Color(0xFFA7BFA9)
+private var Haze2 = Color(0xFF7FA184)
 private val PineDark = Color(0xFF26432F)
 private val PineMid = Color(0xFF335A3E)
-private val PineLit = Color(0xFF4F7A48)
-private val LeafDark = Color(0xFF2E5236)
-private val LeafMid = Color(0xFF41704A)
-private val LeafLit = Color(0xFF7C9E55)
-private val Meadow = Color(0xFF86A85E)
-private val MeadowDeep = Color(0xFF5F8547)
+private var PineLit = Color(0xFF4F7A48)
+private var LeafDark = Color(0xFF2E5236)
+private var LeafMid = Color(0xFF41704A)
+private var LeafLit = Color(0xFF7C9E55)
+private var MeadowFar = Color(0xFF9DB874)
+private var Meadow = Color(0xFF86A85E)
+private var MeadowDeep = Color(0xFF5F8547)
+private var GrassDark = Color(0xFF4D7139)
 private val Dirt = Color(0xFFA88C66)
-private val RiverFar = Color(0xFF9DB7B4)
-private val RiverNear = Color(0xFF557A7E)
+private var RiverFar = Color(0xFF9DB7B4)
+private var RiverNear = Color(0xFF557A7E)
+private var season = app.tend.core.Season.SUMMER
+
+/** The scene's colours for [s]: fresh greens and blossom, summer, warm leaves, or snow. */
+private fun applySeason(s: app.tend.core.Season) {
+    if (s == season) return
+    season = s
+    SkyTop = Color(if (s == app.tend.core.Season.WINTER) 0xFFC9D8E2 else 0xFFB9D3DF)
+    SkyLow = Color(when (s) { app.tend.core.Season.WINTER -> 0xFFEDEFEF; app.tend.core.Season.AUTUMN -> 0xFFF6DDB4; else -> 0xFFF4E3BC })
+    Haze1 = Color(when (s) { app.tend.core.Season.WINTER -> 0xFFC6D2D2; app.tend.core.Season.AUTUMN -> 0xFFBCB894; else -> 0xFFA7BFA9 })
+    Haze2 = Color(when (s) { app.tend.core.Season.WINTER -> 0xFF9DB0AE; app.tend.core.Season.AUTUMN -> 0xFF9A9A6C; else -> 0xFF7FA184 })
+    PineLit = Color(if (s == app.tend.core.Season.WINTER) 0xFFE4ECEC else 0xFF4F7A48)
+    LeafDark = Color(when (s) { app.tend.core.Season.SPRING -> 0xFF3B6A3E; app.tend.core.Season.AUTUMN -> 0xFF8E4A22; app.tend.core.Season.WINTER -> 0xFF5B6F68; else -> 0xFF2E5236 })
+    LeafMid = Color(when (s) { app.tend.core.Season.SPRING -> 0xFF5E9A4E; app.tend.core.Season.AUTUMN -> 0xFFC66E2C; app.tend.core.Season.WINTER -> 0xFFA9BAB7; else -> 0xFF41704A })
+    LeafLit = Color(when (s) { app.tend.core.Season.SPRING -> 0xFFA6C96A; app.tend.core.Season.AUTUMN -> 0xFFE3A440; app.tend.core.Season.WINTER -> 0xFFF4F7F7; else -> 0xFF7C9E55 })
+    MeadowFar = Color(when (s) { app.tend.core.Season.SPRING -> 0xFFA3C77A; app.tend.core.Season.AUTUMN -> 0xFFAAB06C; app.tend.core.Season.WINTER -> 0xFFF2F5F5; else -> 0xFF9DB874 })
+    Meadow = Color(when (s) { app.tend.core.Season.SPRING -> 0xFF8CB662; app.tend.core.Season.AUTUMN -> 0xFF95A05A; app.tend.core.Season.WINTER -> 0xFFE8EEEF; else -> 0xFF86A85E })
+    MeadowDeep = Color(when (s) { app.tend.core.Season.SPRING -> 0xFF64904A; app.tend.core.Season.AUTUMN -> 0xFF6F7C42; app.tend.core.Season.WINTER -> 0xFFC9D5D8; else -> 0xFF5F8547 })
+    GrassDark = Color(when (s) { app.tend.core.Season.AUTUMN -> 0xFF6E6A36; app.tend.core.Season.WINTER -> 0xFF9AAEA6; else -> 0xFF4D7139 })
+    RiverFar = Color(if (s == app.tend.core.Season.WINTER) 0xFFB9CDD0 else 0xFF9DB7B4)
+    RiverNear = Color(if (s == app.tend.core.Season.WINTER) 0xFF6D8D93 else 0xFF557A7E)
+}
 private val Pebble = Color(0xFFB4ADA0)
 private val PebbleDark = Color(0xFF8C8578)
 private val Bark = Color(0xFF6A4A33)
@@ -123,6 +147,8 @@ fun DrawScope.drawClearing(
     appear: Map<Int, Float> = emptyMap(),
     /** Sparkle bursts (where, as scene fractions, and how far along 0..1): an animal greeted, a duck caught. */
     bursts: List<Pair<Offset, Float>> = emptyList(),
+    /** The time of year: how the trees and the meadow look. */
+    season: app.tend.core.Season = app.tend.core.Season.of(java.time.LocalDate.now()),
     /** Where the user moved things to (spot to scene fraction). */
     layout: Map<Int, Offset> = emptyMap(),
     /** A thing picked up: its spot and how high (1 = held up; below 0 = squashing as it lands). */
@@ -136,6 +162,7 @@ fun DrawScope.drawClearing(
     restFrom: Map<Int, Offset>? = null,
     restClock: Float = 100f,
 ) {
+    applySeason(season)
     val w = size.width
     val h = size.height
     val u = h // things scale with the scene's height
@@ -160,7 +187,7 @@ fun DrawScope.drawClearing(
         cubicTo(w * 0.3f, horizon - h * 0.005f, w * 0.55f, horizon + h * 0.035f, w * 0.78f, horizon + h * 0.01f)
         cubicTo(w * 0.88f, horizon, w * 0.95f, horizon + h * 0.02f, w, horizon + h * 0.012f)
         lineTo(w, h); lineTo(0f, h); close()
-    }, Brush.verticalGradient(listOf(Color(0xFF9DB874), Meadow, MeadowDeep), startY = horizon, endY = h))
+    }, Brush.verticalGradient(listOf(MeadowFar, Meadow, MeadowDeep), startY = horizon, endY = h))
     drawOval(Brush.radialGradient(listOf(Color(0x40F7E7A8), Color.Transparent), center = Offset(w * 0.66f, h * 0.78f), radius = w * 0.35f), Offset(w * 0.3f, h * 0.55f), Size(w * 0.72f, h * 0.45f))
 
     // Smaller trees and bushes along the meadow's far edge, hazier the smaller (and farther) they are.
@@ -218,6 +245,16 @@ fun DrawScope.drawClearing(
     // The worn ground of the fire pit is always there.
     val pit = at(0)
     drawOval(Dirt.copy(alpha = 0.55f), Offset(pit.x - u * 0.2f, pit.y - u * 0.06f), Size(u * 0.4f, u * 0.13f))
+    // Autumn: fallen leaves on the meadow.
+    if (season == app.tend.core.Season.AUTUMN) {
+        val rnd = java.util.Random(17L)
+        repeat(60) {
+            val c = Offset(w * (0.38f + 0.62f * rnd.nextFloat()), h * (0.6f + 0.38f * rnd.nextFloat()))
+            rotate(rnd.nextFloat() * 180f, c) {
+                drawOval(listOf(Color(0xFFD9822B), Color(0xFFE0A341), Color(0xFFB5502E))[it % 3].copy(alpha = 0.8f), c - Offset(u * 0.006f, u * 0.003f), Size(u * 0.012f, u * 0.006f))
+            }
+        }
+    }
 
     // Everything standing in the clearing, back to front, the companion among them (or using something).
     // Walking over first (from where they stay), then using it there.
@@ -320,6 +357,11 @@ fun DrawScope.drawClearing(
 
     // Grass and a few flowers along the bottom edge frame the picture.
     foreground(w, h)
+    // Winter: snow falling, softly.
+    if (season == app.tend.core.Season.WINTER) {
+        val rnd = java.util.Random(23L)
+        repeat(70) { drawCircle(Color.White.copy(alpha = 0.55f + 0.4f * rnd.nextFloat()), u * (0.002f + 0.003f * rnd.nextFloat()), Offset(w * rnd.nextFloat(), h * rnd.nextFloat())) }
+    }
 
     // Night: a blue veil over everything, then the lights.
     if (night) {
@@ -486,6 +528,12 @@ private fun DrawScope.roundTree(base: Offset, height: Float, seed: Int, branch: 
     clumps.filter { it.first.y < c.y + r * 0.15f }.forEach { (p, cr) -> drawCircle(LeafMid, cr * 0.9f, p) }
     clumps.filter { it.first.y < c.y && it.first.x < c.x + r * 0.2f }.forEach { (p, cr) -> drawCircle(LeafLit, cr * 0.55f, p + Offset(-cr * 0.2f, -cr * 0.25f)) }
     drawCircle(LeafLit.copy(alpha = 0.6f), r * 0.32f, c + Offset(-r * 0.35f, -r * 0.4f))
+    // Spring: blossom all over the crown.
+    if (season == app.tend.core.Season.SPRING) repeat(22) {
+        val a = rnd.nextFloat() * 6.283f
+        val d = kotlin.math.sqrt(rnd.nextFloat())
+        drawCircle(if (it % 3 == 0) Color.White else Color(0xFFF4B8C8), r * 0.06f, Offset(c.x + kotlin.math.cos(a) * r * 0.85f * d, c.y + kotlin.math.sin(a) * r * 0.7f * d))
+    }
 }
 
 
@@ -741,9 +789,10 @@ private fun DrawScope.foreground(w: Float, h: Float) {
         val y = h * (0.965f + 0.04f * rnd.nextFloat())
         val len = h * (0.025f + 0.035f * rnd.nextFloat())
         val lean = (rnd.nextFloat() - 0.5f) * len * 0.6f
-        drawLine(if (rnd.nextBoolean()) MeadowDeep else Color(0xFF4D7139), Offset(x, y), Offset(x + lean, y - len), strokeWidth = h * 0.004f, cap = StrokeCap.Round)
+        drawLine(if (rnd.nextBoolean()) MeadowDeep else GrassDark, Offset(x, y), Offset(x + lean, y - len), strokeWidth = h * 0.004f, cap = StrokeCap.Round)
     }
-    repeat(14) {
+    // Flowers in the grass (not under the snow).
+    if (season != app.tend.core.Season.WINTER) repeat(14) {
         val c = Offset(w * (0.33f + 0.66f * rnd.nextFloat()), h * (0.94f + 0.05f * rnd.nextFloat()))
         drawCircle(listOf(Color.White, Color(0xFFC9A6E3), Color(0xFFF2D27A))[it % 3], h * 0.005f, c)
     }
@@ -780,6 +829,7 @@ private fun DrawScope.firePitStones(c: Offset, u: Float) {
 
 /** How wide a thing is, in scene heights, for its shadow. */
 private fun thingWidth(id: String): Float = when (id) {
+    "leaf_pile", "sled", "deck_chair", "scarecrow" -> 0.05f
     "cabin" -> 0.22f
     "bell_tent", "tent" -> 0.16f
     "picnic_table", "log_bench" -> 0.11f
@@ -817,6 +867,129 @@ private fun DrawScope.overhead(id: String, a: Offset, b: Offset, u: Float, light
  */
 fun DrawScope.drawThing(id: String, p: Offset, u: Float, lights: MutableList<Light> = mutableListOf()) {
     when (id) {
+        // ---- The seasons' own ----
+        "tulips" -> for (k in 0 until 5) {
+            val dx = (k - 2) * u * 0.009f
+            val top = p + Offset(dx * 1.2f, -u * (0.032f + 0.008f * ((k * 7) % 3)))
+            drawLine(Color(0xFF4D7139), p + Offset(dx, 0f), top, strokeWidth = u * 0.0032f)
+            drawOval(Color(0xFF6E9A4A), top + Offset(-u * 0.008f, u * 0.008f), Size(u * 0.007f, u * 0.016f)) // a leaf
+            val c = listOf(Color(0xFFE5677A), Color(0xFFF2C14E), Color(0xFFE07A5F), Color(0xFFF2A0B8), Color(0xFFE5677A))[k]
+            drawRoundRect(c, top + Offset(-u * 0.006f, -u * 0.012f), Size(u * 0.012f, u * 0.014f), CornerRadius(u * 0.005f))
+            drawPath(Path().apply { moveTo(top.x - u * 0.006f, top.y - u * 0.008f); lineTo(top.x - u * 0.003f, top.y - u * 0.016f); lineTo(top.x, top.y - u * 0.009f); lineTo(top.x + u * 0.003f, top.y - u * 0.016f); lineTo(top.x + u * 0.006f, top.y - u * 0.008f); close() }, c)
+        }
+        "watering_can" -> {
+            val body = Color(0xFF6E9FB5)
+            drawRoundRect(body, p + Offset(-u * 0.016f, -u * 0.03f), Size(u * 0.032f, u * 0.03f), CornerRadius(u * 0.004f))
+            drawRoundRect(Color.White.copy(alpha = 0.25f), p + Offset(-u * 0.013f, -u * 0.027f), Size(u * 0.006f, u * 0.022f), CornerRadius(u * 0.003f))
+            drawLine(body, p + Offset(u * 0.014f, -u * 0.012f), p + Offset(u * 0.034f, -u * 0.036f), strokeWidth = u * 0.0045f, cap = StrokeCap.Round) // spout
+            drawOval(body, p + Offset(u * 0.03f, -u * 0.041f), Size(u * 0.01f, u * 0.008f)) // rose
+            drawArc(body, 180f, 180f, false, p + Offset(-u * 0.012f, -u * 0.044f), Size(u * 0.024f, u * 0.026f), style = Stroke(u * 0.0035f)) // handle
+        }
+        "birdhouse" -> {
+            drawLine(Wood, p, p + Offset(0f, -u * 0.06f), strokeWidth = u * 0.005f)
+            val box = p + Offset(0f, -u * 0.06f)
+            drawRect(Color(0xFFE9C46A), box + Offset(-u * 0.016f, -u * 0.026f), Size(u * 0.032f, u * 0.028f))
+            drawPath(Path().apply { moveTo(box.x - u * 0.022f, box.y - u * 0.024f); lineTo(box.x, box.y - u * 0.044f); lineTo(box.x + u * 0.022f, box.y - u * 0.024f); close() }, Color(0xFFC0533B))
+            drawCircle(Color(0xFF3A2414), u * 0.005f, box + Offset(0f, -u * 0.014f))
+            drawLine(Wood, box + Offset(-u * 0.004f, -u * 0.006f), box + Offset(u * 0.004f, -u * 0.006f), strokeWidth = u * 0.002f) // perch
+        }
+        "beach_ball" -> {
+            val c = p + Offset(0f, -u * 0.016f)
+            val r = u * 0.016f
+            for ((i, col) in listOf(Color(0xFFE5677A), Color.White, Color(0xFF5FA8D3), Color.White, Color(0xFFF2C14E), Color.White).withIndex())
+                drawArc(col, i * 60f - 90f, 60f, true, c - Offset(r, r), Size(r * 2, r * 2))
+            drawCircle(Color.White, r * 0.25f, c)
+            drawCircle(Color.Black.copy(alpha = 0.12f), r, c, style = Stroke(u * 0.0015f))
+        }
+        "watermelon" -> {
+            drawArc(Color(0xFF4E8A3E), 0f, 180f, true, p + Offset(-u * 0.026f, -u * 0.02f), Size(u * 0.052f, u * 0.04f)) // a half, rind down
+            drawArc(Color(0xFFF2F0D8), 0f, 180f, true, p + Offset(-u * 0.023f, -u * 0.018f), Size(u * 0.046f, u * 0.034f))
+            drawArc(Color(0xFFE5525E), 0f, 180f, true, p + Offset(-u * 0.021f, -u * 0.017f), Size(u * 0.042f, u * 0.031f))
+            for (k in 0 until 4) drawOval(Color(0xFF2B1C14), p + Offset((k - 1.5f) * u * 0.008f - u * 0.0015f, -u * 0.001f + (k % 2) * u * 0.004f), Size(u * 0.003f, u * 0.004f))
+            drawRect(Color(0xFF4E8A3E), p + Offset(-u * 0.026f, -u * 0.0035f), Size(u * 0.052f, u * 0.0035f))
+        }
+        "deck_chair" -> {
+            drawLine(Wood, p + Offset(-u * 0.026f, 0f), p + Offset(u * 0.014f, -u * 0.05f), strokeWidth = u * 0.0035f, cap = StrokeCap.Round)
+            drawLine(Wood, p + Offset(u * 0.022f, 0f), p + Offset(-u * 0.012f, -u * 0.026f), strokeWidth = u * 0.0035f, cap = StrokeCap.Round)
+            // Striped canvas, from the top of the back down to the seat.
+            val canvas = Path().apply { moveTo(p.x + u * 0.012f, p.y - u * 0.048f); lineTo(p.x - u * 0.004f, p.y - u * 0.012f); lineTo(p.x - u * 0.022f, p.y - u * 0.016f); lineTo(p.x - u * 0.003f, p.y - u * 0.052f); close() }
+            drawPath(canvas, Color(0xFFF2F0E6))
+            for (k in 0 until 3) drawLine(Color(0xFF5FA8D3), Offset(p.x - u * (0.0005f - k * 0.0055f), p.y - u * 0.052f), Offset(p.x - u * (0.02f - k * 0.0055f), p.y - u * 0.015f), strokeWidth = u * 0.0028f)
+        }
+        "leaf_pile" -> {
+            val rnd = java.util.Random(5L)
+            val leaves = listOf(Color(0xFFD9822B), Color(0xFFE0A341), Color(0xFFB5502E), Color(0xFFC9A03A))
+            drawOval(Color(0xFFC2702F), p + Offset(-u * 0.04f, -u * 0.02f), Size(u * 0.08f, u * 0.026f))
+            for (k in 0 until 26) {
+                val a = rnd.nextFloat() * 3.14f
+                val r = rnd.nextFloat()
+                val c = p + Offset(kotlin.math.cos(a) * u * 0.036f * r, -kotlin.math.sin(a) * u * 0.022f * r - u * 0.006f)
+                rotate(rnd.nextFloat() * 180f, c) { drawOval(leaves[k % 4], c + Offset(-u * 0.006f, -u * 0.0035f), Size(u * 0.012f, u * 0.007f)) }
+            }
+        }
+        "pumpkins" -> {
+            fun pumpkin(c: Offset, r: Float) {
+                drawOval(Color(0xFFD9822B), c + Offset(-r * 1.15f, -r), Size(r * 2.3f, r * 1.9f))
+                drawOval(Color(0xFFE89A3C), c + Offset(-r * 0.45f, -r), Size(r * 0.9f, r * 1.9f))
+                drawOval(Color(0xFFB5651D).copy(alpha = 0.5f), c + Offset(-r * 1.15f, -r), Size(r * 2.3f, r * 1.9f), style = Stroke(r * 0.08f))
+                drawLine(Color(0xFF5E6B2E), c + Offset(0f, -r * 0.9f), c + Offset(r * 0.18f, -r * 1.35f), strokeWidth = r * 0.22f, cap = StrokeCap.Round)
+            }
+            pumpkin(p + Offset(-u * 0.013f, -u * 0.012f), u * 0.013f)
+            pumpkin(p + Offset(u * 0.014f, -u * 0.009f), u * 0.009f)
+        }
+        "scarecrow" -> {
+            drawLine(Wood, p, p + Offset(0f, -u * 0.095f), strokeWidth = u * 0.004f)
+            drawLine(Wood, p + Offset(-u * 0.03f, -u * 0.07f), p + Offset(u * 0.03f, -u * 0.07f), strokeWidth = u * 0.004f)
+            // Shirt, straw hands, a sack head and a hat.
+            drawPath(Path().apply { moveTo(p.x - u * 0.026f, p.y - u * 0.074f); lineTo(p.x + u * 0.026f, p.y - u * 0.074f); lineTo(p.x + u * 0.014f, p.y - u * 0.035f); lineTo(p.x - u * 0.014f, p.y - u * 0.035f); close() }, Color(0xFF7B8FB8))
+            drawLine(Color(0xFF5E709A), p + Offset(-u * 0.006f, -u * 0.074f), p + Offset(-u * 0.004f, -u * 0.036f), strokeWidth = u * 0.002f)
+            for (side in listOf(-1f, 1f)) for (k in -1..1) drawLine(Color(0xFFE2C26B), p + Offset(side * u * 0.03f, -u * 0.07f), p + Offset(side * u * 0.038f, -u * (0.07f - k * 0.006f)), strokeWidth = u * 0.0018f)
+            val head = p + Offset(0f, -u * 0.086f)
+            drawCircle(Color(0xFFE6D3A3), u * 0.012f, head)
+            drawCircle(Color(0xFF3A2414), u * 0.0018f, head + Offset(-u * 0.004f, -u * 0.001f))
+            drawCircle(Color(0xFF3A2414), u * 0.0018f, head + Offset(u * 0.004f, -u * 0.001f))
+            drawArc(Color(0xFF3A2414), 20f, 140f, false, head + Offset(-u * 0.004f, 0f), Size(u * 0.008f, u * 0.005f), style = Stroke(u * 0.0012f))
+            drawRect(Color(0xFF6B4A2B), head + Offset(-u * 0.017f, -u * 0.012f), Size(u * 0.034f, u * 0.003f))
+            drawRoundRect(Color(0xFF6B4A2B), head + Offset(-u * 0.009f, -u * 0.022f), Size(u * 0.018f, u * 0.011f), CornerRadius(u * 0.002f))
+        }
+        "gift_boxes" -> {
+            fun box(o: Offset, w: Float, h: Float, c: Color, ribbon: Color) {
+                drawRect(c, o + Offset(-w / 2, -h), Size(w, h))
+                drawRect(ribbon, o + Offset(-w * 0.08f, -h), Size(w * 0.16f, h))
+                drawRect(ribbon, o + Offset(-w / 2, -h * 0.58f), Size(w, h * 0.14f))
+                drawOval(ribbon, o + Offset(-w * 0.3f, -h - w * 0.16f), Size(w * 0.28f, w * 0.18f))
+                drawOval(ribbon, o + Offset(w * 0.02f, -h - w * 0.16f), Size(w * 0.28f, w * 0.18f))
+            }
+            box(p + Offset(-u * 0.01f, 0f), u * 0.03f, u * 0.026f, Color(0xFFC0533B), Color(0xFFF2D27A))
+            box(p + Offset(u * 0.017f, 0f), u * 0.022f, u * 0.018f, Color(0xFF3F7A5A), Color(0xFFF7F3E8))
+            box(p + Offset(-u * 0.006f, -u * 0.026f), u * 0.018f, u * 0.015f, Color(0xFF5FA8D3), Color(0xFFE5677A))
+        }
+        "sled" -> {
+            drawRoundRect(Color(0xFFB5502E), p + Offset(-u * 0.03f, -u * 0.016f), Size(u * 0.056f, u * 0.008f), CornerRadius(u * 0.002f))
+            for (k in 0 until 4) drawLine(Color(0xFF8E3B22), p + Offset(-u * 0.022f + k * u * 0.013f, -u * 0.016f), p + Offset(-u * 0.022f + k * u * 0.013f, -u * 0.008f), strokeWidth = u * 0.0018f)
+            // The runner curls up at the front.
+            drawPath(Path().apply { moveTo(p.x - u * 0.03f, p.y - u * 0.002f); lineTo(p.x + u * 0.026f, p.y - u * 0.002f); quadraticTo(p.x + u * 0.038f, p.y - u * 0.002f, p.x + u * 0.036f, p.y - u * 0.014f) }, Metal, style = Stroke(u * 0.0025f, cap = StrokeCap.Round))
+            drawLine(Metal, p + Offset(-u * 0.022f, -u * 0.002f), p + Offset(-u * 0.022f, -u * 0.008f), strokeWidth = u * 0.002f)
+            drawLine(Metal, p + Offset(u * 0.018f, -u * 0.002f), p + Offset(u * 0.018f, -u * 0.008f), strokeWidth = u * 0.002f)
+        }
+        "snowman" -> {
+            val snow = Color(0xFFF7F9FA)
+            val shade = Color(0xFFD6E0E6)
+            drawCircle(shade, u * 0.022f, p + Offset(u * 0.002f, -u * 0.02f))
+            drawCircle(snow, u * 0.021f, p + Offset(0f, -u * 0.021f))
+            drawCircle(shade, u * 0.016f, p + Offset(u * 0.0015f, -u * 0.052f))
+            drawCircle(snow, u * 0.015f, p + Offset(0f, -u * 0.053f))
+            val head = p + Offset(0f, -u * 0.077f)
+            drawCircle(snow, u * 0.011f, head)
+            drawCircle(Color(0xFF2B2B2B), u * 0.0016f, head + Offset(-u * 0.004f, -u * 0.002f))
+            drawCircle(Color(0xFF2B2B2B), u * 0.0016f, head + Offset(u * 0.004f, -u * 0.002f))
+            drawPath(Path().apply { moveTo(head.x, head.y + u * 0.0005f); lineTo(head.x + u * 0.013f, head.y + u * 0.003f); lineTo(head.x, head.y + u * 0.004f); close() }, Color(0xFFF07F2B)) // carrot
+            drawRect(Color(0xFFC0533B), head + Offset(-u * 0.011f, u * 0.008f), Size(u * 0.022f, u * 0.004f)) // scarf
+            drawRect(Color(0xFFC0533B), head + Offset(u * 0.004f, u * 0.01f), Size(u * 0.004f, u * 0.012f))
+            for (k in 0 until 3) drawCircle(Color(0xFF2B2B2B), u * 0.0017f, p + Offset(0f, -u * (0.045f + k * 0.007f)))
+            drawLine(Wood, p + Offset(-u * 0.014f, -u * 0.056f), p + Offset(-u * 0.03f, -u * 0.068f), strokeWidth = u * 0.0018f, cap = StrokeCap.Round) // stick arms
+            drawLine(Wood, p + Offset(u * 0.014f, -u * 0.056f), p + Offset(u * 0.03f, -u * 0.07f), strokeWidth = u * 0.0018f, cap = StrokeCap.Round)
+        }
         "wildflowers" -> {
             for (k in 0 until 7) {
                 val dx = (k - 3) * u * 0.008f
@@ -1136,6 +1309,10 @@ fun noteBadge(sizePx: Int, duck: Boolean, emoji: String): android.graphics.Bitma
 
 /** Rough size of each thing (width, height) in scene heights, to fit it into an icon. */
 private fun thingSize(id: String): Pair<Float, Float> = when (id) {
+    "scarecrow" -> 0.08f to 0.11f
+    "snowman" -> 0.06f to 0.09f
+    "birdhouse" -> 0.05f to 0.11f
+    "deck_chair", "sled", "watermelon", "leaf_pile", "gift_boxes" -> 0.08f to 0.06f
     "cabin" -> 0.25f to 0.24f
     "bell_tent" -> 0.2f to 0.18f
     "tent" -> 0.17f to 0.12f

@@ -425,6 +425,17 @@ private fun Shop(acorns: Int, placed: Map<Int, String>, earnedToday: Int, name: 
             }
             AcornBadge(acorns)
         }
+        // The season's own, first: sold only while it lasts.
+        val season = app.tend.core.Season.of(java.time.LocalDate.now())
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)) {
+            Text("THIS ${season.title.uppercase()} ONLY", style = MaterialTheme.typography.labelSmall, color = Brand.Coral, modifier = Modifier.weight(1f))
+            Text("Yours to keep", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+            Things.forSeason(season).forEach { thing ->
+                ShopTile(thing, owned = thing.id in placed.values, affordable = acorns >= thing.price, Modifier.weight(1f), background = Brand.Coral.copy(alpha = 0.12f)) { open = thing }
+            }
+        }
         listOf(SpotKind.SMALL, SpotKind.FIRE, SpotKind.SEAT, SpotKind.SHELTER, SpotKind.TREES, SpotKind.WATER, SpotKind.ABOVE).forEach { kind ->
             Text(kindTitle(kind).uppercase(), style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
             Things.forKind(kind).chunked(3).forEach { row ->
