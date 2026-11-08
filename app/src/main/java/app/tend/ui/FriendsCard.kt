@@ -123,7 +123,7 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
             onDismissRequest = { asking = null },
             icon = { Face(owner.companion, 72) },
             title = { Text("Add ${owner.name} as a friend?") },
-            text = { Text("You'll see each other's camps, levels and weekly challenge. Nothing else: not your apps, minutes or health data.") },
+            text = { Text("You'll see each other's camps, levels and weekly goals. Nothing else: not your apps, minutes or health data.") },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     asking = null

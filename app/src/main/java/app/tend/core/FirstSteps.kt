@@ -27,7 +27,7 @@ enum class Step(val title: String, val how: String, val acorns: Int, val round: 
     TEN_ACTIVITIES("Do 10 activities", "Any mix, any days", 30, 2),
     SHELTER("A place to sleep", "Camp → Shop → A place to sleep", 20, 2),
     ON_THE_RIVER("Something on the river", "Camp → Shop → On the river", 25, 2),
-    TOGETHER("Reach a week's goal with friends", "Camp → Friends", 40, 2),
+    TOGETHER("Reach the together goal with friends", "Camp → Friends", 40, 2),
     RARE("Meet a rare animal", "They come after a good day", 40, 2),
 }
 

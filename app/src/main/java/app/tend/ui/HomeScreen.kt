@@ -410,8 +410,8 @@ private fun NextSteps(
 }
 
 /**
- * Level and skills in one slim card, with this week's challenge under them. Every activity is XP
- * for Body, Mind or Rest; a finished challenge adds a bonus.
+ * Level and skills in one slim card, with this week's goal under them. Every activity is XP
+ * for Body, Mind or Rest; a reached weekly goal adds a bonus.
  */
 @Composable
 private fun ProgressStrip(level: app.tend.core.Level, skills: Map<app.tend.core.Skill, app.tend.core.Level>, challenge: app.tend.core.Challenge?) = Column(
@@ -446,7 +446,7 @@ private fun ProgressStrip(level: app.tend.core.Level, skills: Map<app.tend.core.
         TendIcons.Badge(if (challenge.done) "sparkle" else "sun", 32.dp)
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text("THIS WEEK", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Brand.Muted)
+            Text("WEEKLY GOAL", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Brand.Muted)
             Text(challenge.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         }
         Text(
@@ -465,7 +465,7 @@ private fun LevelUpDialog(avatar: Avatar, level: Int, onDone: () -> Unit) = andr
         BobbingCharacter(avatar, app.tend.core.Mood.OUTSIDE, 120.dp)
         Text("Level $level!", style = MaterialTheme.typography.headlineMedium, color = Brand.Moss)
         Text(
-            "${avatar.displayName} levelled up. Every activity is XP for Body, Mind or Rest, and the weekly challenge gives a bonus.",
+            "${avatar.displayName} levelled up. Every activity is XP for Body, Mind or Rest, and the weekly goal gives a bonus.",
             style = MaterialTheme.typography.bodyMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
         PrimaryButton("Nice", onDone)
