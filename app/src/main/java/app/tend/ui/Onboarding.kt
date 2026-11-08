@@ -93,7 +93,7 @@ class PermissionActions(
 /** Where Android's restricted-settings lock stands: none, locked, or refused once (the unlock option now shows). */
 enum class PermissionLock { NONE, LOCKED, TRIPPED }
 
-private enum class Step { INTRO, COMPANION, USAGE, APPS, PAUSE, ACCOUNT, CAMP }
+private enum class Step { INTRO, COMPANION, USAGE, APPS, ACTIVITIES, PAUSE, ACCOUNT, CAMP }
 
 @Composable
 fun Onboarding(
@@ -106,6 +106,10 @@ fun Onboarding(
     onConfig: (BudgetConfig) -> Unit,
     onToggleApp: (String) -> Unit,
     signedIn: Boolean = false,
+    /** The activities: picked so far, toggling one, and taking the defaults (also preselected when nothing is picked yet). */
+    tasks: List<TaskDef> = emptyList(),
+    onToggleTask: (TaskDef) -> Unit = {},
+    onDefaultTasks: (reset: Boolean) -> Unit = {},
     account: @Composable (onDone: () -> Unit) -> Unit = {},
     /** The camp at the end: what's in it, the acorns, getting the campfire lit, and buying a first thing. */
     placed: Map<Int, String> = emptyMap(),
@@ -167,6 +171,19 @@ fun Onboarding(
                         else "We picked the usual suspects. Tap to change.",
                     )
                     AppPicker(catalog, blocked, onToggleApp)
+                }
+
+                Step.ACTIVITIES -> {
+                    LaunchedEffect(Unit) { onDefaultTasks(false) }
+                    StepPage(
+                        cta = if (tasks.isEmpty()) "Pick at least one" else "Continue with ${tasks.size}",
+                        ctaEnabled = tasks.isNotEmpty(),
+                        onCta = next,
+                    ) {
+                        Title("What would you rather do?", "We picked three to start. Tap to change them, or add your own. Each one gives screen time back.")
+                        ActivityPicker(tasks, onToggleTask)
+                        LinkText("Skip, use the defaults", { onDefaultTasks(true); next() })
+                    }
                 }
 
                 Step.PAUSE -> StepPage(
@@ -604,7 +621,11 @@ fun WidgetButton(avatar: Avatar, onAddWidget: () -> Boolean) {
         androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, tint = Brand.Moss)
         Spacer(Modifier.width(Space.s))
         Text("${avatar.displayName} is on your home screen", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
-    } else {
+    }
+    if (isPlaced) Text(
+        "Tapping ${avatar.displayName} opens tend, so the tend icon can go: ${avatar.displayName} takes its place.",
+        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
+    ) else {
         SecondaryButton("Put ${avatar.displayName} on your home screen", { if (!onAddWidget()) guide = true })
         // The bigger ones (with minutes, the camp) are in the phone's own widget list.
         Text(
@@ -640,11 +661,12 @@ fun WidgetGuideDialog(avatar: Avatar, onDone: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(Space.m),
         ) {
             Text("Put ${avatar.displayName} on your home screen", style = MaterialTheme.typography.titleLarge)
-            Text("Your phone's own widget list shows all three sizes: just ${avatar.displayName}, ${avatar.displayName} with your minutes, or the camp.", style = MaterialTheme.typography.bodyMedium)
+            Text("The 1×1 one is just ${avatar.displayName}: put it where the tend icon is, and you see how they're doing each time you look. There's also one with your minutes, and the camp.", style = MaterialTheme.typography.bodyMedium)
             listOf(
                 "Long-press an empty spot on your home screen",
                 "Tap \"Widgets\" and find tend",
                 "Drag the one you like onto the screen",
+                "Swap it in for the tend icon: tapping ${avatar.displayName} opens tend",
             ).forEachIndexed { i, step ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(28.dp).clip(CircleShape).background(Brand.Mint.copy(alpha = 0.3f)), contentAlignment = Alignment.Center) {

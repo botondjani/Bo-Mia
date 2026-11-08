@@ -49,6 +49,12 @@ class TendStore(private val context: Context) {
             if (p.size >= 3) Tasks.custom(p[2], LEGACY_EMOJI[p[1]] ?: p[1], p.getOrNull(3)?.toIntOrNull() ?: 0).copy(id = p[0]) else null
         }
 
+    /** Activities have been picked (or the defaults taken) at least once. */
+    val tasksChosen: Boolean get() = prefs.contains("tasks")
+
+    /** The three to start with: a workout, a walk, reading. */
+    fun useDefaultTasks() = edit { putString("tasks", Tasks.legacyDefault.joinToString(",") { it.id }) }
+
     /** Adds or removes a preset or custom activity; adding is refused beyond the limit. */
     fun toggleTask(task: TaskDef) {
         val current = selectedTasks

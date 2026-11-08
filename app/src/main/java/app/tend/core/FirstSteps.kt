@@ -9,7 +9,7 @@ enum class Step(val title: String, val how: String, val acorns: Int) {
     PLACE("Get something for your camp", "Camp → Shop", 10),
     USE("Watch your companion use it", "Tap a thing in the camp", 10),
     NOT_NOW("Say \"Not now\" once", "When a paused app opens", 10),
-    WIDGET("Add the widget", "Settings → Add the widget", 10),
+    WIDGET("Swap the tend icon for Bo", "Add the 1×1 widget; it opens tend too", 10),
     FRIEND("Invite a friend", "Camp → Friends → Invite", 15),
 }
 

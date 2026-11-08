@@ -463,6 +463,9 @@ class MainActivity : ComponentActivity() {
                     onConfig = { store.config = it; refresh++ },
                     onToggleApp = toggleApp,
                     signedIn = app.tend.data.Account.user(this) != null,
+                    tasks = store.selectedTasks,
+                    onToggleTask = toggleTask,
+                    onDefaultTasks = { reset -> if (reset || !store.tasksChosen) { store.useDefaultTasks(); refresh++ } },
                     // Logged in: straight into the app (after a restore offer, if there's a backup).
                     account = { done -> app.tend.ui.AccountCard(onChanged = { refresh++ }, onRestored = ::restartFresh, onSignedIn = done) },
                     placed = store.placed,
@@ -898,15 +901,16 @@ class MainActivity : ComponentActivity() {
     private fun widgetPlaced() = app.tend.ui.WidgetKind.anyPlaced(this)
 
     /**
-     * Asks the launcher to place the 2x1 widget (its own dialog); false when it can't. The 2x1 is
-     * the one launchers place reliably from an app; the 1x1 is in the phone's widget list.
+     * Asks the launcher to place a widget (its own dialog): the 1x1 Bo, which can stand in for the
+     * app icon, else the 2x1. False when neither can be placed from the app.
      */
     private fun pinWidget(): Boolean {
         val manager = android.appwidget.AppWidgetManager.getInstance(this)
         if (!manager.isRequestPinAppWidgetSupported) return false
-        return runCatching {
-            manager.requestPinAppWidget(android.content.ComponentName(this, app.tend.ui.WidgetKind.WIDE.provider), null, null)
-        }.getOrDefault(false)
+        // The 1x1 Bo first: it can take the app icon's place. Where the launcher won't, the 2x1.
+        return listOf(app.tend.ui.WidgetKind.FACE, app.tend.ui.WidgetKind.WIDE).any { kind ->
+            runCatching { manager.requestPinAppWidget(android.content.ComponentName(this, kind.provider), null, null) }.getOrDefault(false)
+        }
     }
 
     private fun permissions(): Permissions {
