@@ -64,7 +64,7 @@ fun PlusScreen(
             paid -> "Thank you for keeping ${avatar.displayName}'s camp going."
             wonBack != null && wonBack >= 60 -> "So far you've won back ${InsightsOf.hours(wonBack)}. Plus keeps everything that helped."
             trialDaysLeft == null -> "Plus keeps everything that helped."
-            trialDaysLeft == 0 -> "Your trial ends today. Everything below is yours until then."
+            trialDaysLeft <= 1 -> "Your trial ends today. Everything below is yours until then."
             else -> "You have everything below for $trialDaysLeft more day${if (trialDaysLeft == 1) "" else "s"}, free."
         },
         style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = Brand.Muted,

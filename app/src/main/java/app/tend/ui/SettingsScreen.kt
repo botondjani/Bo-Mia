@@ -118,7 +118,10 @@ fun SettingsScreen(
     Text("APPS TO PAUSE", style = MaterialTheme.typography.labelSmall)
     AppPicker(catalog, blocked, onToggleApp)
     if (blocked.isNotEmpty()) {
-        Text("A LIMIT FOR EACH APP", style = MaterialTheme.typography.labelSmall)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("A LIMIT FOR EACH APP", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            PlusMark()
+        }
         if (plus) AppLimitsCard(catalog, blocked, appLimits, appSecondsToday, strict, onAppLimit)
         else LockedCard("Its own minutes a day for each app, on top of your budget.") { onPlus(PlusFrom.APP_LIMITS) }
     }
@@ -380,6 +383,7 @@ private fun AppLimitsCard(
 /** No shortcuts, and loosening waits until tomorrow: for the days you don't trust yourself. */
 @Composable
 private fun StrictCard(strict: Boolean, endsAt: Long, onStrict: (Boolean) -> Unit) = Card {
+    Row { Spacer(Modifier.weight(1f)); PlusMark() }
     SwitchRow(
         "Strict mode",
         when {
@@ -400,7 +404,7 @@ private fun PlusCard(plus: Boolean, daysLeft: Int?, paid: Boolean, onTestTrial: 
             Text(
                 when {
                     paid -> "Yours. Thank you!"
-                    plus && daysLeft != null -> if (daysLeft == 0) "Free trial: last day" else "Free trial: $daysLeft day${if (daysLeft == 1) "" else "s"} left"
+                    plus && daysLeft != null -> if (daysLeft <= 1) "Free trial: last day" else "Free trial: $daysLeft day${if (daysLeft == 1) "" else "s"} left"
                     else -> "Your time in full, a limit for each app, strict mode, the season's things"
                 },
                 style = MaterialTheme.typography.bodyMedium,

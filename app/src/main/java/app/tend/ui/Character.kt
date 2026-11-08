@@ -146,7 +146,8 @@ fun CharacterView(
     val rig = if (lightweight) null else RiveRig.bytes(LocalContext.current)
     var failed by remember { mutableStateOf(false) }
     val accessories = LocalAccessories.current
-    if (rig != null && !failed) RiveCharacter(rig, avatar, when { reading -> RiveRig.READING; mood == Mood.SLEEPING -> RiveRig.SLEEPING; mood == Mood.SLEEPY -> RiveRig.SLEEPY; else -> mood.ordinal.toFloat() }, accessories, scientist, prop, size, modifier) { failed = true }
+    // The animated rig doesn't know the seasons' outfits: with one on, the drawn companion shows it.
+    if (rig != null && !failed && accessories.none { it.outfit != null }) RiveCharacter(rig, avatar, when { reading -> RiveRig.READING; mood == Mood.SLEEPING -> RiveRig.SLEEPING; mood == Mood.SLEEPY -> RiveRig.SLEEPY; else -> mood.ordinal.toFloat() }, accessories, scientist, prop, size, modifier) { failed = true }
     else DrawnCharacter(avatar, mood, size, modifier, reading, accessories, scientist, prop)
 }
 

@@ -32,6 +32,10 @@ object CharacterPainter {
     private const val COAT = 0xFFFDFDFB.toInt()
     private const val WEIGHT = 0xFF4A5852.toInt()
     private const val NIGHTCAP = 0xFF5B7FC0.toInt()
+    private const val SCARF_RUST = 0xFFC9652E.toInt()
+    private const val SCARF_STRIPE = 0xFFF2D27A.toInt()
+    private const val HAT_RED = 0xFFD2483F.toInt()
+    private const val HAT_RED_DARK = 0xFFB23A33.toInt()
     private const val LEAF_GREEN = 0xFF4FA36F.toInt()
     private const val LEAF_STEM = 0xFF316849.toInt()
     private const val BOW_KNOT = 0xFF5B8FC0.toInt()
@@ -262,6 +266,10 @@ object CharacterPainter {
             Accessory.LEAF -> RectF(51f, 8f, 68f, 22f)
             Accessory.BOWTIE -> RectF(41f, 67f, 59f, 79f)
             Accessory.NIGHTCAP -> RectF(30f, 2f, 76f, 26f)
+            Accessory.FLOWER_CROWN -> RectF(24f, 12f, 76f, 30f)
+            Accessory.SUNGLASSES -> RectF(27f, 37f, 73f, 55f)
+            Accessory.SCARF -> RectF(23f, 72f, 77f, 99f)
+            Accessory.BOBBLE_HAT -> RectF(22f, 2f, 78f, 34f)
         }
         val scale = sizePx * 0.86f / maxOf(box.width(), box.height())
         c.translate(sizePx / 2f, sizePx / 2f)
@@ -271,7 +279,12 @@ object CharacterPainter {
     }
 
     /** Same shapes as the Rive rig (tools/rive/make_character.py), drawn back to front. */
-    private fun drawAccessories(c: Canvas, a: Set<Accessory>) {
+    private fun drawAccessories(c: Canvas, all: Set<Accessory>) {
+        // An outfit wins over a habit's thing in the same place: one hat at a time, one pair of glasses.
+        var a = all
+        if (Accessory.BOBBLE_HAT in a || Accessory.FLOWER_CROWN in a) a = a - Accessory.HAT - Accessory.NIGHTCAP - Accessory.LEAF - Accessory.HEADBAND
+        if (Accessory.SUNGLASSES in a) a = a - Accessory.GLASSES
+        if (Accessory.SCARF in a) a = a - Accessory.BOWTIE
         if (Accessory.HEADBAND in a) {
             stroke.color = CORAL; stroke.strokeWidth = 4.5f
             c.drawPath(Path().apply { moveTo(25f, 37f); quadTo(50f, 25f, 75f, 37f) }, stroke)
@@ -314,6 +327,60 @@ object CharacterPainter {
             c.drawRoundRect(RectF(36f, 8f, 64f, 22f), 6f, 6f, fill)
             c.drawOval(RectF(20f, 18f, 80f, 27f), fill)
             fill.color = CORAL; c.drawRect(36f, 16f, 64f, 20f, fill)
+        }
+        drawOutfits(c, a)
+    }
+
+    /** The seasons' outfits: a flower crown, sunglasses, a knitted scarf, a bobble hat. */
+    private fun drawOutfits(c: Canvas, a: Set<Accessory>) {
+        if (Accessory.SCARF in a) {
+            // Wrapped round under the face, one end hanging down the front.
+            fill.color = SCARF_RUST
+            c.drawRoundRect(RectF(25f, 74f, 75f, 84f), 5f, 5f, fill)
+            c.drawPath(Path().apply { moveTo(58f, 79f); lineTo(67f, 79f); lineTo(69f, 95f); lineTo(60f, 96f); close() }, fill)
+            fill.color = SCARF_STRIPE
+            for (x in floatArrayOf(33f, 43f, 53f)) c.drawRect(x, 74.5f, x + 3f, 83.5f, fill)
+            c.drawRect(60f, 87f, 68.3f, 89.5f, fill)
+            stroke.color = SCARF_STRIPE; stroke.strokeWidth = 1.2f
+            for (x in floatArrayOf(61f, 63.3f, 65.6f, 67.9f)) c.drawLine(x, 95.5f, x + 0.4f, 98.5f, stroke) // fringe
+            stroke.color = INK; stroke.strokeWidth = 2.6f
+        }
+        if (Accessory.SUNGLASSES in a) {
+            fill.color = INK
+            c.drawRoundRect(RectF(29f, 39f, 48f, 53f), 6f, 6f, fill)
+            c.drawRoundRect(RectF(52f, 39f, 71f, 53f), 6f, 6f, fill)
+            stroke.strokeWidth = 2f; c.drawLine(47f, 43f, 53f, 43f, stroke); stroke.strokeWidth = 2.6f
+            fill.color = 0x66FFFFFF; c.drawOval(RectF(32f, 41f, 38f, 45f), fill); c.drawOval(RectF(55f, 41f, 61f, 45f), fill)
+        }
+        if (Accessory.FLOWER_CROWN in a) {
+            // Leaves along the top of the head, flowers between them.
+            fill.color = LEAF_GREEN
+            stroke.color = LEAF_STEM; stroke.strokeWidth = 1.8f
+            c.drawPath(Path().apply { moveTo(26f, 27f); quadTo(50f, 13f, 74f, 27f) }, stroke)
+            stroke.color = INK; stroke.strokeWidth = 2.6f
+            val colors = intArrayOf(0xFFF2A0B8.toInt(), 0xFFFFFFFF.toInt(), SUNNY, 0xFFF2A0B8.toInt(), 0xFFFFFFFF.toInt())
+            for (k in 0 until 5) {
+                val t = k / 4f
+                val x = 28f + 44f * t
+                val y = 26f - 10f * (1 - (2 * t - 1) * (2 * t - 1))
+                fill.color = LEAF_GREEN; c.drawOval(RectF(x - 6f, y - 1.5f, x - 1f, y + 2f), fill)
+                fill.color = colors[k]
+                for (p in 0 until 5) {
+                    val ang = Math.toRadians(p * 72.0 - 90)
+                    c.drawCircle(x + 2.4f * Math.cos(ang).toFloat(), y + 2.4f * Math.sin(ang).toFloat(), 2.1f, fill)
+                }
+                fill.color = 0xFFF2C14E.toInt(); c.drawCircle(x, y, 1.5f, fill)
+            }
+        }
+        if (Accessory.BOBBLE_HAT in a) {
+            fill.color = HAT_RED
+            c.drawPath(Path().apply { moveTo(26f, 28f); cubicTo(26f, 6f, 74f, 6f, 74f, 28f); close() }, fill)
+            fill.color = HAT_RED_DARK
+            c.drawRoundRect(RectF(23f, 23f, 77f, 33f), 4f, 4f, fill)
+            stroke.color = HAT_RED; stroke.strokeWidth = 1.2f
+            for (x in 27..73 step 5) c.drawLine(x.toFloat(), 24.5f, x.toFloat(), 31.5f, stroke) // the knit
+            stroke.color = INK; stroke.strokeWidth = 2.6f
+            fill.color = 0xFFF7F3E8.toInt(); c.drawCircle(50f, 9f, 5.5f, fill)
         }
     }
 

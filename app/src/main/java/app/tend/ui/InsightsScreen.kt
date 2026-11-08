@@ -116,14 +116,20 @@ fun InsightsScreen(insights: Insights, apps: List<AppTime>, plus: Boolean = true
 
     // The weeks: minutes a day, against the normal.
     if (plus && insights.weeks.any { it.second != null }) Card {
-        Text("MINUTES A DAY, BY WEEK", style = MaterialTheme.typography.labelSmall)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("MINUTES A DAY, BY WEEK", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            PlusMark()
+        }
         WeeksChart(insights)
         Text("Tap a week to see it. The dashed line is your normal before tend.", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
     }
 
     // Each app, before and now.
     if (plus && apps.isNotEmpty()) Card {
-        Text("BY APP, MINUTES A DAY", style = MaterialTheme.typography.labelSmall)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("BY APP, MINUTES A DAY", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            PlusMark()
+        }
         apps.take(6).forEach { a ->
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
                 if (a.icon != null) Image(a.icon, null, Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)))

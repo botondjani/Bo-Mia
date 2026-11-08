@@ -560,9 +560,9 @@ class TendStore(private val context: Context) {
     /** Plus is on: bought, or still in the trial. */
     val isPlus: Boolean get() = plusPaid || System.currentTimeMillis() < trialEndsAt
 
-    /** Whole days left of the trial (0 on its last day, or once it's over). */
+    /** Days left of the trial, counting today (1 on its last day; 0 once it's over or bought). */
     val trialDaysLeft: Int
-        get() = if (plusPaid) 0 else ((trialEndsAt - System.currentTimeMillis()) / 86_400_000L).toInt().coerceAtLeast(0)
+        get() = if (plusPaid) 0 else ((trialEndsAt - System.currentTimeMillis() + 86_399_999L) / 86_400_000L).toInt().coerceAtLeast(0)
 
     /** The trial ended and the end screen hasn't been shown yet. */
     var trialEndShown: Boolean
@@ -579,6 +579,29 @@ class TendStore(private val context: Context) {
         putLong("plus_trial_start", System.currentTimeMillis() - daysAgo * 86_400_000L)
         putBoolean("trial_end_shown", false); putBoolean("trial_note_sent", false)
     }
+
+    // ---- Outfits ----
+
+    /** The seasons' outfits bought so far (kept for good). */
+    val outfits: Set<Accessory>
+        get() = prefs.getStringSet("outfits", emptySet())!!.mapNotNull { n -> Accessory.entries.firstOrNull { it.name == n && it.outfit != null } }.toSet()
+
+    /** The outfit being worn, if any. */
+    val outfitWorn: Accessory?
+        get() = prefs.getString("outfit_worn", null)?.let { n -> outfits.firstOrNull { it.name == n } }
+
+    /** Buys this season's outfit (with Plus, for acorns) and puts it on. False when it can't be bought now. */
+    fun buyOutfit(a: Accessory): Boolean {
+        if (a.outfit == null || a in outfits) return false
+        if (!isPlus || a.outfit != app.tend.core.Season.of(LocalDate.now()) || acorns < Accessory.OUTFIT_PRICE) return false
+        addAcorns(-Accessory.OUTFIT_PRICE, "outfit")
+        edit { putStringSet("outfits", outfits.map { it.name }.toSet() + a.name); putString("outfit_worn", a.name) }
+        Stats.log(context, "outfit", mapOf("which" to a.name.lowercase()))
+        return true
+    }
+
+    /** Puts on an outfit that's been bought, or (null) takes it off. */
+    fun wearOutfit(a: Accessory?) = edit { if (a != null && a in outfits) putString("outfit_worn", a.name) else remove("outfit_worn") }
 
     // ---- Limits for single apps ----
 
@@ -759,8 +782,8 @@ class TendStore(private val context: Context) {
         val worn = Accessories.active(week)
         val seen = prefs.getStringSet("acc_seen", emptySet())!!
         if (!seen.containsAll(worn.map { it.name })) prefs.edit().putStringSet("acc_seen", seen + worn.map { it.name }).apply()
-        val shelf = Accessory.entries.filter { it.name in seen && it !in worn }.toSet()
-        return worn to shelf
+        val shelf = Accessory.habits.filter { it.name in seen && it !in worn }.toSet()
+        return (worn + listOfNotNull(outfitWorn)) to shelf
     }
 
     private fun summary(d: DayState) = DaySummary(

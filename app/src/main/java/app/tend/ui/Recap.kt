@@ -53,7 +53,7 @@ internal fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("${avatar.displayName.uppercase()}'S THINGS", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
             Text(
-                "See all ${Accessory.entries.size}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+                "See all ${Accessory.habits.size}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
                 modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable { all = true }.padding(horizontal = 8.dp, vertical = 4.dp),
             )
         }
@@ -65,7 +65,7 @@ internal fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory
             horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.padding(top = 4.dp),
         ) {
-            Accessory.entries.filter { it in worn }.forEach { ThingTile(it, worn, onShelf, Modifier.weight(1f)) }
+            Accessory.habits.filter { it in worn }.forEach { ThingTile(it, worn, onShelf, Modifier.weight(1f)) }
             repeat((3 - worn.size % 3) % 3) { Spacer(Modifier.weight(1f)) }
         }
     }
@@ -80,8 +80,8 @@ internal fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory
                 maxItemsInEachRow = 3,
                 horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Accessory.entries.forEach { ThingTile(it, worn, onShelf, Modifier.weight(1f)) }
-                repeat((3 - Accessory.entries.size % 3) % 3) { Spacer(Modifier.weight(1f)) }
+                Accessory.habits.forEach { ThingTile(it, worn, onShelf, Modifier.weight(1f)) }
+                repeat((3 - Accessory.habits.size % 3) % 3) { Spacer(Modifier.weight(1f)) }
             }
             PrimaryButton("Close", { all = false })
         }

@@ -121,7 +121,7 @@ class InterstitialActivity : ComponentActivity() {
             timeUp = intent.getBooleanExtra(EXTRA_TIME_UP, false),
             scheduled = scheduled,
             appLimit = appLimit,
-            appLeft = store.appLimits[pkg]?.let { (it - ((store.appSecondsToday()[pkg] ?: 0L) / 60).toInt()).coerceAtLeast(0) },
+            appLeft = store.appLimits[pkg]?.takeIf { store.isPlus }?.let { (it - ((store.appSecondsToday()[pkg] ?: 0L) / 60).toInt()).coerceAtLeast(0) },
         )
         val worn = store.accessories().first
         setContent {

@@ -56,11 +56,12 @@ object Widgets {
         val fresh = app.tend.data.Friends.unseen(context)
         val visitor = store.visitorWaiting()
         // Evening (from the evening hour until 5:00): the camp at night, a dark card and a sleepy companion.
-        val shown = listOf(store.avatar, mood, remaining, next?.id, day.completedTasks.sorted(), placed, night, paper, ducks, fresh?.id, store.bridgeBuilt, visitor).joinToString("|")
+        val worn = store.accessories().first
+        val layout = store.layout
+        val shown = listOf(store.avatar, mood, remaining, next?.id, day.completedTasks.sorted(), placed, night, paper, ducks, fresh?.id, store.bridgeBuilt, visitor, worn.sorted(), layout).joinToString("|")
         if (!force && shown == lastShown) return
         lastShown = shown
 
-        val worn = store.accessories().first
         // Something from a friend: a tap goes straight to the camp, where it is (the paper, the duck, the wave).
         val open = if (fresh != null) PendingIntent.getActivity(
             context, 1,
@@ -97,7 +98,7 @@ object Widgets {
         })
         if (garden.isNotEmpty()) manager.updateAppWidget(garden, RemoteViews(context.packageName, R.layout.widget_garden).apply {
             setImageViewBitmap(R.id.garden, clearingBitmap(store.avatar, placed, worn, 440, 440, night = night, paper = paper, ducks = ducks, bridge = store.bridgeBuilt, visitor = visitor,
-                layout = store.layout.mapValues { androidx.compose.ui.geometry.Offset(it.value.first, it.value.second) }))
+                layout = layout.mapValues { androidx.compose.ui.geometry.Offset(it.value.first, it.value.second) }))
             val label = fresh?.let { "${it.name}: ${it.kind.short}" } ?: visitor?.let { "A ${it.title.lowercase()} is here" }
             setViewVisibility(R.id.note, if (label != null) android.view.View.VISIBLE else android.view.View.GONE)
             setTextViewText(R.id.note, label ?: "")

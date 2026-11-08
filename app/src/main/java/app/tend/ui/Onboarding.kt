@@ -279,6 +279,21 @@ fun Onboarding(
                             "$acorns acorns left. Every activity adds 10; a \"Not now\" adds 2.",
                             style = MaterialTheme.typography.bodyMedium, color = Brand.Muted,
                         )
+                        // Once the fire's going: the welcome gift, said plainly, with when it ends.
+                        if (roasting) Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Brand.Coral.copy(alpha = 0.12f)).padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text("A welcome gift: 14 days of tend Plus", style = MaterialTheme.typography.titleSmall)
+                                Text(
+                                    "Every week of your time, a limit for each app, strict mode, and the season's own things. Then it's your choice: Plus, or the free tend.",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp), color = Brand.Muted,
+                                )
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            PlusMark()
+                        }
                     }
                 }
             }

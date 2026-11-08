@@ -42,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -102,6 +103,11 @@ fun ClearingScreen(
     /** Plus is on: the season's own things can be bought; otherwise a tap on one shows Plus. */
     plus: Boolean = true,
     onPlus: () -> Unit = {},
+    /** The seasons' outfits bought, the one worn, and buying or putting one on (null: off). */
+    outfits: Set<app.tend.core.Accessory> = emptySet(),
+    outfitWorn: app.tend.core.Accessory? = null,
+    onBuyOutfit: (app.tend.core.Accessory) -> Boolean = { false },
+    onWearOutfit: (app.tend.core.Accessory?) -> Unit = {},
 ) {
     val scroll = rememberScrollState()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -380,7 +386,9 @@ fun ClearingScreen(
     // One thing at a time below the camp: the shop, friends, or what's been collected.
     Tabs(listOf("Shop", "Friends", "Collection"), tab) { tab = it }
     when (tab) {
-        0 -> Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, plus = plus, onPlus = onPlus, onBuy = { id ->
+        0 -> Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, plus = plus, onPlus = onPlus, outfits = outfits, outfitWorn = outfitWorn,
+            onBuyOutfit = { a -> onBuyOutfit(a).also { if (it) { tick(firm = true); Sounds.chime(context); scope.launch { scroll.animateScrollTo(0) } } } },
+            onWearOutfit = { tick(); onWearOutfit(it) }, onBuy = { id ->
             // Bought: a firm tick, a chime, and up to the camp to watch it pop in.
             val spot = Things.byId(id)?.let { Clearing.spotFor(placed, it) }
             onBuy(id).also { ok -> if (ok) { tick(firm = true); Sounds.chime(context); spot?.let { showSpot(it) } } }
@@ -415,7 +423,12 @@ private fun Tabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) =
  * cheaper thing there for half back), or sell it.
  */
 @Composable
-private fun Shop(acorns: Int, placed: Map<Int, String>, earnedToday: Int, name: String, plus: Boolean, onPlus: () -> Unit, onBuy: (String) -> Boolean, onSell: (String) -> Unit) {
+private fun Shop(
+    acorns: Int, placed: Map<Int, String>, earnedToday: Int, name: String, plus: Boolean, onPlus: () -> Unit,
+    outfits: Set<app.tend.core.Accessory>, outfitWorn: app.tend.core.Accessory?, onBuyOutfit: (app.tend.core.Accessory) -> Boolean, onWearOutfit: (app.tend.core.Accessory?) -> Unit,
+    onBuy: (String) -> Boolean, onSell: (String) -> Unit,
+) {
+    var outfitOpen by remember { mutableStateOf<app.tend.core.Accessory?>(null) }
     var open by remember { mutableStateOf<app.tend.core.Thing?>(null) }
     Card {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -432,12 +445,42 @@ private fun Shop(acorns: Int, placed: Map<Int, String>, earnedToday: Int, name: 
         val season = app.tend.core.Season.of(java.time.LocalDate.now())
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)) {
             Text("THIS ${season.title.uppercase()} ONLY", style = MaterialTheme.typography.labelSmall, color = Brand.Coral, modifier = Modifier.weight(1f))
-            if (plus) Text("Yours to keep", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted) else PlusMark()
+            Text("Yours to keep ", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted)
+            PlusMark()
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
             Things.forSeason(season).forEach { thing ->
                 val owned = thing.id in placed.values
                 ShopTile(thing, owned = owned, affordable = plus && acorns >= thing.price, Modifier.weight(1f), background = Brand.Coral.copy(alpha = 0.12f)) { if (plus || owned) open = thing else onPlus() }
+            }
+        }
+        // Something to wear: this season's outfit, and any bought before (tap to put on or take off).
+        val wardrobe = (outfits + app.tend.core.Accessory.outfitFor(season)).sortedBy { it.ordinal }
+        Text("FOR ${name.uppercase()} TO WEAR", style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
+        wardrobe.chunked(3).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+                row.forEach { a ->
+                    val owned = a in outfits
+                    OutfitTile(a, owned, worn = a == outfitWorn, affordable = plus && acorns >= app.tend.core.Accessory.OUTFIT_PRICE, Modifier.weight(1f)) {
+                        when {
+                            owned -> onWearOutfit(if (a == outfitWorn) null else a)
+                            plus -> outfitOpen = a
+                            else -> onPlus()
+                        }
+                    }
+                }
+                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+        // Bought in other seasons: still here, to sell if wanted.
+        val earlier = app.tend.core.Season.entries.filter { it != season }.flatMap { Things.forSeason(it) }.filter { it.id in placed.values }
+        if (earlier.isNotEmpty()) {
+            Text("FROM OTHER SEASONS", style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
+            earlier.chunked(3).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+                    row.forEach { thing -> ShopTile(thing, owned = true, affordable = true, Modifier.weight(1f)) { open = thing } }
+                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                }
             }
         }
         listOf(SpotKind.SMALL, SpotKind.FIRE, SpotKind.SEAT, SpotKind.SHELTER, SpotKind.TREES, SpotKind.WATER, SpotKind.ABOVE).forEach { kind ->
@@ -449,6 +492,21 @@ private fun Shop(acorns: Int, placed: Map<Int, String>, earnedToday: Int, name: 
                 }
             }
         }
+    }
+    outfitOpen?.let { a ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { outfitOpen = null },
+            icon = { androidx.compose.foundation.Image(remember(a) { CharacterPainter.accessoryIcon(a, 240).asImageBitmap() }, null, Modifier.size(84.dp)) },
+            title = { Text(a.title) },
+            text = { Text("For ${name} to wear, now and every season after. You can take it off any time.") },
+            confirmButton = {
+                val price = app.tend.core.Accessory.OUTFIT_PRICE
+                if (acorns >= price) androidx.compose.material3.TextButton(onClick = { if (onBuyOutfit(a)) outfitOpen = null }) { Text("Get it for $price", color = Brand.Moss) }
+                else androidx.compose.material3.TextButton(onClick = { outfitOpen = null }) { Text("${price - acorns} more acorns to go", color = Brand.Muted) }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { outfitOpen = null }) { Text("Close") } },
+            containerColor = Brand.Card,
+        )
     }
     open?.let { t ->
         val owned = t.id in placed.values
@@ -591,5 +649,27 @@ private fun Guestbook(book: Map<app.tend.core.Visitor, Int>) {
             }
         }
         Text("Someone comes most days; tap them to say hello. Rare ones only after a good day.", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+    }
+}
+
+/** One of the seasons' outfits in the shop: its price, or (bought) whether it's on. */
+@Composable
+private fun OutfitTile(a: app.tend.core.Accessory, owned: Boolean, worn: Boolean, affordable: Boolean, modifier: Modifier, onTap: () -> Unit) = Column(
+    modifier.clip(RoundedCornerShape(16.dp)).background(if (worn) Brand.Picked else Brand.Coral.copy(alpha = 0.12f)).tappable(onClick = onTap).padding(vertical = 8.dp, horizontal = 4.dp),
+    horizontalAlignment = Alignment.CenterHorizontally,
+) {
+    val icon = remember(a) { CharacterPainter.accessoryIcon(a, 144).asImageBitmap() }
+    Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) { androidx.compose.foundation.Image(icon, null, Modifier.size(44.dp)) }
+    Text(a.title, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    Row(Modifier.padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+        when {
+            worn -> Text("Wearing", style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = Brand.Moss)
+            owned -> Text("Put on", style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = Brand.Muted)
+            else -> {
+                Text("${app.tend.core.Accessory.OUTFIT_PRICE}", style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), color = if (affordable) Brand.Moss else Brand.Muted)
+                Spacer(Modifier.width(3.dp))
+                AcornIcon(12.dp)
+            }
+        }
     }
 }

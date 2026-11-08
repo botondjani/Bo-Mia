@@ -87,6 +87,9 @@ fun HomeScreen(
     /** On a break until then (epoch ms); in the past = none. */
     pausedUntil: Long = 0,
     onResume: () -> Unit = {},
+    /** Days left of the Plus trial (null when bought or over), and opening Plus. */
+    plusDaysLeft: Int? = null,
+    onPlus: () -> Unit = {},
     /** Strict mode: good night can't be undone before 7:00. */
     strict: Boolean = false,
     /** Opens the full picture: time won back, the weeks, each app. */
@@ -220,6 +223,11 @@ fun HomeScreen(
         if (brokenTimer != null) Notice(
             brokenTimer.icon, "The phone came back a little early",
             "${brokenTimer.title} needs ${brokenTimer.target} phone-free minutes. Tap to try again later.", onDismissBroken,
+        )
+        // The trial's last days: said once a day on home, never in the way.
+        if (plusDaysLeft != null && plusDaysLeft <= 3) Notice(
+            "sparkle", if (plusDaysLeft <= 1) "Last day of tend Plus" else "$plusDaysLeft more day${if (plusDaysLeft == 1) "" else "s"} of tend Plus",
+            "See what stays free and what Plus keeps", onPlus,
         )
         if (pausedUntil > System.currentTimeMillis()) Notice("sun", "On a break until ${breakEnd(pausedUntil)}", "No pauses, locks or counting. Tap to come back.", onResume)
         // After "Good night": the paused apps rest until morning, with a way back.
