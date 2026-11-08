@@ -253,12 +253,13 @@ private fun Tabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) =
 }
 
 /**
- * The shop: every thing, grouped by where it goes, each bought once. It goes to its place by
- * itself; when that place is taken, the cheaper thing there is swapped out for half back.
+ * The shop: every thing, three to a row, grouped by where it goes, each bought once. Tapping one
+ * shows what it's for and its button: get it (it goes to its place by itself, swapping out the
+ * cheaper thing there for half back), or sell it.
  */
 @Composable
 private fun Shop(acorns: Int, placed: Map<Int, String>, earnedToday: Int, name: String, onBuy: (String) -> Boolean, onSell: (String) -> Unit) {
-    var selling by remember { mutableStateOf<app.tend.core.Thing?>(null) }
+    var open by remember { mutableStateOf<app.tend.core.Thing?>(null) }
     Card {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -271,63 +272,60 @@ private fun Shop(acorns: Int, placed: Map<Int, String>, earnedToday: Int, name: 
             AcornBadge(acorns)
         }
         listOf(SpotKind.SMALL, SpotKind.FIRE, SpotKind.SEAT, SpotKind.SHELTER, SpotKind.TREES, SpotKind.WATER, SpotKind.ABOVE).forEach { kind ->
-            Text(kindTitle(kind).uppercase(), style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.padding(top = 10.dp))
-            Things.forKind(kind).forEach { thing ->
-                val owned = thing.id in placed.values
-                val swapped = if (owned) null else Clearing.spotFor(placed, thing)?.let { placed[it] }?.let(Things::byId)
-                val cost = thing.price - (swapped?.let(Clearing::sellValue) ?: 0)
-                Row(
-                    Modifier.fillMaxWidth().padding(top = 6.dp).clip(RoundedCornerShape(18.dp))
-                        .background(if (owned) Brand.Picked else Brand.Sage).padding(horizontal = 10.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(Modifier.size(52.dp).clip(RoundedCornerShape(14.dp)).background(Color(0x66FFFFFF)), contentAlignment = Alignment.Center) {
-                        Canvas(Modifier.size(46.dp)) { drawThingIcon(thing.id) }
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(thing.name, style = MaterialTheme.typography.titleSmall, maxLines = 1)
-                        Text(
-                            when {
-                                owned -> "In your camp"
-                                swapped != null -> "Swaps out the ${swapped.name.lowercase()}"
-                                else -> Uses.line(thing.id, name).substringBefore(". ").removeSuffix(".")
-                            },
-                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                        )
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    when {
-                        owned -> Text("Sell", style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
-                            modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White).tappable { selling = thing }.padding(horizontal = 14.dp, vertical = 7.dp))
-                        acorns >= cost -> Row(
-                            Modifier.clip(RoundedCornerShape(50)).background(Brand.Moss).tappable { onBuy(thing.id) }.padding(horizontal = 12.dp, vertical = 7.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text("${thing.price}", style = MaterialTheme.typography.labelLarge, color = Color.White)
-                            Spacer(Modifier.width(4.dp))
-                            AcornIcon(14.dp)
-                        }
-                        else -> Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("${thing.price}", style = MaterialTheme.typography.labelLarge, color = Brand.Muted)
-                            Spacer(Modifier.width(3.dp))
-                            AcornIcon(13.dp)
-                        }
-                    }
+            Text(kindTitle(kind).uppercase(), style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
+            Things.forKind(kind).chunked(3).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+                    row.forEach { thing -> ShopTile(thing, owned = thing.id in placed.values, affordable = acorns >= thing.price, Modifier.weight(1f)) { open = thing } }
+                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
         }
     }
-    selling?.let { t ->
+    open?.let { t ->
+        val owned = t.id in placed.values
+        val swapped = if (owned) null else Clearing.spotFor(placed, t)?.let { placed[it] }?.let(Things::byId)
+        val cost = t.price - (swapped?.let(Clearing::sellValue) ?: 0)
         androidx.compose.material3.AlertDialog(
-            onDismissRequest = { selling = null },
-            title = { Text("Sell the ${t.name.lowercase()}?") },
-            text = { Text("You get ${Clearing.sellValue(t)} acorns back, half its price.") },
-            confirmButton = { androidx.compose.material3.TextButton(onClick = { onSell(t.id); selling = null }) { Text("Sell", color = Brand.Coral) } },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { selling = null }) { Text("Keep") } },
+            onDismissRequest = { open = null },
+            icon = { Canvas(Modifier.size(84.dp)) { drawThingIcon(t.id) } },
+            title = { Text(t.name) },
+            text = {
+                Text(
+                    Uses.line(t.id, name).substringBefore(". ").removeSuffix(".") + "." +
+                        (swapped?.let { " It takes the ${it.name.lowercase()}'s place; that one goes back for ${Clearing.sellValue(it)} acorns." } ?: "") +
+                        if (owned) " Selling gives ${Clearing.sellValue(t)} acorns back." else "",
+                )
+            },
+            confirmButton = {
+                when {
+                    owned -> androidx.compose.material3.TextButton(onClick = { onSell(t.id); open = null }) { Text("Sell for ${Clearing.sellValue(t)}", color = Brand.Coral) }
+                    acorns >= cost -> androidx.compose.material3.TextButton(onClick = { if (onBuy(t.id)) open = null }) { Text("Get it for ${t.price}", color = Brand.Moss) }
+                    else -> androidx.compose.material3.TextButton(onClick = { open = null }) { Text("${cost - acorns} more acorns to go", color = Brand.Muted) }
+                }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { open = null }) { Text("Close") } },
             containerColor = Brand.Card,
         )
+    }
+}
+
+/** One thing in the shop: its picture, name and price (a tick when it's in the camp). */
+@Composable
+private fun ShopTile(thing: app.tend.core.Thing, owned: Boolean, affordable: Boolean, modifier: Modifier, onTap: () -> Unit) = Column(
+    modifier.clip(RoundedCornerShape(16.dp)).background(if (owned) Brand.Picked else Brand.Sage).tappable(onClick = onTap).padding(vertical = 8.dp, horizontal = 4.dp),
+    horizontalAlignment = Alignment.CenterHorizontally,
+) {
+    Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.size(48.dp)) { drawThingIcon(thing.id) }
+    }
+    Text(thing.name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    Row(Modifier.padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (owned) Text("In camp", style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = Brand.Moss)
+        else {
+            Text("${thing.price}", style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), color = if (affordable) Brand.Moss else Brand.Muted)
+            Spacer(Modifier.width(3.dp))
+            AcornIcon(12.dp)
+        }
     }
 }
 

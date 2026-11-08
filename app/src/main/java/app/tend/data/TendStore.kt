@@ -263,7 +263,14 @@ class TendStore(private val context: Context) {
                 addAcorns(retired.sumOf { app.tend.core.Things.retired.getValue(it) }, "sold", refreshWidgets = false)
                 return kept
             }
-            return app.tend.core.Clearing.parse(saved)
+            val now = app.tend.core.Clearing.parse(saved)
+            // Things with their own spot, placed elsewhere before: moved there when it's free.
+            val moved = now.entries.fold(now) { acc, (spot, id) ->
+                val home = app.tend.core.Things.byId(id)?.spot
+                if (home != null && home != spot && acc[home] == null) acc - spot + (home to id) else acc
+            }
+            if (moved != now) prefs.edit().putString("placed", app.tend.core.Clearing.format(moved)).apply()
+            return moved
         }
         set(v) = edit { putString("placed", app.tend.core.Clearing.format(v)) }
 

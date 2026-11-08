@@ -158,20 +158,31 @@ fun DrawScope.drawClearing(
     }, Brush.verticalGradient(listOf(Haze2, Color(0xFF6E9466)), startY = horizon, endY = h * 0.6f))
     // Pebbles along our bank.
     shore(w, h)
+    // Across the bridge, a trail leads off into the forest, towards friends' camps.
+    if (bridge) farTrail(w, h)
 
-    // Trees around the clearing, back ones first.
-    pine(Offset(w * 0.035f, h * 0.6f), h * 0.44f)
-    pine(Offset(w * 0.105f, h * 0.575f), h * 0.36f)
-    pine(Offset(w * 0.2f, h * 0.55f), h * 0.28f)
-    pine(Offset(w * 0.44f, h * 0.6f), h * 0.42f)
-    birch(Offset(w * 0.62f, h * 0.58f), h * 0.36f)
-    pine(Offset(w * 0.69f, h * 0.57f), h * 0.34f)
-    birch(Offset(w * 0.88f, h * 0.73f), h * 0.5f)
-    broadleaf(Offset(w * 0.975f, h * 0.76f), h * 0.56f)
-
-    // Bushes at the feet of the trees.
-    for ((x, y, r) in listOf(Triple(0.395f, 0.605f, 0.024f), Triple(0.655f, 0.585f, 0.02f), Triple(0.855f, 0.635f, 0.024f), Triple(0.94f, 0.665f, 0.028f)))
-        bush(Offset(w * x, h * y), h * r)
+    // Trees and bushes around the clearing, drawn back to front (by where they stand), so a bush
+    // in front of a trunk covers it and one behind is covered.
+    val greenery: List<Pair<Float, () -> Unit>> = listOf(
+        h * 0.6f to { pine(Offset(w * 0.035f, h * 0.6f), h * 0.44f) },
+        h * 0.575f to { pine(Offset(w * 0.105f, h * 0.575f), h * 0.36f) },
+        h * 0.55f to { pine(Offset(w * 0.2f, h * 0.55f), h * 0.28f) },
+        h * 0.575f to { roundTree(Offset(w * 0.505f, h * 0.575f), h * 0.2f, seed = 1) },
+        h * 0.6f to { pine(Offset(w * 0.335f, h * 0.6f), h * 0.25f) },
+        // The swing's tree: a strong branch reaches out to the left, over the swing's spot.
+        h * 0.6f to { roundTree(Offset(w * 0.44f, h * 0.6f), h * 0.42f, seed = 5, branch = SpotPositions.getValue(6).x * w) },
+        h * 0.578f to { roundTree(Offset(w * 0.6f, h * 0.578f), h * 0.3f, seed = 2) },
+        h * 0.57f to { pine(Offset(w * 0.69f, h * 0.57f), h * 0.34f) },
+        h * 0.583f to { roundTree(Offset(w * 0.76f, h * 0.583f), h * 0.26f, seed = 3) },
+        h * 0.725f to { roundTree(Offset(w * 0.875f, h * 0.725f), h * 0.46f, seed = 4) },
+        h * 0.76f to { broadleaf(Offset(w * 0.975f, h * 0.76f), h * 0.56f) },
+        // Bushes on open ground, beside the trunks rather than on them.
+        h * 0.605f to { bush(Offset(w * 0.385f, h * 0.605f), h * 0.022f) },
+        h * 0.59f to { bush(Offset(w * 0.655f, h * 0.59f), h * 0.02f) },
+        h * 0.66f to { bush(Offset(w * 0.825f, h * 0.66f), h * 0.022f) },
+        h * 0.78f to { bush(Offset(w * 0.935f, h * 0.78f), h * 0.026f) },
+    )
+    greenery.sortedBy { it.first }.forEach { it.second() }
 
     // The bridge built together with friends, over the narrow part of the river.
     if (bridge) bridge(Offset(w * 0.13f, h * 0.578f), Offset(w * 0.35f, h * 0.62f), u, night, lights)
@@ -341,18 +352,53 @@ private fun DrawScope.pine(base: Offset, height: Float) {
     }
 }
 
-private fun DrawScope.birch(base: Offset, height: Float) {
-    val trunkW = height * 0.03f
-    drawRect(Color(0xFFEFEBE2), Offset(base.x - trunkW / 2, base.y - height), Size(trunkW, height))
-    val rnd = java.util.Random((base.x * 31).toLong())
-    repeat(9) {
-        val y = base.y - height * rnd.nextFloat() * 0.95f
-        drawRect(Color(0xFF3C3A35), Offset(base.x - trunkW / 2, y), Size(trunkW * (0.3f + 0.5f * rnd.nextFloat()), height * 0.008f))
+/**
+ * A leafy tree with a rounded crown: a tapering trunk that forks, and clumps of leaves in three
+ * tones, lit from the upper left, with a soft shadow under the crown. [seed] varies the clumps.
+ */
+private fun DrawScope.roundTree(base: Offset, height: Float, seed: Int, branch: Float? = null) {
+    val rnd = java.util.Random(seed * 31L)
+    val trunkW = height * 0.07f
+    val forkY = base.y - height * 0.45f
+    drawPath(Path().apply {
+        moveTo(base.x - trunkW, base.y)
+        quadraticTo(base.x - trunkW * 0.5f, base.y - height * 0.25f, base.x - trunkW * 0.35f, forkY)
+        lineTo(base.x - trunkW * 1.4f, forkY - height * 0.16f); lineTo(base.x - trunkW * 0.9f, forkY - height * 0.17f)
+        lineTo(base.x, forkY - height * 0.05f)
+        lineTo(base.x + trunkW * 1.1f, forkY - height * 0.18f); lineTo(base.x + trunkW * 1.5f, forkY - height * 0.15f)
+        lineTo(base.x + trunkW * 0.35f, forkY)
+        quadraticTo(base.x + trunkW * 0.5f, base.y - height * 0.25f, base.x + trunkW, base.y); close()
+    }, Bark)
+    // The shaded side of the trunk.
+    drawPath(Path().apply { moveTo(base.x + trunkW * 0.2f, base.y); quadraticTo(base.x + trunkW * 0.3f, base.y - height * 0.25f, base.x + trunkW * 0.3f, forkY); lineTo(base.x + trunkW * 0.35f, forkY); quadraticTo(base.x + trunkW * 0.5f, base.y - height * 0.25f, base.x + trunkW, base.y); close() }, BarkDark.copy(alpha = 0.5f))
+    // A strong side branch out to [branch] (x), level enough for a swing to hang from.
+    branch?.let { bx ->
+        val y0 = base.y - height * 0.38f
+        val end = Offset(bx - height * 0.03f, y0 + height * 0.005f)
+        drawPath(Path().apply {
+            moveTo(base.x, y0 - trunkW * 0.5f)
+            quadraticTo((base.x + end.x) / 2, y0 - height * 0.03f, end.x, end.y - trunkW * 0.25f)
+            lineTo(end.x, end.y + trunkW * 0.25f)
+            quadraticTo((base.x + end.x) / 2, y0 - height * 0.005f, base.x, y0 + trunkW * 0.6f); close()
+        }, Bark)
+        drawCircle(LeafMid, height * 0.06f, end + Offset(-height * 0.02f, -height * 0.03f))
+        drawCircle(LeafLit, height * 0.035f, end + Offset(-height * 0.03f, -height * 0.05f))
     }
-    for ((dx, dy, r) in listOf(Triple(-0.06f, 0.9f, 0.1f), Triple(0.05f, 0.95f, 0.11f), Triple(0f, 1.02f, 0.1f), Triple(-0.02f, 0.82f, 0.08f)))
-        drawCircle(if (dy > 0.9f) LeafMid else LeafDark, height * r, Offset(base.x + height * dx, base.y - height * dy))
-    drawCircle(LeafLit.copy(alpha = 0.5f), height * 0.06f, Offset(base.x - height * 0.06f, base.y - height * 0.97f))
+    val c = Offset(base.x, base.y - height * 0.7f)
+    val r = height * 0.3f
+    // Clumps: dark ones low and to the right, then the middle, then the lit tops on the left.
+    val clumps = (0 until 7).map { k ->
+        val a = (k / 7f) * 6.283f + rnd.nextFloat() * 0.6f
+        Offset(c.x + kotlin.math.cos(a) * r * 0.62f, c.y + kotlin.math.sin(a) * r * 0.5f) to r * (0.5f + 0.18f * rnd.nextFloat())
+    }
+    drawOval(Color.Black.copy(alpha = 0.1f), Offset(c.x - r * 1.1f, c.y + r * 0.35f), Size(r * 2.2f, r * 0.55f))
+    clumps.forEach { (p, cr) -> drawCircle(LeafDark, cr, p + Offset(r * 0.08f, r * 0.1f)) }
+    drawCircle(LeafMid, r * 0.78f, c)
+    clumps.filter { it.first.y < c.y + r * 0.15f }.forEach { (p, cr) -> drawCircle(LeafMid, cr * 0.9f, p) }
+    clumps.filter { it.first.y < c.y && it.first.x < c.x + r * 0.2f }.forEach { (p, cr) -> drawCircle(LeafLit, cr * 0.55f, p + Offset(-cr * 0.2f, -cr * 0.25f)) }
+    drawCircle(LeafLit.copy(alpha = 0.6f), r * 0.32f, c + Offset(-r * 0.35f, -r * 0.4f))
 }
+
 
 private class Blob(val dx: Float, val dy: Float, val r: Float, val color: Color)
 
@@ -373,6 +419,32 @@ const val VISITOR_SCALE = 1.4f
 
 // ---- Built together ----
 
+/** On the far bank: a dirt trail from the bridge up into the trees, and a little signpost. */
+private fun DrawScope.farTrail(w: Float, h: Float) {
+    // From the bridge's far end, left along the bank and up between the two pines into the forest.
+    drawPath(Path().apply {
+        moveTo(w * 0.115f, h * 0.592f)
+        cubicTo(w * 0.09f, h * 0.585f, w * 0.075f, h * 0.57f, w * 0.068f, h * 0.548f)
+        quadraticTo(w * 0.064f, h * 0.53f, w * 0.066f, h * 0.515f)
+        lineTo(w * 0.078f, h * 0.515f)
+        quadraticTo(w * 0.08f, h * 0.535f, w * 0.088f, h * 0.55f)
+        cubicTo(w * 0.1f, h * 0.568f, w * 0.12f, h * 0.574f, w * 0.14f, h * 0.578f)
+        close()
+    }, Brush.verticalGradient(listOf(Dirt.copy(alpha = 0.35f), Dirt), startY = h * 0.515f, endY = h * 0.59f))
+    // A few stones along its edge.
+    for ((x, y) in listOf(0.1f to 0.582f, 0.085f to 0.566f, 0.074f to 0.548f)) drawOval(Stone, Offset(w * x - h * 0.004f, h * y - h * 0.002f), Size(h * 0.008f, h * 0.005f))
+    // The signpost at the bridge's end, pointing up the trail.
+    val post = Offset(w * 0.112f, h * 0.588f)
+    drawLine(BarkDark, post, post + Offset(0f, -h * 0.055f), strokeWidth = h * 0.005f, cap = StrokeCap.Round)
+    val b = post + Offset(0f, -h * 0.05f)
+    drawPath(Path().apply {
+        moveTo(b.x + h * 0.016f, b.y - h * 0.008f); lineTo(b.x - h * 0.014f, b.y - h * 0.008f); lineTo(b.x - h * 0.023f, b.y)
+        lineTo(b.x - h * 0.014f, b.y + h * 0.008f); lineTo(b.x + h * 0.016f, b.y + h * 0.008f); close()
+    }, WoodLight)
+    drawLine(Wood, b + Offset(-h * 0.01f, 0f), b + Offset(h * 0.01f, 0f), strokeWidth = h * 0.0025f)
+}
+
+
 /** A wooden footbridge arching from [a] (the far bank) to [b] (ours), with posts, rails and a lantern. */
 private fun DrawScope.bridge(a: Offset, b: Offset, u: Float, night: Boolean, lights: MutableList<Light>) {
     val rise = u * 0.06f
@@ -385,7 +457,7 @@ private fun DrawScope.bridge(a: Offset, b: Offset, u: Float, night: Boolean, lig
     val pts = (0..n).map { deck(it / n.toFloat()) }
     fun curve(dy: Float) = Path().apply { moveTo(pts[0].x, pts[0].y + dy); pts.drop(1).forEach { lineTo(it.x, it.y + dy) } }
     // Its reflection, faint in the water below.
-    drawPath(Path().apply { pts.take(n * 7 / 10).forEachIndexed { i, p -> if (i == 0) moveTo(p.x, p.y + rise * 2f) else lineTo(p.x, p.y + rise * 2f) } }, Color.Black.copy(alpha = 0.08f), style = Stroke(u * 0.018f, cap = StrokeCap.Round))
+    drawPath(Path().apply { pts.take(n * 7 / 10).forEachIndexed { i, p -> if (i == 0) moveTo(p.x, p.y + rise * 2f) else lineTo(p.x, p.y + rise * 2f) } }, Color.Black.copy(alpha = 0.04f), style = Stroke(u * 0.014f, cap = StrokeCap.Round))
     // Stone feet on each bank.
     for (p in listOf(a, b)) drawOval(Color(0xFF8E8A80), Offset(p.x - u * 0.025f, p.y - u * 0.008f), Size(u * 0.05f, u * 0.022f))
     // The deck: a dark underside, then the planks.
@@ -786,11 +858,11 @@ fun DrawScope.drawThing(id: String, p: Offset, u: Float, lights: MutableList<Lig
             lights += Light(win + Offset(cw * 0.13f, ch * 0.17f), u * 0.08f, 0.8f)
         }
         "swing" -> {
-            val bough = p + Offset(u * 0.01f, -u * 0.2f)
-            drawLine(BarkDark, bough + Offset(-u * 0.07f, u * 0.01f), bough + Offset(u * 0.02f, 0f), strokeWidth = u * 0.008f, cap = StrokeCap.Round)
-            drawLine(Color(0xFFD8C7A6), bough + Offset(-u * 0.055f, 0f), p + Offset(-u * 0.028f, -u * 0.04f), strokeWidth = u * 0.0025f)
-            drawLine(Color(0xFFD8C7A6), bough + Offset(-u * 0.01f, 0f), p + Offset(u * 0.012f, -u * 0.04f), strokeWidth = u * 0.0025f)
-            drawRoundRect(Wood, p + Offset(-u * 0.034f, -u * 0.044f), Size(u * 0.052f, u * 0.009f), CornerRadius(u * 0.003f))
+            // Hangs from the branch of the tree beside it (see the scene: 0.38 of a 0.42-high tree at 0.6).
+            val top = p.y - (p.y - (u * 0.6f - u * 0.42f * 0.38f)).coerceAtLeast(u * 0.12f)
+            drawLine(Color(0xFFD8C7A6), Offset(p.x - u * 0.026f, top), p + Offset(-u * 0.026f, -u * 0.04f), strokeWidth = u * 0.0025f)
+            drawLine(Color(0xFFD8C7A6), Offset(p.x + u * 0.014f, top), p + Offset(u * 0.014f, -u * 0.04f), strokeWidth = u * 0.0025f)
+            drawRoundRect(Wood, p + Offset(-u * 0.034f, -u * 0.044f), Size(u * 0.056f, u * 0.009f), CornerRadius(u * 0.003f))
         }
         "hammock" -> {
             val a = p + Offset(-u * 0.065f, -u * 0.085f) // the birch
@@ -873,7 +945,7 @@ private fun thingSize(id: String): Pair<Float, Float> = when (id) {
     "bell_tent" -> 0.2f to 0.18f
     "tent" -> 0.17f to 0.12f
     "treehouse" -> 0.14f to 0.32f
-    "swing" -> 0.1f to 0.21f
+    "swing" -> 0.07f to 0.13f
     "hammock" -> 0.15f to 0.1f
     "canoe" -> 0.21f to 0.05f
     "dock" -> 0.2f to 0.07f

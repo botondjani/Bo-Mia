@@ -340,14 +340,13 @@ fun DrawScope.drawUse(
         }
         "swing" -> {
             // The swing goes back and forth with the companion on the seat.
-            val bough = p + Offset(u * 0.01f, -u * 0.2f)
-            drawLine(BarkDark, bough + Offset(-u * 0.07f, u * 0.01f), bough + Offset(u * 0.02f, 0f), strokeWidth = u * 0.008f, cap = StrokeCap.Round)
+            // From the branch of the tree beside it (as the swing is drawn in the scene).
+            val pivot = Offset(p.x - u * 0.006f, u * 0.6f - u * 0.42f * 0.38f)
             val angle = sin(t * 2.6f) * 24f
-            val pivot = bough + Offset(-u * 0.03f, 0f)
             rotate(angle, pivot) {
-                val seat = pivot + Offset(0f, u * 0.16f)
-                drawLine(Rope, pivot + Offset(-u * 0.022f, 0f), seat + Offset(-u * 0.022f, 0f), strokeWidth = u * 0.0025f)
-                drawLine(Rope, pivot + Offset(u * 0.022f, 0f), seat + Offset(u * 0.022f, 0f), strokeWidth = u * 0.0025f)
+                val seat = pivot + Offset(0f, p.y - u * 0.04f - pivot.y)
+                drawLine(Rope, pivot + Offset(-u * 0.02f, 0f), seat + Offset(-u * 0.02f, 0f), strokeWidth = u * 0.0025f)
+                drawLine(Rope, pivot + Offset(u * 0.02f, 0f), seat + Offset(u * 0.02f, 0f), strokeWidth = u * 0.0025f)
                 actor(avatar, mood, worn, seat + Offset(0f, u * 0.006f), u * 0.11f, bounce = -0.3f)
                 drawRoundRect(Wood, seat + Offset(-u * 0.028f, 0f), Size(u * 0.056f, u * 0.009f), CornerRadius(u * 0.003f))
             }

@@ -11,7 +11,8 @@ enum class SpotKind { FIRE, SEAT, SHELTER, TREES, WATER, ABOVE, SMALL }
 /** A spot in the clearing; [id] is stable (it's what's saved). */
 data class Spot(val id: Int, val kind: SpotKind)
 
-data class Thing(val id: String, val name: String, val price: Int, val kind: SpotKind)
+/** [spot]: the one spot this thing always goes to (the hammock between two trees, the swing under the branch). */
+data class Thing(val id: String, val name: String, val price: Int, val kind: SpotKind, val spot: Int? = null)
 
 object Things {
     val all: List<Thing> = listOf(
@@ -35,9 +36,9 @@ object Things {
         Thing("bell_tent", "Canvas tent", 300, SpotKind.SHELTER),
         Thing("cabin", "Cabin", 700, SpotKind.SHELTER),
         // In the trees.
-        Thing("swing", "Swing", 70, SpotKind.TREES),
-        Thing("hammock", "Hammock", 90, SpotKind.TREES),
-        Thing("treehouse", "Treehouse", 300, SpotKind.TREES),
+        Thing("swing", "Swing", 70, SpotKind.TREES, spot = 6),
+        Thing("hammock", "Hammock", 90, SpotKind.TREES, spot = 5),
+        Thing("treehouse", "Treehouse", 300, SpotKind.TREES, spot = 6),
         // On the river.
         Thing("canoe", "Canoe", 200, SpotKind.WATER),
         Thing("dock", "Dock", 400, SpotKind.WATER),
@@ -77,6 +78,7 @@ object Clearing {
      */
     fun spotFor(placed: Map<Int, String>, thing: Thing): Int? {
         if (thing.id in placed.values) return null
+        thing.spot?.let { return it }
         val ofKind = spots.filter { it.kind == thing.kind }
         ofKind.firstOrNull { it.id !in placed }?.let { return it.id }
         return ofKind.minByOrNull { Things.byId(placed.getValue(it.id))?.price ?: 0 }?.id
