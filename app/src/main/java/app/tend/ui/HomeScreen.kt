@@ -91,6 +91,9 @@ fun HomeScreen(
     onStep: (app.tend.core.Step) -> Unit = {},
     /** Bumped when 'Do one activity' is tapped: the list comes into view with a glow. */
     focusActivities: Int = 0,
+    /** "Good night" was pressed and it's not 7:00 yet. */
+    sleeping: Boolean = false,
+    onWakeUp: () -> Unit = {},
     onOpenRecap: () -> Unit,
     /** Show the one-time widget tip; called with true when it was handled. */
     showNextSteps: Boolean = false,
@@ -193,7 +196,9 @@ fun HomeScreen(
             brokenTimer.icon, "The phone came back a little early",
             "${brokenTimer.title} needs ${brokenTimer.target} phone-free minutes. Tap to try again later.", onDismissBroken,
         )
-        if (isEvening) {
+        // After "Good night": the paused apps rest until morning, with a way back.
+        if (sleeping) Notice("moon", "Good night: your apps rest until 7:00", "Up again? Tap to wake them", onWakeUp)
+        else if (isEvening) {
             val seen = app.tend.data.TendStore(context).recapSeenOn == day.date.toString()
             Notice("moon", if (seen) "Tonight's recap" else "Tonight's recap is ready", if (seen) "See it again" else "See what today gave back", onOpenRecap)
         }

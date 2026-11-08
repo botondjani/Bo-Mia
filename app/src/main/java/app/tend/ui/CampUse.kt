@@ -191,8 +191,10 @@ private fun DrawScope.heart(at: Offset, s: Float, alpha: Float) {
 }
 
 private fun DrawScope.zee(at: Offset, s: Float, alpha: Float) {
-    val c = Ink.copy(alpha = alpha * 0.8f)
-    drawPath(Path().apply { moveTo(at.x - s / 2, at.y - s / 2); lineTo(at.x + s / 2, at.y - s / 2); lineTo(at.x - s / 2, at.y + s / 2); lineTo(at.x + s / 2, at.y + s / 2) }, c, style = Stroke(s * 0.18f, cap = StrokeCap.Round))
+    // Light letters with a dark edge: they read on a sunny meadow and in the night.
+    val path = Path().apply { moveTo(at.x - s / 2, at.y - s / 2); lineTo(at.x + s / 2, at.y - s / 2); lineTo(at.x - s / 2, at.y + s / 2); lineTo(at.x + s / 2, at.y + s / 2) }
+    drawPath(path, Ink.copy(alpha = alpha * 0.5f), style = Stroke(s * 0.32f, cap = StrokeCap.Round))
+    drawPath(path, Color(0xFFFFF6DA).copy(alpha = alpha), style = Stroke(s * 0.16f, cap = StrokeCap.Round))
 }
 
 private fun DrawScope.guitarHeld(center: Offset, s: Float, strum: Float) = rotate(-58f, center) {

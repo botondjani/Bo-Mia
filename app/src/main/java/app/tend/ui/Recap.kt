@@ -1,6 +1,7 @@
 package app.tend.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -172,45 +173,32 @@ fun RecapScreen(
 }
 
 /**
- * After "Good night": the companion falls asleep under the night sky, then the app goes back home.
- * A tap anywhere ends it sooner.
+ * After "Good night": the camp at night, the companion asleep in the shelter (or by the fire), and
+ * what it means: the paused apps rest until 7:00, and an early night's acorns. A tap ends it.
  */
 @Composable
-fun SleepScreen(avatar: Avatar, onDone: () -> Unit) {
-    androidx.compose.runtime.LaunchedEffect(Unit) { kotlinx.coroutines.delay(4500); onDone() }
+fun SleepScreen(avatar: Avatar, placed: Map<Int, String>, worn: Set<Accessory>, earned: Int, onDone: () -> Unit) {
+    androidx.compose.runtime.LaunchedEffect(Unit) { kotlinx.coroutines.delay(7000); onDone() }
     val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "night")
-    val twinkle by t.animateFloat(
-        0.3f, 1f, androidx.compose.animation.core.infiniteRepeatable(tween(1400), androidx.compose.animation.core.RepeatMode.Reverse), label = "twinkle",
-    )
-    Box(
-        Modifier.fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFF1C2B47), Color(0xFF2B4A4A))))
-            .clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, onClick = onDone),
-        contentAlignment = Alignment.Center,
+    val clock by t.animateFloat(0f, 30f, androidx.compose.animation.core.infiniteRepeatable(tween(30_000, easing = androidx.compose.animation.core.LinearEasing)), label = "clock")
+    val shelter = app.tend.core.Clearing.spots.filter { it.kind == app.tend.core.SpotKind.SHELTER }.firstOrNull { placed[it.id] != null }
+    Column(
+        Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF1C2B47), Color(0xFF2B4A4A))))
+            .clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, onClick = onDone)
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Canvas(Modifier.fillMaxSize()) {
-            for ((i, xy) in listOf(0.12f to 0.1f, 0.3f to 0.2f, 0.55f to 0.08f, 0.78f to 0.16f, 0.9f to 0.3f, 0.2f to 0.35f, 0.66f to 0.3f, 0.42f to 0.42f).withIndex()) {
-                val a = if (i % 2 == 0) twinkle else 1.3f - twinkle
-                drawCircle(Color.White.copy(alpha = a.coerceIn(0.2f, 1f)), size.minDimension * 0.006f, Offset(size.width * xy.first, size.height * xy.second))
-            }
+        Canvas(Modifier.fillMaxWidth().aspectRatio(1.3f).clip(RoundedCornerShape(28.dp))) {
+            // In the shelter: they've gone in, Zs drift out of the roof. No shelter: asleep by the fire.
+            val use = shelter?.let { InUse(it.id, placed.getValue(it.id), 2f + clock) }
+            drawClearing(avatar, placed, Mood.SLEEPING, worn, night = true, use = use)
         }
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Box {
-                CharacterView(avatar, Mood.SLEEPING, 200.dp)
-                // Soft z's drifting up, light enough for the night sky.
-                for ((i, size) in listOf(22, 17, 13).withIndex()) {
-                    val p = (twinkle + i * 0.33f) % 1f
-                    Text(
-                        "z", style = MaterialTheme.typography.titleLarge.copy(fontSize = size.sp), color = Color(0xFFF3EBC8),
-                        modifier = Modifier.align(Alignment.TopEnd).graphicsLayer {
-                            translationX = (8 + i * 14).dp.toPx(); translationY = (10 - i * 22 - p * 12).dp.toPx(); alpha = 1f - p * 0.6f
-                        },
-                    )
-                }
-            }
-            Text("Good night", style = MaterialTheme.typography.headlineMedium, color = Color(0xFFF3EBC8))
-            Text("See you tomorrow.", style = MaterialTheme.typography.bodyLarge, color = Color(0xFFF3EBC8).copy(alpha = 0.7f))
-        }
+        Text("Good night", style = MaterialTheme.typography.headlineMedium, color = Color(0xFFF3EBC8))
+        Text(
+            "Your paused apps rest until 7:00. Only \"Not now\" until then." + if (earned > 0) "\n+$earned acorns for an early night." else "",
+            style = MaterialTheme.typography.bodyLarge, color = Color(0xFFF3EBC8).copy(alpha = 0.8f), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
     }
 }
 

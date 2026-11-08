@@ -39,7 +39,6 @@ import app.tend.core.Patterns
 import app.tend.core.Recap
 import app.tend.reminder.RecapReminder
 import app.tend.reminder.WeeklyLetter
-import app.tend.ui.WeekSections
 import java.time.LocalDate
 import app.tend.core.TaskDef
 import app.tend.ui.RecapScreen
@@ -356,6 +355,7 @@ class MainActivity : ComponentActivity() {
         // A first step tapped: open the camp (the shop), or with the invite open.
         var campInvite by rememberSaveable { mutableStateOf(false) }
         var activitiesFocus by remember { mutableIntStateOf(0) }
+        var goodNightAcorns by remember { mutableIntStateOf(0) }
         val goToStep: (app.tend.core.Step) -> Unit = { step ->
             when (step) {
                 app.tend.core.Step.ACTIVITY -> { screen = Screen.HOME; activitiesFocus++ }
@@ -509,7 +509,7 @@ class MainActivity : ComponentActivity() {
                 onDone = { screen = Screen.HOME },
             )
 
-            p == "SLEEP" -> app.tend.ui.SleepScreen(store.avatar) { screen = Screen.HOME }
+            p == "SLEEP" -> app.tend.ui.SleepScreen(store.avatar, store.placed, shelf.first, goodNightAcorns) { screen = Screen.HOME }
 
             p == "RECAP" -> {
                 LaunchedEffect(Unit) { store.recapSeenOn = LocalDate.now().toString() }
@@ -520,7 +520,7 @@ class MainActivity : ComponentActivity() {
                     worn = shelf.first,
                     reminderHour = store.eveningFrom.takeIf { !store.reminderPrompted },
                     onReminder = ::setReminder,
-                    onGoodNight = { screen = Screen.SLEEP; maybeAskReview() },
+                    onGoodNight = { goodNightAcorns = store.goodNight(); screen = Screen.SLEEP; maybeAskReview() },
                     onShare = ::shareCamp,
                 )
             }
@@ -561,13 +561,7 @@ class MainActivity : ComponentActivity() {
                 mood = app.tend.core.Moods.atNight(app.tend.core.Moods.of(store.config, store.today()), app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour)),
                 openInvite = campInvite,
                 onStep = goToStep,
-            ) {
-                WeekSections(
-                    store.avatar,
-                    Patterns.week(LocalDate.now(), store.daySummaries(), store.answers()),
-                    appLabel = { pkg -> runCatching { packageManager.getApplicationInfo(pkg, 0).loadLabel(packageManager).toString() }.getOrDefault(pkg) },
-                )
-            }
+            )
 
             p == "RIVER" -> app.tend.ui.RiverScreen(
                 me = app.tend.data.Friends.me(this),
@@ -644,6 +638,8 @@ class MainActivity : ComponentActivity() {
                 steps = remember(refresh) { firstSteps() },
                 onStep = goToStep,
                 focusActivities = activitiesFocus,
+                sleeping = now < store.sleepUntil,
+                onWakeUp = { store.wakeUp(); refresh++ },
                 camp = {
                     val night = app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour)
                     val mood = app.tend.core.Moods.atNight(app.tend.core.Moods.of(store.config, store.today()), night)

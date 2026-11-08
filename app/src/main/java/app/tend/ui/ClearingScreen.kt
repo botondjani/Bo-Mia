@@ -92,7 +92,6 @@ fun ClearingScreen(
     ducks: List<app.tend.data.Friends.Note> = emptyList(),
     onUnroll: () -> Unit = {},
     onCatchDuck: (app.tend.data.Friends.Note) -> Int = { 0 },
-    week: @Composable ColumnScope.() -> Unit,
 ) {
     val scroll = rememberScrollState()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -233,7 +232,6 @@ fun ClearingScreen(
         else -> {
             Guestbook(guestbook)
             Things(avatar, worn, onShelf)
-            week()
         }
     }
 }

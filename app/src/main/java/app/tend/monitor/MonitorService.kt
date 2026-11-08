@@ -172,6 +172,7 @@ class MonitorService : Service() {
     }
 
     private fun scheduledLock() = app.tend.core.LockSchedule.activeOf(store.lockSchedules)
+        ?: app.tend.core.LockSchedule.GOOD_NIGHT.takeIf { System.currentTimeMillis() < store.sleepUntil }
 
     private fun intercept(pkg: String, now: Long, timeUp: Boolean = false) {
         if (!android.provider.Settings.canDrawOverlays(this)) return nudge(pkg)
@@ -248,13 +249,15 @@ class MonitorService : Service() {
         sessionPkg = null
         sessionEnds = Long.MAX_VALUE
         awaySince = 0
-        if (askWorthIt && seconds >= WORTH_IT_MIN_SECONDS) {
+        // Asked rarely: after a long stretch only, and at most twice a day.
+        if (askWorthIt && seconds >= WORTH_IT_MIN_SECONDS && store.worthItAskedToday() < WORTH_IT_PER_DAY) {
             // A moment later, so the closing swipes and back presses don't land on the question;
             // skipped if a paused app is open again by then.
             handler.postDelayed({
                 // Only on the home screen or in a real other app, never over a screen inside the app.
                 val fg = foreground
                 if (sessionPkg == null && fg !in store.blockedPackages && fg !in helpers && fg != packageName) {
+                    store.markWorthItAsked()
                     startActivity(WorthItActivity.intent(this, pkg, seconds))
                 }
             }, WORTH_IT_DELAY_MS)
@@ -297,7 +300,8 @@ class MonitorService : Service() {
             "com.google.android.packageinstaller", "com.google.android.documentsui", "com.android.documentsui",
         )
         private const val DONE_CHANNEL = "done"
-        const val WORTH_IT_MIN_SECONDS = 30
+        const val WORTH_IT_MIN_SECONDS = 5 * 60
+        const val WORTH_IT_PER_DAY = 2
 
         fun start(context: Context) {
             context.startForegroundService(Intent(context, MonitorService::class.java))

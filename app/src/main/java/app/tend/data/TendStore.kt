@@ -213,6 +213,39 @@ class TendStore(private val context: Context) {
         get() = prefs.getInt("rest_spot", -1).takeIf { it >= 0 }
         set(v) { prefs.edit().putInt("rest_spot", v ?: -1).apply() }
 
+    /** How many times "Worth it?" was asked today. */
+    fun worthItAskedToday(): Int = if (prefs.getString("worth_asked_day", "") == LocalDate.now().toString()) prefs.getInt("worth_asked", 0) else 0
+
+    fun markWorthItAsked() {
+        prefs.edit().putString("worth_asked_day", LocalDate.now().toString()).putInt("worth_asked", worthItAskedToday() + 1).apply()
+    }
+
+    /** "Good night" pressed: the paused apps rest until this time (epoch ms); 0 when not. */
+    var sleepUntil: Long
+        get() = prefs.getLong("sleep_until", 0)
+        set(v) { prefs.edit().putLong("sleep_until", v).apply() }
+
+    /**
+     * Good night: the paused apps rest until 7:00, the companion goes to bed in the camp, and an
+     * early night (before 23:00, once a night) is worth a few acorns. Returns the acorns given.
+     */
+    fun goodNight(now: java.time.LocalDateTime = java.time.LocalDateTime.now()): Int {
+        val wake = (if (now.hour < 7) now.toLocalDate() else now.toLocalDate().plusDays(1)).atTime(7, 0)
+        sleepUntil = wake.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        // To bed: the shelter, if there's one.
+        app.tend.core.Clearing.spots.filter { it.kind == app.tend.core.SpotKind.SHELTER }.firstOrNull { placed[it.id] != null }?.let { restSpot = it.id }
+        val night = (if (now.hour < 7) now.toLocalDate().minusDays(1) else now.toLocalDate()).toString()
+        if (now.hour in 18..22 && prefs.getString("early_night", "") != night) {
+            prefs.edit().putString("early_night", night).apply()
+            addAcorns(EARLY_NIGHT_ACORNS, "early_night")
+            return EARLY_NIGHT_ACORNS
+        }
+        return 0
+    }
+
+    /** Woken up before 7:00: the apps are back. */
+    fun wakeUp() { sleepUntil = 0 }
+
     /** Rubber ducks fished out of the river: one for each friend's visit. */
     var ducksCaught: Int
         get() = prefs.getInt("ducks_caught", 0)
@@ -583,6 +616,7 @@ class TendStore(private val context: Context) {
     }
 
     companion object {
+        const val EARLY_NIGHT_ACORNS = 5
         private const val PASS_VALID_MS = 15_000L
         const val QUICK_LOOKS_PER_DAY = 5
 
