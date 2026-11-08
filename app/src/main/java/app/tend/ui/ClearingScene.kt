@@ -107,6 +107,8 @@ fun DrawScope.drawClearing(
     visitor: app.tend.core.Visitor? = null,
     /** The spot the companion stays at, after using what's there. */
     rest: Int? = null,
+    /** Seconds since the camp came into view at night: walking to bed, then asleep (static pictures: long asleep). */
+    nightClock: Float = 100f,
 ) {
     val w = size.width
     val h = size.height
@@ -196,13 +198,16 @@ fun DrawScope.drawClearing(
 
     // Everything standing in the clearing, back to front, the companion among them (or using something).
     // Walking over first (from where they stay), then using it there.
+    // At night they go to bed: walk to the shelter (if there is one) and sleep inside.
+    val bed = if (night && use == null) bedOf(placed) else null
+    val act = use ?: bed?.let { InUse(it, placed.getValue(it), nightClock, if (rest == it) 0f else Uses.WALK) }
     val restAt = restPoint(rest, placed)
-    val target = use?.let { useAnchor(it.arrived(), placed) }
-    val walking = use?.walking == true
+    val target = act?.let { useAnchor(it.arrived(), placed) }
+    val walking = act?.walking == true
     val anchor = when {
         target == null -> restAt
         walking -> {
-            val k = (use!!.t / use.walk).let { it * it * (3 - 2 * it) }
+            val k = (act!!.t / act.walk).let { it * it * (3 - 2 * it) }
             Offset(restAt.x + (target.x - restAt.x) * k, restAt.y + (target.y - restAt.y) * k)
         }
         else -> target
@@ -210,13 +215,14 @@ fun DrawScope.drawClearing(
     var companionDrawn = false
     val cs = u * 0.17f * depthScale(anchor.y / h)
     fun drawActor(glows: MutableList<Light>) {
-        if (use != null && walking) { drawWalker(avatar, mood, worn, anchor, use.t, target!!.x >= restAt.x); return }
-        if (use != null) { drawUse(use.arrived(), avatar, mood, worn, placed, anchor, glows, lastStrum); return }
+        if (act != null && walking) { drawWalker(avatar, mood, worn, anchor, act.t, target!!.x >= restAt.x); return }
+        if (act != null) { drawUse(act.arrived(), avatar, mood, worn, placed, anchor, glows, lastStrum); return }
         shadow(anchor, cs * 0.5f, u)
         drawIntoCanvas {
             it.nativeCanvas.save()
             it.nativeCanvas.translate(anchor.x - cs / 2, anchor.y - cs * 0.95f)
-            CharacterPainter.draw(it.nativeCanvas, avatar, mood, cs, accessories = worn)
+            // At night with no shelter: asleep where they stand.
+            CharacterPainter.draw(it.nativeCanvas, avatar, if (night) Mood.SLEEPING else mood, cs, accessories = worn)
             it.nativeCanvas.restore()
         }
     }
@@ -226,7 +232,7 @@ fun DrawScope.drawClearing(
         if (!companionDrawn && p.y > anchor.y) { drawActor(lights); companionDrawn = true }
         if (spot.kind == SpotKind.FIRE) firePitStones(p, u)
         val thing = placed[spot.id]
-        if (thing != null && !(use?.spot == spot.id && !walking && thing in Uses.redrawn)) {
+        if (thing != null && !(act?.spot == spot.id && !walking && thing in Uses.redrawn)) {
             if (spot.id != 7) shadow(p, u * thingWidth(thing) * 0.5f, u)
             drawThing(thing, p, u, lights)
         }

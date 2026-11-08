@@ -658,9 +658,14 @@ class MainActivity : ComponentActivity() {
                             if ((frame - start) / 1e9f > app.tend.ui.Uses.WALK + app.tend.ui.Uses.seconds(r)) { reaction = null; store.restSpot = null; break }
                         }
                     }
+                    val nightClock = app.tend.ui.rememberNightClock(night)
+                    LaunchedEffect(nightClock > app.tend.ui.Uses.WALK + 2f) {
+                        val bed = app.tend.ui.bedOf(store.placed)
+                        if (night && nightClock > app.tend.ui.Uses.WALK + 2f && bed != null && store.restSpot != bed) store.restSpot = bed
+                    }
                     val use = reaction?.takeIf { start >= 0 }?.let { app.tend.ui.InUse(-1, it, (frame - start) / 1e9f, if (store.restSpot != null) app.tend.ui.Uses.WALK else 0f) }
                     androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-                        drawClearing(store.avatar, store.placed, mood, shelf.first, night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor, rest = store.restSpot)
+                        drawClearing(store.avatar, store.placed, mood, shelf.first, night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor, rest = store.restSpot, nightClock = nightClock)
                     }
                 },
                 onOpenRecap = { screen = Screen.RECAP },

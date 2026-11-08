@@ -16,6 +16,8 @@ import app.tend.core.Avatar
 import app.tend.core.Mood
 import kotlin.math.PI
 import kotlin.math.sin
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 /** The companion using a thing in the camp: which spot, which thing, and [t] seconds since it started. */
 data class InUse(val spot: Int, val thing: String, val t: Float, val walk: Float = 0f) {
@@ -454,4 +456,23 @@ private fun DrawScope.acornBurst(from: Offset, k: Float, u: Float) {
         drawOval(Color(0xFFB9783F), Offset(at.x - r * 0.8f, at.y - r * 0.6f), Size(r * 1.6f, r * 1.7f))
         drawArc(Color(0xFF6B4A2B), 180f, 180f, true, Offset(at.x - r, at.y - r * 1.1f), Size(r * 2f, r * 1.1f))
     }
+}
+
+/** The shelter the companion sleeps in at night (the first one in the camp), or null. */
+fun bedOf(placed: Map<Int, String>): Int? =
+    app.tend.core.Clearing.spots.filter { it.kind == app.tend.core.SpotKind.SHELTER }.firstOrNull { placed[it.id] != null }?.id
+
+/**
+ * Seconds since the camp came into view at night, counting while it's shown (for walking to bed
+ * and the Zs); 100 by day, as if long asleep.
+ */
+@androidx.compose.runtime.Composable
+fun rememberNightClock(night: Boolean): Float {
+    var t by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(100f) }
+    androidx.compose.runtime.LaunchedEffect(night) {
+        if (!night) { t = 100f; return@LaunchedEffect }
+        var start = -1L
+        while (true) androidx.compose.runtime.withFrameNanos { now -> if (start < 0) start = now; t = (now - start) / 1e9f }
+    }
+    return t
 }

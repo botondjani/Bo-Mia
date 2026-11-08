@@ -138,6 +138,12 @@ fun ClearingScreen(
         }
     }
     val placedNow by androidx.compose.runtime.rememberUpdatedState(placed)
+    val nightClock = rememberNightClock(night)
+    // Once in bed, they stay there: next time it doesn't walk again.
+    androidx.compose.runtime.LaunchedEffect(nightClock > Uses.WALK + 2f) {
+        val bed = bedOf(placed)
+        if (night && nightClock > Uses.WALK + 2f && bed != null && rest != bed) onRest(bed)
+    }
     val visitorNow by androidx.compose.runtime.rememberUpdatedState(visitor)
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { Sounds.stop() } }
 
@@ -195,7 +201,7 @@ fun ClearingScreen(
                 val use = using?.takeIf { useStart >= 0 }?.let { (spot, thing) -> InUse(spot, thing, (frame - useStart) / 1e9f, walk) }
                 drawClearing(
                     avatar, placed, mood, worn = worn, night = night, paper = paperLeft, ducks = ducks.size, bridge = bridge,
-                    use = use, lastStrum = (frame - strumAt) / 1e9f - walk, visitor = visitor, rest = rest,
+                    use = use, lastStrum = (frame - strumAt) / 1e9f - walk, visitor = visitor, rest = rest, nightClock = nightClock,
                 )
             }
         }
