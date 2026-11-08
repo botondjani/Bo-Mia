@@ -18,7 +18,12 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 /** The companion using a thing in the camp: which spot, which thing, and [t] seconds since it started. */
-data class InUse(val spot: Int, val thing: String, val t: Float)
+data class InUse(val spot: Int, val thing: String, val t: Float, val walk: Float = 0f) {
+    /** Walking over to the thing: the first [walk] seconds. */
+    val walking: Boolean get() = t < walk
+    /** The use itself, its clock starting once there. */
+    fun arrived() = copy(t = (t - walk).coerceAtLeast(0f), walk = 0f)
+}
 
 /** What the companion does with each thing: a line to show, and how long it lasts. */
 object Uses {
@@ -58,6 +63,9 @@ object Uses {
         else -> "act_cheer"
     }
 
+    /** Seconds to walk over to a thing before using it. */
+    const val WALK = 1.2f
+
     fun seconds(thing: String): Float = when (thing) {
         "act_read", "act_run", "act_walk", "act_stretch", "act_hearts", "act_tidy", "act_cheer" -> 8f
         "guitar" -> 12f
@@ -79,7 +87,35 @@ private val Toasted = Color(0xFFC98A4B)
 private val GlowWarm = Color(0xFFFFD27A)
 
 /** How big the companion is at [y] (a fraction of the scene): smaller farther back. */
-private fun depthScale(y: Float) = (0.55f + (y - 0.6f) * 1.6f).coerceIn(0.5f, 1f)
+internal fun depthScale(y: Float) = (0.55f + (y - 0.6f) * 1.6f).coerceIn(0.5f, 1f)
+
+/**
+ * Where the companion stays after using the thing at [spot]: standing beside it, on the shore
+ * for the river, at the land end of the dock. Null spot, or nothing there: the usual place.
+ */
+fun DrawScope.restPoint(spot: Int?, placed: Map<Int, String>): Offset {
+    val w = size.width
+    val h = size.height
+    val u = h
+    val home = Offset(w * 0.395f, h * 0.86f)
+    if (spot == null || placed[spot] == null) return home
+    val p = SpotPositions.getValue(spot).let { Offset(it.x * w, it.y * h) }
+    return when (spot) {
+        7 -> Offset(w * 0.33f, h * 0.8f) // the river: on our bank
+        8 -> p + Offset(u * 0.13f, -u * 0.01f) // the dock: where it meets the shore
+        9 -> home // the lights overhead
+        0 -> p + Offset(-u * 0.15f, u * 0.03f) // the fire: a step away from the flames
+        else -> p + Offset(-u * (if (SpotPositions.getValue(spot).y < 0.7f) 0.07f else 0.09f), u * 0.012f)
+    }
+}
+
+/** The companion walking across the camp: bobbing, leaning into each step, facing the way they go. */
+fun DrawScope.drawWalker(avatar: Avatar, mood: Mood, worn: Set<Accessory>, at: Offset, t: Float, toRight: Boolean) {
+    val s = size.height * 0.17f * depthScale(at.y / size.height)
+    shadowAt(at, s * 0.42f)
+    val step = kotlin.math.abs(sin(t * 11f))
+    actor(avatar, mood, worn, at + Offset(0f, -step * s * 0.07f), s, rotation = if (toRight) 5f else -5f, look = if (toRight) 1f else -1f, bounce = step * 0.5f)
+}
 
 /** Where the companion stands for [use], as a fraction-free point in the scene. */
 fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>): Offset {

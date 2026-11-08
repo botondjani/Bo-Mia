@@ -80,6 +80,9 @@ fun ClearingScreen(
     steps: List<app.tend.core.StepState> = emptyList(),
     onClaimStep: (app.tend.core.Step) -> Unit = {},
     onUsed: () -> Unit = {},
+    /** Where the companion stays (the spot of the last thing used), and to save a new one. */
+    rest: Int? = null,
+    onRest: (Int?) -> Unit = {},
     mood: app.tend.core.Mood = app.tend.core.Mood.HAPPY,
     openInvite: Boolean = false,
     onStep: (app.tend.core.Step) -> Unit = {},
@@ -120,6 +123,8 @@ fun ClearingScreen(
     var caught by remember { mutableStateOf<String?>(null) }
     // The companion using a thing: which spot and thing, and the frame clock that moves it.
     var using by remember { mutableStateOf<Pair<Int, String>?>(null) }
+    var walk by remember { mutableStateOf(0f) }
+    val restNow by androidx.compose.runtime.rememberUpdatedState(rest)
     var useStart by remember { androidx.compose.runtime.mutableLongStateOf(-1L) }
     var frame by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
     var strumAt by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
@@ -129,7 +134,8 @@ fun ClearingScreen(
         useStart = -1L
         while (true) {
             androidx.compose.runtime.withFrameNanos { frame = it; if (useStart < 0) { useStart = it; strumAt = it } }
-            if ((frame - useStart) / 1e9f > Uses.seconds(u.second)) { using = null; break }
+            // Done: they stay there.
+            if ((frame - useStart) / 1e9f > walk + Uses.seconds(u.second)) { using = null; onRest(u.first); break }
         }
     }
     val placedNow by androidx.compose.runtime.rememberUpdatedState(placed)
@@ -176,16 +182,21 @@ fun ClearingScreen(
                         val hit = spotAt(Offset(fx, fy), size.width / size.height.toFloat())
                         val thing = hit?.let { placedNow[it] }
                         if (thing != null) {
-                            if (using?.second == thing && thing == "guitar") { strumAt = frame; useStart = frame - 1_000_000_000L; Sounds.strum(context) }
-                            else { using = hit to thing; caught = null; Sounds.forUse(context, thing); onUsed() }
+                            if (using?.second == thing && thing == "guitar") { strumAt = frame; useStart = frame - ((walk + 1f) * 1e9f).toLong(); Sounds.strum(context) }
+                            else {
+                                // Walk over first, unless already there; the sound starts on arrival.
+                                using?.let { onRest(it.first) } // switching mid-use: from where they are now
+                                walk = if ((using?.first ?: restNow) == hit) 0f else Uses.WALK
+                                using = hit to thing; caught = null; Sounds.forUse(context, thing, (walk * 1000).toLong()); onUsed()
+                            }
                         } else if (using != null) { using = null; Sounds.stop() }
                     }
                 },
             ) {
-                val use = using?.takeIf { useStart >= 0 }?.let { (spot, thing) -> InUse(spot, thing, (frame - useStart) / 1e9f) }
+                val use = using?.takeIf { useStart >= 0 }?.let { (spot, thing) -> InUse(spot, thing, (frame - useStart) / 1e9f, walk) }
                 drawClearing(
                     avatar, placed, mood, worn = worn, night = night, paper = paperLeft, ducks = ducks.size, bridge = bridge,
-                    use = use, lastStrum = (frame - strumAt) / 1e9f, visitor = visitor,
+                    use = use, lastStrum = (frame - strumAt) / 1e9f - walk, visitor = visitor, rest = rest,
                 )
             }
         }

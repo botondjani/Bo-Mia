@@ -547,6 +547,8 @@ class MainActivity : ComponentActivity() {
                 steps = remember(refresh) { firstSteps() },
                 onClaimStep = { store.claimStep(it); refresh++ },
                 onUsed = { if (!store.usedThing) { store.usedThing = true; refresh++ } },
+                rest = store.restSpot,
+                onRest = { store.restSpot = it; refresh++ },
                 visitor = remember(refresh) { store.visitorWaiting() },
                 guestbook = remember(refresh) { store.guestbook },
                 onGreet = { store.greetVisitor().also { refresh++ } },
@@ -656,12 +658,13 @@ class MainActivity : ComponentActivity() {
                         start = -1L
                         while (true) {
                             androidx.compose.runtime.withFrameNanos { frame = it; if (start < 0) start = it }
-                            if ((frame - start) / 1e9f > app.tend.ui.Uses.seconds(r)) { reaction = null; break }
+                            // Acted out where they usually stand; they stay there.
+                            if ((frame - start) / 1e9f > app.tend.ui.Uses.WALK + app.tend.ui.Uses.seconds(r)) { reaction = null; store.restSpot = null; break }
                         }
                     }
-                    val use = reaction?.takeIf { start >= 0 }?.let { app.tend.ui.InUse(-1, it, (frame - start) / 1e9f) }
+                    val use = reaction?.takeIf { start >= 0 }?.let { app.tend.ui.InUse(-1, it, (frame - start) / 1e9f, if (store.restSpot != null) app.tend.ui.Uses.WALK else 0f) }
                     androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-                        drawClearing(store.avatar, store.placed, mood, shelf.first, night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor)
+                        drawClearing(store.avatar, store.placed, mood, shelf.first, night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor, rest = store.restSpot)
                     }
                 },
                 onOpenRecap = { screen = Screen.RECAP },

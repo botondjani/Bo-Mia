@@ -208,6 +208,11 @@ class TendStore(private val context: Context) {
         return v
     }
 
+    /** Where the companion stays in the camp: the spot of the last thing used (null: the usual place). */
+    var restSpot: Int?
+        get() = prefs.getInt("rest_spot", -1).takeIf { it >= 0 }
+        set(v) { prefs.edit().putInt("rest_spot", v ?: -1).apply() }
+
     /** Rubber ducks fished out of the river: one for each friend's visit. */
     var ducksCaught: Int
         get() = prefs.getInt("ducks_caught", 0)

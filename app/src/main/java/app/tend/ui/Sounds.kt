@@ -28,8 +28,9 @@ object Sounds {
     }
 
     /** The sound for the companion using [thing], as long as the use lasts. */
-    fun forUse(c: Context, thing: String) {
+    fun forUse(c: Context, thing: String, delayMs: Long = 0) {
         if (!enabled(c)) return
+        if (delayMs > 0) worker.execute { Thread.sleep(delayMs) }
         val secs = Uses.seconds(thing)
         when (thing) {
             "guitar" -> play("song", true) { song(secs) }
@@ -159,7 +160,12 @@ object Sounds {
             val at = rnd.nextInt(out.size)
             val len = (RATE * (0.004f + rnd.nextFloat() * 0.02f)).toInt()
             val amp = 0.15f + rnd.nextFloat() * 0.45f
-            for (k in 0 until len) if (at + k < out.size) out[at + k] += (rnd.nextFloat() * 2 - 1) * amp * exp(-k / (len / 4f))
+            // Each pop is a short burst, softened (low-passed) so it crackles rather than hisses.
+            var lp = 0f
+            for (k in 0 until len) if (at + k < out.size) {
+                lp += ((rnd.nextFloat() * 2 - 1) - lp) * 0.35f
+                out[at + k] += lp * amp * 1.6f * exp(-k / (len / 4f))
+            }
         }
         return toPcm(out, 1.3f)
     }
@@ -198,8 +204,8 @@ object Sounds {
         val rnd = java.util.Random(5)
         var lp = 0f
         for (i in out.indices) {
-            lp += ((rnd.nextFloat() * 2 - 1) - lp) * 0.08f
-            out[i] = lp * level * (0.7f + 0.3f * sin(i / RATE.toFloat() * 1.3f))
+            lp += ((rnd.nextFloat() * 2 - 1) - lp) * 0.05f
+            out[i] = lp * level * 1.3f * (0.7f + 0.3f * sin(i / RATE.toFloat() * 1.3f))
         }
         return toPcm(out, 1.5f)
     }
@@ -211,8 +217,8 @@ object Sounds {
         var lp = 0f
         for (k in 0 until (RATE * 0.5f).toInt()) {
             if (start + k >= out.size) break
-            lp += ((rnd.nextFloat() * 2 - 1) - lp) * 0.3f
-            out[start + k] = lp * exp(-k / (RATE * 0.12f)) * 1.2f
+            lp += ((rnd.nextFloat() * 2 - 1) - lp) * 0.12f
+            out[start + k] = lp * exp(-k / (RATE * 0.12f)) * 2.2f
         }
         return toPcm(out)
     }

@@ -105,6 +105,8 @@ fun DrawScope.drawClearing(
     use: InUse? = null,
     lastStrum: Float = 9f,
     visitor: app.tend.core.Visitor? = null,
+    /** The spot the companion stays at, after using what's there. */
+    rest: Int? = null,
 ) {
     val w = size.width
     val h = size.height
@@ -182,11 +184,23 @@ fun DrawScope.drawClearing(
     drawOval(Dirt.copy(alpha = 0.55f), Offset(pit.x - u * 0.2f, pit.y - u * 0.06f), Size(u * 0.4f, u * 0.13f))
 
     // Everything standing in the clearing, back to front, the companion among them (or using something).
-    val anchor = use?.let { useAnchor(it, placed) } ?: Offset(w * 0.395f, h * 0.86f)
+    // Walking over first (from where they stay), then using it there.
+    val restAt = restPoint(rest, placed)
+    val target = use?.let { useAnchor(it.arrived(), placed) }
+    val walking = use?.walking == true
+    val anchor = when {
+        target == null -> restAt
+        walking -> {
+            val k = (use!!.t / use.walk).let { it * it * (3 - 2 * it) }
+            Offset(restAt.x + (target.x - restAt.x) * k, restAt.y + (target.y - restAt.y) * k)
+        }
+        else -> target
+    }
     var companionDrawn = false
-    val cs = u * 0.17f
+    val cs = u * 0.17f * depthScale(anchor.y / h)
     fun drawActor(glows: MutableList<Light>) {
-        if (use != null) { drawUse(use, avatar, mood, worn, placed, anchor, glows, lastStrum); return }
+        if (use != null && walking) { drawWalker(avatar, mood, worn, anchor, use.t, target!!.x >= restAt.x); return }
+        if (use != null) { drawUse(use.arrived(), avatar, mood, worn, placed, anchor, glows, lastStrum); return }
         shadow(anchor, cs * 0.5f, u)
         drawIntoCanvas {
             it.nativeCanvas.save()
@@ -201,7 +215,7 @@ fun DrawScope.drawClearing(
         if (!companionDrawn && p.y > anchor.y) { drawActor(lights); companionDrawn = true }
         if (spot.kind == SpotKind.FIRE) firePitStones(p, u)
         val thing = placed[spot.id]
-        if (thing != null && !(use?.spot == spot.id && thing in Uses.redrawn)) {
+        if (thing != null && !(use?.spot == spot.id && !walking && thing in Uses.redrawn)) {
             if (spot.id != 7) shadow(p, u * thingWidth(thing) * 0.5f, u)
             drawThing(thing, p, u, lights)
         }
