@@ -107,7 +107,7 @@ class InterstitialActivity : ComponentActivity() {
         val locked = Budget.isLocked(cfg, day)
         val evening = Budget.isEvening(if (store.eveningPause) store.eveningFrom else -1, java.time.LocalTime.now().hour)
         val delaySeconds = Budget.openDelaySeconds(cfg, day, evening)
-        val scheduled = app.tend.core.LockSchedule.activeOf(store.lockSchedules)
+        val scheduled = store.activeLock()
         // A scheduled lock isn't an open: it doesn't make the next pause longer.
         if (savedInstanceState == null && !locked && scheduled == null) day = store.update { it.copy(opensToday = it.opensToday + 1) }
         view = View(
@@ -264,11 +264,26 @@ class InterstitialActivity : ComponentActivity() {
         val instead = insteadSuggestion(v.evening)
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Header(v)
-            Text("You can change ${lock.label.lowercase()} in tend's settings.", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                if (lock == app.tend.core.LockSchedule.GOOD_NIGHT) "You said good night: your apps rest until 7:00."
+                else "You can change ${lock.label.lowercase()} in tend's settings.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
         }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp)) {
             if (instead != null) PrimaryButton(instead.first, { decide("instead"); instead.second() })
             SecondaryButton("Not now", ::notNow)
+            // Good night is a promise to yourself, not a cage: a way out when something really can't wait.
+            if (lock == app.tend.core.LockSchedule.GOOD_NIGHT) Text(
+                "I need it now: wake the apps", style = MaterialTheme.typography.labelLarge, color = Brand.Muted, textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
+                    decide("woke")
+                    store.wakeUp()
+                    store.grantPass(pkgName, 5)
+                    packageManager.getLaunchIntentForPackage(pkgName)?.let { startActivity(it) }
+                    finish()
+                }.padding(vertical = 10.dp),
+            )
         }
     }
 

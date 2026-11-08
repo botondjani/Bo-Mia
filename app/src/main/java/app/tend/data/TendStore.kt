@@ -254,6 +254,10 @@ class TendStore(private val context: Context) {
         return 0
     }
 
+    /** The lock in force now: a bedtime or work-hours schedule, or "Good night" until 7:00. */
+    fun activeLock(): LockSchedule? =
+        LockSchedule.activeOf(lockSchedules) ?: LockSchedule.GOOD_NIGHT.takeIf { System.currentTimeMillis() < sleepUntil }
+
     /** Woken up before 7:00: the apps are back. */
     fun wakeUp() { sleepUntil = 0 }
 

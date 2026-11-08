@@ -171,8 +171,7 @@ class MonitorService : Service() {
         }
     }
 
-    private fun scheduledLock() = app.tend.core.LockSchedule.activeOf(store.lockSchedules)
-        ?: app.tend.core.LockSchedule.GOOD_NIGHT.takeIf { System.currentTimeMillis() < store.sleepUntil }
+    private fun scheduledLock() = store.activeLock()
 
     private fun intercept(pkg: String, now: Long, timeUp: Boolean = false) {
         if (!android.provider.Settings.canDrawOverlays(this)) return nudge(pkg)
