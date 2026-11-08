@@ -50,4 +50,15 @@ class PatternsTest {
         assertEquals(listOf("insta", "yt"), p.byApp.map { it.first })
         assertEquals(mapOf("Just bored" to 2), p.lookingFor)
     }
+
+    @Test fun `the week has seven days with today last, gaps kept, averaged against the week before`() {
+        fun d(ago: Long, used: Int) = DaySummary(today.minusDays(ago), used, 0, 0)
+        val v = WeekOverview.of(listOf(d(13, 100), d(8, 80), d(5, 60), d(1, 40), d(0, 20)), today)
+        assertEquals(7, v.days.size)
+        assertEquals(today, v.days.last()!!.date)
+        assertNull(v.days[0])
+        assertEquals(50, v.average)
+        assertEquals(90, v.before)
+        assertNull(WeekOverview.of(emptyList(), today).average)
+    }
 }

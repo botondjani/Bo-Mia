@@ -709,6 +709,7 @@ class MainActivity : ComponentActivity() {
                 level = progress.level,
                 skills = progress.skills,
                 challenge = progress.challenge,
+                history = progress.days,
                 levelUp = progress.level.level.takeIf { it > store.levelSeen && store.tourDone },
                 onLevelUpSeen = {
                     store.addAcorns(app.tend.core.Acorns.LEVEL_UP * (progress.level.level - store.levelSeen).coerceAtLeast(0), "level")
@@ -727,7 +728,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch { app.tend.data.Account.saveProfile(this@MainActivity) }
     }
 
-    private class HomeProgress(val level: app.tend.core.Level, val skills: Map<app.tend.core.Skill, app.tend.core.Level>, val challenge: app.tend.core.Challenge)
+    private class HomeProgress(val level: app.tend.core.Level, val skills: Map<app.tend.core.Skill, app.tend.core.Level>, val challenge: app.tend.core.Challenge, val days: List<app.tend.core.DaySummary>)
 
     /** XP from all activities, the week's challenge (banked once when finished), and the levels. */
     /** The first steps: what's done (from what's in the store and on the home screen) and what's claimed. */
@@ -779,6 +780,7 @@ class MainActivity : ComponentActivity() {
             app.tend.core.Progress.level(total),
             skillXp.mapValues { app.tend.core.Progress.level(it.value) },
             challenge,
+            days,
         )
     }
 

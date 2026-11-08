@@ -95,3 +95,19 @@ object Patterns {
         return null
     }
 }
+
+/**
+ * The last 7 days (oldest first, today last; null where nothing was logged), and the average use
+ * of the 6 closed days against the 7 before (today is still going, so it isn't averaged).
+ */
+data class WeekView(val days: List<DaySummary?>, val average: Int?, val before: Int?)
+
+object WeekOverview {
+    fun of(days: List<DaySummary>, today: LocalDate): WeekView {
+        val by = days.associateBy { it.date }
+        fun span(from: Int, to: Int) = (from downTo to).map { by[today.minusDays(it.toLong())] }
+        fun avg(list: List<DaySummary?>) = list.filterNotNull().takeIf { it.isNotEmpty() }?.let { l -> l.sumOf { it.usedMinutes } / l.size }
+        val week = span(6, 0)
+        return WeekView(week, avg(week.dropLast(1)), avg(span(13, 7)))
+    }
+}

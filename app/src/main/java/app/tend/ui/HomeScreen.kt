@@ -82,6 +82,8 @@ fun HomeScreen(
     level: app.tend.core.Level? = null,
     skills: Map<app.tend.core.Skill, app.tend.core.Level> = emptyMap(),
     challenge: app.tend.core.Challenge? = null,
+    /** Logged days, for the week's chart (today is drawn live from [day]). */
+    history: List<app.tend.core.DaySummary> = emptyList(),
     /** A new level to celebrate, once. */
     levelUp: Int? = null,
     onLevelUpSeen: () -> Unit = {},
@@ -308,6 +310,9 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) { done.forEach { DoneRow(it, day, onUndo) } }
         }
+        val today = app.tend.core.DaySummary(day.date, Budget.usedMinutes(day), remaining.coerceAtLeast(0), day.completedTasks.size)
+        val week = app.tend.core.WeekOverview.of(history.filter { it.date != day.date } + today, day.date)
+        if (week.days.count { it != null } >= 2) Box(Modifier.padding(bottom = Space.xl)) { WeekCard(week) }
     }
     }
 }
