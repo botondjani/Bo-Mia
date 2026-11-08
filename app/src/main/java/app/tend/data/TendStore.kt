@@ -298,20 +298,9 @@ class TendStore(private val context: Context) {
 
     /** Where movable things were put (spot to scene fractions); others stand at their usual place. */
     val layout: Map<Int, Pair<Float, Float>>
-        get() {
-            val now = placed
-            return prefs.getString("layout", "")!!.split(',').mapNotNull { part ->
-                val p = part.split(':').takeIf { it.size == 3 } ?: return@mapNotNull null
-                val spot = p[0].toIntOrNull() ?: return@mapNotNull null
-                val thing = now[spot]?.let(app.tend.core.Things::byId)?.takeIf(app.tend.core.Clearing::movable) ?: return@mapNotNull null
-                val x = p[1].toFloatOrNull() ?: return@mapNotNull null
-                val y = p[2].toFloatOrNull() ?: return@mapNotNull null
-                spot to app.tend.core.Clearing.keepOnMeadow(thing.kind, x, y)
-            }.toMap()
-        }
+        get() = app.tend.core.Clearing.parseLayout(prefs.getString("layout", "")!!, placed)
 
-    private fun saveLayout(l: Map<Int, Pair<Float, Float>>) =
-        edit { putString("layout", l.entries.joinToString(",") { "${it.key}:%.4f:%.4f".format(java.util.Locale.ROOT, it.value.first, it.value.second) }) }
+    private fun saveLayout(l: Map<Int, Pair<Float, Float>>) = edit { putString("layout", app.tend.core.Clearing.formatLayout(l)) }
 
     /** Puts the movable thing at [spot] at (x, y) on the meadow (kept to where it may stand); false when it can't move. */
     fun place(spot: Int, x: Float, y: Float): Boolean {

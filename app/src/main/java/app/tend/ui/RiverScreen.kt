@@ -133,7 +133,8 @@ fun RiverScreen(
 private fun Camp(f: Friends.Friend, title: String, worn: Set<Accessory>, night: Boolean, paper: Boolean = false, ducks: Int = 0) = Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
     val avatar = runCatching { app.tend.core.Avatar.valueOf(f.companion) }.getOrDefault(app.tend.core.Avatar.BO)
     Box(Modifier.fillMaxWidth().aspectRatio(1.6f).clip(RoundedCornerShape(26.dp))) {
-        Canvas(Modifier.fillMaxSize()) { drawClearing(avatar, f.placed, worn = worn, night = night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = f.bridge) }
+        Canvas(Modifier.fillMaxSize()) { drawClearing(avatar, f.placed, worn = worn, night = night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = f.bridge,
+            layout = f.layout.mapValues { androidx.compose.ui.geometry.Offset(it.value.first, it.value.second) }) }
     }
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) {
         Face(f.companion, 32)

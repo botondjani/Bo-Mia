@@ -57,6 +57,7 @@ class MonitorService : Service() {
     }
     /** Last background Health Connect read. */
     private var lastSync = 0L
+    private var lastInbox = 0L
     private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main) // store writes stay on the main thread, like the poll
     private var interceptedPkg: String? = null
     private var interceptedAt = 0L
@@ -98,6 +99,11 @@ class MonitorService : Service() {
         if (now - lastSync > SYNC_EVERY_MS) {
             lastSync = now
             scope.launch { backgroundSync() }
+        }
+        // Friends more often: a wave or a prank should reach the widget while it's still news.
+        if (now - lastInbox > INBOX_EVERY_MS) {
+            lastInbox = now
+            scope.launch { if (runCatching { app.tend.data.Friends.syncInbox(this@MonitorService) }.getOrDefault(false)) app.tend.widget.Widgets.refresh(this@MonitorService) }
         }
         getSharedPreferences("tend_monitor", MODE_PRIVATE).edit().putLong("heartbeat", now).apply()
 
@@ -229,8 +235,6 @@ class MonitorService : Service() {
      * with a note when one completes (and when it brings a new accessory).
      */
     private suspend fun backgroundSync() {
-        // A friend's wave, gift or prank shows on the widget without opening tend.
-        if (runCatching { app.tend.data.Friends.syncInbox(this) }.getOrDefault(false)) app.tend.widget.Widgets.refresh(this)
         if (!store.onboarded || store.selectedTasks.none { it.verification == app.tend.core.Verification.AUTOMATIC }) return
         val done = runCatching { app.tend.health.TaskSync.sync(this) }.getOrNull() ?: return
         if (done.tasks.isEmpty() || !app.tend.reminder.RecapReminder.canNotify(this)) return
@@ -299,6 +303,7 @@ class MonitorService : Service() {
         private const val GAP_LOG_SECONDS = 120
         private const val WORTH_IT_DELAY_MS = 1500L
         private const val SYNC_EVERY_MS = 15 * 60_000L
+        private const val INBOX_EVERY_MS = 5 * 60_000L
         private const val AWAY_CONFIRM_MS = 8_000L
         private const val HELPER_MAX_MS = 10 * 60_000L
         private val HELPER_PACKAGES = setOf(

@@ -86,4 +86,13 @@ class ClearingTest {
         // Somewhere fine: unchanged.
         assertEquals(0.5f to 0.9f, Clearing.keepOnMeadow(SpotKind.SMALL, 0.5f, 0.9f))
     }
+
+    @Test fun `a saved layout keeps only movable things, where they may stand`() {
+        val placed = mapOf(3 to "tent", 10 to "lantern", 0 to "campfire")
+        val l = Clearing.parseLayout("3:0.48:0.99,10:0.5:0.9,0:0.1:0.1,11:0.5:0.9,10x,3:NaN:1", placed)
+        assertEquals(setOf(3, 10), l.keys)
+        assertEquals(0.8f, l.getValue(3).second, 1e-4f) // a tent stays at the back
+        assertEquals(0.5f to 0.9f, l.getValue(10))
+        assertEquals(l, Clearing.parseLayout(Clearing.formatLayout(l), placed))
+    }
 }

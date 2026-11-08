@@ -13,6 +13,8 @@ object Friends {
     data class Friend(
         val id: String, val name: String, val companion: String, val level: Int, val placed: Map<Int, String>,
         val week: String = "", val weekCount: Int = 0, val bridge: Boolean = false,
+        /** Where they moved things in their camp (spot to scene fractions). */
+        val layout: Map<Int, Pair<Float, Float>> = emptyMap(),
     )
 
     /** The web page that opens tend on an invite (and sends people without tend to Google Play). */
@@ -54,10 +56,12 @@ object Friends {
         val a = JSONArray(body)
         (0 until a.length()).map { i ->
             val o = a.getJSONObject(i)
+            val placed = app.tend.core.Clearing.parse(o.optString("placed"))
             Friend(
                 o.optString("user_id"), o.optString("name").ifBlank { "A friend" }, o.optString("companion", "BO"),
-                o.optInt("level", 1), app.tend.core.Clearing.parse(o.optString("placed")),
+                o.optInt("level", 1), placed,
                 o.optString("week"), o.optInt("week_count"), o.optBoolean("bridge"),
+                app.tend.core.Clearing.parseLayout(o.optString("layout"), placed),
             )
         }
     }.getOrDefault(emptyList())
@@ -84,6 +88,7 @@ object Friends {
             "", Account.user(c)?.name?.ifBlank { null } ?: store.avatar.displayName, store.avatar.name,
             app.tend.core.Progress.level(store.totalXp()).level, store.placed,
             app.tend.core.Progress.weekKey(today), app.tend.core.Together.activities(today, store.daySummaries()), store.bridgeBuilt,
+            store.layout,
         )
     }
 
@@ -111,6 +116,9 @@ object Friends {
 
         /** For the widget's small label: "Anna: visited". */
         val short: String get() = when (this) { WAVE -> "waved"; VISIT -> "visited"; TP -> "toilet paper!" }
+
+        /** For the 1x1 widget's badge. */
+        val emoji: String get() = when (this) { WAVE -> "\uD83D\uDC4B"; VISIT -> "\uD83E\uDD86"; TP -> "\uD83E\uDDFB" }
 
         companion object { fun of(id: String) = entries.firstOrNull { it.id == id } }
     }

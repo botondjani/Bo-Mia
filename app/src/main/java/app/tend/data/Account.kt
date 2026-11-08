@@ -128,12 +128,12 @@ object Account {
     suspend fun saveProfile(c: Context) {
         val u = user(c) ?: return
         val me = Friends.me(c)
-        rpc(
-            c, "tend_save_profile",
-            JSONObject().put("p_name", u.name).put("p_companion", me.companion).put("p_level", me.level)
-                .put("p_placed", app.tend.core.Clearing.format(me.placed))
-                .put("p_week", me.week).put("p_week_count", me.weekCount).put("p_bridge", me.bridge),
-        )
+        val args = JSONObject().put("p_name", u.name).put("p_companion", me.companion).put("p_level", me.level)
+            .put("p_placed", app.tend.core.Clearing.format(me.placed))
+            .put("p_week", me.week).put("p_week_count", me.weekCount).put("p_bridge", me.bridge)
+        // With the camp's layout; a server without it yet gets the rest.
+        val saved = rpc(c, "tend_save_profile", JSONObject(args.toString()).put("p_layout", app.tend.core.Clearing.formatLayout(me.layout)))
+        if (saved?.ok != true) rpc(c, "tend_save_profile", args)
     }
 
     suspend fun signOut(c: Context) {

@@ -1108,6 +1108,32 @@ fun clearingBitmap(
     return image.asAndroidBitmap()
 }
 
+/**
+ * The 1x1 widget's badge for something from a friend: a white disc with a coral ring, holding the
+ * camp's own rubber duck for a visit, or an emoji ([emoji]) for the rest.
+ */
+fun noteBadge(sizePx: Int, duck: Boolean, emoji: String): android.graphics.Bitmap {
+    val image = androidx.compose.ui.graphics.ImageBitmap(sizePx, sizePx)
+    val d = sizePx.toFloat()
+    androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(
+        androidx.compose.ui.unit.Density(1f), androidx.compose.ui.unit.LayoutDirection.Ltr, androidx.compose.ui.graphics.Canvas(image), Size(d, d),
+    ) {
+        val c = Offset(d / 2, d / 2)
+        drawCircle(Color.Black.copy(alpha = 0.18f), d * 0.46f, c + Offset(0f, d * 0.03f))
+        drawCircle(Color.White, d * 0.45f, c)
+        drawCircle(Color(0xFFE07A5F), d * 0.43f, c, style = Stroke(d * 0.06f))
+        if (duck) {
+            val s = d * 0.26f
+            rubberDuck(Offset(c.x + s * 0.12f, c.y + s * 0.62f), s / 0.045f)
+        } else drawIntoCanvas {
+            val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { textSize = d * 0.5f; textAlign = android.graphics.Paint.Align.CENTER }
+            val m = paint.fontMetrics
+            it.nativeCanvas.drawText(emoji, c.x, c.y - (m.ascent + m.descent) / 2, paint)
+        }
+    }
+    return image.asAndroidBitmap()
+}
+
 /** Rough size of each thing (width, height) in scene heights, to fit it into an icon. */
 private fun thingSize(id: String): Pair<Float, Float> = when (id) {
     "cabin" -> 0.25f to 0.24f

@@ -121,6 +121,23 @@ object Clearing {
         return px.coerceIn(x0, x1) to py.coerceIn(y0, y1)
     }
 
+    /** Moved things as saved: "spot:x:y,…" (scene fractions). */
+    fun formatLayout(layout: Map<Int, Pair<Float, Float>>): String =
+        layout.entries.joinToString(",") { "${it.key}:%.4f:%.4f".format(java.util.Locale.ROOT, it.value.first, it.value.second) }
+
+    /**
+     * Moved things from [saved], for what's at each spot in [placed]: only movable things, each kept to
+     * where it may stand (so a friend's camp can't put a tent in the river).
+     */
+    fun parseLayout(saved: String, placed: Map<Int, String>): Map<Int, Pair<Float, Float>> = saved.split(',').mapNotNull { part ->
+        val p = part.split(':').takeIf { it.size == 3 } ?: return@mapNotNull null
+        val spot = p[0].toIntOrNull() ?: return@mapNotNull null
+        val thing = placed[spot]?.let(Things::byId)?.takeIf(::movable) ?: return@mapNotNull null
+        val x = p[1].toFloatOrNull()?.takeIf { it.isFinite() } ?: return@mapNotNull null
+        val y = p[2].toFloatOrNull()?.takeIf { it.isFinite() } ?: return@mapNotNull null
+        spot to keepOnMeadow(thing.kind, x, y)
+    }.toMap()
+
     /** Selling gives half back. */
     fun sellValue(thing: Thing): Int = thing.price / 2
 

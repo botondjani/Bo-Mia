@@ -61,7 +61,12 @@ object Widgets {
         lastShown = shown
 
         val worn = store.accessories().first
-        val open = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+        // Something from a friend: a tap goes straight to the camp, where it is (the paper, the duck, the wave).
+        val open = if (fresh != null) PendingIntent.getActivity(
+            context, 1,
+            Intent(context, MainActivity::class.java).putExtra(app.tend.reminder.RecapReminder.EXTRA_OPEN, app.tend.reminder.WeeklyLetter.OPEN_CLEARING),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        ) else PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val minutes = "${remaining.coerceAtLeast(0)}"
         val available = (cfg.freeMinutes + day.earnedMinutes).coerceAtLeast(1)
 
@@ -83,8 +88,11 @@ object Widgets {
             setTextColor(R.id.caption, if (night) NIGHT_MUTED else DAY_MUTED)
         })
         if (face.isNotEmpty()) manager.updateAppWidget(face, RemoteViews(context.packageName, R.layout.widget_face).apply {
-            setImageViewBitmap(R.id.face, CharacterPainter.bitmap(store.avatar, mood, 192, worn))
-            setContentDescription(R.id.face, Moods.status(store.avatar.displayName, mood))
+            // A friend did something: the companion lights up, and a badge says what.
+            setImageViewBitmap(R.id.face, CharacterPainter.bitmap(store.avatar, if (fresh != null) app.tend.core.Mood.HAPPY else mood, 192, worn))
+            setContentDescription(R.id.face, fresh?.let { it.kind.received(it.name) } ?: Moods.status(store.avatar.displayName, mood))
+            setViewVisibility(R.id.badge, if (fresh != null) android.view.View.VISIBLE else android.view.View.GONE)
+            fresh?.let { setImageViewBitmap(R.id.badge, app.tend.ui.noteBadge(96, it.kind == app.tend.data.Friends.Kind.VISIT, it.kind.emoji)) }
             setOnClickPendingIntent(R.id.root, open)
         })
         if (garden.isNotEmpty()) manager.updateAppWidget(garden, RemoteViews(context.packageName, R.layout.widget_garden).apply {
