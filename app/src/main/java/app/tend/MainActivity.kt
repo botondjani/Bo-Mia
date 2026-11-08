@@ -160,6 +160,7 @@ class MainActivity : ComponentActivity() {
                 store.avatar, store.placed, store.accessories().first,
                 gotBackMinutes = week.gotBackMinutes, activeDays = week.days.count { it.tasksDone > 0 }, letGo = week.letGo,
                 level = app.tend.core.Progress.level(store.totalXp()).level,
+                layout = campLayout(),
             ),
         )
     }
@@ -523,7 +524,7 @@ class MainActivity : ComponentActivity() {
                 onDone = { screen = Screen.HOME },
             )
 
-            p == "SLEEP" -> app.tend.ui.SleepScreen(store.avatar, store.placed, shelf.first, goodNightAcorns) { screen = Screen.HOME }
+            p == "SLEEP" -> app.tend.ui.SleepScreen(store.avatar, store.placed, shelf.first, goodNightAcorns, campLayout()) { screen = Screen.HOME }
 
             p == "RECAP" -> {
                 LaunchedEffect(Unit) { store.recapSeenOn = LocalDate.now().toString() }
@@ -554,7 +555,8 @@ class MainActivity : ComponentActivity() {
                 night = app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour),
                 onBuy = { thing -> store.buy(thing).also { if (it) { app.tend.data.Stats.log(this, "bought", mapOf("thing" to thing)); saveProfile(); refresh++ } } },
                 onSell = { thing -> store.sell(thing); saveProfile(); refresh++ },
-                onMove = { from, to -> store.move(from, to).also { if (it) { saveProfile(); refresh++ } } },
+                layout = campLayout(),
+                onPlace = { spot, at -> if (store.place(spot, at.x, at.y)) { saveProfile(); refresh++ } },
                 onOpenSettings = { screen = Screen.SETTINGS },
                 onOpenRiver = { id -> riverFocus = id; screen = Screen.RIVER },
                 paper = app.tend.data.Friends.paperOnMe(this).isNotEmpty(),
@@ -681,7 +683,7 @@ class MainActivity : ComponentActivity() {
                     }
                     val use = reaction?.takeIf { start >= 0 }?.let { app.tend.ui.InUse(-1, it, (frame - start) / 1e9f, if (it == "campfire") app.tend.ui.Uses.WALK else 0f) }
                     androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-                        drawClearing(store.avatar, store.placed, mood, shelf.first, night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor, rest = store.restSpot, nightClock = nightClock, appear = appear)
+                        drawClearing(store.avatar, store.placed, mood, shelf.first, night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor, rest = store.restSpot, nightClock = nightClock, appear = appear, layout = campLayout())
                     }
                 },
                 onOpenRecap = { screen = Screen.RECAP },
@@ -728,6 +730,9 @@ class MainActivity : ComponentActivity() {
         }
         }
     }
+
+    /** Where the user put things in the camp, for drawing it. */
+    private fun campLayout() = store.layout.mapValues { androidx.compose.ui.geometry.Offset(it.value.first, it.value.second) }
 
     /** Name, companion and level on the server, when signed in (friends will see them). */
     private fun saveProfile() {

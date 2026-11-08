@@ -87,18 +87,38 @@ object Clearing {
         return ofKind.minByOrNull { Things.byId(placed.getValue(it.id))?.price ?: 0 }?.id
     }
 
-    /** The spots the thing at [from] can be moved to: others of its kind; none for things with their own spot. */
-    fun movesFrom(placed: Map<Int, String>, from: Int): List<Int> {
-        val thing = placed[from]?.let(Things::byId) ?: return emptyList()
-        if (thing.spot != null) return emptyList()
-        return spots.filter { it.kind == thing.kind && it.id != from && placed[it.id]?.let(Things::byId)?.spot == null }.map { it.id }
-    }
+    /** Things that can stand anywhere on the meadow: small things, seats and shelters. The fire, trees, river and overhead keep their place. */
+    fun movable(thing: Thing): Boolean = thing.spot == null && thing.kind in setOf(SpotKind.SMALL, SpotKind.SEAT, SpotKind.SHELTER)
 
-    /** Moves the thing at [from] to [to], swapping with what stands there; null when it can't. */
-    fun move(placed: Map<Int, String>, from: Int, to: Int): Map<Int, String>? {
-        if (to !in movesFrom(placed, from)) return null
-        val there = placed[to]
-        return (placed - from - to) + (to to placed.getValue(from)) + (if (there != null) mapOf(from to there) else emptyMap())
+    /**
+     * Where a thing of [kind] may stand, nearest to (x, y) (scene fractions; [ratio] is the scene's width
+     * over its height): on the meadow, off the fire pit and the tree trunks. Shelters stay towards the back.
+     */
+    fun keepOnMeadow(kind: SpotKind, x: Float, y: Float, ratio: Float = 1.8f): Pair<Float, Float> {
+        val (x0, x1, y0, y1) = when (kind) {
+            SpotKind.SHELTER -> listOf(0.46f, 0.93f, 0.6f, 0.8f)
+            SpotKind.SEAT -> listOf(0.43f, 0.95f, 0.68f, 0.94f)
+            else -> listOf(0.41f, 0.97f, 0.64f, 0.965f)
+        }
+        var px = x.coerceIn(x0, x1)
+        var py = y.coerceIn(y0, y1)
+        // Bigger things keep farther off: half widths in scene heights, turned into fractions.
+        val pad = when (kind) { SpotKind.SHELTER -> 0.09f; SpotKind.SEAT -> 0.04f; else -> 0.015f }
+        // Centred a little below the pit: things stand up from their feet, so one just in front would cover the stones.
+        for ((cx, cy, r) in listOf(Triple(0.625f, 0.805f, 0.13f), Triple(0.875f, 0.725f, 0.035f), Triple(0.975f, 0.76f, 0.035f))) {
+            val rx = (r + pad) / ratio
+            val ry = (r + pad) * 0.42f
+            val dx = (px - cx) / rx
+            val dy = (py - cy) / ry
+            val d = kotlin.math.sqrt(dx * dx + dy * dy)
+            if (d < 1f) {
+                // Out to the edge, the shortest way (straight down when right on the centre).
+                val (ux, uy) = if (d < 1e-4f) 0f to 1f else dx / d to dy / d
+                px = cx + ux * rx
+                py = cy + uy * ry
+            }
+        }
+        return px.coerceIn(x0, x1) to py.coerceIn(y0, y1)
     }
 
     /** Selling gives half back. */

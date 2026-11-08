@@ -38,6 +38,8 @@ object ShareCard {
         val letGo: Int,
         /** The companion's level, shown next to the name. */
         val level: Int = 1,
+        /** Where things were moved to in the camp. */
+        val layout: Map<Int, androidx.compose.ui.geometry.Offset> = emptyMap(),
     )
 
     fun playUrl(context: Context) = "https://play.google.com/store/apps/details?id=${context.packageName}"
@@ -97,7 +99,7 @@ object ShareCard {
         // The clearing, as it is today, in a white frame that lifts off the page.
         val frame = RectF(52f, 456f, W - 52f, 1012f)
         card(frame, 52f)
-        val scene = clearingBitmap(w.avatar, w.placed, w.worn, (frame.width() - 28).toInt(), (frame.height() - 28).toInt())
+        val scene = clearingBitmap(w.avatar, w.placed, w.worn, (frame.width() - 28).toInt(), (frame.height() - 28).toInt(), layout = w.layout)
         c.drawBitmap(scene, frame.left + 14, frame.top + 14, null)
 
         // Three small facts, each its own little card.

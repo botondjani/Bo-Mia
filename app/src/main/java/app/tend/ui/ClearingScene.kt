@@ -91,6 +91,15 @@ val SpotPositions: Map<Int, Offset> = mapOf(
     17 to Offset(0.79f, 0.96f), // small: front right, low
 )
 
+/** Where a spot's thing stands: where the user put it ([layout], scene fractions), else its usual place. */
+fun spotPos(id: Int, layout: Map<Int, Offset>): Offset = layout[id] ?: SpotPositions.getValue(id)
+
+/** A moved thing's size against its usual place: nearer looks bigger, farther back smaller. */
+fun spotScale(id: Int, layout: Map<Int, Offset>): Float {
+    val moved = layout[id] ?: return 1f
+    return (depthScale(moved.y) / depthScale(SpotPositions.getValue(id).y)).coerceIn(0.7f, 1.35f)
+}
+
 /**
  * Draws the clearing. [placed] maps spot ids to thing ids.
  */
@@ -114,13 +123,25 @@ fun DrawScope.drawClearing(
     appear: Map<Int, Float> = emptyMap(),
     /** Sparkle bursts (where, as scene fractions, and how far along 0..1): an animal greeted, a duck caught. */
     bursts: List<Pair<Offset, Float>> = emptyList(),
+    /** Where the user moved things to (spot to scene fraction). */
+    layout: Map<Int, Offset> = emptyMap(),
+    /** A thing picked up: its spot and how high (1 = held up; below 0 = squashing as it lands). */
+    lifted: Pair<Int, Float>? = null,
+    /** A puff of dust where a thing was just put down: its spot and how far along (0..1). */
+    dust: Pair<Int, Float>? = null,
+    /**
+     * The layout the companion's place was worked out from before a thing moved, and seconds since:
+     * they wait there (0), then walk over to where that place is now.
+     */
+    restFrom: Map<Int, Offset>? = null,
+    restClock: Float = 100f,
 ) {
     val w = size.width
     val h = size.height
     val u = h // things scale with the scene's height
     val horizon = h * 0.5f
     val lights = mutableListOf<Light>()
-    fun at(id: Int) = SpotPositions.getValue(id).let { Offset(it.x * w, it.y * h) }
+    fun at(id: Int) = spotPos(id, layout).let { Offset(it.x * w, it.y * h) }
 
     // Sky, with the low sun's warmth near the horizon.
     drawRect(Brush.verticalGradient(listOf(SkyTop, SkyLow), endY = horizon), size = Size(w, horizon + 2))
@@ -181,13 +202,9 @@ fun DrawScope.drawClearing(
         h * 0.578f to { roundTree(Offset(w * 0.6f, h * 0.578f), h * 0.3f, seed = 2) },
         h * 0.57f to { pine(Offset(w * 0.69f, h * 0.57f), h * 0.34f) },
         h * 0.583f to { roundTree(Offset(w * 0.76f, h * 0.583f), h * 0.26f, seed = 3) },
-        h * 0.725f to { roundTree(Offset(w * 0.875f, h * 0.725f), h * 0.46f, seed = 4) },
-        h * 0.76f to { broadleaf(Offset(w * 0.975f, h * 0.76f), h * 0.56f) },
         // Bushes on open ground, beside the trunks rather than on them.
         h * 0.605f to { bush(Offset(w * 0.385f, h * 0.605f), h * 0.022f) },
         h * 0.59f to { bush(Offset(w * 0.655f, h * 0.59f), h * 0.02f) },
-        h * 0.66f to { bush(Offset(w * 0.825f, h * 0.66f), h * 0.022f) },
-        h * 0.78f to { bush(Offset(w * 0.935f, h * 0.78f), h * 0.026f) },
     )
     greenery.sortedBy { it.first }.forEach { it.second() }
 
@@ -207,8 +224,16 @@ fun DrawScope.drawClearing(
     // At night they go to bed: walk to the shelter (if there is one) and sleep inside.
     val bed = if (night && use == null) bedOf(placed) else null
     val act = use ?: bed?.let { InUse(it, placed.getValue(it), nightClock, if (rest == it) 0f else Uses.WALK) }
-    val restAt = restPoint(rest, placed)
-    val target = act?.let { useAnchor(it.arrived(), placed, restAt) }
+    // Their place, and (just after a thing moved) where it was a moment ago.
+    val restTo = restPoint(rest, placed, layout)
+    val restWas = restFrom?.let { restPoint(rest, placed, it) }?.takeIf { (it - restTo).getDistance() > u * 0.01f }
+    val strolling = act == null && restWas != null && restClock in 0.001f..Uses.WALK
+    val restAt = when {
+        restWas == null || restClock >= Uses.WALK -> restTo
+        restClock <= 0f -> restWas
+        else -> { val k = (restClock / Uses.WALK).let { it * it * (3 - 2 * it) }; restWas + (restTo - restWas) * k }
+    }
+    val target = act?.let { useAnchor(it.arrived(), placed, restAt, layout) }
     val walking = act?.walking == true
     val anchor = when {
         target == null -> restAt
@@ -222,7 +247,8 @@ fun DrawScope.drawClearing(
     val cs = u * 0.17f * depthScale(anchor.y / h)
     fun drawActor(glows: MutableList<Light>) {
         if (act != null && walking) { drawWalker(avatar, mood, worn, anchor, act.t, target!!.x >= restAt.x); return }
-        if (act != null) { drawUse(act.arrived(), avatar, mood, worn, placed, anchor, glows, lastStrum); return }
+        if (strolling) { drawWalker(avatar, mood, worn, anchor, restClock, restTo.x >= restWas!!.x); return }
+        if (act != null) { drawUse(act.arrived(), avatar, mood, worn, placed, anchor, glows, lastStrum, layout); return }
         shadow(anchor, cs * 0.5f, u)
         drawIntoCanvas {
             it.nativeCanvas.save()
@@ -232,28 +258,56 @@ fun DrawScope.drawClearing(
             it.nativeCanvas.restore()
         }
     }
-    val ground = Clearing.spots.filter { it.kind != SpotKind.ABOVE }.sortedBy { SpotPositions.getValue(it.id).y }
-    for (spot in ground) {
+    // A thing on the ground, at its size for where it stands. Glows it adds are moved and sized with it.
+    fun thingAt(thing: String, p: Offset, k: Float, spot: Int, sx: Float = 1f, sy: Float = 1f, lift: Float = 0f) {
+        val from = lights.size
+        withTransform({ translate(0f, -lift); scale(k * sx, k * sy, pivot = p) }) {
+            if (spot != 7) shadow(p + Offset(0f, lift), u * thingWidth(thing) * 0.5f, u)
+            drawThing(thing, p, u, lights)
+        }
+        for (i in from until lights.size) lights[i] = lights[i].let { Light(p + (it.at - p) * k + Offset(0f, -lift), it.radius * k, it.strength) }
+    }
+    val held = lifted?.first
+    // Back to front by where they stand: things, the companion, and the trees and bushes on the meadow
+    // (so a tent behind the oak is behind it, and a lantern in front of it is in front).
+    val ground = mutableListOf<Pair<Float, () -> Unit>>(
+        h * 0.725f to { roundTree(Offset(w * 0.875f, h * 0.725f), h * 0.46f, seed = 4) },
+        h * 0.76f to { broadleaf(Offset(w * 0.975f, h * 0.76f), h * 0.56f) },
+        h * 0.66f to { bush(Offset(w * 0.825f, h * 0.66f), h * 0.022f) },
+        h * 0.78f to { bush(Offset(w * 0.935f, h * 0.78f), h * 0.026f) },
+    )
+    for (spot in Clearing.spots) {
+        if (spot.kind == SpotKind.ABOVE) continue
         val p = at(spot.id)
-        if (!companionDrawn && p.y > anchor.y) { drawActor(lights); companionDrawn = true }
-        if (spot.kind == SpotKind.FIRE) firePitStones(p, u)
-        val thing = placed[spot.id]
-        if (thing != null && !(act?.spot == spot.id && !walking && thing in Uses.redrawn)) {
-            val k = appear[spot.id]
-            if (k != null) {
+        ground += p.y to {
+            if (spot.kind == SpotKind.FIRE) firePitStones(p, u)
+            val thing = placed[spot.id]
+            if (thing != null && spot.id != held && !(act?.spot == spot.id && !walking && thing in Uses.redrawn)) {
+                val k = spotScale(spot.id, layout)
+                val a = appear[spot.id]
                 // Popping up from the ground with a little overshoot, and a burst of sparkles.
-                withTransform({ scale(easeOutBack(k), easeOutBack(k), pivot = p) }) {
-                    if (spot.id != 7) shadow(p, u * thingWidth(thing) * 0.5f, u)
-                    drawThing(thing, p, u, lights)
-                }
-                sparkles(p + Offset(0f, -u * 0.04f), u, k)
-            } else {
-                if (spot.id != 7) shadow(p, u * thingWidth(thing) * 0.5f, u)
-                drawThing(thing, p, u, lights)
+                if (a != null) { thingAt(thing, p, k, spot.id, easeOutBack(a), easeOutBack(a)); sparkles(p + Offset(0f, -u * 0.04f), u, a) }
+                else thingAt(thing, p, k, spot.id)
             }
         }
     }
+    for ((y, draw) in ground.sortedBy { it.first }) {
+        if (!companionDrawn && y > anchor.y) { drawActor(lights); companionDrawn = true }
+        draw()
+    }
     if (!companionDrawn) drawActor(lights)
+
+    // Put down just now: a soft puff of dust at its feet.
+    dust?.let { (id, k) -> if (placed[id] != null) dustPuff(at(id), u * spotScale(id, layout), k) }
+    // Picked up: held above everything, a little bigger; landing, it squashes and springs back.
+    lifted?.let { (id, lift) ->
+        val thing = placed[id] ?: return@let
+        val p = at(id)
+        val up = lift.coerceAtLeast(0f)
+        val sx = if (lift >= 0f) 1f + 0.06f * lift else 1f - 0.14f * lift
+        val sy = if (lift >= 0f) 1f + 0.06f * lift else 1f + 0.18f * lift
+        thingAt(thing, p, spotScale(id, layout), id, sx, sy, lift = u * 0.05f * up)
+    }
 
     // Today's visitor, waiting to be greeted.
     visitor?.let { drawVisitor(it, Offset(it.x * w, it.y * h), u * VISITOR_SCALE) }
@@ -696,6 +750,18 @@ private fun DrawScope.foreground(w: Float, h: Float) {
 }
 
 /** A soft contact shadow, falling a little to the right (the sun is low on the left). */
+/** Dust kicked up where something lands: little puffs rolling out both ways and fading. */
+private fun DrawScope.dustPuff(p: Offset, u: Float, k: Float) {
+    if (k <= 0f || k >= 1f) return
+    val e = 1f - (1f - k) * (1f - k)
+    for (i in 0 until 8) {
+        val a = Math.PI.toFloat() * (0.04f + 0.92f * i / 7f)
+        val d = u * (0.025f + 0.07f * e)
+        val c = p + Offset(kotlin.math.cos(a) * d * 1.5f, -kotlin.math.sin(a) * d * 0.3f - u * 0.004f)
+        drawCircle(Color(0xFFE6DCBE).copy(alpha = 0.5f * (1f - k) * (1f - k)), u * (0.005f + 0.008f * e) * (if (i % 2 == 0) 1f else 0.7f), c)
+    }
+}
+
 private fun DrawScope.shadow(at: Offset, halfWidth: Float, u: Float) {
     val c = at + Offset(halfWidth * 0.25f, 0f)
     drawOval(Color.Black.copy(alpha = 0.07f), Offset(c.x - halfWidth * 1.25f, c.y - u * 0.016f), Size(halfWidth * 2.5f, u * 0.034f))
@@ -1030,6 +1096,7 @@ private fun DrawScope.campfire(p: Offset, u: Float, lights: MutableList<Light>) 
 /** The clearing as a bitmap with rounded corners, for the widget and the share card. */
 fun clearingBitmap(
     avatar: Avatar, placed: Map<Int, String>, worn: Set<Accessory>, widthPx: Int, heightPx: Int, night: Boolean = false, paper: Boolean = false, ducks: Int = 0, bridge: Boolean = false, visitor: app.tend.core.Visitor? = null,
+    layout: Map<Int, Offset> = emptyMap(),
 ): android.graphics.Bitmap {
     val image = androidx.compose.ui.graphics.ImageBitmap(widthPx, heightPx)
     val canvas = androidx.compose.ui.graphics.Canvas(image)
@@ -1037,7 +1104,7 @@ fun clearingBitmap(
     canvas.clipPath(Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(Rect(Offset.Zero, size), CornerRadius(widthPx * 0.05f))) })
     androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(
         androidx.compose.ui.unit.Density(1f), androidx.compose.ui.unit.LayoutDirection.Ltr, canvas, size,
-    ) { drawClearing(avatar, placed, worn = worn, night = night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = bridge, visitor = visitor) }
+    ) { drawClearing(avatar, placed, worn = worn, night = night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = bridge, visitor = visitor, layout = layout) }
     return image.asAndroidBitmap()
 }
 

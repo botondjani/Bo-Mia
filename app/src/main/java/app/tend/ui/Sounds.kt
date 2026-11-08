@@ -60,6 +60,9 @@ object Sounds {
         play(key, false) { strumOf(CHORDS[chord], 2.2f) }
     }
 
+    /** Something set down on the grass: a soft, woody knock. */
+    fun place(c: Context) { if (enabled(c)) play("place", false) { knock() } }
+
     /** A short happy chime: a duck caught, a task done. */
     fun chime(c: Context) { if (enabled(c)) play("chime", false) { musicBox(CHIME, 0.12f, 1.6f) } }
 
@@ -204,6 +207,18 @@ object Sounds {
             val rise = ((t - secs * 0.45f) / (secs * 0.4f)).coerceIn(0f, 1f)
             ph += 2 * PI * (900 + 500 * rise) / RATE
             out[i] = sin(ph).toFloat() * 0.08f * rise
+        }
+        return toPcm(out)
+    }
+
+    private fun knock(): ShortArray {
+        val out = buffer(0.3f)
+        val rnd = java.util.Random(11)
+        for (k in out.indices) {
+            val t = k.toDouble() / RATE
+            val body = (sin(2 * PI * 190 * t) * 0.6 + sin(2 * PI * 330 * t) * 0.25) * exp(-t / 0.04)
+            val tap = (rnd.nextDouble() * 2 - 1) * exp(-t / 0.006) * 0.25
+            out[k] = ((body + tap) * 0.55).toFloat()
         }
         return toPcm(out)
     }

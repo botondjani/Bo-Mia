@@ -296,11 +296,27 @@ class TendStore(private val context: Context) {
         return buy(spot, thingId)
     }
 
-    /** Moves a thing to another spot of its kind (swapping); false when it can't go there. */
-    fun move(from: Int, to: Int): Boolean {
-        val moved = app.tend.core.Clearing.move(placed, from, to) ?: return false
-        placed = moved
-        if (restSpot == from || restSpot == to) restSpot = null
+    /** Where movable things were put (spot to scene fractions); others stand at their usual place. */
+    val layout: Map<Int, Pair<Float, Float>>
+        get() {
+            val now = placed
+            return prefs.getString("layout", "")!!.split(',').mapNotNull { part ->
+                val p = part.split(':').takeIf { it.size == 3 } ?: return@mapNotNull null
+                val spot = p[0].toIntOrNull() ?: return@mapNotNull null
+                val thing = now[spot]?.let(app.tend.core.Things::byId)?.takeIf(app.tend.core.Clearing::movable) ?: return@mapNotNull null
+                val x = p[1].toFloatOrNull() ?: return@mapNotNull null
+                val y = p[2].toFloatOrNull() ?: return@mapNotNull null
+                spot to app.tend.core.Clearing.keepOnMeadow(thing.kind, x, y)
+            }.toMap()
+        }
+
+    private fun saveLayout(l: Map<Int, Pair<Float, Float>>) =
+        edit { putString("layout", l.entries.joinToString(",") { "${it.key}:%.4f:%.4f".format(java.util.Locale.ROOT, it.value.first, it.value.second) }) }
+
+    /** Puts the movable thing at [spot] at (x, y) on the meadow (kept to where it may stand); false when it can't move. */
+    fun place(spot: Int, x: Float, y: Float): Boolean {
+        val thing = placed[spot]?.let(app.tend.core.Things::byId)?.takeIf(app.tend.core.Clearing::movable) ?: return false
+        saveLayout(layout + (spot to app.tend.core.Clearing.keepOnMeadow(thing.kind, x, y)))
         return true
     }
 
@@ -328,7 +344,9 @@ class TendStore(private val context: Context) {
     fun sell(spotId: Int) {
         val thing = placed[spotId]?.let(app.tend.core.Things::byId) ?: return
         addAcorns(app.tend.core.Clearing.sellValue(thing), "sold")
+        val l = layout
         placed = placed - spotId
+        if (spotId in l) saveLayout(l - spotId) // the next thing there starts at the usual place
     }
 
     /** A break from all limits until this moment (epoch ms); 0 = none. */

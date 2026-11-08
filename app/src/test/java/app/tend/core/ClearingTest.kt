@@ -70,14 +70,20 @@ class ClearingTest {
         SpotKind.entries.forEach { kind -> assertEquals("$kind", 0, Things.forKind(kind).size % 3) }
     }
 
-    @Test fun `things move within their kind, swapping, but not the ones with their own spot`() {
-        val placed = mapOf(1 to "log_bench", 10 to "lantern", 11 to "guitar", 6 to "swing", 0 to "campfire")
-        assertEquals(listOf(2), Clearing.movesFrom(placed, 1))
-        assertEquals(mapOf(2 to "log_bench", 10 to "lantern", 11 to "guitar", 6 to "swing", 0 to "campfire"), Clearing.move(placed, 1, 2))
-        assertEquals("guitar", Clearing.move(placed, 10, 11)!![10])
-        assertEquals("lantern", Clearing.move(placed, 10, 11)!![11])
-        assertEquals(emptyList<Int>(), Clearing.movesFrom(placed, 6))
-        assertEquals(emptyList<Int>(), Clearing.movesFrom(placed, 0))
-        assertEquals(null, Clearing.move(placed, 1, 10))
+    @Test fun `movable things stay on the meadow, off the fire and the trunks`() {
+        assertTrue(Clearing.movable(Things.byId("lantern")!!))
+        assertTrue(Clearing.movable(Things.byId("tent")!!))
+        assertTrue(!Clearing.movable(Things.byId("campfire")!!))
+        assertTrue(!Clearing.movable(Things.byId("swing")!!))
+        assertTrue(!Clearing.movable(Things.byId("dock")!!))
+        // Into the river: back on our bank.
+        assertEquals(0.41f, Clearing.keepOnMeadow(SpotKind.SMALL, 0.1f, 0.8f).first, 1e-4f)
+        // Onto the fire: pushed out of the pit.
+        val (x, y) = Clearing.keepOnMeadow(SpotKind.SMALL, 0.63f, 0.79f)
+        assertTrue(kotlin.math.abs(x - 0.625f) * 1.8f > 0.1f || kotlin.math.abs(y - 0.79f) > 0.04f)
+        // A tent can't come to the front.
+        assertEquals(0.8f, Clearing.keepOnMeadow(SpotKind.SHELTER, 0.5f, 0.95f).second, 1e-4f)
+        // Somewhere fine: unchanged.
+        assertEquals(0.5f to 0.9f, Clearing.keepOnMeadow(SpotKind.SMALL, 0.5f, 0.9f))
     }
 }

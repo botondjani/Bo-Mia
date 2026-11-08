@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.nativeCanvas
 import app.tend.core.Accessory
 import app.tend.core.Avatar
@@ -103,21 +104,21 @@ private val STANDING = setOf("guitar", "campfire", "kettle", "pizza_oven", "wood
  * Where the companion stays after using the thing at [spot]: standing beside it, on the shore
  * for the river, at the land end of the dock. Null spot, or nothing there: the usual place.
  */
-fun DrawScope.restPoint(spot: Int?, placed: Map<Int, String>): Offset {
+fun DrawScope.restPoint(spot: Int?, placed: Map<Int, String>, layout: Map<Int, Offset> = emptyMap()): Offset {
     val w = size.width
     val h = size.height
     val u = h
     val home = Offset(w * 0.395f, h * 0.86f)
     if (spot == null || placed[spot] == null) return home
-    val p = SpotPositions.getValue(spot).let { Offset(it.x * w, it.y * h) }
+    val p = spotPos(spot, layout).let { Offset(it.x * w, it.y * h) }
     // After something used standing up (playing, cooking, fishing...), they stay just where they were.
     val thing = placed.getValue(spot)
-    if (thing in STANDING) return useAnchor(InUse(spot, thing, 0f), placed)
+    if (thing in STANDING) return useAnchor(InUse(spot, thing, 0f), placed, layout = layout)
     return when (spot) {
         7 -> Offset(w * 0.33f, h * 0.8f) // the river: on our bank
         8 -> p + Offset(u * 0.13f, -u * 0.01f) // the dock: where it meets the shore
         9 -> home // the lights overhead
-        else -> p + Offset(-u * (if (SpotPositions.getValue(spot).y < 0.7f) 0.07f else 0.09f), u * 0.012f)
+        else -> p + Offset(-u * spotScale(spot, layout) * (if (spotPos(spot, layout).y < 0.7f) 0.07f else 0.09f), u * 0.012f)
     }
 }
 
@@ -130,35 +131,38 @@ fun DrawScope.drawWalker(avatar: Avatar, mood: Mood, worn: Set<Accessory>, at: O
 }
 
 /** Where the companion stands for [use], as a fraction-free point in the scene. */
-fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>, here: Offset? = null): Offset {
+fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>, here: Offset? = null, layout: Map<Int, Offset> = emptyMap()): Offset {
     val w = size.width
     val h = size.height
     val u = h
     // Activities from real life are acted out where the companion is standing.
     val home = here ?: Offset(w * 0.395f, h * 0.86f)
-    val p = SpotPositions[use.spot]?.let { Offset(it.x * w, it.y * h) } ?: home
+    val p = SpotPositions[use.spot]?.let { spotPos(use.spot, layout) }?.let { Offset(it.x * w, it.y * h) } ?: home
+    val k = if (use.spot >= 0) spotScale(use.spot, layout) else 1f
     val fire = SpotPositions.getValue(0).let { Offset(it.x * w, it.y * h) }
-    val seat = SpotPositions.getValue(1).let { Offset(it.x * w, it.y * h) }
+    val seat = spotPos(1, layout).let { Offset(it.x * w, it.y * h) }
+    // The bench only counts as a seat by the fire while it's near the fire.
+    val bench = placed[1] != null && (seat - fire).getDistance() < u * 0.3f
     return when (use.thing) {
         // Activities done in real life, acted out where the companion stands.
         "act_run" -> home + Offset(sin(use.t * 0.9f) * u * 0.14f, 0f)
         "act_walk" -> home + Offset(sin(use.t * 0.4f) * u * 0.06f, (kotlin.math.cos(use.t * 0.4f) - 1f) * u * 0.03f)
         "act_read", "act_stretch", "act_hearts", "act_tidy", "act_cheer" -> home
         "guitar", "campfire" -> if (use.spot < 0) (if (use.thing == "campfire") fire + Offset(-u * 0.21f, u * 0.03f) else home) else
-            if (use.thing == "campfire" && placed[1] != null) seat + Offset(0f, -u * 0.012f) else if (use.thing == "campfire") fire + Offset(-u * 0.21f, u * 0.03f) else p
+            if (use.thing == "campfire" && bench) seat + Offset(0f, -u * 0.012f) else if (use.thing == "campfire") fire + Offset(-u * 0.21f, u * 0.03f) else p
         "kettle", "pizza_oven", "woodpile" ->
             // Beside the fire pit, clear of the stones and the flames (or on the bench, if there is one).
-            if (placed[1] != null && use.thing != "woodpile") seat + Offset(0f, -u * 0.012f) else fire + Offset(-u * 0.21f, u * 0.03f)
+            if (bench && use.thing != "woodpile") seat + Offset(0f, -u * 0.012f) else fire + Offset(-u * 0.21f, u * 0.03f)
         "fishing_rod" -> Offset(w * 0.335f, h * 0.84f)
-        "wildflowers", "lantern" -> p + Offset(u * 0.055f, u * 0.004f)
-        "telescope" -> p + Offset(-u * 0.05f, u * 0.004f)
-        "log_bench", "picnic_table" -> p + Offset(0f, -u * 0.012f)
-        "tent", "bell_tent", "cabin" -> p + Offset(0f, u * 0.01f)
+        "wildflowers", "lantern" -> p + Offset(u * 0.055f * k, u * 0.004f)
+        "telescope" -> p + Offset(-u * 0.05f * k, u * 0.004f)
+        "log_bench", "picnic_table" -> p + Offset(0f, -u * 0.012f * k)
+        "tent", "bell_tent", "cabin" -> p + Offset(0f, u * 0.01f * k)
         "hammock" -> p + Offset(0f, -u * 0.03f)
         "swing" -> p + Offset(-u * 0.01f, -u * 0.04f)
         "treehouse" -> Offset(p.x + u * 0.03f, u * 0.6f - u * 0.42f * 0.4f - u * 0.004f) // on the platform, in the tree
         "canoe", "raft" -> p + Offset(sin(use.t * 0.7f) * w * 0.04f, -u * 0.02f)
-        "rocking_chair" -> p + Offset(0f, -u * 0.012f)
+        "rocking_chair" -> p + Offset(0f, -u * 0.012f * k)
         "wind_chimes", "bird_feeder" -> Offset(w * 0.64f, h * 0.71f)
         "dock" -> p + Offset(-u * 0.05f, u * 0.0f)
         "string_lights" -> Offset(w * 0.6f, h * 0.7f)
@@ -233,13 +237,15 @@ private fun DrawScope.guitarHeld(center: Offset, s: Float, strum: Float) = rotat
  */
 fun DrawScope.drawUse(
     use: InUse, avatar: Avatar, mood: Mood, worn: Set<Accessory>, placed: Map<Int, String>, base: Offset, lights: MutableList<Light>, lastStrum: Float = 9f,
+    layout: Map<Int, Offset> = emptyMap(),
 ) {
     val w = size.width
     val h = size.height
     val u = h
     val t = use.t
     val s = u * 0.17f * depthScale(base.y / h)
-    val p = SpotPositions[use.spot]?.let { Offset(it.x * w, it.y * h) } ?: base
+    val p = SpotPositions[use.spot]?.let { spotPos(use.spot, layout) }?.let { Offset(it.x * w, it.y * h) } ?: base
+    val k = if (use.spot >= 0) spotScale(use.spot, layout) else 1f
     // An activity just done: acorns pop out and fly up to the corner.
     if (use.spot < 0 && t < 1.6f) acornBurst(base + Offset(0f, -s * 0.6f), t / 1.6f, u)
     val fire = SpotPositions.getValue(0).let { Offset(it.x * w, it.y * h) }
@@ -382,7 +388,7 @@ fun DrawScope.drawUse(
         "tent", "bell_tent", "cabin" -> {
             // Walks in and fades; then Zs drift out of the roof.
             if (t < 1.5f) actor(avatar, mood, worn, base, s * (1f - t / 4f), alpha = 1f - t / 1.5f)
-            else rising(t, p + Offset(u * 0.03f, -u * 0.12f), u * 0.014f, every = 1.5f) { at, a -> zee(at, u * 0.016f, a) }
+            else rising(t, p + Offset(u * 0.03f, -u * 0.12f) * k, u * 0.014f, every = 1.5f) { at, a -> zee(at, u * 0.016f, a) }
         }
         "hammock" -> {
             val sway = sin(t * 1.6f) * 4f
@@ -423,13 +429,14 @@ fun DrawScope.drawUse(
         }
         "rocking_chair" -> {
             // Rocking: chair and companion tip back and forth together on the rockers.
-            rotate(sin(t * 2.2f) * 7f, base + Offset(0f, u * 0.012f)) {
+            // Sized like the chair where it stands (the companion keeps its own size).
+            rotate(sin(t * 2.2f) * 7f, base + Offset(0f, u * 0.012f)) { scale(k, pivot = base + Offset(0f, u * 0.012f * k)) {
                 val chair = base + Offset(0f, u * 0.012f)
                 drawArc(Color(0xFF9C6B45), 20f, 140f, false, Offset(chair.x - u * 0.04f, chair.y - u * 0.03f), Size(u * 0.08f, u * 0.034f), style = Stroke(u * 0.005f, cap = StrokeCap.Round))
                 drawLine(Color(0xFF9C6B45), chair + Offset(u * 0.02f, -u * 0.037f), chair + Offset(u * 0.03f, -u * 0.085f), strokeWidth = u * 0.005f, cap = StrokeCap.Round)
-                actor(avatar, mood, worn, base, s * 0.82f, look = -0.3f, sleepy = t > 4f)
+                actor(avatar, mood, worn, base, s * 0.82f / k, look = -0.3f, sleepy = t > 4f)
                 for (dx in listOf(-0.018f, 0.018f)) drawLine(Color(0xFF9C6B45), chair + Offset(u * dx, -u * 0.01f), chair + Offset(u * dx, -u * 0.035f), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
-            }
+            } }
         }
         "wind_chimes" -> {
             shadowAt(base, s * 0.45f)

@@ -3,7 +3,9 @@ package app.tend.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -93,8 +95,10 @@ fun ClearingScreen(
     ducks: List<app.tend.data.Friends.Note> = emptyList(),
     onUnroll: () -> Unit = {},
     onCatchDuck: (app.tend.data.Friends.Note) -> Int = { 0 },
-    /** Moves the thing at one spot to another of its kind (swapping); false when it can't. */
-    onMove: (from: Int, to: Int) -> Boolean = { _, _ -> false },
+    /** Where the user put things (spot to scene fraction). */
+    layout: Map<Int, Offset> = emptyMap(),
+    /** Puts the thing at a spot somewhere else on the meadow. */
+    onPlace: (spot: Int, at: Offset) -> Unit = { _, _ -> },
 ) {
     val scroll = rememberScrollState()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -123,8 +127,20 @@ fun ClearingScreen(
     val paperNow by androidx.compose.runtime.rememberUpdatedState(paper)
     val bridgeNow by androidx.compose.runtime.rememberUpdatedState(bridge)
     var caught by remember { mutableStateOf<String?>(null) }
-    // A thing held down: the other places it can go show as rings until one is tapped.
-    var moving by remember { mutableStateOf<Int?>(null) }
+    // Moving things: hold one to pick it up, drag it anywhere on the meadow, let go to put it down.
+    // Shown at once where it was put (the saved layout catches up right after).
+    var local by remember { mutableStateOf(layout) }
+    androidx.compose.runtime.LaunchedEffect(layout) { local = layout }
+    val localNow by androidx.compose.runtime.rememberUpdatedState(local)
+    var drag by remember { mutableStateOf<Pair<Int, Offset>?>(null) } // spot, where (scene fractions)
+    var settling by remember { mutableStateOf<Int?>(null) } // just put down, still springing
+    val lift = remember { androidx.compose.animation.core.Animatable(0f) }
+    var dustAt by remember { mutableStateOf<Int?>(null) }
+    val dust = remember { androidx.compose.animation.core.Animatable(1f) }
+    // The companion's place before the move, and a clock for walking over to the new one.
+    var restFrom by remember { mutableStateOf<Map<Int, Offset>?>(null) }
+    val restClock = remember { androidx.compose.animation.core.Animatable(100f) }
+    var fingerInView by remember { mutableStateOf(-1f) } // px from the left of what's on screen, while dragging
     // An animal just greeted: a little card pops up on the camp for a moment.
     var greeted by remember { mutableStateOf<app.tend.core.Visitor?>(null) }
     androidx.compose.runtime.LaunchedEffect(greeted) { if (greeted != null) { kotlinx.coroutines.delay(2800); greeted = null } }
@@ -165,7 +181,7 @@ fun ClearingScreen(
     var sceneWidthPx by remember { mutableIntStateOf(0) }
     fun showSpot(spot: Int) = scope.launch {
         scroll.animateScrollTo(0)
-        val x = (SpotPositions[spot]?.x ?: 0.5f) * sceneWidthPx
+        val x = (if (spot in SpotPositions) spotPos(spot, localNow).x else 0.5f) * sceneWidthPx
         val viewport = sceneWidthPx - pan.maxValue
         pan.animateScrollTo((x - viewport / 2f).toInt().coerceIn(0, pan.maxValue))
     }
@@ -192,22 +208,10 @@ fun ClearingScreen(
         Box(Modifier.fillMaxWidth().height(sceneHeight).campEntrance().horizontalScroll(pan)) {
             Canvas(
                 Modifier.width(sceneHeight * CAMP_RATIO).height(sceneHeight).onSizeChanged { sceneWidthPx = it.width }.pointerInput(Unit) {
-                    detectTapGestures(onLongPress = { at ->
-                        val hit = spotAt(Offset(at.x / size.width, at.y / size.height), size.width / size.height.toFloat()) ?: return@detectTapGestures
-                        val name = placedNow[hit]?.let { app.tend.core.Things.byId(it)?.name } ?: return@detectTapGestures
-                        tick(firm = true)
-                        if (app.tend.core.Clearing.movesFrom(placedNow, hit).isEmpty()) { caught = "The $name has its own place."; return@detectTapGestures }
-                        if (using != null) { using = null; Sounds.stop() }
-                        moving = hit; caught = "Tap a ring to move the $name. Tap anywhere else to keep it."
-                    }) { tap ->
+                    // Long presses belong to moving things: a tap only counts when it's quick.
+                    detectTapGestures(onLongPress = {}) { tap ->
                         val fx = tap.x / size.width
                         val fy = tap.y / size.height
-                        moving?.let { from ->
-                            moving = null
-                            val to = spotAt(Offset(fx, fy), size.width / size.height.toFloat())
-                            caught = if (to != null && to != from && onMove(from, to)) { tick(); "Moved." } else null
-                            return@detectTapGestures
-                        }
                         val duck = DuckSpots.take(ducksNow.size).indexOfFirst { kotlin.math.abs(it.x - fx) * size.width < size.height * 0.08f && kotlin.math.abs(it.y - fy) < 0.09f }
                         if (duck >= 0) {
                             val n = ducksNow[duck]
@@ -227,7 +231,7 @@ fun ClearingScreen(
                         // The bridge leads to friends' camps along the river.
                         if (bridgeNow && fx in 0.06f..0.37f && fy in 0.48f..0.62f) { onOpenRiver(null); return@detectTapGestures } // the bridge or its signpost
                         // A thing in the camp: the companion uses it (the guitar: another strum).
-                        val hit = spotAt(Offset(fx, fy), size.width / size.height.toFloat())
+                        val hit = spotAt(Offset(fx, fy), size.width / size.height.toFloat(), localNow, placedNow)
                         val thing = hit?.let { placedNow[it] }
                         if (thing != null) {
                             tick()
@@ -240,6 +244,65 @@ fun ClearingScreen(
                             }
                         } else if (using != null) { using = null; Sounds.stop() }
                     }
+                }.pointerInput(Unit) {
+                    // Inside the tap handler, so it sees the finger first: once a thing is picked up, the drag is
+                    // its own (the camp doesn't pan, and the tap handler only waits for the finger to lift).
+                    var grab = Offset.Zero
+                    var kind = app.tend.core.SpotKind.SMALL
+                    fun drop() {
+                        val (spot, at) = drag ?: return
+                        drag = null
+                        fingerInView = -1f
+                        local = localNow + (spot to at)
+                        onPlace(spot, at)
+                        settling = spot
+                        caught = null
+                        tick(firm = true)
+                        Sounds.place(context)
+                        scope.launch { lift.animateTo(0f, androidx.compose.animation.core.spring(dampingRatio = 0.32f, stiffness = 520f)); if (drag == null) settling = null }
+                        scope.launch { dustAt = spot; dust.snapTo(0f); dust.animateTo(1f, androidx.compose.animation.core.tween(650)) }
+                        // If the companion's place moved with it, they walk over.
+                        scope.launch {
+                            restClock.animateTo(Uses.WALK + 0.05f, androidx.compose.animation.core.tween(((Uses.WALK + 0.05f) * 1000).toInt(), easing = androidx.compose.animation.core.LinearEasing))
+                            restFrom = null
+                        }
+                    }
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = { at ->
+                            val ratio = size.width / size.height.toFloat()
+                            val f = Offset(at.x / size.width, at.y / size.height)
+                            val hit = spotAt(f, ratio, localNow, placedNow) ?: return@detectDragGesturesAfterLongPress
+                            val thing = placedNow[hit]?.let(app.tend.core.Things::byId) ?: return@detectDragGesturesAfterLongPress
+                            if (!app.tend.core.Clearing.movable(thing)) {
+                                tick(firm = true)
+                                caught = "The ${thing.name.lowercase()} has its own place."
+                                return@detectDragGesturesAfterLongPress
+                            }
+                            if (using != null) { using?.let { onRest(it.first) }; using = null; Sounds.stop() }
+                            kind = thing.kind
+                            val from = spotPos(hit, localNow)
+                            grab = from - f
+                            drag = hit to from
+                            settling = null
+                            fingerInView = at.x - pan.value
+                            // The companion waits where they are until it's put down.
+                            if (restFrom == null) restFrom = localNow
+                            scope.launch { restClock.snapTo(0f) }
+                            scope.launch { lift.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.55f, stiffness = 380f)) }
+                            tick(firm = true)
+                            caught = "Drag the ${thing.name.lowercase()} anywhere on the meadow."
+                        },
+                        onDrag = { change, _ ->
+                            val (spot, _) = drag ?: return@detectDragGesturesAfterLongPress
+                            change.consume()
+                            fingerInView = change.position.x - pan.value
+                            val f = Offset(change.position.x / size.width, change.position.y / size.height) + grab
+                            val (x, y) = app.tend.core.Clearing.keepOnMeadow(kind, f.x, f.y, size.width / size.height.toFloat())
+                            drag = spot to Offset(x, y)
+                        },
+                        onDragEnd = { drop() },
+                        onDragCancel = { drop() },
+                    )
                 },
             ) {
                 val use = using?.takeIf { useStart >= 0 }?.let { (spot, thing) -> InUse(spot, thing, (frame - useStart) / 1e9f, walk) }
@@ -247,16 +310,33 @@ fun ClearingScreen(
                     avatar, placed, mood, worn = worn, night = night, paper = paperLeft, ducks = ducks.size, bridge = bridge,
                     use = use, lastStrum = (frame - strumAt) / 1e9f - walk, visitor = visitor, rest = rest, nightClock = nightClock, appear = appear,
                     bursts = bursts.map { it.first to it.second.value },
+                    layout = drag?.let { (spot, at) -> local + (spot to at) } ?: local,
+                    lifted = (drag?.first ?: settling)?.let { it to lift.value },
+                    dust = dustAt?.let { it to dust.value },
+                    restFrom = restFrom, restClock = restClock.value,
                 )
-                moving?.let { from ->
-                    val r = size.height * 0.06f
-                    fun ring(id: Int, color: Color) = SpotPositions[id]?.let { p ->
-                        val c = Offset(p.x * size.width, (p.y - 0.04f) * size.height)
-                        drawCircle(color.copy(alpha = 0.25f), r, c)
-                        drawCircle(color, r, c, style = androidx.compose.ui.graphics.drawscope.Stroke(3.dp.toPx()))
-                    }
-                    ring(from, Brand.Moss)
-                    app.tend.core.Clearing.movesFrom(placedNow, from).forEach { ring(it, Color.White) }
+            }
+            // Near the screen's edge while dragging: the camp slides along, and the thing with it.
+            val edge = with(androidx.compose.ui.platform.LocalDensity.current) { 56.dp.toPx() }
+            // Only while the finger is near an edge, so holding still costs nothing.
+            val nearEdge by remember { androidx.compose.runtime.derivedStateOf {
+                val view = sceneWidthPx - pan.maxValue
+                drag != null && fingerInView >= 0f && (fingerInView < edge || fingerInView > view - edge)
+            } }
+            androidx.compose.runtime.LaunchedEffect(nearEdge) {
+                while (nearEdge) {
+                    androidx.compose.runtime.withFrameNanos { }
+                    val view = sceneWidthPx - pan.maxValue
+                    val x = fingerInView
+                    val v = if (x < edge) -(edge - x) / edge * 14f else (x - (view - edge)) / edge * 14f
+                    val moved = pan.scrollBy(v)
+                    val d = drag ?: break
+                    if (moved != 0f && sceneWidthPx > 0) {
+                        val f = d.second + Offset(moved / sceneWidthPx, 0f)
+                        val kindNow = placedNow[d.first]?.let(app.tend.core.Things::byId)?.kind ?: app.tend.core.SpotKind.SMALL
+                        val (nx, ny) = app.tend.core.Clearing.keepOnMeadow(kindNow, f.x, f.y, CAMP_RATIO)
+                        drag = d.first to Offset(nx, ny)
+                    } else if (moved == 0f) break // at the end of the camp
                 }
             }
         }
@@ -271,7 +351,7 @@ fun ClearingScreen(
     }
     Text(
         when {
-            moving != null && caught != null -> caught!!
+            drag != null && caught != null -> caught!!
             using != null -> Uses.line(using!!.second, avatar.displayName)
             paper -> "Someone toilet-papered your oak! Tap it to unroll."
             visitor != null -> "A ${visitor.title.lowercase()} came to the camp. Tap it to say hello."
@@ -403,9 +483,11 @@ internal fun ShopTile(thing: app.tend.core.Thing, owned: Boolean, affordable: Bo
     }
 }
 
-/** The spot nearest to a tap (in scene fractions), if it's close enough. */
-private fun spotAt(tap: Offset, ratio: Float): Int? = SpotPositions.entries
-    .map { (id, p) ->
+/** The thing nearest to a tap (in scene fractions), if it's close enough: its spot. */
+private fun spotAt(tap: Offset, ratio: Float, layout: Map<Int, Offset>, placed: Map<Int, String>): Int? = placed.keys
+    .filter { it in SpotPositions }
+    .map { id ->
+        val p = spotPos(id, layout)
         // Things stand on their spot, so a tap a little above it counts too.
         val dx = (tap.x - p.x) * ratio
         val dy = (tap.y - (p.y - 0.04f))

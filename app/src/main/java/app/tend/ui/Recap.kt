@@ -179,7 +179,7 @@ fun RecapScreen(
  * what it means: the paused apps rest until 7:00, and an early night's acorns. A tap ends it.
  */
 @Composable
-fun SleepScreen(avatar: Avatar, placed: Map<Int, String>, worn: Set<Accessory>, earned: Int, onDone: () -> Unit) {
+fun SleepScreen(avatar: Avatar, placed: Map<Int, String>, worn: Set<Accessory>, earned: Int, layout: Map<Int, androidx.compose.ui.geometry.Offset> = emptyMap(), onDone: () -> Unit) {
     androidx.compose.runtime.LaunchedEffect(Unit) { kotlinx.coroutines.delay(7000); onDone() }
     val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "night")
     val clock by t.animateFloat(0f, 30f, androidx.compose.animation.core.infiniteRepeatable(tween(30_000, easing = androidx.compose.animation.core.LinearEasing)), label = "clock")
@@ -194,7 +194,7 @@ fun SleepScreen(avatar: Avatar, placed: Map<Int, String>, worn: Set<Accessory>, 
         Canvas(Modifier.fillMaxWidth().aspectRatio(1.3f).clip(RoundedCornerShape(28.dp))) {
             // In the shelter: they've gone in, Zs drift out of the roof. No shelter: asleep by the fire.
             val use = shelter?.let { InUse(it.id, placed.getValue(it.id), 2f + clock) }
-            drawClearing(avatar, placed, Mood.SLEEPING, worn, night = true, use = use)
+            drawClearing(avatar, placed, Mood.SLEEPING, worn, night = true, use = use, layout = layout)
         }
         Text("Good night", style = MaterialTheme.typography.headlineMedium, color = Color(0xFFF3EBC8))
         Text(
