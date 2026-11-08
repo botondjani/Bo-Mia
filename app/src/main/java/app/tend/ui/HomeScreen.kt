@@ -534,9 +534,24 @@ internal fun TaskRow(
                     measured && progress != null -> progressLabel(task, progress)
                     task.id == Tasks.SLEEP.id -> "+${task.rewardMinutes} min · from your tracker or your screen at night"
                     health == HealthConnect.Status.UNSUPPORTED -> "Health Connect isn't available on this phone"
-                    else -> "+${task.rewardMinutes} min · counts automatically"
+                    else -> "+${task.rewardMinutes} min"
                 },
                 style = MaterialTheme.typography.bodyMedium,
+            )
+            // How it counts, said once and plainly: a tracker, a timer, or a tick.
+            val auto = task.verification == Verification.AUTOMATIC
+            val needsHealth = auto && !measured && task.id != Tasks.SLEEP.id && !workoutTimer
+            if (!done && !(task.id == Tasks.SLEEP.id && !measured)) Text(
+                when {
+                    workoutTimer && exerciseTracked && health == HealthConnect.Status.READY -> "Counted by Health Connect, or use the timer"
+                    workoutTimer || task.verification.timed -> "A timer: keep the phone down"
+                    task.manual -> "You tick it off"
+                    estimated -> "Estimated from your screen at night"
+                    needsHealth -> "Needs Health Connect to count"
+                    else -> "Counted by Health Connect, nothing to do"
+                },
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, letterSpacing = 0.sp),
+                color = if (needsHealth) Brand.Coral else Brand.Muted, modifier = Modifier.padding(top = 2.dp),
             )
         }
         when {
