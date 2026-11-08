@@ -553,6 +553,8 @@ class MainActivity : ComponentActivity() {
                 plusPaid = store.plusPaid,
                 onPlus = openPlus,
                 onTestTrial = if (BuildConfig.PLAY) null else { days -> store.setTrialStart(days); refresh++ },
+                peekOn = store.peekOn,
+                onPeek = { store.peekOn = it; refresh++ },
                 onDone = { screen = Screen.HOME },
             )
 

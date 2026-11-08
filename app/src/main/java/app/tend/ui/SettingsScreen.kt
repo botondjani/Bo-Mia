@@ -102,6 +102,9 @@ fun SettingsScreen(
     onPlus: (PlusFrom) -> Unit = {},
     /** Test builds only: move the trial's start this many days back (0 restarts it). */
     onTestTrial: ((Int) -> Unit)? = null,
+    /** The companion peeking in after ten minutes in a row in paused apps. */
+    peekOn: Boolean = true,
+    onPeek: (Boolean) -> Unit = {},
     onDone: () -> Unit,
 ) = Column(
     Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
@@ -153,6 +156,7 @@ fun SettingsScreen(
     Card {
         SwitchRow("Morning plan", "8:30: today's minutes and what's worth the most", notesMorning) { onNotes("morning", it) }
         SwitchRow("Gentle nudges", "When 10 minutes are left", notesNudges) { onNotes("nudges", it) }
+        SwitchRow("${avatar.displayName} peeks in", "After 10 minutes in a row in a paused app, from the edge of the screen", peekOn, onPeek)
         SwitchRow("Sunday letter", "Your week, on Sunday evening", weeklyLetter, onWeeklyLetter)
         work?.let { LockRow(it, "Work hours lock", onLockSchedule) }
         Text("At most 3 notes a day. A lock keeps the picked apps closed; only \"Not now\" or something better.", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)

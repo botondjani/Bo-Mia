@@ -580,6 +580,11 @@ class TendStore(private val context: Context) {
         putBoolean("trial_end_shown", false); putBoolean("trial_note_sent", false)
     }
 
+    /** The companion peeks in after a long stretch in a paused app (on unless turned off). */
+    var peekOn: Boolean
+        get() = prefs.getBoolean("peek_on", true)
+        set(v) = edit { putBoolean("peek_on", v) }
+
     // ---- Outfits ----
 
     /** The seasons' outfits bought so far (kept for good). */

@@ -58,6 +58,11 @@ class MonitorService : Service() {
     /** Last background Health Connect read. */
     private var lastSync = 0L
     private var lastInbox = 0L
+    /** Time in paused apps in a row (breaks under [STREAK_GAP_MS] don't count): for the companion's peeks. */
+    private var streakStart = 0L
+    private var lastLeft = 0L
+    private var nextPeekAt = Long.MAX_VALUE
+    private val peek by lazy { Peek(this) }
     private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main) // store writes stay on the main thread, like the poll
     private var interceptedPkg: String? = null
     private var interceptedAt = 0L
@@ -86,6 +91,7 @@ class MonitorService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
 
     override fun onDestroy() {
+        peek.hide()
         scope.cancel()
         handler.removeCallbacks(tick)
         store.logMiss("monitor_destroyed")
@@ -145,6 +151,7 @@ class MonitorService : Service() {
             store.update { it.copy(usedSeconds = it.usedSeconds + seconds) }
             store.addAppSeconds(fg, seconds)
             app.tend.reminder.Notes.checkLowMinutes(this)
+            maybePeek(fg, now)
             // The day's minutes are used up, or this app's own limit is.
             if (store.isLocked() || store.appLocked(fg)) {
                 endSession(now, askWorthIt = false)
@@ -182,6 +189,8 @@ class MonitorService : Service() {
                 sessionPkg = new
                 sessionStart = now
                 sessionEnds = app.tend.core.TimeBox.endsAt(now, pass)
+                // Carrying on after a short break (another "15 more", a quick look elsewhere): the same stretch.
+                if (now - lastLeft > STREAK_GAP_MS || streakStart == 0L) { streakStart = now; nextPeekAt = now + Peek.EVERY_MS }
             } else {
                 intercept(new, now)
             }
@@ -189,6 +198,29 @@ class MonitorService : Service() {
     }
 
     private fun scheduledLock() = store.activeLock()
+
+    /**
+     * Every ten minutes in a row in paused apps, the companion peeks in from the edge: not right
+     * after a pause screen, and not when one is about to come anyway.
+     */
+    private fun maybePeek(pkg: String, now: Long) {
+        if (streakStart == 0L) { streakStart = sessionStart; nextPeekAt = sessionStart + Peek.EVERY_MS }
+        if (now < nextPeekAt || peek.showing) return
+        nextPeekAt = now + Peek.EVERY_MS
+        if (!store.peekOn || !android.provider.Settings.canDrawOverlays(this)) return
+        if (now - sessionStart < 90_000L || sessionEnds - now < 60_000L) return
+        val minutes = ((now - streakStart) / 60_000L).toInt()
+        val label = runCatching { packageManager.getApplicationInfo(pkg, 0).loadLabel(packageManager).toString() }.getOrDefault("this app")
+        app.tend.data.Stats.log(this, "peek", mapOf("minutes" to minutes))
+        peek.show(
+            store.avatar, store.accessories().first, minutes, label,
+            onCome = {
+                app.tend.data.Stats.log(this, "peek_come", mapOf("minutes" to minutes))
+                startActivity(Intent(this, app.tend.MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+            },
+            onMore = { app.tend.data.Stats.log(this, "peek_more", mapOf("minutes" to minutes)) },
+        )
+    }
 
     /** Three days before the Plus trial ends: one note, with what it has given so far. */
     private fun trialNote() {
@@ -212,6 +244,7 @@ class MonitorService : Service() {
 
     private fun intercept(pkg: String, now: Long, timeUp: Boolean = false) {
         if (!android.provider.Settings.canDrawOverlays(this)) return nudge(pkg)
+        peek.hide()
         interceptedPkg = pkg
         interceptedAt = now
         startActivity(InterstitialActivity.intent(this, pkg, timeUp))
@@ -280,6 +313,8 @@ class MonitorService : Service() {
 
     private fun endSession(now: Long, askWorthIt: Boolean) {
         val pkg = sessionPkg ?: return
+        lastLeft = now
+        peek.hide()
         val seconds = (now - sessionStart) / 1000
         sessionPkg = null
         sessionEnds = Long.MAX_VALUE
@@ -328,6 +363,7 @@ class MonitorService : Service() {
         private const val WORTH_IT_DELAY_MS = 1500L
         private const val SYNC_EVERY_MS = 15 * 60_000L
         private const val INBOX_EVERY_MS = 5 * 60_000L
+        private const val STREAK_GAP_MS = 3 * 60_000L
         private const val PLUS_CHANNEL = "plus"
         private const val AWAY_CONFIRM_MS = 8_000L
         private const val HELPER_MAX_MS = 10 * 60_000L
