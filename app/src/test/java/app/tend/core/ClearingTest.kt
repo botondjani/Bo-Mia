@@ -53,4 +53,15 @@ class ClearingTest {
         assertEquals(15 + 25 + 40, Clearing.acornsFor(listOf(Plant.SPROUT, Plant.TULIP, Plant.SUNFLOWER)))
         assertTrue(Things.forKind(SpotKind.FIRE).first().price <= Clearing.STARTING_ACORNS + Acorns.ACTIVITY_CAP)
     }
+
+    @Test fun shopPlacesThingsByItself() {
+        val fire = Things.byId("campfire")!!
+        assertEquals(0, Clearing.spotFor(emptyMap(), fire))
+        assertEquals(null, Clearing.spotFor(mapOf(0 to "campfire"), fire)) // already there
+        assertEquals(0, Clearing.spotFor(mapOf(0 to "campfire"), Things.byId("grill")!!)) // the one fire pit: swapped
+        val tent = Things.byId("tent")!!
+        assertEquals(4, Clearing.spotFor(mapOf(3 to "cabin"), tent)) // a free shelter
+        assertEquals(3, Clearing.spotFor(mapOf(3 to "tent", 4 to "cabin"), Things.byId("bell_tent")!!)) // swaps the cheaper
+        assertEquals(10, Clearing.spotFor(emptyMap(), Things.byId("lantern")!!))
+    }
 }

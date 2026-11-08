@@ -71,6 +71,17 @@ object Clearing {
     /** What a new user starts with: a campfire and some flowers on day one. */
     const val STARTING_ACORNS = 50
 
+    /**
+     * Where a bought [thing] goes: a free spot of its kind, else the spot whose thing is cheapest
+     * (it's swapped out). Null when it's already in the camp.
+     */
+    fun spotFor(placed: Map<Int, String>, thing: Thing): Int? {
+        if (thing.id in placed.values) return null
+        val ofKind = spots.filter { it.kind == thing.kind }
+        ofKind.firstOrNull { it.id !in placed }?.let { return it.id }
+        return ofKind.minByOrNull { Things.byId(placed.getValue(it.id))?.price ?: 0 }?.id
+    }
+
     /** Selling gives half back. */
     fun sellValue(thing: Thing): Int = thing.price / 2
 

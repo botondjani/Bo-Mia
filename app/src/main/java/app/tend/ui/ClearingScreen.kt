@@ -27,6 +27,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.layout.layout
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -48,7 +51,6 @@ import app.tend.core.SpotKind
 import app.tend.core.Things
 import kotlinx.coroutines.launch
 
-/** The scene's shape on screen: wide, like a window onto the camp. */
 /** The camp's shape, the same on the home page and here, so moving between them is seamless. */
 const val CAMP_RATIO = 1.8f
 
@@ -66,8 +68,8 @@ fun ClearingScreen(
     worn: Set<Accessory>,
     onShelf: Set<Accessory>,
     night: Boolean,
-    onBuy: (spot: Int, thing: String) -> Boolean,
-    onSell: (spot: Int) -> Unit,
+    onBuy: (thing: String) -> Boolean,
+    onSell: (thing: String) -> Unit,
     onBack: () -> Unit,
     onShare: () -> Unit,
     onOpenSettings: () -> Unit = {},
@@ -79,7 +81,6 @@ fun ClearingScreen(
     onClaimStep: (app.tend.core.Step) -> Unit = {},
     onUsed: () -> Unit = {},
     mood: app.tend.core.Mood = app.tend.core.Mood.HAPPY,
-    startEditing: Boolean = false,
     openInvite: Boolean = false,
     onStep: (app.tend.core.Step) -> Unit = {},
     visitor: app.tend.core.Visitor? = null,
@@ -97,16 +98,15 @@ fun ClearingScreen(
         .padding(horizontal = 20.dp).padding(top = Space.xs, bottom = Space.xxl),
     verticalArrangement = Arrangement.spacedBy(Space.m),
 ) {
-    var editing by rememberSaveable { mutableStateOf(startEditing) }
-    androidx.compose.runtime.LaunchedEffect(startEditing) { if (startEditing) editing = true }
-    var selected by rememberSaveable { mutableStateOf<Int?>(null) }
+    var tab by rememberSaveable { mutableIntStateOf(if (openInvite) 1 else 0) }
+    androidx.compose.runtime.LaunchedEffect(openInvite) { if (openInvite) tab = 1 }
 
-    // The same height as the home page's header, so the camp stays where it was.
+    // The same height as the home page's header.
     Row(verticalAlignment = Alignment.CenterVertically) {
         IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, "Back", onBack)
         Spacer(Modifier.width(Space.m))
         Column(Modifier.weight(1f)) {
-            Text("$acorns acorns to spend", style = MaterialTheme.typography.bodyMedium)
+            Text("Tap anything to use it", style = MaterialTheme.typography.bodyMedium)
             Text("${avatar.displayName}'s camp", style = MaterialTheme.typography.headlineMedium, maxLines = 1)
         }
         IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Share, "Share", onShare)
@@ -136,14 +136,25 @@ fun ClearingScreen(
     val visitorNow by androidx.compose.runtime.rememberUpdatedState(visitor)
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { Sounds.stop() } }
 
-    // The camp. Tapping it shows the spots; tapping a spot opens the shop for it.
-    Box(Modifier.fillMaxWidth().aspectRatio(CAMP_RATIO).clip(RoundedCornerShape(28.dp))) {
-        Canvas(
-            Modifier.fillMaxSize().pointerInput(editing) {
-                detectTapGestures { tap ->
-                    val fx = tap.x / size.width
-                    val fy = tap.y / size.height
-                    if (!editing) {
+    // The camp, big and edge to edge: wider than the screen, so it pans left and right.
+    androidx.compose.foundation.layout.BoxWithConstraints(
+        Modifier.fillMaxWidth().layout { m, c ->
+            val extra = 20.dp.roundToPx()
+            val p = m.measure(c.copy(minWidth = c.maxWidth + 2 * extra, maxWidth = c.maxWidth + 2 * extra))
+            layout(c.maxWidth, p.height) { p.place(-extra, 0) }
+        },
+    ) {
+        val sceneHeight = maxWidth * 0.78f
+        val pan = rememberScrollState()
+        // Starts in the middle of the camp.
+        var centered by rememberSaveable { mutableStateOf(false) }
+        androidx.compose.runtime.LaunchedEffect(pan.maxValue) { if (!centered && pan.maxValue > 0) { pan.scrollTo(pan.maxValue / 2); centered = true } }
+        Box(Modifier.fillMaxWidth().height(sceneHeight).horizontalScroll(pan)) {
+            Canvas(
+                Modifier.width(sceneHeight * CAMP_RATIO).height(sceneHeight).pointerInput(Unit) {
+                    detectTapGestures { tap ->
+                        val fx = tap.x / size.width
+                        val fy = tap.y / size.height
                         val duck = DuckSpots.take(ducksNow.size).indexOfFirst { kotlin.math.abs(it.x - fx) * size.width < size.height * 0.08f && kotlin.math.abs(it.y - fy) < 0.09f }
                         if (duck >= 0) {
                             val n = ducksNow[duck]
@@ -167,60 +178,148 @@ fun ClearingScreen(
                         if (thing != null) {
                             if (using?.second == thing && thing == "guitar") { strumAt = frame; useStart = frame - 1_000_000_000L; Sounds.strum(context) }
                             else { using = hit to thing; caught = null; Sounds.forUse(context, thing); onUsed() }
-                            return@detectTapGestures
-                        }
-                        if (using != null) { using = null; Sounds.stop(); return@detectTapGestures }
+                        } else if (using != null) { using = null; Sounds.stop() }
                     }
-                    val spot = spotAt(Offset(tap.x / size.width, tap.y / size.height), size.width / size.height.toFloat())
-                    if (!editing) editing = true
-                    selected = spot
-                }
-            },
-        ) {
-            val use = using?.takeIf { !editing && useStart >= 0 }?.let { (spot, thing) -> InUse(spot, thing, (frame - useStart) / 1e9f) }
-            drawClearing(
-                avatar, placed, mood, worn = worn, night = night, showSpots = editing, selected = selected, paper = paperLeft, ducks = ducks.size, bridge = bridge,
-                use = use, lastStrum = (frame - strumAt) / 1e9f, visitor = visitor,
-            )
+                },
+            ) {
+                val use = using?.takeIf { useStart >= 0 }?.let { (spot, thing) -> InUse(spot, thing, (frame - useStart) / 1e9f) }
+                drawClearing(
+                    avatar, placed, mood, worn = worn, night = night, paper = paperLeft, ducks = ducks.size, bridge = bridge,
+                    use = use, lastStrum = (frame - strumAt) / 1e9f, visitor = visitor,
+                )
+            }
         }
-        AcornBadge(acorns, Modifier.align(Alignment.TopEnd).padding(10.dp))
+        AcornBadge(acorns, Modifier.align(Alignment.TopEnd).padding(12.dp))
     }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            when {
-                editing -> "Tap a spot to put something there."
-                using != null -> Uses.line(using!!.second, avatar.displayName)
-                paper -> "Someone toilet-papered your oak! Tap it to unroll."
-                visitor != null -> "A ${visitor.title.lowercase()} came to the camp. Tap it to say hello."
-                ducks.isNotEmpty() -> "A rubber duck: someone visited. Tap it to fish it out."
-                caught != null -> caught!!
-                bridge -> "Cross the bridge to visit your friends' camps."
-                placed.isNotEmpty() -> "Tap something in the camp: ${avatar.displayName} will use it."
-                else -> "Earn acorns by living; spend them here."
-            },
-            style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f),
-        )
-        ChipButton(if (editing) "Done" else "Place things", { editing = !editing; selected = null; using = null; Sounds.stop() }, filled = !editing)
-    }
+    Text(
+        when {
+            using != null -> Uses.line(using!!.second, avatar.displayName)
+            paper -> "Someone toilet-papered your oak! Tap it to unroll."
+            visitor != null -> "A ${visitor.title.lowercase()} came to the camp. Tap it to say hello."
+            ducks.isNotEmpty() -> "A rubber duck: someone visited. Tap it to fish it out."
+            caught != null -> caught!!
+            bridge -> "Cross the bridge to visit your friends' camps."
+            placed.isNotEmpty() -> "Tap something in the camp: ${avatar.displayName} will use it. Swipe to look around."
+            else -> "Earn acorns by living; spend them in the shop below."
+        },
+        style = MaterialTheme.typography.bodyMedium,
+    )
 
     FirstStepsCard(steps, onClaim = { onClaimStep(it); Sounds.chime(context) }, onGo = { step ->
-        // Here already: placing starts right in the camp at the top.
-        if (step == app.tend.core.Step.PLACE || step == app.tend.core.Step.USE) {
-            editing = step == app.tend.core.Step.PLACE
-            scope.launch { scroll.animateScrollTo(0) }
-        } else onStep(step)
+        when (step) {
+            app.tend.core.Step.PLACE -> tab = 0
+            app.tend.core.Step.USE -> scope.launch { scroll.animateScrollTo(0) }
+            app.tend.core.Step.FRIEND -> tab = 1
+            else -> onStep(step)
+        }
     })
-    Guestbook(guestbook)
-    NextThing(acorns, placed)
-    EarnedToday(earnedToday, lastNight)
-    FriendsCard(onOpenSettings, onOpenRiver, onFriendsChanged, openInvite)
-    Things(avatar, worn, onShelf)
-    week()
 
-    selected?.let { id ->
-        SpotSheet(id, placed[id], acorns, onDismiss = { selected = null }, onBuy = { thing -> if (onBuy(id, thing)) selected = null }, onSell = { onSell(id); selected = null })
+    // One thing at a time below the camp: the shop, friends, or what's been collected.
+    Tabs(listOf("Shop", "Friends", "Collection"), tab) { tab = it }
+    when (tab) {
+        0 -> Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, onBuy, onSell)
+        1 -> FriendsCard(onOpenSettings, onOpenRiver, onFriendsChanged, openInvite)
+        else -> {
+            Guestbook(guestbook)
+            Things(avatar, worn, onShelf)
+            week()
+        }
     }
 }
+}
+
+/** A row of tabs as one rounded control; the picked one is filled. */
+@Composable
+private fun Tabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) = Row(
+    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Brand.Card).padding(4.dp),
+) {
+    labels.forEachIndexed { i, label ->
+        Text(
+            label, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center,
+            color = if (i == selected) Color.White else Brand.Moss,
+            modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if (i == selected) Brand.Moss else Color.Transparent)
+                .tappable { onSelect(i) }.padding(vertical = 10.dp),
+        )
+    }
+}
+
+/**
+ * The shop: every thing, grouped by where it goes, each bought once. It goes to its place by
+ * itself; when that place is taken, the cheaper thing there is swapped out for half back.
+ */
+@Composable
+private fun Shop(acorns: Int, placed: Map<Int, String>, earnedToday: Int, name: String, onBuy: (String) -> Boolean, onSell: (String) -> Unit) {
+    var selling by remember { mutableStateOf<app.tend.core.Thing?>(null) }
+    Card {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("SHOP", style = MaterialTheme.typography.labelSmall)
+                Text(
+                    if (earnedToday > 0) "+$earnedToday acorns today" else "Activities earn 10, a \"Not now\" 2.",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted,
+                )
+            }
+            AcornBadge(acorns)
+        }
+        listOf(SpotKind.SMALL, SpotKind.FIRE, SpotKind.SEAT, SpotKind.SHELTER, SpotKind.TREES, SpotKind.WATER, SpotKind.ABOVE).forEach { kind ->
+            Text(kindTitle(kind).uppercase(), style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.padding(top = 10.dp))
+            Things.forKind(kind).forEach { thing ->
+                val owned = thing.id in placed.values
+                val swapped = if (owned) null else Clearing.spotFor(placed, thing)?.let { placed[it] }?.let(Things::byId)
+                val cost = thing.price - (swapped?.let(Clearing::sellValue) ?: 0)
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 6.dp).clip(RoundedCornerShape(18.dp))
+                        .background(if (owned) Brand.Picked else Brand.Sage).padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(52.dp).clip(RoundedCornerShape(14.dp)).background(Color(0x66FFFFFF)), contentAlignment = Alignment.Center) {
+                        Canvas(Modifier.size(46.dp)) { drawThingIcon(thing.id) }
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(thing.name, style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                        Text(
+                            when {
+                                owned -> "In your camp"
+                                swapped != null -> "Swaps out the ${swapped.name.lowercase()}"
+                                else -> Uses.line(thing.id, name).substringBefore(". ").removeSuffix(".")
+                            },
+                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    when {
+                        owned -> Text("Sell", style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+                            modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White).tappable { selling = thing }.padding(horizontal = 14.dp, vertical = 7.dp))
+                        acorns >= cost -> Row(
+                            Modifier.clip(RoundedCornerShape(50)).background(Brand.Moss).tappable { onBuy(thing.id) }.padding(horizontal = 12.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text("${thing.price}", style = MaterialTheme.typography.labelLarge, color = Color.White)
+                            Spacer(Modifier.width(4.dp))
+                            AcornIcon(14.dp)
+                        }
+                        else -> Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("${thing.price}", style = MaterialTheme.typography.labelLarge, color = Brand.Muted)
+                            Spacer(Modifier.width(3.dp))
+                            AcornIcon(13.dp)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    selling?.let { t ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { selling = null },
+            title = { Text("Sell the ${t.name.lowercase()}?") },
+            text = { Text("You get ${Clearing.sellValue(t)} acorns back, half its price.") },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { onSell(t.id); selling = null }) { Text("Sell", color = Brand.Coral) } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { selling = null }) { Text("Keep") } },
+            containerColor = Brand.Card,
+        )
+    }
 }
 
 /** The spot nearest to a tap (in scene fractions), if it's close enough. */
@@ -255,59 +354,6 @@ fun AcornIcon(size: Dp) = Canvas(Modifier.size(size)) {
     drawLine(Color(0xFF6B4A2B), Offset(s * 0.5f, s * 0.22f), Offset(s * 0.58f, s * 0.06f), strokeWidth = s * 0.09f)
 }
 
-/** What to save for: the cheapest thing not yet in the clearing that's out of reach, and how far. */
-@Composable
-private fun NextThing(acorns: Int, placed: Map<Int, String>) {
-    val owned = placed.values.toSet()
-    val next = Things.all.filter { it.id !in owned && it.price > acorns }.minByOrNull { it.price } ?: return
-    val canToday = Things.all.filter { it.id !in owned && it.price <= acorns }.maxByOrNull { it.price }
-    Row(Modifier.fillMaxWidth().surface(radius = 22.dp).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)).background(Brand.Sage), contentAlignment = Alignment.Center) {
-            Canvas(Modifier.size(48.dp)) { drawThingIcon(next.id) }
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text("NEXT UP", style = MaterialTheme.typography.labelSmall)
-            Text(next.name, style = MaterialTheme.typography.titleMedium)
-            Text(
-                "${next.price - acorns} more acorns" + (canToday?.let { " · today you could get the ${it.name.lowercase()}" } ?: ""),
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted,
-            )
-        }
-    }
-}
-
-/** Where today's acorns came from. */
-@Composable
-private fun EarnedToday(earned: Map<String, Int>, lastNight: Int) {
-    val parts = listOfNotNull(
-        earned["activities"]?.takeIf { it > 0 }?.let { "Activities" to it },
-        earned["not_now"]?.takeIf { it > 0 }?.let { "\"Not now\"" to it },
-        earned["challenge"]?.takeIf { it > 0 }?.let { "Weekly challenge" to it },
-        earned["level"]?.takeIf { it > 0 }?.let { "Level up" to it },
-        earned["together"]?.takeIf { it > 0 }?.let { "Together with friends" to it },
-        earned["steps"]?.takeIf { it > 0 }?.let { "First steps" to it },
-        earned["visitor"]?.takeIf { it > 0 }?.let { "A visitor" to it },
-        lastNight.takeIf { it > 0 }?.let { "Last night" to it },
-    )
-    Card {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("ACORNS TODAY", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
-            Text("+${parts.sumOf { it.second }}", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
-        }
-        if (parts.isEmpty()) Text(
-            "An activity is 10, a \"Not now\" is 2. Staying within your minutes and below your old normal adds more at midnight.",
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        parts.forEach { (label, n) ->
-            Row(Modifier.padding(top = 4.dp)) {
-                Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                Text("+$n", style = MaterialTheme.typography.bodyMedium, color = Brand.Moss)
-            }
-        }
-    }
-}
-
 private fun kindTitle(kind: SpotKind) = when (kind) {
     SpotKind.FIRE -> "The fire pit"
     SpotKind.SEAT -> "By the fire"
@@ -316,62 +362,6 @@ private fun kindTitle(kind: SpotKind) = when (kind) {
     SpotKind.WATER -> "On the river"
     SpotKind.ABOVE -> "Between the trees"
     SpotKind.SMALL -> "Around the camp"
-}
-
-/** The shop for one spot: what's there now (sell it), and what could go there. */
-@Composable
-private fun SpotSheet(spotId: Int, current: String?, acorns: Int, onDismiss: () -> Unit, onBuy: (String) -> Unit, onSell: () -> Unit) =
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) { SpotSheetCard(spotId, current, acorns, onDismiss, onBuy, onSell) }
-
-@Composable
-internal fun SpotSheetCard(spotId: Int, current: String?, acorns: Int, onDismiss: () -> Unit, onBuy: (String) -> Unit, onSell: () -> Unit) {
-    val spot = Clearing.spot(spotId) ?: return
-    val refund = current?.let(Things::byId)?.let(Clearing::sellValue) ?: 0
-    run {
-        Column(
-            Modifier.fillMaxWidth().surface(radius = 28.dp).padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(kindTitle(spot.kind), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                AcornBadge(acorns)
-            }
-            Things.forKind(spot.kind).forEach { thing ->
-                val here = thing.id == current
-                val cost = thing.price - refund
-                val affordable = acorns >= cost
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
-                        .background(if (here) Brand.Picked else Brand.Sage)
-                        .border(if (here) 2.dp else 0.dp, if (here) Brand.Moss else Color.Transparent, RoundedCornerShape(18.dp))
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(Modifier.size(52.dp).clip(RoundedCornerShape(14.dp)).background(Color(0x66FFFFFF)), contentAlignment = Alignment.Center) {
-                        Canvas(Modifier.size(46.dp)) { drawThingIcon(thing.id) }
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(thing.name, style = MaterialTheme.typography.titleSmall, maxLines = 1)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            AcornIcon(13.dp)
-                            Spacer(Modifier.width(3.dp))
-                            Text("${thing.price}", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
-                        }
-                    }
-                    when {
-                        here -> Text("Sell · +$refund", style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = TextAlign.Center,
-                            modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White).tappable(onClick = onSell).padding(horizontal = 12.dp, vertical = 7.dp))
-                        affordable -> Text("Get", style = MaterialTheme.typography.labelLarge, color = Color.White,
-                            modifier = Modifier.clip(RoundedCornerShape(50)).background(Brand.Moss).tappable { onBuy(thing.id) }.padding(horizontal = 16.dp, vertical = 7.dp))
-                        else -> Text("${cost - acorns} more", style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp), color = Brand.Muted)
-                    }
-                }
-            }
-            if (current != null) Text("Swapping sells what's there for half its price.", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
-            SecondaryButton("Close", onDismiss)
-        }
-    }
 }
 
 /** The animals that came to the camp: seen ones in colour with how often, the rest as shadows. */

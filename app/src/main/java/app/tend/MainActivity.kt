@@ -353,14 +353,13 @@ class MainActivity : ComponentActivity() {
         }
         var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
         var riverFocus by rememberSaveable { mutableStateOf<String?>(null) }
-        // A first step tapped: open the camp ready to place a thing, or with the invite open.
-        var campEditing by rememberSaveable { mutableStateOf(false) }
+        // A first step tapped: open the camp (the shop), or with the invite open.
         var campInvite by rememberSaveable { mutableStateOf(false) }
         var activitiesFocus by remember { mutableIntStateOf(0) }
         val goToStep: (app.tend.core.Step) -> Unit = { step ->
             when (step) {
                 app.tend.core.Step.ACTIVITY -> { screen = Screen.HOME; activitiesFocus++ }
-                app.tend.core.Step.PLACE -> { campEditing = true; screen = Screen.CLEARING }
+                app.tend.core.Step.PLACE -> screen = Screen.CLEARING
                 app.tend.core.Step.USE -> screen = Screen.CLEARING
                 app.tend.core.Step.NOT_NOW -> {
                     // Open a paused app: the pause comes up, and "Not now" is right there.
@@ -405,7 +404,7 @@ class MainActivity : ComponentActivity() {
         }
         // System back always leads home from inner pages.
         androidx.activity.compose.BackHandler(enabled = store.onboarded && screen != Screen.HOME) {
-            if (screen == Screen.CLEARING) { campEditing = false; campInvite = false }
+            if (screen == Screen.CLEARING) campInvite = false
             screen = if (screen == Screen.RIVER) Screen.CLEARING else Screen.HOME
         }
         LaunchedEffect(openRecap) { if (openRecap) { screen = Screen.RECAP; openRecap = false } }
@@ -539,8 +538,8 @@ class MainActivity : ComponentActivity() {
                 lastNight = store.acornsLastNight(),
                 worn = shelf.first, onShelf = shelf.second,
                 night = app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour),
-                onBuy = { spot, thing -> store.buy(spot, thing).also { if (it) { app.tend.data.Stats.log(this, "bought", mapOf("thing" to thing)); saveProfile(); refresh++ } } },
-                onSell = { spot -> store.sell(spot); saveProfile(); refresh++ },
+                onBuy = { thing -> store.buy(thing).also { if (it) { app.tend.data.Stats.log(this, "bought", mapOf("thing" to thing)); saveProfile(); refresh++ } } },
+                onSell = { thing -> store.sell(thing); saveProfile(); refresh++ },
                 onOpenSettings = { screen = Screen.SETTINGS },
                 onOpenRiver = { id -> riverFocus = id; screen = Screen.RIVER },
                 paper = app.tend.data.Friends.paperOnMe(this).isNotEmpty(),
@@ -555,10 +554,9 @@ class MainActivity : ComponentActivity() {
                 ducks = app.tend.data.Friends.ducks(this).take(3),
                 onUnroll = { lifecycleScope.launch { app.tend.data.Friends.clearPaper(this@MainActivity) }; refresh++ },
                 onCatchDuck = { n -> app.tend.data.Friends.catchDuck(this, n); refresh++; store.ducksCaught },
-                onBack = { campEditing = false; campInvite = false; screen = Screen.HOME },
+                onBack = { campInvite = false; screen = Screen.HOME },
                 onShare = ::shareCamp,
                 mood = app.tend.core.Moods.atNight(app.tend.core.Moods.of(store.config, store.today()), app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour)),
-                startEditing = campEditing,
                 openInvite = campInvite,
                 onStep = goToStep,
             ) {

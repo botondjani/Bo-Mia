@@ -91,8 +91,7 @@ val SpotPositions: Map<Int, Offset> = mapOf(
 )
 
 /**
- * Draws the clearing. [placed] maps spot ids to thing ids. With [showSpots], empty spots show a
- * soft "+" and [selected] gets a ring.
+ * Draws the clearing. [placed] maps spot ids to thing ids.
  */
 fun DrawScope.drawClearing(
     avatar: Avatar,
@@ -100,8 +99,6 @@ fun DrawScope.drawClearing(
     mood: Mood = Mood.HAPPY,
     worn: Set<Accessory> = emptySet(),
     night: Boolean = false,
-    showSpots: Boolean = false,
-    selected: Int? = null,
     paper: Float = 0f,
     ducks: Int = 0,
     bridge: Boolean = false,
@@ -179,7 +176,6 @@ fun DrawScope.drawClearing(
 
     // Something strung between the trees, over the camp.
     placed[9]?.let { overhead(it, Offset(w * 0.445f, h * 0.4f), Offset(w * 0.955f, h * 0.38f), u, lights) }
-    if (showSpots && placed[9] == null) emptySpot(at(9), u, SpotKind.ABOVE, selected == 9)
 
     // The worn ground of the fire pit is always there.
     val pit = at(0)
@@ -208,7 +204,7 @@ fun DrawScope.drawClearing(
         if (thing != null && !(use?.spot == spot.id && thing in Uses.redrawn)) {
             if (spot.id != 7) shadow(p, u * thingWidth(thing) * 0.5f, u)
             drawThing(thing, p, u, lights)
-        } else if (thing == null && showSpots) emptySpot(p, u, spot.kind, selected == spot.id)
+        }
     }
     if (!companionDrawn) drawActor(lights)
 
@@ -600,15 +596,6 @@ private fun thingWidth(id: String): Float = when (id) {
     "campfire", "kettle", "grill", "pizza_oven" -> 0.1f
     "hammock", "swing", "treehouse" -> 0.08f
     else -> 0.04f
-}
-
-private fun DrawScope.emptySpot(p: Offset, u: Float, kind: SpotKind, selected: Boolean) {
-    val r = u * if (kind == SpotKind.SMALL) 0.02f else 0.034f
-    val c = p + Offset(0f, -r * 1.2f)
-    drawCircle(Color.White.copy(alpha = if (selected) 0.95f else 0.6f), r, c)
-    drawCircle(if (selected) Brand.Moss else Color.White, r, c, style = Stroke(u * if (selected) 0.006f else 0.003f))
-    drawLine(Brand.Moss, c + Offset(-r * 0.45f, 0f), c + Offset(r * 0.45f, 0f), strokeWidth = u * 0.005f, cap = StrokeCap.Round)
-    drawLine(Brand.Moss, c + Offset(0f, -r * 0.45f), c + Offset(0f, r * 0.45f), strokeWidth = u * 0.005f, cap = StrokeCap.Round)
 }
 
 // ---- Things ----

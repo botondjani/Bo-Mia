@@ -241,8 +241,6 @@ private fun InviteDialog(onDismiss: () -> Unit) {
                         val text = "Let's tend our camps together! Open this on your phone: ${Friends.inviteLink(c)}\nOr in tend: Clearing → Friends → Enter a code: $c"
                         context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "Invite a friend"))
                     })
-                    Text("New code", style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
-                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable { scope.launch { code = Friends.myInvite(context, fresh = true) ?: code } }.padding(8.dp))
                 }
                 failed -> Text("Can't reach the server right now. Try again in a moment.", style = MaterialTheme.typography.bodyMedium)
                 else -> Text("Getting your code…", style = MaterialTheme.typography.bodyMedium)

@@ -25,9 +25,9 @@ object Friends {
         return raw.uppercase().takeIf { Regex("^[A-Z2-9]{6}$").matches(it) }
     }
 
-    /** Your invite code; [fresh] replaces it (old links stop working). */
-    suspend fun myInvite(c: Context, fresh: Boolean = false): String? =
-        Account.rpc(c, "tend_my_invite", JSONObject().put("p_new", fresh))?.takeIf { it.ok }?.body?.trim('"')?.takeIf { it.length == 6 }
+    /** Your invite code (it changes by itself when you remove a friend, so old links stop working). */
+    suspend fun myInvite(c: Context): String? =
+        Account.rpc(c, "tend_my_invite", JSONObject().put("p_new", false))?.takeIf { it.ok }?.body?.trim('"')?.takeIf { it.length == 6 }
 
     /** Who a code belongs to, before adding them; null when unknown (or your own). */
     suspend fun owner(c: Context, code: String): Friend? {

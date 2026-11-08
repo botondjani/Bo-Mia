@@ -229,6 +229,18 @@ class TendStore(private val context: Context) {
         }
         set(v) = edit { putString("placed", app.tend.core.Clearing.format(v)) }
 
+    /** Buys [thingId] from the shop: it goes to a free spot of its kind, or swaps out the cheapest one there. */
+    fun buy(thingId: String): Boolean {
+        val thing = app.tend.core.Things.byId(thingId) ?: return false
+        val spot = app.tend.core.Clearing.spotFor(placed, thing) ?: return false
+        return buy(spot, thingId)
+    }
+
+    /** Sells [thingId] wherever it stands. */
+    fun sell(thingId: String) {
+        placed.entries.firstOrNull { it.value == thingId }?.let { sell(it.key) }
+    }
+
     /** Buys [thingId] for [spotId]; a thing already there is sold first. False when it doesn't fit or isn't affordable. */
     @Synchronized
     fun buy(spotId: Int, thingId: String): Boolean {
