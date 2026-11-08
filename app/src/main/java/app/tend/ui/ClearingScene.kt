@@ -208,7 +208,7 @@ fun DrawScope.drawClearing(
     val bed = if (night && use == null) bedOf(placed) else null
     val act = use ?: bed?.let { InUse(it, placed.getValue(it), nightClock, if (rest == it) 0f else Uses.WALK) }
     val restAt = restPoint(rest, placed)
-    val target = act?.let { useAnchor(it.arrived(), placed) }
+    val target = act?.let { useAnchor(it.arrived(), placed, restAt) }
     val walking = act?.walking == true
     val anchor = when {
         target == null -> restAt

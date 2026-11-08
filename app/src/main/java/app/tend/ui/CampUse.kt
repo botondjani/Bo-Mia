@@ -96,6 +96,9 @@ private val GlowWarm = Color(0xFFFFD27A)
 /** How big the companion is at [y] (a fraction of the scene): smaller farther back. */
 internal fun depthScale(y: Float) = (0.55f + (y - 0.6f) * 1.6f).coerceIn(0.5f, 1f)
 
+/** Things used standing (or sitting at the fire): afterwards they stay right there. */
+private val STANDING = setOf("guitar", "campfire", "kettle", "pizza_oven", "woodpile", "wildflowers", "lantern", "telescope", "fishing_rod", "wind_chimes", "bird_feeder")
+
 /**
  * Where the companion stays after using the thing at [spot]: standing beside it, on the shore
  * for the river, at the land end of the dock. Null spot, or nothing there: the usual place.
@@ -107,11 +110,13 @@ fun DrawScope.restPoint(spot: Int?, placed: Map<Int, String>): Offset {
     val home = Offset(w * 0.395f, h * 0.86f)
     if (spot == null || placed[spot] == null) return home
     val p = SpotPositions.getValue(spot).let { Offset(it.x * w, it.y * h) }
+    // After something used standing up (playing, cooking, fishing...), they stay just where they were.
+    val thing = placed.getValue(spot)
+    if (thing in STANDING) return useAnchor(InUse(spot, thing, 0f), placed)
     return when (spot) {
         7 -> Offset(w * 0.33f, h * 0.8f) // the river: on our bank
         8 -> p + Offset(u * 0.13f, -u * 0.01f) // the dock: where it meets the shore
         9 -> home // the lights overhead
-        0 -> p + Offset(-u * 0.15f, u * 0.03f) // the fire: a step away from the flames
         else -> p + Offset(-u * (if (SpotPositions.getValue(spot).y < 0.7f) 0.07f else 0.09f), u * 0.012f)
     }
 }
@@ -125,22 +130,25 @@ fun DrawScope.drawWalker(avatar: Avatar, mood: Mood, worn: Set<Accessory>, at: O
 }
 
 /** Where the companion stands for [use], as a fraction-free point in the scene. */
-fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>): Offset {
+fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>, here: Offset? = null): Offset {
     val w = size.width
     val h = size.height
     val u = h
-    val home = Offset(w * 0.395f, h * 0.86f)
+    // Activities from real life are acted out where the companion is standing.
+    val home = here ?: Offset(w * 0.395f, h * 0.86f)
     val p = SpotPositions[use.spot]?.let { Offset(it.x * w, it.y * h) } ?: home
     val fire = SpotPositions.getValue(0).let { Offset(it.x * w, it.y * h) }
     val seat = SpotPositions.getValue(1).let { Offset(it.x * w, it.y * h) }
     return when (use.thing) {
         // Activities done in real life, acted out where the companion stands.
-        "act_run" -> Offset(w * (0.5f + 0.12f * sin(use.t * 0.9f)), h * 0.84f)
-        "act_walk" -> Offset(w * (0.36f + 0.03f * sin(use.t * 0.4f)), h * (0.8f + 0.05f * sin(use.t * 0.4f)))
+        "act_run" -> home + Offset(sin(use.t * 0.9f) * u * 0.14f, 0f)
+        "act_walk" -> home + Offset(sin(use.t * 0.4f) * u * 0.06f, (kotlin.math.cos(use.t * 0.4f) - 1f) * u * 0.03f)
         "act_read", "act_stretch", "act_hearts", "act_tidy", "act_cheer" -> home
-        "guitar", "campfire" -> if (use.spot < 0) (if (use.thing == "campfire") fire + Offset(-u * 0.12f, u * 0.035f) else home) else p
-        "campfire", "kettle", "pizza_oven", "woodpile" ->
-            if (placed[1] != null && use.thing != "woodpile") seat + Offset(0f, -u * 0.012f) else fire + Offset(-u * 0.12f, u * 0.035f)
+        "guitar", "campfire" -> if (use.spot < 0) (if (use.thing == "campfire") fire + Offset(-u * 0.21f, u * 0.03f) else home) else
+            if (use.thing == "campfire" && placed[1] != null) seat + Offset(0f, -u * 0.012f) else if (use.thing == "campfire") fire + Offset(-u * 0.21f, u * 0.03f) else p
+        "kettle", "pizza_oven", "woodpile" ->
+            // Beside the fire pit, clear of the stones and the flames (or on the bench, if there is one).
+            if (placed[1] != null && use.thing != "woodpile") seat + Offset(0f, -u * 0.012f) else fire + Offset(-u * 0.21f, u * 0.03f)
         "fishing_rod" -> Offset(w * 0.335f, h * 0.84f)
         "wildflowers", "lantern" -> p + Offset(u * 0.055f, u * 0.004f)
         "telescope" -> p + Offset(-u * 0.05f, u * 0.004f)
@@ -238,9 +246,18 @@ fun DrawScope.drawUse(
     when (use.thing) {
         "guitar" -> {
             shadowAt(base, s * 0.45f)
-            actor(avatar, mood, worn, base, s, bounce = sin(t * 7f) * 0.6f, look = 0.3f)
-            guitarHeld(base + Offset(s * 0.05f, -s * 0.28f), s, lastStrum)
-            rising(t, base + Offset(s * 0.45f, -s * 0.85f), s * 0.07f, every = 1.4f) { at, a -> note(at, s * 0.07f, a) }
+            // Swaying to the beat, the guitar with them; colourful notes drift up.
+            rotate(sin(t * 2.2f) * 6f, base) {
+                actor(avatar, mood, worn, base, s, bounce = sin(t * 7f) * 0.6f, look = 0.3f)
+                guitarHeld(base + Offset(s * 0.05f, -s * 0.28f), s, lastStrum)
+            }
+            val colors = listOf(Color(0xFF316849), Color(0xFFE07A5F), Color(0xFFD9A440))
+            for (k in 0 until 3) {
+                val ph = ((t / 1.2f + k / 3f) % 1f)
+                val at = base + Offset(s * (0.4f + 0.25f * sin((ph + k) * 6f)), -s * (0.9f + ph * 0.9f))
+                noteColored(at, s * 0.09f, colors[k], 1f - ph)
+            }
+            if (lastStrum in 0f..0.5f) sparkles(base + Offset(s * 0.1f, -s * 0.3f), u, lastStrum / 0.5f)
         }
         "campfire", "kettle", "pizza_oven" -> {
             shadowAt(base, s * 0.45f)
@@ -250,8 +267,16 @@ fun DrawScope.drawUse(
                 "campfire" -> {
                     val end = fire + Offset(-u * 0.008f, -u * 0.07f)
                     drawLine(BarkDark, hand, end, strokeWidth = u * 0.003f, cap = StrokeCap.Round)
-                    val toast = (t / 6f).coerceIn(0f, 1f)
+                    val toast = (t / 4.5f).coerceIn(0f, 1f)
                     drawRoundRect(androidx.compose.ui.graphics.lerp(Marshmallow, Toasted, toast), end + Offset(-u * 0.011f, -u * 0.01f), Size(u * 0.022f, u * 0.02f), CornerRadius(u * 0.006f))
+                    // Sparks fly up; at the end the marshmallow catches fire for a moment, and gets blown out.
+                    rising(t, fire + Offset(0f, -u * 0.06f), u * 0.014f, every = 0.5f, drift = 2.5f) { at, a -> drawCircle(Color(0xFFFFB347).copy(alpha = a), u * 0.0035f, at) }
+                    lights += Light(fire + Offset(0f, -u * 0.05f), u * (0.18f + 0.04f * sin(t * 9f)), 0.8f)
+                    if (t in 4.6f..5.6f) {
+                        val k = (t - 4.6f)
+                        drawPath(Path().apply { val m = end + Offset(0f, -u * 0.012f); moveTo(m.x - u * 0.008f, m.y); quadraticTo(m.x, m.y - u * 0.035f * (1 - k), m.x + u * 0.008f, m.y); close() }, Color(0xFFF2A341).copy(alpha = 1f - k))
+                        for (i in 0 until 3) drawCircle(Color.White.copy(alpha = 0.5f * (1 - k)), u * 0.004f * (1 + i), hand + Offset(-s * 0.05f + k * u * 0.05f * (i + 1), -s * 0.35f - i * u * 0.004f))
+                    }
                 }
                 "kettle" -> {
                     drawRoundRect(Color(0xFF2A6F6B), hand + Offset(-u * 0.008f, -u * 0.014f), Size(u * 0.016f, u * 0.016f), CornerRadius(u * 0.003f))
@@ -283,7 +308,12 @@ fun DrawScope.drawUse(
         "wildflowers" -> {
             shadowAt(base, s * 0.45f)
             actor(avatar, mood, worn, base, s, look = -0.8f, bounce = sin(t * 1.5f) * 0.4f)
-            rising(t, p + Offset(0f, -u * 0.05f), u * 0.012f, every = 1.2f) { at, a -> heart(at, u * 0.014f, a) }
+            rising(t, p + Offset(0f, -u * 0.05f), u * 0.012f, every = 1.6f) { at, a -> heart(at, u * 0.012f, a) }
+            // Two butterflies dance over the flowers.
+            for (k in 0 until 2) {
+                val a = t * (1.5f + k * 0.4f) + k * 3f
+                butterfly(p + Offset(kotlin.math.cos(a) * u * 0.05f, -u * 0.06f + sin(a * 1.7f) * u * 0.025f), u, t * 14f + k, if (k == 0) Color(0xFFF2C14E) else Color(0xFF9FC4E6))
+            }
         }
         "lantern" -> {
             shadowAt(base, s * 0.45f)
@@ -292,6 +322,11 @@ fun DrawScope.drawUse(
             val pulse = 0.5f + 0.5f * sin(t * 4f)
             drawCircle(GlowWarm.copy(alpha = 0.25f + 0.2f * pulse), u * (0.03f + 0.01f * pulse), glow)
             lights += Light(glow, u * 0.14f, 1f)
+            // Moths circling the light.
+            for (k in 0 until 3) {
+                val a = t * (3f + k) + k * 2.1f
+                butterfly(glow + Offset(kotlin.math.cos(a) * u * 0.03f, sin(a) * u * 0.022f), u * 0.6f, t * 22f + k, Color(0xFFE8DCC4))
+            }
         }
         "fishing_rod" -> {
             shadowAt(base, s * 0.45f)
@@ -299,15 +334,26 @@ fun DrawScope.drawUse(
             val hand = base + Offset(-s * 0.3f, -s * 0.45f)
             val tip = hand + Offset(-u * 0.09f, -u * 0.09f)
             drawLine(BarkDark, hand, tip, strokeWidth = u * 0.004f, cap = StrokeCap.Round)
-            val float = Offset(w * 0.2f, h * 0.8f + sin(t * 3f) * u * 0.003f)
+            // The cast: the float flies out in an arc, lands with a splash, then bobs.
+            val target = Offset(w * 0.2f, h * 0.8f)
+            val castK = (t / 0.9f).coerceIn(0f, 1f)
+            val float = if (castK < 1f) Offset(tip.x + (target.x - tip.x) * castK, tip.y + (target.y - tip.y) * castK - sin(castK * PI.toFloat()) * u * 0.08f)
+                else target + Offset(0f, sin(t * 3f) * u * 0.003f)
             drawLine(Color.White.copy(alpha = 0.7f), tip, float, strokeWidth = u * 0.0012f)
             drawCircle(Color(0xFFD64541), u * 0.005f, float)
-            drawOval(Color.White.copy(alpha = 0.3f), Offset(float.x - u * 0.015f, float.y + u * 0.002f), Size(u * 0.03f, u * 0.006f))
+            if (castK >= 1f) {
+                drawOval(Color.White.copy(alpha = 0.3f), Offset(float.x - u * 0.015f, float.y + u * 0.002f), Size(u * 0.03f, u * 0.006f))
+                for (r in 0 until 2) {
+                    val k = ((t - 0.9f) / 1.2f - r * 0.3f).coerceIn(0f, 1f)
+                    if (k in 0.01f..0.99f) drawOval(Color.White.copy(alpha = 0.6f * (1 - k)), Offset(target.x - u * 0.05f * k, target.y - u * 0.008f * k), Size(u * 0.1f * k, u * 0.016f * k), style = Stroke(u * 0.002f))
+                }
+            }
             // A fish jumps, then it's caught.
             if (t in 4f..5.2f) {
                 val k = (t - 4f) / 1.2f
                 val at = float + Offset(-u * 0.04f + k * u * 0.06f, -sin(k * PI.toFloat()) * u * 0.07f)
                 fish(at, u, k * 180f - 90f)
+                droplets(float + Offset(-u * 0.03f, 0f), u, k)
             } else if (t > 5.2f) fish(hand + Offset(-u * 0.01f, u * 0.01f), u, 80f)
         }
         "telescope" -> {
@@ -341,13 +387,15 @@ fun DrawScope.drawUse(
         "hammock" -> {
             val sway = sin(t * 1.6f) * 4f
             actor(avatar, mood, worn, base + Offset(0f, s * 0.1f), s * 0.9f, rotation = -78f + sway, sleepy = true)
+            for (k in 0 until 3) leafFalling(Offset(base.x + u * (k - 1) * 0.06f, base.y - u * 0.25f), u, t + k * 1.7f)
             rising(t, base + Offset(s * 0.2f, -s * 0.3f), u * 0.012f, every = 1.5f) { at, a -> zee(at, u * 0.014f, a) }
         }
         "swing" -> {
             // The swing goes back and forth with the companion on the seat.
             // From the branch of the tree beside it (as the swing is drawn in the scene).
             val pivot = Offset(p.x - u * 0.006f, u * 0.6f - u * 0.42f * 0.38f)
-            val angle = sin(t * 2.6f) * 24f
+            val angle = sin(t * 2.6f) * 34f
+            for (k in 0 until 3) leafFalling(Offset(pivot.x + u * (k - 1) * 0.05f, pivot.y), u, t + k * 1.3f)
             rotate(angle, pivot) {
                 val seat = pivot + Offset(0f, p.y - u * 0.04f - pivot.y)
                 drawLine(Rope, pivot + Offset(-u * 0.02f, 0f), seat + Offset(-u * 0.02f, 0f), strokeWidth = u * 0.0025f)
@@ -365,6 +413,7 @@ fun DrawScope.drawUse(
             canoeHull(base + Offset(0f, u * 0.02f), u)
             val side = if (sin(t * 3f) > 0) 1f else -1f
             drawLine(BarkDark, base + Offset(side * s * 0.15f, -s * 0.35f), base + Offset(side * s * 0.4f, u * 0.03f), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
+            droplets(base + Offset(side * s * 0.4f, u * 0.03f), u, (t * 3f / PI.toFloat()) % 1f)
             drawOval(Color.White.copy(alpha = 0.35f), Offset(base.x - u * 0.12f, base.y + u * 0.02f), Size(u * 0.24f, u * 0.01f))
         }
         "raft" -> {
@@ -559,4 +608,42 @@ fun androidx.compose.ui.Modifier.campEntrance(): androidx.compose.ui.Modifier {
     val k = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(0f) }
     androidx.compose.runtime.LaunchedEffect(Unit) { k.animateTo(1f, androidx.compose.animation.core.tween(650, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
     return this.graphicsLayer { alpha = 0.3f + 0.7f * k.value; val s = 1.04f - 0.04f * k.value; scaleX = s; scaleY = s }
+}
+
+/** A coloured music note. */
+private fun DrawScope.noteColored(at: Offset, s: Float, color: Color, alpha: Float) {
+    val c = color.copy(alpha = alpha)
+    drawOval(c, Offset(at.x - s * 0.5f, at.y - s * 0.3f), Size(s, s * 0.7f))
+    drawLine(c, at + Offset(s * 0.45f, 0f), at + Offset(s * 0.45f, -s * 2f), strokeWidth = s * 0.22f)
+    drawLine(c, at + Offset(s * 0.45f, -s * 2f), at + Offset(s * 1.1f, -s * 1.5f), strokeWidth = s * 0.22f, cap = StrokeCap.Round)
+}
+
+/** A butterfly (or moth) with flapping wings; [flap] is a phase. */
+private fun DrawScope.butterfly(at: Offset, u0: Float, flap: Float, color: Color) {
+    val u = u0 * 1.8f
+    val open = 0.35f + 0.65f * kotlin.math.abs(sin(flap))
+    for (side in listOf(-1f, 1f)) {
+        drawOval(color, Offset(at.x + (if (side < 0) -u * 0.009f * open else 0f), at.y - u * 0.006f), Size(u * 0.009f * open, u * 0.008f))
+        drawOval(color.copy(alpha = 0.85f), Offset(at.x + (if (side < 0) -u * 0.007f * open else 0f), at.y), Size(u * 0.007f * open, u * 0.006f))
+    }
+    drawLine(Ink, at + Offset(0f, -u * 0.006f), at + Offset(0f, u * 0.006f), strokeWidth = u * 0.0018f, cap = StrokeCap.Round)
+}
+
+/** A leaf drifting down from [from], swaying, over a few seconds and again. */
+private fun DrawScope.leafFalling(from: Offset, u: Float, t: Float) {
+    val k = (t % 3.5f) / 3.5f
+    val at = from + Offset(sin(k * 9f) * u * 0.02f, k * u * 0.22f)
+    rotate(sin(k * 9f) * 60f, at) {
+        drawOval(Color(0xFF7C9E55).copy(alpha = 1f - k * k), Offset(at.x - u * 0.006f, at.y - u * 0.003f), Size(u * 0.012f, u * 0.006f))
+    }
+}
+
+/** A few drops of water thrown up and falling back, [k] 0..1. */
+private fun DrawScope.droplets(at: Offset, u: Float, k: Float) {
+    if (k <= 0f || k >= 1f) return
+    for (i in 0 until 4) {
+        val dx = (i - 1.5f) * u * 0.008f
+        val p = at + Offset(dx * (1 + k * 2), -sin(k * PI.toFloat()) * u * (0.025f + i % 2 * 0.012f))
+        drawCircle(Color(0xFFDDEFF3).copy(alpha = 0.9f * (1 - k)), u * 0.0025f, p)
+    }
 }
