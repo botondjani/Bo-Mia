@@ -368,7 +368,11 @@ class MainActivity : ComponentActivity() {
                     else Toast.makeText(this, "Open one of your paused apps, then tap \"Not now\".", Toast.LENGTH_LONG).show()
                 }
                 app.tend.core.Step.WIDGET -> if (!pinWidget()) screen = Screen.SETTINGS
-                app.tend.core.Step.FRIEND -> { campInvite = true; screen = Screen.CLEARING }
+                app.tend.core.Step.FRIEND, app.tend.core.Step.TOGETHER -> { campInvite = step == app.tend.core.Step.FRIEND; screen = Screen.CLEARING }
+                app.tend.core.Step.THREE_DAYS, app.tend.core.Step.TEN_ACTIVITIES -> { screen = Screen.HOME; activitiesFocus++ }
+                app.tend.core.Step.EARLY_NIGHT -> if (app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour)) screen = Screen.RECAP
+                    else Toast.makeText(this, "In the evening, open the recap and tap Good night.", Toast.LENGTH_LONG).show()
+                else -> screen = Screen.CLEARING
             }
         }
         var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -554,7 +558,7 @@ class MainActivity : ComponentActivity() {
                 bridge = store.bridgeBuilt,
                 steps = remember(refresh) { firstSteps() },
                 onClaimStep = { store.claimStep(it); refresh++ },
-                onUsed = { if (!store.usedThing) { store.usedThing = true; refresh++ } },
+                onUsed = { thing -> if (thing !in store.usedThings) { store.markUsed(thing); refresh++ } },
                 rest = store.restSpot,
                 onRest = { store.restSpot = it; refresh++ },
                 visitor = remember(refresh) { store.visitorWaiting() },
@@ -730,14 +734,30 @@ class MainActivity : ComponentActivity() {
     private fun firstSteps(): List<app.tend.core.StepState> {
         val claimed = store.stepsClaimed
         if (claimed.size == app.tend.core.Step.entries.size) return app.tend.core.FirstSteps.of(emptySet(), claimed)
+        val days = store.daySummaries()
+        val placed = store.placed
+        val kinds = placed.values.mapNotNull { app.tend.core.Things.byId(it)?.kind }.toSet()
+        val book = store.guestbook
         val widgets = android.appwidget.AppWidgetManager.getInstance(this).let { m ->
             listOf(app.tend.widget.TendWidget::class.java, app.tend.widget.TendWidgetFace::class.java, app.tend.widget.TendWidgetGarden::class.java)
                 .sumOf { m.getAppWidgetIds(android.content.ComponentName(this, it)).size }
         }
         val done = buildSet {
             if (store.placed.isNotEmpty()) add(app.tend.core.Step.PLACE)
-            if (store.usedThing) add(app.tend.core.Step.USE)
-            if (store.daySummaries().any { it.tasksDone > 0 }) add(app.tend.core.Step.ACTIVITY)
+            if (store.usedThings.isNotEmpty()) add(app.tend.core.Step.USE)
+            if (days.any { it.tasksDone > 0 }) add(app.tend.core.Step.ACTIVITY)
+            if (book.isNotEmpty()) add(app.tend.core.Step.GREET)
+            if (store.usedThings.size >= 3) add(app.tend.core.Step.THREE_THINGS)
+            if (days.count { it.tasksDone > 0 } >= 3) add(app.tend.core.Step.THREE_DAYS)
+            if (app.tend.core.SpotKind.TREES in kinds) add(app.tend.core.Step.TREES)
+            if (placed[0] != null && placed[0] != "campfire") add(app.tend.core.Step.BETTER_FIRE)
+            if (store.hadEarlyNight) add(app.tend.core.Step.EARLY_NIGHT)
+            if (book.size >= 5) add(app.tend.core.Step.FIVE_ANIMALS)
+            if (days.sumOf { it.tasksDone } >= 10) add(app.tend.core.Step.TEN_ACTIVITIES)
+            if (app.tend.core.SpotKind.SHELTER in kinds) add(app.tend.core.Step.SHELTER)
+            if (app.tend.core.SpotKind.WATER in kinds) add(app.tend.core.Step.ON_THE_RIVER)
+            if (store.togetherDone.isNotEmpty()) add(app.tend.core.Step.TOGETHER)
+            if (book.keys.any { it.rare }) add(app.tend.core.Step.RARE)
             if (store.answers().any { it.kind == "pause" && it.answer == "not_now" }) add(app.tend.core.Step.NOT_NOW)
             if (widgets > 0) add(app.tend.core.Step.WIDGET)
             if (store.invited) add(app.tend.core.Step.FRIEND)

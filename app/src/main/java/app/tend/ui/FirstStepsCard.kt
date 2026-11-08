@@ -28,41 +28,44 @@ import androidx.compose.ui.unit.sp
 import app.tend.core.Step
 import app.tend.core.StepState
 
-/** The first steps on the clearing page: each with how to do it, and its acorns to claim. */
+/**
+ * The challenges, compact: this round's few, each a single line with its acorns. Tap one not
+ * done yet to go where it's done; tap the acorns of a done one to claim them.
+ */
 @Composable
 fun FirstStepsCard(steps: List<StepState>, onClaim: (Step) -> Unit, onGo: (Step) -> Unit = {}) {
-    if (steps.all { it.claimed }) return
+    val round = app.tend.core.FirstSteps.current(steps)
+    if (round.isEmpty()) return
     Card {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("FIRST STEPS", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
-            Text("${steps.count { it.claimed }} / ${steps.size}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+            Text("CHALLENGES · ROUND ${app.tend.core.FirstSteps.roundOf(steps)} OF ${app.tend.core.FirstSteps.rounds}", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            Text("${round.count { it.claimed }} / ${round.size}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
         }
-        steps.forEach { s ->
-            // A step not done yet: tapping it goes where it's done.
+        val next = round.firstOrNull { !it.done }
+        round.forEach { s ->
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).then(if (!s.done) Modifier.tappable { onGo(s.step) } else Modifier).padding(vertical = 3.dp),
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).then(if (!s.done) Modifier.tappable { onGo(s.step) } else Modifier).padding(vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Check(s.done)
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(s.step.title, style = MaterialTheme.typography.titleSmall, color = if (s.claimed) Brand.Muted else MaterialTheme.colorScheme.onSurface)
-                    if (!s.done) Text(s.step.how, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+                    Text(s.step.title, style = MaterialTheme.typography.labelLarge, color = if (s.claimed) Brand.Muted else MaterialTheme.colorScheme.onSurface, maxLines = 1)
+                    if (s == next) Text(s.step.how, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted, maxLines = 1)
                 }
                 when {
                     s.claimable -> Row(
-                        Modifier.clip(RoundedCornerShape(50)).background(Brand.Moss).tappable { onClaim(s.step) }.padding(horizontal = 12.dp, vertical = 6.dp),
+                        Modifier.clip(RoundedCornerShape(50)).background(Brand.Moss).tappable { onClaim(s.step) }.padding(horizontal = 10.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("+${s.step.acorns}", style = MaterialTheme.typography.labelLarge, color = Color.White)
-                        Spacer(Modifier.width(4.dp))
-                        AcornIcon(14.dp)
+                        Text("+${s.step.acorns}", style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), color = Color.White)
+                        Spacer(Modifier.width(3.dp))
+                        AcornIcon(12.dp)
                     }
-                    s.claimed -> Text("+${s.step.acorns}", style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp), color = Brand.Muted)
                     else -> Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("+${s.step.acorns}", style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp), color = Brand.Muted)
                         Spacer(Modifier.width(3.dp))
-                        AcornIcon(12.dp)
+                        AcornIcon(11.dp)
                     }
                 }
             }
@@ -71,27 +74,28 @@ fun FirstStepsCard(steps: List<StepState>, onClaim: (Step) -> Unit, onGo: (Step)
 }
 
 /**
- * On the home page, one slim line: the next first step (tap: go do it), or acorns waiting to be
+ * On the home page, one slim line: the next challenge (tap: go do it), or acorns waiting to be
  * claimed in the camp (tap: open it).
  */
 @Composable
 fun FirstStepsStrip(steps: List<StepState>, onOpen: () -> Unit, onGo: (Step) -> Unit = {}) {
-    if (steps.all { it.claimed }) return
-    val waiting = steps.filter { it.claimable }.sumOf { it.step.acorns }
-    val next = steps.firstOrNull { !it.done }?.step
+    val round = app.tend.core.FirstSteps.current(steps)
+    if (round.isEmpty()) return
+    val waiting = round.filter { it.claimable }.sumOf { it.step.acorns }
+    val next = round.firstOrNull { !it.done }?.step
     Row(
         Modifier.fillMaxWidth().surface(radius = 18.dp).tappable { if (waiting > 0 || next == null) onOpen() else onGo(next) }
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(28.dp).clip(CircleShape).background(Brand.Sage), contentAlignment = Alignment.Center) {
-            Text("${steps.count { it.claimed } + 1}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+        Box(Modifier.size(30.dp).clip(CircleShape).background(Brand.Sage), contentAlignment = Alignment.Center) {
+            Text("${round.count { it.claimed }}/${round.size}", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Brand.Moss)
         }
         Spacer(Modifier.width(10.dp))
-        Text(
-            if (waiting > 0) "$waiting acorns waiting in the camp" else next?.title ?: "",
-            style = MaterialTheme.typography.titleSmall, maxLines = 1, modifier = Modifier.weight(1f),
-        )
+        Column(Modifier.weight(1f)) {
+            Text("CHALLENGE", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Brand.Muted)
+            Text(if (waiting > 0) "$waiting acorns to claim in the camp" else next?.title ?: "", style = MaterialTheme.typography.titleSmall, maxLines = 1)
+        }
         Text("+${if (waiting > 0) waiting else next?.acorns ?: 0}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
         Spacer(Modifier.width(4.dp))
         AcornIcon(16.dp)

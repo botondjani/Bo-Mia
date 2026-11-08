@@ -177,10 +177,15 @@ class TendStore(private val context: Context) {
         get() = prefs.getStringSet("steps_claimed", emptySet())!!.mapNotNull { runCatching { app.tend.core.Step.valueOf(it) }.getOrNull() }.toSet()
         set(v) = edit { putStringSet("steps_claimed", v.map { it.name }.toSet()) }
 
-    /** Something in the camp has been used once (a first step). */
-    var usedThing: Boolean
-        get() = prefs.getBoolean("used_thing", false)
-        set(v) { prefs.edit().putBoolean("used_thing", v).apply() }
+    /** The things in the camp the companion has used (for challenges). */
+    val usedThings: Set<String> get() = prefs.getStringSet("used_things", emptySet())!!.toSet() + (if (prefs.getBoolean("used_thing", false)) setOf("?") else emptySet())
+
+    fun markUsed(thing: String) {
+        if (thing !in usedThings) prefs.edit().putStringSet("used_things", usedThings - "?" + thing).apply()
+    }
+
+    /** An early night has been had at least once (for challenges). */
+    val hadEarlyNight: Boolean get() = prefs.getString("early_night", "").orEmpty().isNotEmpty()
 
     /** An invite has been sent once (a first step). */
     var invited: Boolean

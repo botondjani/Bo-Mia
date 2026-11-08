@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
@@ -129,9 +130,9 @@ fun HomeScreen(
     val remaining = Budget.remainingMinutes(cfg, day)
     val context = androidx.compose.ui.platform.LocalContext.current
     Box(Modifier.fillMaxSize()) {
-    // The page itself stays put; only the activity list scrolls, in the space that's left.
+    // One page that scrolls: the camp, the activities, what's done.
     Column(
-        Modifier.fillMaxSize().background(Brand.Sage)
+        Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp).padding(top = Space.xs),
         verticalArrangement = Arrangement.spacedBy(Space.m),
     ) {
@@ -166,7 +167,7 @@ fun HomeScreen(
                 val extra = 20.dp.roundToPx()
                 val p = m.measure(c.copy(minWidth = c.maxWidth + 2 * extra, maxWidth = c.maxWidth + 2 * extra))
                 layout(c.maxWidth, p.height) { p.place(-extra, 0) }
-            }.aspectRatio(1.15f).campEntrance().tappable(onClick = onOpenClearing),
+            }.aspectRatio(1.6f).campEntrance().tappable(onClick = onOpenClearing),
         ) {
             camp()
             // What the companion says: one small bubble, so the camp shows.
@@ -185,6 +186,15 @@ fun HomeScreen(
                 AcornIcon(18.dp)
                 Spacer(Modifier.width(5.dp))
                 Text("$acorns", style = MaterialTheme.typography.titleMedium, color = Color(0xFF3D2A1C))
+            }
+            // The way in, plainly: a button to the camp, where it's bigger and everything happens.
+            Row(
+                Modifier.align(Alignment.BottomEnd).padding(14.dp).clip(RoundedCornerShape(50)).background(Brand.Moss)
+                    .tappable(onClick = onOpenClearing).padding(start = 14.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("${avatar.displayName}'s camp", style = MaterialTheme.typography.labelLarge, color = Color.White)
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.White, modifier = Modifier.size(20.dp))
             }
         }
 
@@ -264,8 +274,7 @@ fun HomeScreen(
                 Text("Everything done today. ${avatar.displayName} is proud of you.", style = MaterialTheme.typography.titleMedium)
             }
         }
-        // "Done today" sits at the bottom of the screen.
-        Spacer(Modifier.weight(1f))
+        // "Done today" right under the activities.
         if (done.isEmpty() && active.isNotEmpty()) {
             // Before the first one: an empty, dashed spot that says where finished things go.
             SectionHeader("Done today", "0 min")
@@ -292,7 +301,7 @@ fun HomeScreen(
             SectionHeader("Done today", "+${done.sumOf { day.grants[it.id] ?: 0 }} min")
             // Thin rows; more than three scroll inside their own small box.
             Column(
-                Modifier.heightIn(max = 160.dp).verticalScroll(rememberScrollState()).padding(bottom = Space.s),
+                Modifier.padding(bottom = Space.xl),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) { done.forEach { DoneRow(it, day, onUndo) } }
         }

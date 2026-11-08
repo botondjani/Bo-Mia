@@ -80,7 +80,7 @@ fun ClearingScreen(
     onFriendsChanged: () -> Unit = {},
     steps: List<app.tend.core.StepState> = emptyList(),
     onClaimStep: (app.tend.core.Step) -> Unit = {},
-    onUsed: () -> Unit = {},
+    onUsed: (thing: String) -> Unit = {},
     /** Where the companion stays (the spot of the last thing used), and to save a new one. */
     rest: Int? = null,
     onRest: (Int?) -> Unit = {},
@@ -219,7 +219,7 @@ fun ClearingScreen(
                                 // Walk over first, unless already there; the sound starts on arrival.
                                 using?.let { onRest(it.first) } // switching mid-use: from where they are now
                                 walk = if ((using?.first ?: restNow) == hit) 0f else Uses.WALK
-                                using = hit to thing; caught = null; Sounds.forUse(context, thing, (walk * 1000).toLong()); onUsed()
+                                using = hit to thing; caught = null; Sounds.forUse(context, thing, (walk * 1000).toLong()); onUsed(thing)
                             }
                         } else if (using != null) { using = null; Sounds.stop() }
                     }
@@ -258,9 +258,10 @@ fun ClearingScreen(
 
     FirstStepsCard(steps, onClaim = { onClaimStep(it); Sounds.chime(context) }, onGo = { step ->
         when (step) {
-            app.tend.core.Step.PLACE -> tab = 0
-            app.tend.core.Step.USE -> scope.launch { scroll.animateScrollTo(0) }
-            app.tend.core.Step.FRIEND -> tab = 1
+            app.tend.core.Step.PLACE, app.tend.core.Step.TREES, app.tend.core.Step.BETTER_FIRE, app.tend.core.Step.SHELTER, app.tend.core.Step.ON_THE_RIVER -> tab = 0
+            app.tend.core.Step.USE, app.tend.core.Step.GREET, app.tend.core.Step.THREE_THINGS -> scope.launch { scroll.animateScrollTo(0) }
+            app.tend.core.Step.FRIEND, app.tend.core.Step.TOGETHER -> tab = 1
+            app.tend.core.Step.FIVE_ANIMALS, app.tend.core.Step.RARE -> tab = 2
             else -> onStep(step)
         }
     })

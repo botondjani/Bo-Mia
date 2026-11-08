@@ -30,7 +30,11 @@ class DailyTest {
         assertTrue(s.first { it.step == Step.PLACE }.claimable)
         assertFalse(s.first { it.step == Step.USE }.done)
         assertTrue(FirstSteps.finished(FirstSteps.of(emptySet(), Step.entries.toSet())))
+        // Rounds: the next one opens when this one is all claimed.
+        assertEquals(0, FirstSteps.current(FirstSteps.of(emptySet(), emptySet())).first().step.round)
+        assertEquals(1, FirstSteps.current(FirstSteps.of(emptySet(), Step.entries.filter { it.round == 0 }.toSet())).first().step.round)
+        assertTrue(FirstSteps.current(FirstSteps.of(emptySet(), Step.entries.toSet())).isEmpty())
         // Day one: the start plus the first steps buys a campfire, a bench and more.
-        assertTrue(Clearing.STARTING_ACORNS + Step.entries.sumOf { it.acorns } >= 40 + 50)
+        assertTrue(Clearing.STARTING_ACORNS + Step.entries.filter { it.round == 0 }.sumOf { it.acorns } >= 40 + 50)
     }
 }
