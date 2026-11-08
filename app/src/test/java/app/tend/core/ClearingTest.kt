@@ -19,10 +19,10 @@ class ClearingTest {
     }
 
     @Test fun placementsRoundTrip() {
-        val placed = mapOf(0 to "grill", 5 to "hammock", 10 to "wildflowers", 11 to "wildflowers")
+        val placed = mapOf(0 to "kettle", 5 to "hammock", 10 to "wildflowers", 11 to "wildflowers")
         assertEquals(placed, Clearing.parse(Clearing.format(placed)))
         // Unknown things, unknown spots and things in the wrong kind of spot are dropped.
-        assertEquals(mapOf(0 to "grill"), Clearing.parse("0:grill,1:boat,99:flowers,2:nonsense,junk"))
+        assertEquals(mapOf(0 to "kettle"), Clearing.parse("0:kettle,1:boat,99:flowers,2:nonsense,junk"))
     }
 
     @Test fun acornsDontDependOnBudgetSize() {
@@ -58,10 +58,15 @@ class ClearingTest {
         val fire = Things.byId("campfire")!!
         assertEquals(0, Clearing.spotFor(emptyMap(), fire))
         assertEquals(null, Clearing.spotFor(mapOf(0 to "campfire"), fire)) // already there
-        assertEquals(0, Clearing.spotFor(mapOf(0 to "campfire"), Things.byId("grill")!!)) // the one fire pit: swapped
+        assertEquals(0, Clearing.spotFor(mapOf(0 to "campfire"), Things.byId("kettle")!!)) // the one fire pit: swapped
         val tent = Things.byId("tent")!!
         assertEquals(4, Clearing.spotFor(mapOf(3 to "cabin"), tent)) // a free shelter
         assertEquals(3, Clearing.spotFor(mapOf(3 to "tent", 4 to "cabin"), Things.byId("bell_tent")!!)) // swaps the cheaper
         assertEquals(10, Clearing.spotFor(emptyMap(), Things.byId("lantern")!!))
+    }
+
+    @Test fun shopRowsAreFull() {
+        // The shop shows three to a row: every kind has a multiple of three things.
+        SpotKind.entries.forEach { kind -> assertEquals("$kind", 0, Things.forKind(kind).size % 3) }
     }
 }

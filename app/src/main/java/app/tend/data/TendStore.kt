@@ -193,7 +193,7 @@ class TendStore(private val context: Context) {
         if (prefs.getString("visitor_greeted", "") == today.toString()) return null
         val y = daySummaries().firstOrNull { it.date == today.minusDays(1) }
         val good = y != null && (y.unusedMinutes > 0 || y.tasksDone > 0)
-        return app.tend.core.Visitors.of(today, good)
+        return app.tend.core.Visitors.of(today, good, feeder = "bird_feeder" in placed.values)
     }
 
     /** Animals greeted so far, and how often. */

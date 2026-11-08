@@ -35,10 +35,13 @@ object Sounds {
         when (thing) {
             "guitar" -> play("song", true) { song(secs) }
             "campfire", "pizza_oven" -> play("fire", true) { fire(secs) }
-            "grill" -> play("grill", true) { mix(fire(secs), sizzle(secs)) }
             "kettle" -> play("kettle", true) { mix(fire(secs), whistle(secs)) }
             "woodpile" -> play("wood", true) { mix(thump(secs, 1.1f), fire(secs)) }
             "canoe" -> play("paddle", true) { paddles(secs) }
+            "raft" -> play("raft", true) { river(secs, 0.5f) }
+            "rocking_chair" -> play("hum", true) { musicBox(HUM, 0.45f, secs) }
+            "wind_chimes" -> play("chimes", true) { musicBox(CHIMES, 0.3f, secs) }
+            "bird_feeder" -> play("birds", true) { birds(secs) }
             "fishing_rod" -> play("fish", true) { mix(river(secs, 0.25f), splash(secs, 4f)) }
             "dock" -> play("dock", true) { river(secs, 0.4f) }
             "swing" -> play("swing", true) { creaks(secs) }
@@ -170,11 +173,25 @@ object Sounds {
         return toPcm(out, 1.3f)
     }
 
-    private fun sizzle(secs: Float): ShortArray {
+    /** Birdsong: little chirps, quick rising whistles in twos and threes. */
+    private fun birds(secs: Float): ShortArray {
         val out = buffer(secs)
-        val rnd = java.util.Random(11)
-        var prev = 0f
-        for (i in out.indices) { val n = rnd.nextFloat() * 2 - 1; out[i] = (n - prev) * 0.08f * (0.7f + 0.3f * sin(i / RATE.toFloat() * 3f)); prev = n }
+        val rnd = java.util.Random(13)
+        var t = 0.2f
+        while (t < secs - 0.4f) {
+            repeat(2 + rnd.nextInt(2)) { k ->
+                val start = ((t + k * 0.11f) * RATE).toInt()
+                val f0 = 2600f + rnd.nextFloat() * 900f
+                var ph = 0.0
+                for (i in 0 until (RATE * 0.07f).toInt()) {
+                    if (start + i >= out.size) break
+                    val x = i / (RATE * 0.07f)
+                    ph += 2 * PI * (f0 + 1400f * x) / RATE
+                    out[start + i] += (sin(ph) * sin(PI * x) * 0.18).toFloat()
+                }
+            }
+            t += 0.6f + rnd.nextFloat() * 0.9f
+        }
         return toPcm(out)
     }
 
@@ -255,6 +272,7 @@ object Sounds {
     private val DANCE = listOf(0 to 1f, 4 to 1f, 7 to 1f, 12 to 1f, 7 to 1f, 4 to 1f, 2 to 1f, 5 to 1f, 9 to 1f, 14 to 1f, 9 to 1f, 5 to 1f, 4 to 1f, 7 to 1f, 11 to 1f, 16 to 2f)
     private val HUM = listOf(0 to 2f, 2 to 1f, 4 to 1f, 2 to 2f, 0 to 2f, -3 to 2f, 0 to 4f)
     private val CHIME = listOf(12 to 1f, 16 to 1f, 19 to 1f, 24 to 3f)
+    private val CHIMES = listOf(19 to 1f, 24 to 2f, 16 to 1f, 21 to 3f, 12 to 1f, 19 to 2f, 26 to 1f, 24 to 4f)
 
     /** A tune on a music box: sine bells with a bright overtone, each ringing out. */
     private fun musicBox(tune: List<Pair<Int, Float>>, beat: Float, secs: Float): ShortArray {

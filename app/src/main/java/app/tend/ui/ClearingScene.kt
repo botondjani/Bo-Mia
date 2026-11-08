@@ -692,15 +692,17 @@ private fun thingWidth(id: String): Float = when (id) {
     "cabin" -> 0.22f
     "bell_tent", "tent" -> 0.16f
     "picnic_table", "log_bench" -> 0.11f
+    "rocking_chair" -> 0.07f
+    "raft" -> 0.16f
     "canoe" -> 0.16f
-    "campfire", "kettle", "grill", "pizza_oven" -> 0.1f
+    "campfire", "kettle", "pizza_oven" -> 0.1f
     "hammock", "swing", "treehouse" -> 0.08f
     else -> 0.04f
 }
 
 // ---- Things ----
 
-/** Strung between two trees: string lights, hanging in a soft curve. */
+/** Strung between two trees: string lights in a soft curve, or a line with wind chimes or a bird feeder hanging from its middle. */
 private fun DrawScope.overhead(id: String, a: Offset, b: Offset, u: Float, lights: MutableList<Light>) {
     val sag = u * 0.07f
     fun point(t: Float) = Offset(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t + sag * 4 * t * (1 - t))
@@ -708,6 +710,7 @@ private fun DrawScope.overhead(id: String, a: Offset, b: Offset, u: Float, light
         moveTo(a.x, a.y); quadraticTo((a.x + b.x) / 2, (a.y + b.y) / 2 + sag * 2, b.x, b.y)
     }, BarkDark.copy(alpha = 0.7f), style = Stroke(u * 0.003f))
     when (id) {
+        "wind_chimes", "bird_feeder" -> drawThing(id, point(0.5f), u, lights)
         "string_lights" -> for (i in 0 until 20) {
             val p = point((i + 0.5f) / 20f) + Offset(0f, u * 0.008f)
             drawCircle(Glow.copy(alpha = 0.35f), u * 0.012f, p)
@@ -785,6 +788,42 @@ fun DrawScope.drawThing(id: String, p: Offset, u: Float, lights: MutableList<Lig
             }
             drawCircle(BarkDark, u * 0.004f, head)
         }
+        "rocking_chair" -> {
+            // Side on: curved rockers, a slatted seat and back, armrests.
+            drawArc(Wood, 20f, 140f, false, Offset(p.x - u * 0.04f, p.y - u * 0.03f), Size(u * 0.08f, u * 0.034f), style = Stroke(u * 0.005f, cap = StrokeCap.Round))
+            for (dx in listOf(-0.018f, 0.018f)) drawLine(Wood, p + Offset(u * dx, -u * 0.01f), p + Offset(u * dx, -u * 0.035f), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
+            drawRoundRect(WoodLight, p + Offset(-u * 0.024f, -u * 0.04f), Size(u * 0.048f, u * 0.007f), CornerRadius(u * 0.003f))
+            drawLine(Wood, p + Offset(u * 0.02f, -u * 0.037f), p + Offset(u * 0.03f, -u * 0.085f), strokeWidth = u * 0.005f, cap = StrokeCap.Round)
+            drawLine(Wood, p + Offset(u * 0.012f, -u * 0.037f), p + Offset(u * 0.02f, -u * 0.085f), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
+            for (k in 0 until 3) drawLine(WoodLight, p + Offset(u * (0.013f + k * 0.0035f), -u * (0.05f + k * 0.01f)), p + Offset(u * (0.025f + k * 0.0015f), -u * (0.05f + k * 0.01f)), strokeWidth = u * 0.003f)
+            drawLine(Wood, p + Offset(-u * 0.022f, -u * 0.052f), p + Offset(u * 0.022f, -u * 0.054f), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
+            drawLine(Wood, p + Offset(-u * 0.02f, -u * 0.04f), p + Offset(-u * 0.022f, -u * 0.052f), strokeWidth = u * 0.003f)
+            drawRoundRect(Color(0xFF2A6F6B), p + Offset(-u * 0.016f, -u * 0.046f), Size(u * 0.03f, u * 0.006f), CornerRadius(u * 0.003f)) // a cushion
+        }
+        "raft" -> raftAt(p, u)
+        "wind_chimes" -> {
+            // A wooden disc on strings, metal tubes of different lengths, a clapper in the middle.
+            drawLine(BarkDark, p, p + Offset(0f, u * 0.02f), strokeWidth = u * 0.0015f)
+            val top = p + Offset(0f, u * 0.02f)
+            drawOval(Wood, Offset(top.x - u * 0.016f, top.y - u * 0.003f), Size(u * 0.032f, u * 0.007f))
+            for ((k, len) in listOf(0.03f, 0.042f, 0.05f, 0.038f, 0.028f).withIndex()) {
+                val x = top.x + (k - 2) * u * 0.0065f
+                drawLine(Color(0xFF7A7F84), Offset(x, top.y + u * 0.003f), Offset(x, top.y + u * 0.008f), strokeWidth = u * 0.0008f)
+                drawRoundRect(Brush.horizontalGradient(listOf(Color(0xFFDDE2E6), Color(0xFF9AA3AB)), startX = x - u * 0.0018f, endX = x + u * 0.0018f), Offset(x - u * 0.0018f, top.y + u * 0.008f), Size(u * 0.0036f, u * len), CornerRadius(u * 0.0015f))
+            }
+            drawCircle(Wood, u * 0.004f, top + Offset(0f, u * 0.05f))
+            drawLine(BarkDark, top + Offset(0f, u * 0.003f), top + Offset(0f, u * 0.046f), strokeWidth = u * 0.0008f)
+        }
+        "bird_feeder" -> {
+            // A little house on a string: a roof, a tray of seeds, and a bird on the edge.
+            drawLine(BarkDark, p, p + Offset(0f, u * 0.018f), strokeWidth = u * 0.0015f)
+            val top = p + Offset(0f, u * 0.018f)
+            drawPath(Path().apply { moveTo(top.x - u * 0.022f, top.y + u * 0.014f); lineTo(top.x, top.y); lineTo(top.x + u * 0.022f, top.y + u * 0.014f); close() }, Color(0xFFB5523B))
+            for (dx in listOf(-0.014f, 0.014f)) drawLine(Wood, top + Offset(u * dx, u * 0.012f), top + Offset(u * dx, u * 0.034f), strokeWidth = u * 0.002f)
+            drawRoundRect(WoodLight, top + Offset(-u * 0.018f, u * 0.032f), Size(u * 0.036f, u * 0.006f), CornerRadius(u * 0.002f))
+            for (k in 0 until 7) drawCircle(Color(0xFFD9B26A), u * 0.0016f, top + Offset(u * (-0.012f + k * 0.004f), u * 0.031f))
+            bird(top + Offset(u * 0.016f, u * 0.027f), u, Color(0xFF5D8FB8))
+        }
         "campfire" -> campfire(p, u, lights)
         "kettle" -> {
             campfire(p, u, lights)
@@ -794,16 +833,6 @@ fun DrawScope.drawThing(id: String, p: Offset, u: Float, lights: MutableList<Lig
             drawLine(Metal, top, top + Offset(0f, u * 0.03f), strokeWidth = u * 0.002f)
             drawRoundRect(Metal, top + Offset(-u * 0.013f, u * 0.03f), Size(u * 0.026f, u * 0.02f), CornerRadius(u * 0.006f))
             drawCircle(Color.White.copy(alpha = 0.25f), u * 0.012f, top + Offset(u * 0.02f, -u * 0.01f))
-        }
-        "grill" -> {
-            drawLine(Metal, p + Offset(-u * 0.022f, 0f), p + Offset(-u * 0.01f, -u * 0.035f), strokeWidth = u * 0.004f)
-            drawLine(Metal, p + Offset(u * 0.022f, 0f), p + Offset(u * 0.01f, -u * 0.035f), strokeWidth = u * 0.004f)
-            drawArc(Metal, 0f, 180f, true, p + Offset(-u * 0.032f, -u * 0.064f), Size(u * 0.064f, u * 0.056f))
-            drawArc(Color(0xFF4A5056), 180f, 180f, true, p + Offset(-u * 0.032f, -u * 0.082f), Size(u * 0.064f, u * 0.046f))
-            drawLine(Color(0xFF8A9096), p + Offset(-u * 0.036f, -u * 0.036f), p + Offset(u * 0.036f, -u * 0.036f), strokeWidth = u * 0.003f)
-            for ((dx, dy, r) in listOf(Triple(0.01f, 0.1f, 0.01f), Triple(0.02f, 0.125f, 0.014f), Triple(0.012f, 0.155f, 0.017f)))
-                drawCircle(Color.White.copy(alpha = 0.22f), u * r, p + Offset(u * dx, -u * dy))
-            lights += Light(p + Offset(0f, -u * 0.04f), u * 0.06f, 0.5f)
         }
         "pizza_oven" -> {
             drawRect(StoneDark, p + Offset(-u * 0.05f, -u * 0.03f), Size(u * 0.1f, u * 0.03f))
@@ -824,22 +853,42 @@ fun DrawScope.drawThing(id: String, p: Offset, u: Float, lights: MutableList<Lig
             for (k in 0 until 4) drawRect(listOf(Color(0xFFE9C46A), Color(0xFF2A9D8F), Color(0xFFF1E6D3), Color(0xFF264653))[k], p + Offset(-u * 0.025f + k * u * 0.009f, -u * 0.031f), Size(u * 0.003f, u * 0.024f))
         }
         "picnic_table" -> {
-            drawRect(Wood, p + Offset(-u * 0.055f, -u * 0.05f), Size(u * 0.11f, u * 0.01f))
-            drawRect(WoodLight, p + Offset(-u * 0.055f, -u * 0.05f), Size(u * 0.11f, u * 0.003f))
-            for (dx in listOf(-0.04f, 0.035f)) drawRect(Bark, p + Offset(u * dx, -u * 0.04f), Size(u * 0.006f, u * 0.04f))
-            drawRect(Wood, p + Offset(-u * 0.065f, -u * 0.022f), Size(u * 0.13f, u * 0.007f))
+            // Seen a little from above: the top, two benches either side, A-frame legs.
+            val top = p + Offset(0f, -u * 0.048f)
+            drawRoundRect(Bark, Offset(p.x - u * 0.06f, p.y - u * 0.034f), Size(u * 0.12f, u * 0.007f), CornerRadius(u * 0.002f)) // far bench
+            for (dx in listOf(-0.04f, 0.04f)) {
+                drawLine(Bark, top + Offset(u * dx - u * 0.01f, 0f), p + Offset(u * dx - u * 0.016f, 0f), strokeWidth = u * 0.004f)
+                drawLine(Bark, top + Offset(u * dx + u * 0.01f, 0f), p + Offset(u * dx + u * 0.016f, 0f), strokeWidth = u * 0.004f)
+            }
+            drawPath(Path().apply { moveTo(top.x - u * 0.055f, top.y - u * 0.012f); lineTo(top.x + u * 0.055f, top.y - u * 0.012f); lineTo(top.x + u * 0.062f, top.y + u * 0.004f); lineTo(top.x - u * 0.062f, top.y + u * 0.004f); close() }, Wood)
+            for (k in 1..3) drawLine(Bark.copy(alpha = 0.5f), top + Offset(-u * 0.058f, -u * 0.012f + k * u * 0.004f), top + Offset(u * 0.058f, -u * 0.012f + k * u * 0.004f), strokeWidth = u * 0.0008f)
+            drawRect(WoodLight, Offset(top.x - u * 0.062f, top.y + u * 0.004f), Size(u * 0.124f, u * 0.003f))
+            drawRoundRect(Wood, Offset(p.x - u * 0.066f, p.y - u * 0.02f), Size(u * 0.132f, u * 0.008f), CornerRadius(u * 0.002f)) // near bench
+            drawRect(WoodLight, Offset(p.x - u * 0.066f, p.y - u * 0.02f), Size(u * 0.132f, u * 0.002f))
             // Two enamel mugs and a flask.
-            drawRoundRect(Color(0xFF2A6F6B), p + Offset(-u * 0.03f, -u * 0.063f), Size(u * 0.01f, u * 0.013f), CornerRadius(u * 0.002f))
-            drawRoundRect(Color(0xFFB5523B), p + Offset(-u * 0.012f, -u * 0.063f), Size(u * 0.01f, u * 0.013f), CornerRadius(u * 0.002f))
-            drawRoundRect(Color(0xFF8A9096), p + Offset(u * 0.015f, -u * 0.074f), Size(u * 0.01f, u * 0.024f), CornerRadius(u * 0.003f))
+            drawRoundRect(Color(0xFF2A6F6B), top + Offset(-u * 0.03f, -u * 0.02f), Size(u * 0.01f, u * 0.012f), CornerRadius(u * 0.002f))
+            drawRoundRect(Color(0xFFB5523B), top + Offset(-u * 0.012f, -u * 0.019f), Size(u * 0.01f, u * 0.012f), CornerRadius(u * 0.002f))
+            drawRoundRect(Color(0xFF8A9096), top + Offset(u * 0.015f, -u * 0.03f), Size(u * 0.01f, u * 0.024f), CornerRadius(u * 0.003f))
         }
         "tent" -> {
+            // A ridge tent at a slight angle: the sunlit side, the shaded end, an open door flap,
+            // a ridge pole, and guy ropes pegged out.
             val tw = u * 0.15f
             val th = u * 0.11f
-            drawPath(Path().apply { moveTo(p.x - tw / 2, p.y); lineTo(p.x - tw * 0.08f, p.y - th); lineTo(p.x + tw * 0.38f, p.y - th * 0.96f); lineTo(p.x + tw / 2 + tw * 0.08f, p.y); close() }, OliveDark)
-            drawPath(Path().apply { moveTo(p.x - tw / 2, p.y); lineTo(p.x - tw * 0.08f, p.y - th); lineTo(p.x + tw * 0.34f, p.y); close() }, Olive)
-            drawPath(Path().apply { moveTo(p.x - tw * 0.08f, p.y - th); lineTo(p.x + tw * 0.05f, p.y); lineTo(p.x - tw * 0.2f, p.y); close() }, Color(0xFF2E2A1E))
-            drawLine(Wood, p + Offset(-tw * 0.08f, -th), p + Offset(-tw * 0.08f, 0f), strokeWidth = u * 0.003f)
+            val apex = p + Offset(-tw * 0.08f, -th)
+            val back = p + Offset(tw * 0.38f, -th * 0.96f)
+            for ((a, b) in listOf(apex to p + Offset(-tw * 0.62f, u * 0.004f), back to p + Offset(tw * 0.72f, u * 0.002f)))
+                drawLine(Color(0xFFD8C7A6), a, b, strokeWidth = u * 0.0015f)
+            for (x in listOf(-tw * 0.62f, tw * 0.72f)) drawLine(BarkDark, p + Offset(x, u * 0.006f), p + Offset(x, -u * 0.004f), strokeWidth = u * 0.003f)
+            drawPath(Path().apply { moveTo(p.x - tw / 2, p.y); lineTo(apex.x, apex.y); lineTo(back.x, back.y); lineTo(p.x + tw / 2 + tw * 0.08f, p.y); close() },
+                Brush.horizontalGradient(listOf(Olive, OliveDark), startX = p.x - tw / 2, endX = p.x + tw * 0.6f))
+            drawPath(Path().apply { moveTo(p.x - tw / 2, p.y); lineTo(apex.x, apex.y); lineTo(p.x + tw * 0.34f, p.y); close() }, Olive)
+            // The doorway, dark inside, with its flap tied back.
+            drawPath(Path().apply { moveTo(apex.x, apex.y + th * 0.08f); lineTo(p.x + tw * 0.06f, p.y); lineTo(p.x - tw * 0.22f, p.y); close() }, Color(0xFF2E2A1E))
+            drawPath(Path().apply { moveTo(apex.x, apex.y + th * 0.08f); lineTo(p.x - tw * 0.22f, p.y); lineTo(p.x - tw * 0.32f, p.y); close() }, Color(0xFF969B67))
+            drawLine(Color(0xFFD8C7A6), p + Offset(-tw * 0.29f, -th * 0.4f), p + Offset(-tw * 0.24f, -th * 0.4f), strokeWidth = u * 0.002f)
+            drawLine(WoodLight, apex, back, strokeWidth = u * 0.0025f)
+            drawLine(Wood, apex, p + Offset(-tw * 0.08f, 0f), strokeWidth = u * 0.003f)
             lights += Light(p + Offset(-tw * 0.08f, -th * 0.3f), u * 0.04f, 0.4f)
         }
         "bell_tent" -> {
@@ -888,15 +937,25 @@ fun DrawScope.drawThing(id: String, p: Offset, u: Float, lights: MutableList<Lig
             for (k in 1..3) drawPath(Path().apply { moveTo(a.x, a.y); quadraticTo(p.x, p.y + u * 0.01f - k * u * 0.011f, b.x, b.y) }, Color(0xFFB5523B).copy(alpha = 0.7f), style = Stroke(u * 0.003f))
         }
         "treehouse" -> {
-            val floor = p + Offset(0f, -u * 0.2f)
-            drawLine(Bark, p + Offset(-u * 0.045f, 0f), floor + Offset(-u * 0.045f, 0f), strokeWidth = u * 0.005f)
-            drawLine(Bark, p + Offset(u * 0.045f, 0f), floor + Offset(u * 0.045f, 0f), strokeWidth = u * 0.005f)
-            for (k in 0 until 6) drawLine(Wood, p + Offset(-u * 0.03f, -u * 0.02f - k * u * 0.03f), p + Offset(-u * 0.012f, -u * 0.02f - k * u * 0.03f), strokeWidth = u * 0.004f)
-            drawRect(Wood, floor + Offset(-u * 0.065f, 0f), Size(u * 0.13f, u * 0.012f))
-            drawRect(WoodLight, floor + Offset(-u * 0.05f, -u * 0.065f), Size(u * 0.1f, u * 0.065f))
-            drawPath(Path().apply { moveTo(floor.x - u * 0.062f, floor.y - u * 0.065f); lineTo(floor.x, floor.y - u * 0.11f); lineTo(floor.x + u * 0.062f, floor.y - u * 0.065f); close() }, Color(0xFF3A4A3E))
-            drawRect(Glow.copy(alpha = 0.85f), floor + Offset(-u * 0.014f, -u * 0.05f), Size(u * 0.028f, u * 0.03f))
-            lights += Light(floor + Offset(0f, -u * 0.035f), u * 0.05f, 0.6f)
+            // Built in the tree beside it, under the crown (like the swing's branch), with a rope
+            // ladder down to the ground.
+            val floorY = p.y - (p.y - (u * 0.6f - u * 0.42f * 0.4f)).coerceAtLeast(u * 0.14f)
+            val c = Offset(p.x + u * 0.018f, floorY)
+            for (dx in listOf(-0.005f, 0.005f)) drawLine(Color(0xFFD8C7A6), Offset(p.x - u * 0.03f + u * dx * 2, floorY), p + Offset(-u * 0.03f + u * dx * 2, 0f), strokeWidth = u * 0.0018f)
+            var y = floorY + u * 0.02f
+            while (y < p.y - u * 0.008f) { drawLine(Wood, Offset(p.x - u * 0.04f, y), Offset(p.x - u * 0.02f, y), strokeWidth = u * 0.003f); y += u * 0.024f }
+            drawLine(Bark, c + Offset(-u * 0.05f, u * 0.004f), c + Offset(-u * 0.02f, u * 0.035f), strokeWidth = u * 0.004f) // braces
+            drawLine(Bark, c + Offset(u * 0.05f, u * 0.004f), c + Offset(u * 0.02f, u * 0.035f), strokeWidth = u * 0.004f)
+            drawRect(Wood, Offset(c.x - u * 0.06f, c.y - u * 0.004f), Size(u * 0.12f, u * 0.01f))
+            drawRect(WoodLight, Offset(c.x - u * 0.06f, c.y - u * 0.004f), Size(u * 0.12f, u * 0.003f))
+            for (k in 0..6) drawLine(WoodLight, Offset(c.x - u * 0.058f + k * u * 0.019f, c.y - u * 0.004f), Offset(c.x - u * 0.058f + k * u * 0.019f, c.y - u * 0.02f), strokeWidth = u * 0.002f) // railing
+            drawLine(WoodLight, Offset(c.x - u * 0.06f, c.y - u * 0.02f), Offset(c.x + u * 0.06f, c.y - u * 0.02f), strokeWidth = u * 0.0025f)
+            drawRect(Brush.horizontalGradient(listOf(WoodLight, Wood), startX = c.x - u * 0.035f, endX = c.x + u * 0.035f), Offset(c.x - u * 0.035f, c.y - u * 0.062f), Size(u * 0.07f, u * 0.058f))
+            for (k in 1..4) drawLine(Wood.copy(alpha = 0.6f), Offset(c.x - u * 0.035f, c.y - u * 0.062f + k * u * 0.012f), Offset(c.x + u * 0.035f, c.y - u * 0.062f + k * u * 0.012f), strokeWidth = u * 0.0008f)
+            drawPath(Path().apply { moveTo(c.x - u * 0.046f, c.y - u * 0.06f); lineTo(c.x, c.y - u * 0.1f); lineTo(c.x + u * 0.046f, c.y - u * 0.06f); close() }, Color(0xFF8E3B26))
+            drawRoundRect(Glow.copy(alpha = 0.9f), Offset(c.x - u * 0.012f, c.y - u * 0.05f), Size(u * 0.024f, u * 0.022f), CornerRadius(u * 0.004f))
+            drawLine(Wood, c + Offset(0f, -u * 0.05f), c + Offset(0f, -u * 0.028f), strokeWidth = u * 0.0018f)
+            lights += Light(c + Offset(0f, -u * 0.04f), u * 0.06f, 0.7f)
         }
         "canoe" -> {
             drawPath(Path().apply {
@@ -909,20 +968,24 @@ fun DrawScope.drawThing(id: String, p: Offset, u: Float, lights: MutableList<Lig
             for (dx in listOf(-0.04f, 0f, 0.04f)) drawLine(WoodPale, p + Offset(u * dx, -u * 0.026f), p + Offset(u * dx, -u * 0.012f), strokeWidth = u * 0.003f)
         }
         "dock" -> {
-            // Planks out from our bank into the river, on posts.
-            val start = p + Offset(u * 0.12f, -u * 0.02f)
-            val end = p + Offset(-u * 0.06f, u * 0.01f)
-            for (k in 0 until 9) {
-                val t = k / 9f
-                val x = start.x + (end.x - start.x) * t
-                val y = start.y + (end.y - start.y) * t
-                drawRect(if (k % 2 == 0) WoodLight else Wood, Offset(x - u * 0.011f, y - u * 0.012f), Size(u * 0.022f, u * 0.014f))
+            // A plank jetty from our bank out over the water: a deck in perspective, posts, a bollard.
+            val land = p + Offset(u * 0.12f, -u * 0.012f)
+            val tip = p + Offset(-u * 0.07f, u * 0.012f)
+            val half = u * 0.014f
+            for (t in listOf(0.15f, 0.5f, 0.85f)) {
+                val q = Offset(land.x + (tip.x - land.x) * t, land.y + (tip.y - land.y) * t)
+                for (side in listOf(-1f, 1f)) drawRect(BarkDark, Offset(q.x - u * 0.003f, q.y + side * half * 0.6f), Size(u * 0.006f, u * 0.03f))
             }
-            for (t in listOf(0.2f, 0.55f, 0.9f)) {
-                val x = start.x + (end.x - start.x) * t
-                val y = start.y + (end.y - start.y) * t
-                drawRect(BarkDark, Offset(x - u * 0.003f, y), Size(u * 0.006f, u * 0.03f))
+            val n = 12
+            for (k in 0 until n) {
+                val a = k / n.toFloat(); val b = (k + 0.85f) / n
+                val qa = Offset(land.x + (tip.x - land.x) * a, land.y + (tip.y - land.y) * a)
+                val qb = Offset(land.x + (tip.x - land.x) * b, land.y + (tip.y - land.y) * b)
+                drawPath(Path().apply { moveTo(qa.x, qa.y - half); lineTo(qb.x, qb.y - half); lineTo(qb.x, qb.y + half); lineTo(qa.x, qa.y + half); close() }, if (k % 2 == 0) WoodLight else Wood)
             }
+            drawLine(Wood.copy(alpha = 0.7f), Offset(land.x, land.y + half), Offset(tip.x, tip.y + half), strokeWidth = u * 0.003f)
+            drawRoundRect(BarkDark, Offset(tip.x + u * 0.006f, tip.y - half - u * 0.012f), Size(u * 0.008f, u * 0.014f), CornerRadius(u * 0.003f))
+            drawCircle(Color.White.copy(alpha = 0.35f), u * 0.012f, tip + Offset(0f, u * 0.022f), style = Stroke(u * 0.0015f))
         }
     }
 }
@@ -964,7 +1027,8 @@ private fun thingSize(id: String): Pair<Float, Float> = when (id) {
     "canoe" -> 0.21f to 0.05f
     "dock" -> 0.2f to 0.07f
     "kettle" -> 0.11f to 0.13f
-    "grill" -> 0.08f to 0.11f
+    "rocking_chair" -> 0.07f to 0.08f
+    "raft" -> 0.18f to 0.05f
     "campfire" -> 0.08f to 0.09f
     "pizza_oven" -> 0.11f to 0.13f
     "picnic_table" -> 0.13f to 0.08f
@@ -979,6 +1043,12 @@ private fun thingSize(id: String): Pair<Float, Float> = when (id) {
 fun DrawScope.drawThingIcon(id: String) {
     val s = size.minDimension
     val c = Offset(size.width / 2, size.height / 2)
+    if (id == "wind_chimes" || id == "bird_feeder") {
+        // Hanging from a short bit of line at the top.
+        drawLine(BarkDark, Offset(c.x - s * 0.3f, c.y - s * 0.42f), Offset(c.x + s * 0.3f, c.y - s * 0.42f), strokeWidth = s * 0.02f)
+        drawThing(id, Offset(c.x, c.y - s * 0.42f), s * 9f)
+        return
+    }
     if (id == "string_lights") {
         // As an icon: a drooping wire with warm bulbs on dark sockets, so it reads on a light card.
         val a = Offset(c.x - s * 0.45f, c.y - s * 0.2f)
@@ -998,4 +1068,29 @@ fun DrawScope.drawThingIcon(id: String) {
     // Some things reach out to one side of where they stand: centre what's drawn.
     val shift = when (id) { "dock" -> -0.03f; "fishing_rod" -> 0.006f; else -> 0f }
     drawThing(id, Offset(c.x + u * shift, c.y + s * if (id == "dock") 0.15f else 0.4f), u)
+}
+
+/** A small songbird perched (or, with [flying], mid-flap), facing left. */
+fun DrawScope.bird(at: Offset, u: Float, color: Color, flying: Boolean = false, flap: Float = 0f) {
+    drawOval(color, Offset(at.x - u * 0.006f, at.y - u * 0.007f), Size(u * 0.012f, u * 0.008f))
+    drawCircle(color, u * 0.0035f, at + Offset(-u * 0.005f, -u * 0.007f))
+    drawOval(Color(0xFFF2E3C6), Offset(at.x - u * 0.005f, at.y - u * 0.004f), Size(u * 0.006f, u * 0.004f)) // breast
+    drawPath(Path().apply { moveTo(at.x - u * 0.008f, at.y - u * 0.0075f); lineTo(at.x - u * 0.012f, at.y - u * 0.0065f); lineTo(at.x - u * 0.008f, at.y - u * 0.0055f); close() }, Color(0xFFE0A93E))
+    drawCircle(Color(0xFF1D2A23), u * 0.0009f, at + Offset(-u * 0.006f, -u * 0.008f))
+    drawPath(Path().apply { moveTo(at.x + u * 0.005f, at.y - u * 0.004f); lineTo(at.x + u * 0.011f, at.y - u * 0.007f); lineTo(at.x + u * 0.01f, at.y - u * 0.002f); close() }, color) // tail
+    val wingY = if (flying) -u * 0.008f * (0.5f + flap) else -u * 0.002f
+    drawPath(Path().apply { moveTo(at.x - u * 0.002f, at.y - u * 0.005f); quadraticTo(at.x + u * 0.004f, at.y - u * 0.005f + wingY, at.x + u * 0.007f, at.y - u * 0.004f); close() }, androidx.compose.ui.graphics.lerp(color, Color.Black, 0.25f), style = Stroke(u * 0.002f, cap = StrokeCap.Round))
+}
+
+/** A raft of tied logs floating at [p], with a small pole and pennant. */
+fun DrawScope.raftAt(p: Offset, u: Float) {
+    drawOval(Color.White.copy(alpha = 0.3f), Offset(p.x - u * 0.085f, p.y - u * 0.004f), Size(u * 0.17f, u * 0.012f))
+    for (k in 0 until 5) {
+        val y = p.y - u * 0.012f - k * u * 0.0055f
+        val inset = k * u * 0.004f
+        drawRoundRect(if (k % 2 == 0) Wood else WoodLight, Offset(p.x - u * 0.075f + inset, y - u * 0.004f), Size(u * 0.15f - inset * 2, u * 0.008f), CornerRadius(u * 0.004f))
+    }
+    for (dx in listOf(-0.05f, 0.05f)) drawLine(Color(0xFFD8C7A6), p + Offset(u * dx, -u * 0.04f), p + Offset(u * dx, -u * 0.012f), strokeWidth = u * 0.0025f)
+    drawLine(BarkDark, p + Offset(u * 0.045f, -u * 0.035f), p + Offset(u * 0.05f, -u * 0.1f), strokeWidth = u * 0.003f, cap = StrokeCap.Round)
+    drawPath(Path().apply { moveTo(p.x + u * 0.05f, p.y - u * 0.1f); lineTo(p.x + u * 0.075f, p.y - u * 0.092f); lineTo(p.x + u * 0.049f, p.y - u * 0.084f); close() }, Color(0xFFE07A5F))
 }

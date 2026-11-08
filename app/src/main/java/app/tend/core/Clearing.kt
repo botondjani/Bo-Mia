@@ -25,12 +25,12 @@ object Things {
         Thing("telescope", "Telescope", 80, SpotKind.SMALL),
         // The fire pit: each one cooks something else.
         Thing("campfire", "Campfire", 40, SpotKind.FIRE),
-        Thing("grill", "Grill", 80, SpotKind.FIRE),
         Thing("kettle", "Fire and kettle", 120, SpotKind.FIRE),
         Thing("pizza_oven", "Pizza oven", 250, SpotKind.FIRE),
         // Seats by the fire.
         Thing("log_bench", "Log bench", 50, SpotKind.SEAT),
         Thing("picnic_table", "Picnic table", 90, SpotKind.SEAT),
+        Thing("rocking_chair", "Rocking chair", 120, SpotKind.SEAT),
         // Shelters at the back, for the night.
         Thing("tent", "Tent", 150, SpotKind.SHELTER),
         Thing("bell_tent", "Canvas tent", 300, SpotKind.SHELTER),
@@ -40,15 +40,18 @@ object Things {
         Thing("hammock", "Hammock", 90, SpotKind.TREES, spot = 5),
         Thing("treehouse", "Treehouse", 300, SpotKind.TREES, spot = 6),
         // On the river.
-        Thing("canoe", "Canoe", 200, SpotKind.WATER),
-        Thing("dock", "Dock", 400, SpotKind.WATER),
+        Thing("raft", "Raft", 150, SpotKind.WATER, spot = 7),
+        Thing("canoe", "Canoe", 200, SpotKind.WATER, spot = 7),
+        Thing("dock", "Dock", 400, SpotKind.WATER, spot = 8),
         // Strung between the trees over the camp.
+        Thing("wind_chimes", "Wind chimes", 40, SpotKind.ABOVE),
+        Thing("bird_feeder", "Bird feeder", 50, SpotKind.ABOVE),
         Thing("string_lights", "String lights", 60, SpotKind.ABOVE),
     )
 
     /** Things no longer sold, with what they cost: whoever had one gets it back in acorns. */
     val retired: Map<String, Int> = mapOf(
-        "mushrooms" to 10, "backpack" to 15, "camp_chairs" to 70, "workshop" to 500, "bike" to 120, "boat" to 600, "bunting" to 40,
+        "mushrooms" to 10, "backpack" to 15, "camp_chairs" to 70, "workshop" to 500, "bike" to 120, "boat" to 600, "bunting" to 40, "grill" to 80,
     )
 
     fun byId(id: String): Thing? = all.firstOrNull { it.id == id }

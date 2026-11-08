@@ -32,7 +32,6 @@ object Uses {
     fun line(thing: String, name: String): String = when (thing) {
         "guitar" -> "$name plays the guitar. Tap again for another chord."
         "campfire" -> "$name roasts a marshmallow."
-        "grill" -> "$name grills sausages."
         "kettle" -> "$name makes a cup of tea."
         "pizza_oven" -> "$name bakes a pizza."
         "woodpile" -> "$name feeds the fire."
@@ -49,6 +48,10 @@ object Uses {
         "canoe" -> "$name paddles the canoe."
         "dock" -> "$name dangles their feet off the dock."
         "string_lights" -> "$name dances under the lights."
+        "rocking_chair" -> "$name rocks in the chair."
+        "raft" -> "$name drifts on the raft."
+        "wind_chimes" -> "$name listens to the chimes."
+        "bird_feeder" -> "$name watches the birds at the feeder."
         else -> "$name looks around."
     }
 
@@ -71,12 +74,12 @@ object Uses {
     fun seconds(thing: String): Float = when (thing) {
         "act_read", "act_run", "act_walk", "act_stretch", "act_hearts", "act_tidy", "act_cheer" -> 8f
         "guitar" -> 12f
-        "canoe", "fishing_rod", "hammock", "tent", "bell_tent", "cabin" -> 9f
+        "canoe", "raft", "fishing_rod", "hammock", "tent", "bell_tent", "cabin" -> 9f
         else -> 7f
     }
 
     /** Things drawn differently while used (they move, or the companion holds them). */
-    val redrawn = setOf("guitar", "fishing_rod", "swing", "canoe")
+    val redrawn = setOf("guitar", "fishing_rod", "swing", "canoe", "raft", "rocking_chair")
 }
 
 private val Wood = Color(0xFF9C6B45)
@@ -134,7 +137,7 @@ fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>): Offset {
         "act_walk" -> Offset(w * (0.36f + 0.03f * sin(use.t * 0.4f)), h * (0.8f + 0.05f * sin(use.t * 0.4f)))
         "act_read", "act_stretch", "act_hearts", "act_tidy", "act_cheer" -> home
         "guitar", "campfire" -> if (use.spot < 0) (if (use.thing == "campfire") fire + Offset(-u * 0.12f, u * 0.035f) else home) else p
-        "campfire", "grill", "kettle", "pizza_oven", "woodpile" ->
+        "campfire", "kettle", "pizza_oven", "woodpile" ->
             if (placed[1] != null && use.thing != "woodpile") seat + Offset(0f, -u * 0.012f) else fire + Offset(-u * 0.12f, u * 0.035f)
         "fishing_rod" -> Offset(w * 0.335f, h * 0.84f)
         "wildflowers", "lantern" -> p + Offset(u * 0.055f, u * 0.004f)
@@ -143,8 +146,10 @@ fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>): Offset {
         "tent", "bell_tent", "cabin" -> p + Offset(0f, u * 0.01f)
         "hammock" -> p + Offset(0f, -u * 0.03f)
         "swing" -> p + Offset(-u * 0.01f, -u * 0.04f)
-        "treehouse" -> p + Offset(0f, -u * 0.2f)
-        "canoe" -> p + Offset(sin(use.t * 0.7f) * w * 0.04f, -u * 0.02f)
+        "treehouse" -> Offset(p.x + u * 0.03f, u * 0.6f - u * 0.42f * 0.4f - u * 0.004f) // on the platform, in the tree
+        "canoe", "raft" -> p + Offset(sin(use.t * 0.7f) * w * 0.04f, -u * 0.02f)
+        "rocking_chair" -> p + Offset(0f, -u * 0.012f)
+        "wind_chimes", "bird_feeder" -> Offset(w * 0.64f, h * 0.71f)
         "dock" -> p + Offset(-u * 0.05f, u * 0.0f)
         "string_lights" -> Offset(w * 0.6f, h * 0.7f)
         else -> p
@@ -232,7 +237,7 @@ fun DrawScope.drawUse(
             guitarHeld(base + Offset(s * 0.05f, -s * 0.28f), s, lastStrum)
             rising(t, base + Offset(s * 0.45f, -s * 0.85f), s * 0.07f, every = 1.4f) { at, a -> note(at, s * 0.07f, a) }
         }
-        "campfire", "grill", "kettle", "pizza_oven" -> {
+        "campfire", "kettle", "pizza_oven" -> {
             shadowAt(base, s * 0.45f)
             actor(avatar, mood, worn, base, s, bounce = sin(t * 2f) * 0.3f, look = 0.8f)
             val hand = base + Offset(s * 0.38f, -s * 0.4f)
@@ -242,13 +247,6 @@ fun DrawScope.drawUse(
                     drawLine(BarkDark, hand, end, strokeWidth = u * 0.003f, cap = StrokeCap.Round)
                     val toast = (t / 6f).coerceIn(0f, 1f)
                     drawRoundRect(androidx.compose.ui.graphics.lerp(Marshmallow, Toasted, toast), end + Offset(-u * 0.011f, -u * 0.01f), Size(u * 0.022f, u * 0.02f), CornerRadius(u * 0.006f))
-                }
-                "grill" -> {
-                    for (dx in listOf(-0.012f, 0.012f)) {
-                        val c = fire + Offset(u * dx, -u * 0.07f)
-                        drawRoundRect(androidx.compose.ui.graphics.lerp(Color(0xFFD9826B), Color(0xFF8E3B26), (t / 6f).coerceIn(0f, 1f)), c + Offset(-u * 0.004f, -u * 0.012f), Size(u * 0.008f, u * 0.026f), CornerRadius(u * 0.004f))
-                    }
-                    rising(t, fire + Offset(0f, -u * 0.09f), u * 0.01f, every = 0.7f) { at, a -> drawCircle(Color.White.copy(alpha = 0.3f * a), u * 0.008f, at) }
                 }
                 "kettle" -> {
                     drawRoundRect(Color(0xFF2A6F6B), hand + Offset(-u * 0.008f, -u * 0.014f), Size(u * 0.016f, u * 0.016f), CornerRadius(u * 0.003f))
@@ -363,6 +361,37 @@ fun DrawScope.drawUse(
             val side = if (sin(t * 3f) > 0) 1f else -1f
             drawLine(BarkDark, base + Offset(side * s * 0.15f, -s * 0.35f), base + Offset(side * s * 0.4f, u * 0.03f), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
             drawOval(Color.White.copy(alpha = 0.35f), Offset(base.x - u * 0.12f, base.y + u * 0.02f), Size(u * 0.24f, u * 0.01f))
+        }
+        "raft" -> {
+            // Sitting on the raft as it drifts, trailing a hand in the water.
+            raftAt(base + Offset(0f, u * 0.02f), u)
+            actor(avatar, mood, worn, base + Offset(0f, -u * 0.006f), s * 0.72f, bounce = sin(t * 1.4f) * 0.3f, look = -0.5f)
+        }
+        "rocking_chair" -> {
+            // Rocking: chair and companion tip back and forth together on the rockers.
+            rotate(sin(t * 2.2f) * 7f, base + Offset(0f, u * 0.012f)) {
+                val chair = base + Offset(0f, u * 0.012f)
+                drawArc(Color(0xFF9C6B45), 20f, 140f, false, Offset(chair.x - u * 0.04f, chair.y - u * 0.03f), Size(u * 0.08f, u * 0.034f), style = Stroke(u * 0.005f, cap = StrokeCap.Round))
+                drawLine(Color(0xFF9C6B45), chair + Offset(u * 0.02f, -u * 0.037f), chair + Offset(u * 0.03f, -u * 0.085f), strokeWidth = u * 0.005f, cap = StrokeCap.Round)
+                actor(avatar, mood, worn, base, s * 0.82f, look = -0.3f, sleepy = t > 4f)
+                for (dx in listOf(-0.018f, 0.018f)) drawLine(Color(0xFF9C6B45), chair + Offset(u * dx, -u * 0.01f), chair + Offset(u * dx, -u * 0.035f), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
+            }
+        }
+        "wind_chimes" -> {
+            shadowAt(base, s * 0.45f)
+            actor(avatar, mood, worn, base, s, look = 0.6f, bounce = sin(t * 2f) * 0.3f)
+            rising(t, Offset(w * 0.7f, h * 0.55f), u * 0.01f, every = 0.9f, drift = 2f) { at, a -> note(at, u * 0.008f, a) }
+        }
+        "bird_feeder" -> {
+            shadowAt(base, s * 0.45f)
+            actor(avatar, mood, worn, base, s, look = 0.7f)
+            // Birds come and go around the feeder.
+            val feeder = Offset(w * 0.7f, h * 0.48f)
+            for (k in 0 until 3) {
+                val a = t * (1.6f + k * 0.4f) + k * 2.1f
+                val at = feeder + Offset(kotlin.math.cos(a) * u * (0.05f + k * 0.015f), sin(a * 1.3f) * u * 0.03f - u * 0.01f)
+                bird(at, u, listOf(Color(0xFFD9744A), Color(0xFF5D8FB8), Color(0xFFE0B84A))[k], flying = true, flap = (sin(t * 18f + k) + 1) / 2)
+            }
         }
         "dock" -> {
             actor(avatar, mood, worn, base + Offset(0f, -u * 0.004f), s * 0.8f, bounce = sin(t * 2f) * 0.3f, look = -0.6f)

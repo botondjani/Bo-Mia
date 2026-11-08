@@ -28,12 +28,14 @@ object Visitors {
      * Today's visitor, the same all day: mostly common ones, sometimes an uncommon one; a rare
      * one only after a good day (within the minutes, or something done).
      */
-    fun of(date: LocalDate, goodDay: Boolean): Visitor {
+    fun of(date: LocalDate, goodDay: Boolean, feeder: Boolean = false): Visitor {
         val rnd = java.util.Random(date.toEpochDay() * 7919)
         val roll = rnd.nextInt(100)
+        // A bird feeder in the camp draws more of the shy ones.
+        val rare = when { goodDay && feeder -> 30; goodDay -> 20; feeder -> 8; else -> 0 }
         val rarity = when {
-            goodDay && roll < 20 -> Rarity.RARE
-            roll < (if (goodDay) 55 else 30) -> Rarity.UNCOMMON
+            roll < rare -> Rarity.RARE
+            roll < rare + (if (goodDay) 35 else 30) + (if (feeder) 10 else 0) -> Rarity.UNCOMMON
             else -> Rarity.COMMON
         }
         val pool = Visitor.entries.filter { it.rarity == rarity }
