@@ -69,4 +69,15 @@ class ClearingTest {
         // The shop shows three to a row: every kind has a multiple of three things.
         SpotKind.entries.forEach { kind -> assertEquals("$kind", 0, Things.forKind(kind).size % 3) }
     }
+
+    @Test fun `things move within their kind, swapping, but not the ones with their own spot`() {
+        val placed = mapOf(1 to "log_bench", 10 to "lantern", 11 to "guitar", 6 to "swing", 0 to "campfire")
+        assertEquals(listOf(2), Clearing.movesFrom(placed, 1))
+        assertEquals(mapOf(2 to "log_bench", 10 to "lantern", 11 to "guitar", 6 to "swing", 0 to "campfire"), Clearing.move(placed, 1, 2))
+        assertEquals("guitar", Clearing.move(placed, 10, 11)!![10])
+        assertEquals("lantern", Clearing.move(placed, 10, 11)!![11])
+        assertEquals(emptyList<Int>(), Clearing.movesFrom(placed, 6))
+        assertEquals(emptyList<Int>(), Clearing.movesFrom(placed, 0))
+        assertEquals(null, Clearing.move(placed, 1, 10))
+    }
 }

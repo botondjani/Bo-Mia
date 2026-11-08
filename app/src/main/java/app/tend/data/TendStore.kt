@@ -296,6 +296,14 @@ class TendStore(private val context: Context) {
         return buy(spot, thingId)
     }
 
+    /** Moves a thing to another spot of its kind (swapping); false when it can't go there. */
+    fun move(from: Int, to: Int): Boolean {
+        val moved = app.tend.core.Clearing.move(placed, from, to) ?: return false
+        placed = moved
+        if (restSpot == from || restSpot == to) restSpot = null
+        return true
+    }
+
     /** Sells [thingId] wherever it stands. */
     fun sell(thingId: String) {
         placed.entries.firstOrNull { it.value == thingId }?.let { sell(it.key) }

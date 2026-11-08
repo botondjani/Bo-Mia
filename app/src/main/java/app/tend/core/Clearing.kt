@@ -87,6 +87,20 @@ object Clearing {
         return ofKind.minByOrNull { Things.byId(placed.getValue(it.id))?.price ?: 0 }?.id
     }
 
+    /** The spots the thing at [from] can be moved to: others of its kind; none for things with their own spot. */
+    fun movesFrom(placed: Map<Int, String>, from: Int): List<Int> {
+        val thing = placed[from]?.let(Things::byId) ?: return emptyList()
+        if (thing.spot != null) return emptyList()
+        return spots.filter { it.kind == thing.kind && it.id != from && placed[it.id]?.let(Things::byId)?.spot == null }.map { it.id }
+    }
+
+    /** Moves the thing at [from] to [to], swapping with what stands there; null when it can't. */
+    fun move(placed: Map<Int, String>, from: Int, to: Int): Map<Int, String>? {
+        if (to !in movesFrom(placed, from)) return null
+        val there = placed[to]
+        return (placed - from - to) + (to to placed.getValue(from)) + (if (there != null) mapOf(from to there) else emptyMap())
+    }
+
     /** Selling gives half back. */
     fun sellValue(thing: Thing): Int = thing.price / 2
 

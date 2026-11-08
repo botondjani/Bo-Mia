@@ -554,6 +554,7 @@ class MainActivity : ComponentActivity() {
                 night = app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour),
                 onBuy = { thing -> store.buy(thing).also { if (it) { app.tend.data.Stats.log(this, "bought", mapOf("thing" to thing)); saveProfile(); refresh++ } } },
                 onSell = { thing -> store.sell(thing); saveProfile(); refresh++ },
+                onMove = { from, to -> store.move(from, to).also { if (it) { saveProfile(); refresh++ } } },
                 onOpenSettings = { screen = Screen.SETTINGS },
                 onOpenRiver = { id -> riverFocus = id; screen = Screen.RIVER },
                 paper = app.tend.data.Friends.paperOnMe(this).isNotEmpty(),

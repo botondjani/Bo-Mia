@@ -93,6 +93,8 @@ fun ClearingScreen(
     ducks: List<app.tend.data.Friends.Note> = emptyList(),
     onUnroll: () -> Unit = {},
     onCatchDuck: (app.tend.data.Friends.Note) -> Int = { 0 },
+    /** Moves the thing at one spot to another of its kind (swapping); false when it can't. */
+    onMove: (from: Int, to: Int) -> Boolean = { _, _ -> false },
 ) {
     val scroll = rememberScrollState()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -109,7 +111,7 @@ fun ClearingScreen(
         IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, "Back", onBack)
         Spacer(Modifier.width(Space.m))
         Column(Modifier.weight(1f)) {
-            Text("Tap anything to use it", style = MaterialTheme.typography.bodyMedium)
+            Text("Tap to use, hold to move", style = MaterialTheme.typography.bodyMedium)
             Text("${avatar.displayName}'s camp", style = MaterialTheme.typography.headlineMedium, maxLines = 1)
         }
         IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Share, "Share", onShare)
@@ -121,6 +123,8 @@ fun ClearingScreen(
     val paperNow by androidx.compose.runtime.rememberUpdatedState(paper)
     val bridgeNow by androidx.compose.runtime.rememberUpdatedState(bridge)
     var caught by remember { mutableStateOf<String?>(null) }
+    // A thing held down: the other places it can go show as rings until one is tapped.
+    var moving by remember { mutableStateOf<Int?>(null) }
     // An animal just greeted: a little card pops up on the camp for a moment.
     var greeted by remember { mutableStateOf<app.tend.core.Visitor?>(null) }
     androidx.compose.runtime.LaunchedEffect(greeted) { if (greeted != null) { kotlinx.coroutines.delay(2800); greeted = null } }
@@ -188,9 +192,22 @@ fun ClearingScreen(
         Box(Modifier.fillMaxWidth().height(sceneHeight).campEntrance().horizontalScroll(pan)) {
             Canvas(
                 Modifier.width(sceneHeight * CAMP_RATIO).height(sceneHeight).onSizeChanged { sceneWidthPx = it.width }.pointerInput(Unit) {
-                    detectTapGestures { tap ->
+                    detectTapGestures(onLongPress = { at ->
+                        val hit = spotAt(Offset(at.x / size.width, at.y / size.height), size.width / size.height.toFloat()) ?: return@detectTapGestures
+                        val name = placedNow[hit]?.let { app.tend.core.Things.byId(it)?.name } ?: return@detectTapGestures
+                        tick(firm = true)
+                        if (app.tend.core.Clearing.movesFrom(placedNow, hit).isEmpty()) { caught = "The $name has its own place."; return@detectTapGestures }
+                        if (using != null) { using = null; Sounds.stop() }
+                        moving = hit; caught = "Tap a ring to move the $name. Tap anywhere else to keep it."
+                    }) { tap ->
                         val fx = tap.x / size.width
                         val fy = tap.y / size.height
+                        moving?.let { from ->
+                            moving = null
+                            val to = spotAt(Offset(fx, fy), size.width / size.height.toFloat())
+                            caught = if (to != null && to != from && onMove(from, to)) { tick(); "Moved." } else null
+                            return@detectTapGestures
+                        }
                         val duck = DuckSpots.take(ducksNow.size).indexOfFirst { kotlin.math.abs(it.x - fx) * size.width < size.height * 0.08f && kotlin.math.abs(it.y - fy) < 0.09f }
                         if (duck >= 0) {
                             val n = ducksNow[duck]
@@ -231,6 +248,16 @@ fun ClearingScreen(
                     use = use, lastStrum = (frame - strumAt) / 1e9f - walk, visitor = visitor, rest = rest, nightClock = nightClock, appear = appear,
                     bursts = bursts.map { it.first to it.second.value },
                 )
+                moving?.let { from ->
+                    val r = size.height * 0.06f
+                    fun ring(id: Int, color: Color) = SpotPositions[id]?.let { p ->
+                        val c = Offset(p.x * size.width, (p.y - 0.04f) * size.height)
+                        drawCircle(color.copy(alpha = 0.25f), r, c)
+                        drawCircle(color, r, c, style = androidx.compose.ui.graphics.drawscope.Stroke(3.dp.toPx()))
+                    }
+                    ring(from, Brand.Moss)
+                    app.tend.core.Clearing.movesFrom(placedNow, from).forEach { ring(it, Color.White) }
+                }
             }
         }
         AcornBadge(acorns, Modifier.align(Alignment.TopEnd).padding(12.dp))
@@ -244,13 +271,14 @@ fun ClearingScreen(
     }
     Text(
         when {
+            moving != null && caught != null -> caught!!
             using != null -> Uses.line(using!!.second, avatar.displayName)
             paper -> "Someone toilet-papered your oak! Tap it to unroll."
             visitor != null -> "A ${visitor.title.lowercase()} came to the camp. Tap it to say hello."
             ducks.isNotEmpty() -> "A rubber duck: someone visited. Tap it to fish it out."
             caught != null -> caught!!
             bridge -> "Cross the bridge to visit your friends' camps."
-            placed.isNotEmpty() -> "Tap something in the camp: ${avatar.displayName} will use it. Swipe to look around."
+            placed.isNotEmpty() -> "Tap something: ${avatar.displayName} will use it. Hold it to move it."
             else -> "Earn acorns by living; spend them in the shop below."
         },
         style = MaterialTheme.typography.bodyMedium,
