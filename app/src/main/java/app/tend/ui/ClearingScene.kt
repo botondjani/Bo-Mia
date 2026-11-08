@@ -185,7 +185,7 @@ fun DrawScope.drawClearing(
     greenery.sortedBy { it.first }.forEach { it.second() }
 
     // The bridge built together with friends, over the narrow part of the river.
-    if (bridge) bridge(Offset(w * 0.13f, h * 0.578f), Offset(w * 0.35f, h * 0.62f), u, night, lights)
+    if (bridge) bridge(Offset(w * 0.112f, h * 0.559f), Offset(w * 0.348f, h * 0.559f), u, night, lights)
 
     // Something strung between the trees, over the camp.
     placed[9]?.let { overhead(it, Offset(w * 0.445f, h * 0.4f), Offset(w * 0.955f, h * 0.38f), u, lights) }
@@ -320,13 +320,22 @@ private fun DrawScope.shore(w: Float, h: Float) {
         cubicTo(w * 0.3f, h * 0.68f, w * 0.36f, h * 0.55f, w * 0.31f, h * 0.535f)
         close()
     }, Color(0xFFC9BFA9))
+    // Pebbles only on the band: between the water's edge and the meadow, at each height.
+    fun bez(t: Float, a: Float, b: Float, c: Float, d: Float): Float { val m = 1 - t; return m * m * m * a + 3 * m * m * t * b + 3 * m * t * t * c + t * t * t * d }
+    fun edge(segments: List<FloatArray>): List<Pair<Float, Float>> = segments.flatMap { q -> (0..20).map { i -> val t = i / 20f; bez(t, q[1], q[3], q[5], q[7]) to bez(t, q[0], q[2], q[4], q[6]) } }
+    val water = edge(listOf(floatArrayOf(0.31f, 0.535f, 0.36f, 0.55f, 0.3f, 0.68f, 0.27f, 0.76f), floatArrayOf(0.27f, 0.76f, 0.24f, 0.84f, 0.27f, 0.93f, 0.31f, 1f)))
+    val meadow = edge(listOf(floatArrayOf(0.31f, 0.535f, 0.39f, 0.6f, 0.33f, 0.72f, 0.315f, 0.8f), floatArrayOf(0.315f, 0.8f, 0.305f, 0.88f, 0.34f, 0.95f, 0.38f, 1f)))
+    fun xAt(line: List<Pair<Float, Float>>, y: Float) = line.minBy { kotlin.math.abs(it.first - y) }.second
     val rnd = java.util.Random(5L)
     repeat(46) {
         val t = rnd.nextFloat()
-        val y = h * (0.6f + 0.4f * t)
-        val x = w * (0.285f + 0.06f * t * t + 0.035f * rnd.nextFloat())
+        val fy = 0.58f + 0.42f * t
         val r = h * (0.006f + 0.008f * t * rnd.nextFloat())
-        drawOval(if (rnd.nextBoolean()) Pebble else PebbleDark, Offset(x - r, y - r * 0.6f), Size(r * 2, r * 1.2f))
+        val left = w * xAt(water, fy) + r * 1.2f
+        val right = w * xAt(meadow, fy) - r * 1.2f
+        if (right <= left) return@repeat
+        val x = left + (right - left) * rnd.nextFloat()
+        drawOval(if (rnd.nextBoolean()) Pebble else PebbleDark, Offset(x - r, h * fy - r * 0.6f), Size(r * 2, r * 1.2f))
     }
 }
 
@@ -421,27 +430,26 @@ const val VISITOR_SCALE = 1.4f
 
 /** On the far bank: a dirt trail from the bridge up into the trees, and a little signpost. */
 private fun DrawScope.farTrail(w: Float, h: Float) {
-    // From the bridge's far end, left along the bank and up between the two pines into the forest.
+    // From where the bridge lands on the far bank, left past the signpost and up into the forest.
     drawPath(Path().apply {
-        moveTo(w * 0.115f, h * 0.592f)
-        cubicTo(w * 0.09f, h * 0.585f, w * 0.075f, h * 0.57f, w * 0.068f, h * 0.548f)
-        quadraticTo(w * 0.064f, h * 0.53f, w * 0.066f, h * 0.515f)
-        lineTo(w * 0.078f, h * 0.515f)
-        quadraticTo(w * 0.08f, h * 0.535f, w * 0.088f, h * 0.55f)
-        cubicTo(w * 0.1f, h * 0.568f, w * 0.12f, h * 0.574f, w * 0.14f, h * 0.578f)
+        moveTo(w * 0.118f, h * 0.555f)
+        cubicTo(w * 0.1f, h * 0.552f, w * 0.082f, h * 0.545f, w * 0.07f, h * 0.53f)
+        quadraticTo(w * 0.062f, h * 0.52f, w * 0.058f, h * 0.508f)
+        lineTo(w * 0.068f, h * 0.508f)
+        quadraticTo(w * 0.073f, h * 0.518f, w * 0.082f, h * 0.527f)
+        cubicTo(w * 0.094f, h * 0.538f, w * 0.106f, h * 0.543f, w * 0.12f, h * 0.548f)
         close()
-    }, Brush.verticalGradient(listOf(Dirt.copy(alpha = 0.35f), Dirt), startY = h * 0.515f, endY = h * 0.59f))
-    // A few stones along its edge.
-    for ((x, y) in listOf(0.1f to 0.582f, 0.085f to 0.566f, 0.074f to 0.548f)) drawOval(Stone, Offset(w * x - h * 0.004f, h * y - h * 0.002f), Size(h * 0.008f, h * 0.005f))
-    // The signpost at the bridge's end, pointing up the trail.
-    val post = Offset(w * 0.112f, h * 0.588f)
-    drawLine(BarkDark, post, post + Offset(0f, -h * 0.055f), strokeWidth = h * 0.005f, cap = StrokeCap.Round)
-    val b = post + Offset(0f, -h * 0.05f)
+    }, Brush.verticalGradient(listOf(Dirt.copy(alpha = 0.5f), Dirt), startY = h * 0.508f, endY = h * 0.556f))
+    for ((x, y) in listOf(0.095f to 0.55f, 0.074f to 0.533f)) drawOval(Stone, Offset(w * x - h * 0.004f, h * y - h * 0.002f), Size(h * 0.008f, h * 0.005f))
+    // The signpost beside the bridge's end, pointing up the trail.
+    val post = Offset(w * 0.1f, h * 0.548f)
+    drawLine(BarkDark, post, post + Offset(0f, -h * 0.05f), strokeWidth = h * 0.005f, cap = StrokeCap.Round)
+    val b = post + Offset(0f, -h * 0.045f)
     drawPath(Path().apply {
-        moveTo(b.x + h * 0.016f, b.y - h * 0.008f); lineTo(b.x - h * 0.014f, b.y - h * 0.008f); lineTo(b.x - h * 0.023f, b.y)
-        lineTo(b.x - h * 0.014f, b.y + h * 0.008f); lineTo(b.x + h * 0.016f, b.y + h * 0.008f); close()
+        moveTo(b.x + h * 0.014f, b.y - h * 0.007f); lineTo(b.x - h * 0.012f, b.y - h * 0.007f); lineTo(b.x - h * 0.02f, b.y)
+        lineTo(b.x - h * 0.012f, b.y + h * 0.007f); lineTo(b.x + h * 0.014f, b.y + h * 0.007f); close()
     }, WoodLight)
-    drawLine(Wood, b + Offset(-h * 0.01f, 0f), b + Offset(h * 0.01f, 0f), strokeWidth = h * 0.0025f)
+    drawLine(Wood, b + Offset(-h * 0.009f, 0f), b + Offset(h * 0.009f, 0f), strokeWidth = h * 0.0025f)
 }
 
 
