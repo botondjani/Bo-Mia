@@ -18,7 +18,7 @@ private val Cream = Color(0xFFF4E9D6)
 
 /** An animal standing at [p] (its feet), [u] the scene height. */
 fun DrawScope.drawVisitor(v: Visitor, p: Offset, u: Float) {
-    if (v != Visitor.SQUIRREL && v != Visitor.OWL) drawOval(Color.Black.copy(alpha = 0.13f), Offset(p.x - u * 0.035f, p.y - u * 0.006f), Size(u * 0.07f, u * 0.012f))
+    if (v != Visitor.SQUIRREL && v != Visitor.OWL && v != Visitor.BEAVER) drawOval(Color.Black.copy(alpha = 0.13f), Offset(p.x - u * 0.035f, p.y - u * 0.006f), Size(u * 0.07f, u * 0.012f))
     when (v) {
         Visitor.DEER -> deer(p, u)
         Visitor.FOX -> fox(p, u)
@@ -26,6 +26,8 @@ fun DrawScope.drawVisitor(v: Visitor, p: Offset, u: Float) {
         Visitor.SQUIRREL -> squirrel(p, u)
         Visitor.HERON -> heron(p, u)
         Visitor.OWL -> owl(p, u)
+        Visitor.HEDGEHOG -> hedgehog(p, u)
+        Visitor.BEAVER -> beaver(p, u)
     }
 }
 
@@ -38,7 +40,7 @@ fun DrawScope.drawVisitorIcon(v: Visitor, seen: Boolean = true) {
         return
     }
     val s = size.minDimension
-    val (w, h) = when (v) { Visitor.DEER -> 0.09f to 0.12f; Visitor.HERON -> 0.07f to 0.12f; Visitor.SQUIRREL -> 0.05f to 0.058f; Visitor.OWL -> 0.07f to 0.07f; Visitor.FOX -> 0.075f to 0.08f; Visitor.RABBIT -> 0.05f to 0.07f }
+    val (w, h) = when (v) { Visitor.DEER -> 0.09f to 0.12f; Visitor.HERON -> 0.07f to 0.12f; Visitor.SQUIRREL -> 0.05f to 0.058f; Visitor.OWL -> 0.07f to 0.07f; Visitor.FOX -> 0.075f to 0.08f; Visitor.RABBIT -> 0.05f to 0.07f; Visitor.HEDGEHOG -> 0.085f to 0.045f; Visitor.BEAVER -> 0.1f to 0.045f }
     val u = minOf(s * 0.85f / w, s * 0.8f / h)
     val base = Offset(size.width / 2, size.height / 2 + s * 0.4f)
     when (v) {
@@ -258,4 +260,62 @@ private fun DrawScope.owl(p: Offset, u: Float) {
     }
     drawPath(Path().apply { moveTo(face.x - u * 0.0022f, face.y + u * 0.003f); lineTo(face.x + u * 0.0022f, face.y + u * 0.003f); lineTo(face.x, face.y + u * 0.009f); close() }, Color(0xFFC98A3A))
     for (dx in listOf(-0.006f, 0.006f)) drawLine(Color(0xFFC98A3A), p + Offset(u * dx, -u * 0.001f), p + Offset(u * dx, u * 0.002f), strokeWidth = u * 0.0025f, cap = StrokeCap.Round)
+}
+
+/** A hedgehog trundling along: a round body of spines, a pale pointed face and a little nose. */
+private fun DrawScope.hedgehog(p: Offset, u: Float) {
+    val spines = Color(0xFF6E5741)
+    val tips = Color(0xFFCDB89C)
+    val face = Color(0xFFE6D2B5)
+    val back = Path().apply {
+        moveTo(p.x - u * 0.016f, p.y - u * 0.002f)
+        cubicTo(p.x - u * 0.02f, p.y - u * 0.03f, p.x + u * 0.022f, p.y - u * 0.034f, p.x + u * 0.026f, p.y - u * 0.002f)
+        close()
+    }
+    drawPath(back, shade(spines, p + Offset(u * 0.004f, -u * 0.016f), u * 0.022f))
+    // Spines: short light-tipped strokes fanning back over the body.
+    for (k in 0 until 14) {
+        val a = 3.4f + k / 13f * 2.6f
+        val c = p + Offset(u * 0.004f, -u * 0.004f)
+        val r0 = u * 0.012f; val r1 = u * 0.026f
+        val from = c + Offset(kotlin.math.cos(a) * r0, kotlin.math.sin(a) * r0 * 0.9f)
+        val to = c + Offset(kotlin.math.cos(a + 0.25f) * r1, kotlin.math.sin(a + 0.25f) * r1 * 0.85f)
+        drawLine(spines, from, to, strokeWidth = u * 0.0026f, cap = StrokeCap.Round)
+        drawCircle(tips, u * 0.0011f, to)
+    }
+    // The face, pointing left.
+    drawPath(Path().apply {
+        moveTo(p.x - u * 0.012f, p.y - u * 0.02f); quadraticTo(p.x - u * 0.03f, p.y - u * 0.012f, p.x - u * 0.033f, p.y - u * 0.006f)
+        quadraticTo(p.x - u * 0.024f, p.y - u * 0.001f, p.x - u * 0.01f, p.y - u * 0.002f); close()
+    }, face)
+    drawCircle(Eye, u * 0.0028f, p + Offset(-u * 0.034f, -u * 0.0065f))
+    eye(p + Offset(-u * 0.02f, -u * 0.012f), u * 0.0022f)
+    drawCircle(spines, u * 0.0035f, p + Offset(-u * 0.014f, -u * 0.017f)) // ear
+    for (dx in listOf(-0.012f, 0.012f)) drawOval(Color(0xFF4A3A2C), Offset(p.x + u * dx - u * 0.003f, p.y - u * 0.003f), Size(u * 0.006f, u * 0.004f))
+}
+
+/** A beaver swimming by the shore: head and back above the water, a V of ripples behind, its flat tail. */
+private fun DrawScope.beaver(p: Offset, u: Float) {
+    val fur = Color(0xFF7A5232)
+    val dark = Color(0xFF4E321E)
+    // Ripples spreading behind it.
+    for (k in 0 until 2) {
+        val back = p + Offset(u * (0.03f + k * 0.018f), u * 0.002f)
+        drawLine(Color.White.copy(alpha = 0.45f - k * 0.15f), back + Offset(-u * 0.012f, 0f), back + Offset(u * 0.01f, -u * 0.007f), strokeWidth = u * 0.0018f, cap = StrokeCap.Round)
+        drawLine(Color.White.copy(alpha = 0.45f - k * 0.15f), back + Offset(-u * 0.012f, 0f), back + Offset(u * 0.01f, u * 0.007f), strokeWidth = u * 0.0018f, cap = StrokeCap.Round)
+    }
+    drawOval(Color.White.copy(alpha = 0.3f), Offset(p.x - u * 0.03f, p.y - u * 0.002f), Size(u * 0.06f, u * 0.008f))
+    // The flat, scaly tail just breaking the surface.
+    drawOval(dark, Offset(p.x + u * 0.02f, p.y - u * 0.004f), Size(u * 0.018f, u * 0.006f))
+    // Back and head above the water line.
+    drawPath(Path().apply {
+        moveTo(p.x - u * 0.024f, p.y); cubicTo(p.x - u * 0.02f, p.y - u * 0.016f, p.x + u * 0.012f, p.y - u * 0.018f, p.x + u * 0.022f, p.y); close()
+    }, shade(fur, p + Offset(0f, -u * 0.008f), u * 0.02f))
+    val head = p + Offset(-u * 0.022f, -u * 0.008f)
+    drawCircle(shade(fur, head, u * 0.01f), u * 0.0095f, head)
+    drawCircle(fur, u * 0.003f, head + Offset(u * 0.004f, -u * 0.008f)) // ear
+    drawOval(Color(0xFF9C7350), Offset(head.x - u * 0.013f, head.y - u * 0.001f), Size(u * 0.01f, u * 0.007f))
+    drawCircle(Eye, u * 0.0022f, head + Offset(-u * 0.012f, u * 0.0f))
+    eye(head + Offset(-u * 0.003f, -u * 0.003f), u * 0.002f)
+    drawRect(Color(0xFFF1E9D8), Offset(head.x - u * 0.011f, head.y + u * 0.005f), Size(u * 0.003f, u * 0.0025f)) // teeth
 }

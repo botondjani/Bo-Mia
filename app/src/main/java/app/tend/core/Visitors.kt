@@ -7,24 +7,37 @@ import java.time.LocalDate
  * good day (within the minutes, or something done) a rare one may come. Greeting it adds it to
  * the guestbook, with a few acorns.
  */
-enum class Visitor(val title: String, val rare: Boolean, val x: Float, val y: Float) {
-    DEER("Deer", false, 0.47f, 0.7f),
-    FOX("Fox", false, 0.735f, 0.745f),
-    RABBIT("Rabbit", false, 0.6f, 0.885f),
-    SQUIRREL("Squirrel", false, 0.957f, 0.6f),
-    HERON("Heron", true, 0.25f, 0.69f),
-    OWL("Owl", true, 0.883f, 0.47f);
+/** How often an animal comes, and what greeting it is worth. */
+enum class Rarity(val label: String, val acorns: Int) { COMMON("Common", 5), UNCOMMON("Uncommon", 10), RARE("Rare", 20) }
+
+enum class Visitor(val title: String, val rarity: Rarity, val x: Float, val y: Float) {
+    RABBIT("Rabbit", Rarity.COMMON, 0.6f, 0.885f),
+    SQUIRREL("Squirrel", Rarity.COMMON, 0.957f, 0.6f),
+    HEDGEHOG("Hedgehog", Rarity.COMMON, 0.73f, 0.905f),
+    DEER("Deer", Rarity.UNCOMMON, 0.365f, 0.675f),
+    FOX("Fox", Rarity.UNCOMMON, 0.735f, 0.745f),
+    BEAVER("Beaver", Rarity.UNCOMMON, 0.215f, 0.83f),
+    HERON("Heron", Rarity.RARE, 0.25f, 0.69f),
+    OWL("Owl", Rarity.RARE, 0.883f, 0.47f);
+
+    val rare: Boolean get() = rarity == Rarity.RARE
 }
 
 object Visitors {
-    const val ACORNS = 5
-
-    /** Today's visitor: the same all day; [goodDay] (yesterday) opens the door to a rare one. */
+    /**
+     * Today's visitor, the same all day: mostly common ones, sometimes an uncommon one; a rare
+     * one only after a good day (within the minutes, or something done).
+     */
     fun of(date: LocalDate, goodDay: Boolean): Visitor {
         val rnd = java.util.Random(date.toEpochDay() * 7919)
-        val common = Visitor.entries.filter { !it.rare }
-        val rare = Visitor.entries.filter { it.rare }
-        return if (goodDay && rnd.nextInt(3) == 0) rare[rnd.nextInt(rare.size)] else common[rnd.nextInt(common.size)]
+        val roll = rnd.nextInt(100)
+        val rarity = when {
+            goodDay && roll < 20 -> Rarity.RARE
+            roll < (if (goodDay) 55 else 30) -> Rarity.UNCOMMON
+            else -> Rarity.COMMON
+        }
+        val pool = Visitor.entries.filter { it.rarity == rarity }
+        return pool[rnd.nextInt(pool.size)]
     }
 
     /** The guestbook as saved ("DEER:3,FOX:1"), parsed; unknown names are dropped. */

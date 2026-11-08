@@ -13,7 +13,9 @@ class DailyTest {
         val year = (0L until 365L).map { day.plusDays(it) }
         assertTrue(year.none { Visitors.of(it, goodDay = false).rare })
         val rare = year.count { Visitors.of(it, goodDay = true).rare }
-        assertTrue("rare $rare", rare in 80..170) // about a third of good days
+        assertTrue("rare $rare", rare in 45..105) // about a fifth of good days
+        val common = year.count { Visitors.of(it, false).rarity == Rarity.COMMON }
+        assertTrue("common $common", common in 220..290) // most days
         assertEquals(Visitor.entries.filter { !it.rare }.toSet(), year.map { Visitors.of(it, false) }.toSet())
     }
 

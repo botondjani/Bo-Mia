@@ -204,7 +204,7 @@ class TendStore(private val context: Context) {
         val v = visitorWaiting(today) ?: return null
         val book = guestbook.toMutableMap().apply { this[v] = (this[v] ?: 0) + 1 }
         prefs.edit().putString("visitor_greeted", today.toString()).putString("guestbook", app.tend.core.Visitors.format(book)).apply()
-        addAcorns(app.tend.core.Visitors.ACORNS, "visitor")
+        addAcorns(v.rarity.acorns, "visitor")
         return v
     }
 
