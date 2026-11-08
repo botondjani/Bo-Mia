@@ -554,8 +554,12 @@ fun rememberNightClock(night: Boolean): Float {
     var t by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(100f) }
     androidx.compose.runtime.LaunchedEffect(night) {
         if (!night) { t = 100f; return@LaunchedEffect }
-        var start = -1L
-        while (true) androidx.compose.runtime.withFrameNanos { now -> if (start < 0) start = now; t = (now - start) / 1e9f }
+        // Every frame while walking to bed; after that only the Zs drift, and a dozen frames a second is plenty.
+        val start = System.nanoTime()
+        while (true) {
+            if (t < Uses.WALK + 2f) androidx.compose.runtime.withFrameNanos { t = (System.nanoTime() - start) / 1e9f }
+            else { kotlinx.coroutines.delay(80); t = (System.nanoTime() - start) / 1e9f }
+        }
     }
     return t
 }

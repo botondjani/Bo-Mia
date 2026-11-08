@@ -138,7 +138,8 @@ fun RecapScreen(
     )
 
     // The camp in the evening light, whatever it holds today.
-    Canvas(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(26.dp))) {
+    // A fixed shape, like everywhere else, so nothing stretches on tall phones.
+    Canvas(Modifier.fillMaxWidth().aspectRatio(1.35f).clip(RoundedCornerShape(26.dp))) {
         drawClearing(avatar, placed, mood = Mood.HAPPY, worn = worn, night = true)
     }
 
@@ -166,6 +167,7 @@ fun RecapScreen(
             ChipButton("No thanks", { onReminder(false) }, filled = false)
         }
     }
+    Spacer(Modifier.weight(1f))
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 4.dp)) {
         SecondaryButton("Share", onShare, modifier = Modifier.weight(0.4f))
         PrimaryButton("Good night, ${avatar.displayName}", onGoodNight, modifier = Modifier.weight(0.6f))
