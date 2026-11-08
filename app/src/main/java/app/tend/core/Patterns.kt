@@ -14,6 +14,8 @@ data class DaySummary(
     val tasksDone: Int,
     /** Ids of the tasks done that day (empty for days logged before this was kept). */
     val done: Set<String> = emptySet(),
+    /** A day on a break: no limits, so its minutes say nothing. */
+    val paused: Boolean = false,
 )
 
 enum class DayPart(val label: String) {
@@ -104,7 +106,7 @@ data class WeekView(val days: List<DaySummary?>, val average: Int?, val before: 
 
 object WeekOverview {
     fun of(days: List<DaySummary>, today: LocalDate): WeekView {
-        val by = days.associateBy { it.date }
+        val by = days.filterNot { it.paused }.associateBy { it.date }
         fun span(from: Int, to: Int) = (from downTo to).map { by[today.minusDays(it.toLong())] }
         fun avg(list: List<DaySummary?>) = list.filterNotNull().takeIf { it.isNotEmpty() }?.let { l -> l.sumOf { it.usedMinutes } / l.size }
         val week = span(6, 0)

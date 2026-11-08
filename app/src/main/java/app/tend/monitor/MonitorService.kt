@@ -114,6 +114,12 @@ class MonitorService : Service() {
 
         val blocked = store.blockedPackages
         val fg = foreground
+        // On a break: nothing is paused, counted or closed.
+        if (store.isPaused) {
+            if (sessionPkg != null) endSession(now, askWorthIt = false)
+            lastTick = now
+            return
+        }
         if (sessionPkg != null && awaySince > 0 && fg != null) {
             val waited = now - awaySince
             when {
@@ -158,7 +164,7 @@ class MonitorService : Service() {
         } else if (awaySince > 0 && new in homes) {
             endSession(now, askWorthIt = true) // from the helper screen straight home
         }
-        if (store.onboarded && new in store.blockedPackages) {
+        if (store.onboarded && new in store.blockedPackages && !store.isPaused) {
             if (sessionPkg != null) endSession(now, askWorthIt = false) // another paused app: the pause takes over
             val pass = if (store.isLocked() || scheduledLock() != null) null else store.consumePass(new)
             if (pass != null) {

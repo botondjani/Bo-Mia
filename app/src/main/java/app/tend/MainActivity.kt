@@ -518,6 +518,8 @@ class MainActivity : ComponentActivity() {
                 onTheme = { store.themeMode = it; app.tend.ui.ThemeChoice.mode = it },
                 lockSchedules = store.lockSchedules,
                 onLockSchedule = { store.setLockSchedule(it); refresh++ },
+                pausedUntil = store.pausedUntil,
+                onPause = { if (it == 0) store.resume() else store.pause(it); refresh++ },
                 onDone = { screen = Screen.HOME },
             )
 
@@ -710,6 +712,8 @@ class MainActivity : ComponentActivity() {
                 skills = progress.skills,
                 challenge = progress.challenge,
                 history = progress.days,
+                pausedUntil = store.pausedUntil,
+                onResume = { store.resume(); refresh++ },
                 levelUp = progress.level.level.takeIf { it > store.levelSeen && store.tourDone },
                 onLevelUpSeen = {
                     store.addAcorns(app.tend.core.Acorns.LEVEL_UP * (progress.level.level - store.levelSeen).coerceAtLeast(0), "level")

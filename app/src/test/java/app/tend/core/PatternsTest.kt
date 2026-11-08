@@ -61,4 +61,10 @@ class PatternsTest {
         assertEquals(90, v.before)
         assertNull(WeekOverview.of(emptyList(), today).average)
     }
+
+    @Test fun `days on a break are left out of the week`() {
+        val v = WeekOverview.of(listOf(DaySummary(today.minusDays(1), 0, 45, 0, paused = true), DaySummary(today.minusDays(2), 60, 0, 0)), today)
+        assertNull(v.days[5])
+        assertEquals(60, v.average)
+    }
 }

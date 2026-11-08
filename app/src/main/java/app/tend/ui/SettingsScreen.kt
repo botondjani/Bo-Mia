@@ -78,6 +78,10 @@ fun SettingsScreen(
     onTheme: (String) -> Unit,
     lockSchedules: List<app.tend.core.LockSchedule> = emptyList(),
     onLockSchedule: (app.tend.core.LockSchedule) -> Unit = {},
+    /** A break from all limits until this moment (epoch ms); in the past = none. */
+    pausedUntil: Long = 0,
+    /** Starts a break of that many days; 0 ends it. */
+    onPause: (Int) -> Unit = {},
     onDone: () -> Unit,
 ) = Column(
     Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
@@ -96,6 +100,7 @@ fun SettingsScreen(
     ActivitySummary(tasks, onToggleTask)
     Text("DAILY BUDGET", style = MaterialTheme.typography.labelSmall)
     BudgetPicker(cfg, onConfig)
+    BreakCard(pausedUntil, onPause)
 
     // Everything about the evening in one place: when it starts, the pause, the recap, the lock.
     val bedtime = lockSchedules.firstOrNull { it.label == app.tend.core.LockSchedule.BEDTIME.label }
@@ -239,4 +244,39 @@ fun PermissionsScreen(avatar: Avatar, perms: PermissionActions, onDone: () -> Un
     Text("A permission was turned off, so the pause can't appear right now.", style = MaterialTheme.typography.bodyLarge, color = Brand.Muted)
     PermissionSteps(perms)
     PrimaryButton("Done", onDone, enabled = perms.permissions.allGranted, modifier = Modifier.padding(vertical = 20.dp))
+}
+
+/** A holiday, a sick day: every limit off for a while, and those days don't count against you. */
+@Composable
+private fun BreakCard(pausedUntil: Long, onPause: (Int) -> Unit) = Card {
+    if (pausedUntil > System.currentTimeMillis()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("On a break until ${breakEnd(pausedUntil)}", style = MaterialTheme.typography.bodyLarge)
+                Text("No pauses, locks or counting", style = MaterialTheme.typography.bodyMedium)
+            }
+            Text(
+                "Come back", style = MaterialTheme.typography.labelLarge, color = Color.White,
+                modifier = Modifier.clip(RoundedCornerShape(50)).background(Brand.Moss).tappable { onPause(0) }.padding(horizontal = 14.dp, vertical = 8.dp),
+            )
+        }
+    } else {
+        Text("Take a break", style = MaterialTheme.typography.bodyLarge)
+        Text("Holiday or a sick day: every limit off, and those days don't count.", style = MaterialTheme.typography.bodyMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+            listOf(1 to "Today", 3 to "3 days", 7 to "A week").forEach { (days, label) ->
+                Text(
+                    label, style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(Brand.Sage).tappable { onPause(days) }.padding(vertical = 10.dp),
+                )
+            }
+        }
+    }
+}
+
+/** "tomorrow morning" or "Friday": the midnight a break ends at, as people say it. */
+fun breakEnd(until: Long): String {
+    val end = java.time.Instant.ofEpochMilli(until).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+    val last = end.minusDays(1)
+    return if (last == java.time.LocalDate.now()) "tonight" else "the end of " + last.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH)
 }

@@ -256,7 +256,7 @@ class TendStore(private val context: Context) {
 
     /** The lock in force now: a bedtime or work-hours schedule, or "Good night" until 7:00. */
     fun activeLock(): LockSchedule? =
-        LockSchedule.activeOf(lockSchedules) ?: LockSchedule.GOOD_NIGHT.takeIf { System.currentTimeMillis() < sleepUntil }
+        if (isPaused) null else LockSchedule.activeOf(lockSchedules) ?: LockSchedule.GOOD_NIGHT.takeIf { System.currentTimeMillis() < sleepUntil }
 
     /** Woken up before 7:00: the apps are back. */
     fun wakeUp() { sleepUntil = 0 }
@@ -323,6 +323,32 @@ class TendStore(private val context: Context) {
         placed = placed - spotId
     }
 
+    /** A break from all limits until this moment (epoch ms); 0 = none. */
+    var pausedUntil: Long
+        get() = prefs.getLong("paused_until", 0)
+        private set(v) = edit { putLong("paused_until", v) }
+
+    /** Days that were (partly) on a break: no day-close acorns, left out of the week and the normal. */
+    val pausedDays: Set<String> get() = prefs.getStringSet("paused_days", emptySet())!!.toSet()
+
+    val isPaused: Boolean get() = System.currentTimeMillis() < pausedUntil
+
+    /** A break for [days] days: today counts as the first, it ends at midnight after the last. */
+    fun pause(days: Int) {
+        val start = LocalDate.now()
+        val end = start.plusDays(days.toLong())
+        pausedUntil = end.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        edit { putStringSet("paused_days", pausedDays + (0 until days).map { start.plusDays(it.toLong()).toString() }) }
+        Stats.log(context, "paused", mapOf("days" to days))
+    }
+
+    /** Back from a break early: the days not reached are no longer marked. */
+    fun resume() {
+        val today = LocalDate.now()
+        edit { putStringSet("paused_days", pausedDays.filter { LocalDate.parse(it) <= today }.toSet()) }
+        pausedUntil = 0
+    }
+
     /** Your normal: minutes a day in the picked apps before tend; null until known. */
     var normalMinutes: Int?
         get() = prefs.getInt("normal_min", -1).takeIf { it >= 0 }
@@ -346,10 +372,11 @@ class TendStore(private val context: Context) {
 
     /** At day close: within the budget, and below your normal (or, without one, a first week's average). */
     private fun closeDayAcorns(d: DayState) {
+        if (d.date.toString() in pausedDays) return
         val used = ((d.usedSeconds + 59) / 60).toInt()
         val available = Budget.remainingMinutes(config, d) + used
         // Plain writes here: refreshing the widgets would read today() again before the new day is saved.
-        val normal = normalMinutes ?: app.tend.core.Acorns.normalFrom(lines("history.csv").mapNotNull { it.split(',').getOrNull(1)?.toIntOrNull() })
+        val normal = normalMinutes ?: app.tend.core.Acorns.normalFrom(lines("history.csv").filter { it.substringBefore(',') !in pausedDays }.mapNotNull { it.split(',').getOrNull(1)?.toIntOrNull() })
             ?.also { prefs.edit().putInt("normal_min", it).apply() }
         val earned = app.tend.core.Acorns.atDayClose(used, available, normal)
         if (earned > 0) addAcorns(earned, "day", on = d.date, refreshWidgets = false)
@@ -543,12 +570,15 @@ class TendStore(private val context: Context) {
         .map { WorthIt(it.time.toLocalTime(), it.answer) }
 
     /** Closed days from the history log, plus today so far. */
-    fun daySummaries(): List<DaySummary> = lines("history.csv").mapNotNull { line ->
-        val p = line.split(',')
-        runCatching {
-            DaySummary(LocalDate.parse(p[0]), p[1].toInt(), p[2].toInt(), p[3].toInt(), p.getOrNull(4)?.split(';')?.filter { it.isNotEmpty() }?.toSet().orEmpty())
-        }.getOrNull()
-    } + summary(today())
+    fun daySummaries(): List<DaySummary> {
+        val paused = pausedDays
+        return (lines("history.csv").mapNotNull { line ->
+            val p = line.split(',')
+            runCatching {
+                DaySummary(LocalDate.parse(p[0]), p[1].toInt(), p[2].toInt(), p[3].toInt(), p.getOrNull(4)?.split(';')?.filter { it.isNotEmpty() }?.toSet().orEmpty())
+            }.getOrNull()
+        } + summary(today())).map { if (it.date.toString() in paused) it.copy(paused = true) else it }
+    }
 
     /**
      * What the companion wears now (habits held over the last 7 days), and what is on the shelf:
