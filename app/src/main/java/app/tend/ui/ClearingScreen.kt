@@ -409,7 +409,10 @@ fun ClearingScreen(
             ducks.isNotEmpty() -> "A rubber duck: someone visited. Tap it to fish it out."
             caught != null -> caught!!
             bridge -> "Cross the bridge to visit your friends' camps."
-            placed.isNotEmpty() -> "Tap something: ${avatar.displayName} will use it. Hold it to move it."
+            // Once the camp is familiar, what the companion is up to; before that, how it works.
+            placed.isNotEmpty() -> if (placed.size >= 3) remember(java.time.LocalTime.now().hour) {
+                java.time.LocalDateTime.now().let { app.tend.core.Voice.camp(avatar.displayName, it, app.tend.core.Weather.of(it.toLocalDate(), it.hour)) }
+            } else "Tap something: ${avatar.displayName} will use it. Hold it to move it."
             else -> "Earn acorns by living; spend them in the shop below."
         },
         style = MaterialTheme.typography.bodyMedium,

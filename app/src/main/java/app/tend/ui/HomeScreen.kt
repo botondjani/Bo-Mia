@@ -87,6 +87,8 @@ fun HomeScreen(
     /** On a break until then (epoch ms); in the past = none. */
     pausedUntil: Long = 0,
     onResume: () -> Unit = {},
+    /** What the companion knows for today's line (time, weather, yesterday, who's here); null: the plain line. */
+    voice: app.tend.core.Voice.Moment? = null,
     /** Friends phone-free right now, and joining them (a phone-free activity of your own). */
     atFire: List<app.tend.data.Friends.AtFire> = emptyList(),
     onJoin: (app.tend.data.Friends.AtFire) -> Unit = {},
@@ -192,8 +194,8 @@ fun HomeScreen(
             camp()
             // What the companion says: one small bubble, so the camp shows.
             Text(
-                Moods.line(cfg, day, tasks, welcomeBack, canClose = permissions.overlay),
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 17.sp), color = Brand.Ink, maxLines = 2,
+                voice?.let(app.tend.core.Voice::home) ?: Moods.line(cfg, day, tasks, welcomeBack, canClose = permissions.overlay),
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 17.sp), color = Brand.Ink, maxLines = 3,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier.align(Alignment.TopStart).padding(16.dp).fillMaxWidth(0.58f)
                     .clip(RoundedCornerShape(14.dp)).background(Color(0xE6FFFFFF)).padding(horizontal = 10.dp, vertical = 6.dp),

@@ -822,6 +822,20 @@ class MainActivity : ComponentActivity() {
                 onOpenInsights = { screen = Screen.INSIGHTS },
                 atFire = atFire,
                 onJoin = join,
+                voice = remember(refresh, atFire, done, java.time.LocalTime.now().hour) {
+                    val now = java.time.LocalDateTime.now()
+                    val days = store.daySummaries()
+                    app.tend.core.Voice.Moment(
+                        store.avatar.displayName, now, store.config, store.today(), store.selectedTasks,
+                        yesterday = days.firstOrNull { it.date == now.toLocalDate().minusDays(1) }?.done.orEmpty(),
+                        streak = app.tend.core.Voice.streak(days, now.toLocalDate()),
+                        weather = app.tend.core.Weather.of(now.toLocalDate(), now.hour),
+                        visitor = store.visitorWaiting(),
+                        atFire = atFire.map { it.name },
+                        welcomeBack = store.welcomeBackOn == LocalDate.now().toString(),
+                        canClose = permissions().overlay,
+                    )
+                },
                 strict = store.isStrict,
                 plusDaysLeft = store.trialDaysLeft.takeIf { store.isPlus && !store.plusPaid },
                 onPlus = { openPlus(app.tend.ui.PlusFrom.SETTINGS) },
