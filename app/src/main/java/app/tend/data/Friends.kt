@@ -15,7 +15,14 @@ object Friends {
         val week: String = "", val weekCount: Int = 0, val bridge: Boolean = false,
         /** Where they moved things in their camp (spot to scene fractions). */
         val layout: Map<Int, Pair<Float, Float>> = emptyMap(),
+        /** Phone-free right now: since and until when (epoch ms), and doing what (a task id); null when not. */
+        val focusStarted: Long? = null,
+        val focusUntil: Long? = null,
+        val focusTask: String? = null,
     )
+
+    /** A friend at your campfire: phone-free right now. */
+    data class AtFire(val id: String, val name: String, val companion: String, val started: Long, val until: Long, val task: String)
 
     /** The web page that opens tend on an invite (and sends people without tend to Google Play). */
     fun inviteLink(code: String) = "https://botondjani.github.io/Bo-Mia/i/?c=$code"
@@ -43,10 +50,76 @@ object Friends {
         return reply.ok && reply.body.trim() != "null"
     }
 
-    /** Your friends, oldest friendship first; null when the server can't be reached. */
+    /** Your friends, oldest friendship first; null when the server can't be reached. Who's at the fire is kept too. */
     suspend fun list(c: Context): List<Friend>? {
         val reply = Account.rpc(c, "tend_friends")?.takeIf { it.ok } ?: return null
-        return parse(reply.body)
+        return parse(reply.body).also { keepAtFire(c, it) }
+    }
+
+    private fun time(s: String?): Long? = s?.takeIf { it.isNotBlank() && it != "null" }?.let { runCatching { java.time.OffsetDateTime.parse(it).toInstant().toEpochMilli() }.getOrNull() }
+
+    // ---- The shared campfire ----
+
+    /** Tells friends you're phone-free until [until] (epoch ms), doing [task]; null clears it. Quietly does nothing offline. */
+    suspend fun setFocus(c: Context, until: Long?, task: String?) {
+        if (Account.user(c) == null) return
+        val args = JSONObject().put("p_until", until?.let { java.time.Instant.ofEpochMilli(it).toString() } ?: JSONObject.NULL).put("p_task", task ?: JSONObject.NULL)
+        Account.rpc(c, "tend_set_focus", args)
+    }
+
+    private fun keepAtFire(c: Context, friends: List<Friend>) {
+        val now = System.currentTimeMillis()
+        val a = JSONArray()
+        friends.filter { (it.focusUntil ?: 0) > now }.forEach { f ->
+            a.put(JSONObject().put("id", f.id).put("name", f.name).put("companion", f.companion).put("started", f.focusStarted ?: now).put("until", f.focusUntil).put("task", f.focusTask ?: ""))
+        }
+        prefs(c).edit().putString("at_fire", a.toString()).apply()
+    }
+
+    /** "Anna put her phone down": one note per friend's session, with "Join her" (opens tend to join). */
+    fun notifyAtFire(c: Context) {
+        val fresh = newAtFire(c)
+        if (fresh.isEmpty() || !app.tend.reminder.RecapReminder.canNotify(c) || TendStore(c).focusStartedAt > 0) return
+        val f = fresh.first()
+        val minutes = ((f.until - System.currentTimeMillis()) / 60_000L).toInt()
+        val nm = c.getSystemService(android.app.NotificationManager::class.java)
+        nm.createNotificationChannel(android.app.NotificationChannel(CHANNEL, "Friends", android.app.NotificationManager.IMPORTANCE_DEFAULT))
+        val open = android.app.PendingIntent.getActivity(
+            c, 22, android.content.Intent(c, app.tend.MainActivity::class.java).putExtra(app.tend.reminder.RecapReminder.EXTRA_OPEN, OPEN_JOIN).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        nm.notify(
+            23,
+            android.app.Notification.Builder(c, CHANNEL).setSmallIcon(app.tend.R.drawable.ic_notification)
+                .setContentTitle("${f.name} put the phone down")
+                .setContentText("Phone-free for $minutes more minutes, at your campfire. Join? +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each.")
+                .setContentIntent(open).setAutoCancel(true).setTimeoutAfter(f.until - System.currentTimeMillis()).build(),
+        )
+        Stats.log(c, "fire_note")
+    }
+
+    const val OPEN_JOIN = "join_fire"
+
+    /** Friends phone-free right now, as last heard (no network). */
+    fun atFire(c: Context, now: Long = System.currentTimeMillis()): List<AtFire> = runCatching {
+        val a = JSONArray(prefs(c).getString("at_fire", "[]"))
+        (0 until a.length()).map { i -> a.getJSONObject(i) }.map { o ->
+            AtFire(o.optString("id"), o.optString("name"), o.optString("companion", "BO"), o.optLong("started"), o.optLong("until"), o.optString("task"))
+        }.filter { it.until > now }
+    }.getOrDefault(emptyList())
+
+    /** Friends who were phone-free at some point between [from] and [to] (for the together bonus). */
+    fun overlapping(c: Context, from: Long, to: Long): List<AtFire> = atFire(c, 0).filter { it.started < to && it.until > from }
+
+    /**
+     * New ones at the fire since last asked (each friend's session once): for "Anna put her phone
+     * down", worth saying only with a while still to go.
+     */
+    fun newAtFire(c: Context, now: Long = System.currentTimeMillis()): List<AtFire> {
+        val told = prefs(c).getStringSet("fire_told", emptySet())!!
+        val fresh = atFire(c, now).filter { "${it.id}:${it.started}" !in told && it.until - now > 5 * 60_000L }
+        if (fresh.isNotEmpty()) prefs(c).edit().putStringSet("fire_told", (told + fresh.map { "${it.id}:${it.started}" }).toList().takeLast(50).toSet()).apply()
+        return fresh
     }
 
     suspend fun remove(c: Context, id: String): Boolean =
@@ -62,6 +135,7 @@ object Friends {
                 o.optInt("level", 1), placed,
                 o.optString("week"), o.optInt("week_count"), o.optBoolean("bridge"),
                 app.tend.core.Clearing.parseLayout(o.optString("layout"), placed),
+                time(o.optString("focus_started")), time(o.optString("focus_until")), o.optString("focus_task").ifBlank { null },
             )
         }
     }.getOrDefault(emptyList())

@@ -108,6 +108,8 @@ fun ClearingScreen(
     outfitWorn: app.tend.core.Accessory? = null,
     onBuyOutfit: (app.tend.core.Accessory) -> Boolean = { false },
     onWearOutfit: (app.tend.core.Accessory?) -> Unit = {},
+    /** Friends phone-free right now, at the fire (companion, name). */
+    guests: List<Pair<Avatar, String>> = emptyList(),
 ) {
     val scroll = rememberScrollState()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -326,7 +328,7 @@ fun ClearingScreen(
                     lifted = (drag?.first ?: settling)?.let { it to lift.value },
                     dust = dustAt?.let { it to dust.value },
                     restFrom = restFrom, restClock = restClock.value,
-                    ambient = ambient,
+                    ambient = ambient, guests = guests,
                 )
             }
             // Near the screen's edge while dragging: the camp slides along, and the thing with it.

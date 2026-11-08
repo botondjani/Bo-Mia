@@ -87,6 +87,9 @@ fun HomeScreen(
     /** On a break until then (epoch ms); in the past = none. */
     pausedUntil: Long = 0,
     onResume: () -> Unit = {},
+    /** Friends phone-free right now, and joining them (a phone-free activity of your own). */
+    atFire: List<app.tend.data.Friends.AtFire> = emptyList(),
+    onJoin: (app.tend.data.Friends.AtFire) -> Unit = {},
     /** Days left of the Plus trial (null when bought or over), and opening Plus. */
     plusDaysLeft: Int? = null,
     onPlus: () -> Unit = {},
@@ -224,6 +227,14 @@ fun HomeScreen(
             brokenTimer.icon, "The phone came back a little early",
             "${brokenTimer.title} needs ${brokenTimer.target} phone-free minutes. Tap to try again later.", onDismissBroken,
         )
+        // A friend at the fire: join them (unless a timer of your own is already going).
+        if (focusSecondsLeft == null) atFire.firstOrNull()?.let { f ->
+            val until = java.time.Instant.ofEpochMilli(f.until).atZone(java.time.ZoneId.systemDefault()).toLocalTime()
+            Notice(
+                "friends", "${f.name}${if (atFire.size > 1) " and ${atFire.size - 1} more" else ""} at your campfire",
+                "Phone-free until ${"%d:%02d".format(until.hour, until.minute)}. Put yours down too: +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each", { onJoin(f) },
+            )
+        }
         // The trial's last days: said once a day on home, never in the way.
         if (plusDaysLeft != null && plusDaysLeft <= 3) Notice(
             "sparkle", if (plusDaysLeft <= 1) "Last day of tend Plus" else "$plusDaysLeft more day${if (plusDaysLeft == 1) "" else "s"} of tend Plus",
@@ -643,7 +654,7 @@ private fun progressLabel(task: TaskDef, progress: Long): String = when (task.id
 
 /** Short moment of joy when a task completes: the character goes outside, minutes are credited. */
 @Composable
-fun Celebration(avatar: Avatar, tasks: List<TaskDef>, minutes: Int, onUndo: (() -> Unit)?, onDismiss: () -> Unit) = Dialog(onDismissRequest = onDismiss) {
+fun Celebration(avatar: Avatar, tasks: List<TaskDef>, minutes: Int, onUndo: (() -> Unit)?, together: String = "", onDismiss: () -> Unit) = Dialog(onDismissRequest = onDismiss) {
     Column(
         Modifier.fillMaxWidth().surface(radius = 28.dp).padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -660,6 +671,15 @@ fun Celebration(avatar: Avatar, tasks: List<TaskDef>, minutes: Int, onUndo: (() 
             if (minutes > 0) "${avatar.displayName} loved that. Minutes are yours for today." else "${avatar.displayName} loved that.",
             style = MaterialTheme.typography.bodyMedium,
         )
+        // Done while a friend was phone-free too.
+        if (together.isNotBlank()) Row(
+            Modifier.clip(RoundedCornerShape(50)).background(Brand.Sage).padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Together with $together at the fire: +${app.tend.core.Acorns.TOGETHER_FIRE}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+            Spacer(Modifier.width(4.dp))
+            AcornIcon(14.dp)
+        }
         PrimaryButton("Nice", onDismiss, modifier = Modifier.padding(top = 8.dp))
         if (onUndo != null) Text(
             "Oops, undo", style = MaterialTheme.typography.labelLarge, color = Brand.Muted,

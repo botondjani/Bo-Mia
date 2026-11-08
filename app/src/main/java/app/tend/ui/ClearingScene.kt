@@ -167,6 +167,8 @@ fun DrawScope.drawClearing(
      */
     restFrom: Map<Int, Offset>? = null,
     restClock: Float = 100f,
+    /** Friends phone-free right now: their companions sit across the fire (companion, name). */
+    guests: List<Pair<Avatar, String>> = emptyList(),
 ) {
     applySeason(season)
     val w = size.width
@@ -338,6 +340,30 @@ fun DrawScope.drawClearing(
         h * 0.66f to { bush(Offset(w * 0.825f, h * 0.66f), h * 0.022f) },
         h * 0.78f to { bush(Offset(w * 0.935f, h * 0.78f), h * 0.026f) },
     )
+    // Friends at the fire: on the far side of it, facing us, a name over each (two Bos look alike).
+    val pit0 = at(0)
+    guests.take(3).forEachIndexed { i, (who, name) ->
+        val seat = pit0 + Offset(u * (listOf(-0.11f, 0.12f, 0.0f)[i]), -u * (listOf(0.06f, 0.055f, 0.085f)[i]))
+        ground += seat.y to {
+            val gs = u * 0.17f * depthScale(seat.y / h) * 0.92f
+            shadow(seat, gs * 0.45f, u)
+            val bob = kotlin.math.sin(ambient * 1.3f + i * 2f) * gs * 0.01f
+            drawIntoCanvas {
+                it.nativeCanvas.save()
+                it.nativeCanvas.translate(seat.x - gs / 2, seat.y - gs * 0.95f + bob)
+                CharacterPainter.draw(it.nativeCanvas, who, if (night) Mood.SLEEPY else Mood.HAPPY, gs)
+                it.nativeCanvas.restore()
+                val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { textSize = u * 0.026f; color = 0xFF1D2A23.toInt(); textAlign = android.graphics.Paint.Align.CENTER; isFakeBoldText = true }
+                val label = name.take(12)
+                val tw = paint.measureText(label)
+                val top = seat.y - gs * 1.02f
+                val pill = android.graphics.RectF(seat.x - tw / 2 - u * 0.012f, top - u * 0.034f, seat.x + tw / 2 + u * 0.012f, top)
+                val bg = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = 0xE6FFFFFF.toInt() }
+                it.nativeCanvas.drawRoundRect(pill, u * 0.017f, u * 0.017f, bg)
+                it.nativeCanvas.drawText(label, seat.x, top - u * 0.009f, paint)
+            }
+        }
+    }
     for (spot in Clearing.spots) {
         if (spot.kind == SpotKind.ABOVE) continue
         val p = at(spot.id)
@@ -1392,6 +1418,7 @@ private fun DrawScope.campfire(p: Offset, u: Float, lights: MutableList<Light>) 
 fun clearingBitmap(
     avatar: Avatar, placed: Map<Int, String>, worn: Set<Accessory>, widthPx: Int, heightPx: Int, night: Boolean = false, paper: Boolean = false, ducks: Int = 0, bridge: Boolean = false, visitor: app.tend.core.Visitor? = null,
     layout: Map<Int, Offset> = emptyMap(),
+    guests: List<Pair<Avatar, String>> = emptyList(),
 ): android.graphics.Bitmap {
     val image = androidx.compose.ui.graphics.ImageBitmap(widthPx, heightPx)
     val canvas = androidx.compose.ui.graphics.Canvas(image)
@@ -1399,7 +1426,7 @@ fun clearingBitmap(
     canvas.clipPath(Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(Rect(Offset.Zero, size), CornerRadius(widthPx * 0.05f))) })
     androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(
         androidx.compose.ui.unit.Density(1f), androidx.compose.ui.unit.LayoutDirection.Ltr, canvas, size,
-    ) { drawClearing(avatar, placed, worn = worn, night = night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = bridge, visitor = visitor, layout = layout) }
+    ) { drawClearing(avatar, placed, worn = worn, night = night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = bridge, visitor = visitor, layout = layout, guests = guests) }
     return image.asAndroidBitmap()
 }
 

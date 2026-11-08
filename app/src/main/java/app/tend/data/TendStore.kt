@@ -585,6 +585,11 @@ class TendStore(private val context: Context) {
         get() = prefs.getBoolean("peek_on", true)
         set(v) = edit { putBoolean("peek_on", v) }
 
+    /** Who the last phone-free activity was done together with ("Anna and Ben"), for the celebration; read once. */
+    var togetherWith: String
+        get() = prefs.getString("together_with", "")!!
+        set(v) = edit { putString("together_with", v) }
+
     // ---- Outfits ----
 
     /** The seasons' outfits bought so far (kept for good). */

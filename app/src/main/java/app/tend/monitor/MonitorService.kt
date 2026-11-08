@@ -109,7 +109,16 @@ class MonitorService : Service() {
         // Friends more often: a wave or a prank should reach the widget while it's still news.
         if (now - lastInbox > INBOX_EVERY_MS) {
             lastInbox = now
-            scope.launch { if (runCatching { app.tend.data.Friends.syncInbox(this@MonitorService) }.getOrDefault(false)) app.tend.widget.Widgets.refresh(this@MonitorService) }
+            scope.launch {
+                if (runCatching { app.tend.data.Friends.syncInbox(this@MonitorService) }.getOrDefault(false)) app.tend.widget.Widgets.refresh(this@MonitorService)
+                // Who's at the fire: the widget shows them, and a new one gets a note.
+                if (app.tend.data.Account.user(this@MonitorService) != null) {
+                    val before = app.tend.data.Friends.atFire(this@MonitorService)
+                    runCatching { app.tend.data.Friends.list(this@MonitorService) }
+                    if (app.tend.data.Friends.atFire(this@MonitorService) != before) app.tend.widget.Widgets.refresh(this@MonitorService)
+                    app.tend.data.Friends.notifyAtFire(this@MonitorService)
+                }
+            }
         }
         getSharedPreferences("tend_monitor", MODE_PRIVATE).edit().putLong("heartbeat", now).apply()
 

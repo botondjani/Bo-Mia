@@ -90,6 +90,8 @@ class MainActivity : ComponentActivity() {
     /** Set when the evening notification was tapped. */
     private var openRecap by mutableStateOf(false)
     private var openClearing by mutableStateOf(false)
+    /** Opened from "Anna put her phone down": join her at the fire. */
+    private var joinFire by mutableStateOf(false)
 
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (store.reminderPrompted) store.reminderEnabled = granted // asked for the evening reminder, not for nudges
@@ -131,6 +133,7 @@ class MainActivity : ComponentActivity() {
         when (intent?.getStringExtra(RecapReminder.EXTRA_OPEN)) {
             RecapReminder.OPEN_RECAP -> openRecap = true
             app.tend.reminder.WeeklyLetter.OPEN_CLEARING -> openClearing = true
+            app.tend.data.Friends.OPEN_JOIN -> joinFire = true
         }
         // A friend's invite: keep the code (it waits through onboarding or logging in) and open the clearing.
         app.tend.data.Friends.codeFrom(intent?.dataString)?.let { code ->
@@ -430,9 +433,11 @@ class MainActivity : ComponentActivity() {
         celebrate?.let { done ->
             // Only a single hand check-off can be undone; measured tasks are facts.
             val undoable = done.tasks.singleOrNull()?.takeIf { it.manual }
+            val together = remember(done) { store.togetherWith.also { store.togetherWith = "" } }
             Celebration(
                 store.avatar, done.tasks, done.minutes,
                 onUndo = undoable?.let { t -> { TaskSync.undo(store, t); celebrate = null; refresh++ } },
+                together = together,
             ) {
                 celebrate = null
                 val r = app.tend.ui.Uses.reactionFor(done.tasks.first().id)
@@ -441,6 +446,32 @@ class MainActivity : ComponentActivity() {
             }
         }
         val toggleTask: (TaskDef) -> Unit = { store.toggleTask(it); refresh++ }
+
+        // The shared campfire: who's phone-free now (heard every minute while tend is open), and joining them.
+        var atFire by remember { mutableStateOf(app.tend.data.Friends.atFire(this)) }
+        LaunchedEffect(Unit) {
+            while (true) {
+                if (app.tend.data.Account.user(this@MainActivity) != null) runCatching { app.tend.data.Friends.list(this@MainActivity) }
+                val now = app.tend.data.Friends.atFire(this@MainActivity)
+                if (now != atFire) { atFire = now; app.tend.widget.Widgets.refresh(this@MainActivity) }
+                kotlinx.coroutines.delay(60_000)
+            }
+        }
+        val join: (app.tend.data.Friends.AtFire) -> Unit = { f ->
+            val timed = store.selectedTasks.filter { it.verification.timed && it.id !in store.today().completedTasks }
+            val task = timed.firstOrNull { it.id == f.task } ?: timed.firstOrNull()
+            if (task == null) {
+                android.widget.Toast.makeText(this, "Pick a phone-free activity first (like a hobby or reading), then join ${f.name}.", android.widget.Toast.LENGTH_LONG).show()
+                screen = Screen.SETTINGS
+            } else if (store.focusStartedAt == 0L) {
+                app.tend.data.Stats.log(this, "fire_join")
+                TaskSync.startTimer(this, task)
+                screen = Screen.HOME
+                refresh++
+            }
+        }
+        LaunchedEffect(joinFire, atFire) { if (joinFire) { joinFire = false; atFire.firstOrNull()?.let(join) } }
+        val fireGuests = atFire.map { (runCatching { app.tend.core.Avatar.valueOf(it.companion) }.getOrDefault(app.tend.core.Avatar.BO)) to it.name }
 
         val toggleApp: (String) -> Unit = { pkg ->
             val b = store.blockedPackages
@@ -619,6 +650,7 @@ class MainActivity : ComponentActivity() {
                 onPlace = { spot, at -> if (store.place(spot, at.x, at.y)) { saveProfile(); refresh++ } },
                 plus = store.isPlus,
                 onPlus = { openPlus(app.tend.ui.PlusFrom.SEASON) },
+                guests = fireGuests,
                 outfits = store.outfits,
                 outfitWorn = store.outfitWorn,
                 onBuyOutfit = { a -> store.buyOutfit(a).also { if (it) { saveProfile(); refresh++ } } },
@@ -751,7 +783,7 @@ class MainActivity : ComponentActivity() {
                     val idle = app.tend.ui.rememberIdleLife(store.placed, store.restSpot, enabled = reaction == null && !night) { store.restSpot = it }
                     val use = reaction?.takeIf { start >= 0 }?.let { app.tend.ui.InUse(-1, it, (frame - start) / 1e9f, if (it == "campfire") app.tend.ui.Uses.WALK else 0f) } ?: idle
                     androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-                        drawClearing(store.avatar, store.placed, mood, shelf.first, night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor, rest = store.restSpot, nightClock = nightClock, appear = appear, layout = campLayout(), ambient = ambient)
+                        drawClearing(store.avatar, store.placed, mood, shelf.first, night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor, rest = store.restSpot, nightClock = nightClock, appear = appear, layout = campLayout(), ambient = ambient, guests = fireGuests)
                     }
                 },
                 onOpenRecap = { screen = Screen.RECAP },
@@ -786,6 +818,8 @@ class MainActivity : ComponentActivity() {
                 pausedUntil = store.pausedUntil,
                 onResume = { store.resume(); refresh++ },
                 onOpenInsights = { screen = Screen.INSIGHTS },
+                atFire = atFire,
+                onJoin = join,
                 strict = store.isStrict,
                 plusDaysLeft = store.trialDaysLeft.takeIf { store.isPlus && !store.plusPaid },
                 onPlus = { openPlus(app.tend.ui.PlusFrom.SETTINGS) },

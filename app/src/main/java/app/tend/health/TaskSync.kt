@@ -1,6 +1,7 @@
 package app.tend.health
 
 import android.content.Context
+import kotlinx.coroutines.launch
 import app.tend.core.Budget
 import app.tend.core.PhoneFree
 import app.tend.core.TaskDef
@@ -71,11 +72,17 @@ object TaskSync {
         store.focusTaskId = task.id
         store.focusStartedAt = System.currentTimeMillis()
         TimerAlarm.schedule(context, store.focusStartedAt + task.target * 60_000L + 2_000L)
+        // Friends see it: your companion sits at their campfire until then.
+        val ctx = context.applicationContext
+        val until = store.focusStartedAt + task.target * 60_000L
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { runCatching { app.tend.data.Friends.setFocus(ctx, until, task.id) } }
     }
 
     fun stopTimer(context: Context) {
         TendStore(context).focusStartedAt = 0
         TimerAlarm.cancel(context)
+        val ctx = context.applicationContext
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { runCatching { app.tend.data.Friends.setFocus(ctx, null, null) } }
     }
 
     /** Screen-on seconds since the running phone-free session started (0 when it can't be measured). */
@@ -101,6 +108,13 @@ object TaskSync {
             PhoneFree.Outcome.DONE -> {
                 stopTimer(context)
                 store.credit(task.id, task.rewardMinutes, manual = false)
+                // Phone-free at the same time as a friend: a little extra, for both (each side gives its own).
+                val together = app.tend.data.Friends.overlapping(context, start, now)
+                if (together.isNotEmpty()) {
+                    store.addAcorns(app.tend.core.Acorns.TOGETHER_FIRE, "together_fire")
+                    store.togetherWith = together.joinToString(" and ") { it.name }
+                    app.tend.data.Stats.log(context, "fire_together", mapOf("friends" to together.size))
+                }
                 TimerResult.DONE
             }
             PhoneFree.Outcome.BROKEN -> {

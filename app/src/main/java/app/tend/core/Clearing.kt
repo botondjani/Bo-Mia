@@ -199,6 +199,8 @@ object Acorns {
     /** Out of minutes, once a day: five minutes now, not counted, for this many acorns. */
     const val BORROW = 20
     const val BORROW_MINUTES = 5
+    /** A phone-free activity done while a friend was phone-free too. */
+    const val TOGETHER_FIRE = 10
 
     fun forActivities(done: Int): Int = (done * PER_ACTIVITY).coerceIn(0, ACTIVITY_CAP)
 
