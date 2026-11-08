@@ -13,6 +13,7 @@ import app.tend.core.LockSchedule
 import app.tend.core.Plant
 import app.tend.core.TaskDef
 import app.tend.core.Tasks
+import kotlinx.coroutines.launch
 import app.tend.core.WorthIt
 import java.io.File
 import java.time.LocalDate
@@ -533,6 +534,13 @@ class TendStore(private val context: Context) {
             if (delta != 0) addAcorns(delta, "activities")
             (after.completedTasks - before.completedTasks).forEach { id ->
                 Stats.log(context, "activity_done", mapOf("task" to if (id.startsWith("custom:")) "custom" else id))
+            }
+            // Friends can cheer it: what was done last, in a few words.
+            (after.completedTasks - before.completedTasks).lastOrNull()?.let { id ->
+                val task = selectedTasks.firstOrNull { it.id == id } ?: Tasks.presets.firstOrNull { it.id == id }
+                val line = task?.let(Tasks::doneLine) ?: "did something of their own"
+                val ctx = context.applicationContext
+                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { runCatching { Friends.setDone(ctx, line) } }
             }
         }
     }

@@ -86,6 +86,23 @@ object Tasks {
     fun ordered(day: DayState, selected: List<TaskDef>): List<TaskDef> = selected.sortedBy { it.id in day.completedTasks }
 
     /** How the companion talks about a finished task: "Today we already …". */
+    /**
+     * What a friend sees you did ("went for a walk"). Your own activities say only that: their
+     * names can be personal.
+     */
+    fun doneLine(task: TaskDef): String = when (task.id) {
+        MOVE.id -> "worked out"
+        OUTSIDE.id -> "went for a walk"
+        SLEEP.id -> "slept well"
+        READ.id -> "read for a while"
+        LEARN.id -> "learned something"
+        FRIENDS.id -> "made time for friends"
+        HOBBY.id -> "made time for a hobby"
+        CHORES.id -> "tidied up"
+        COOK.id -> "cooked something good"
+        else -> "did something of their own"
+    }
+
     fun pastTense(task: TaskDef): String = when (task.id) {
         MOVE.id -> "moved"
         OUTSIDE.id -> "went outside"

@@ -264,7 +264,7 @@ fun DrawScope.drawUse(
     val p = SpotPositions[use.spot]?.let { spotPos(use.spot, layout) }?.let { Offset(it.x * w, it.y * h) } ?: base
     val k = if (use.spot >= 0) spotScale(use.spot, layout) else 1f
     // An activity just done: acorns pop out and fly up to the corner.
-    if (use.spot < 0 && t < 1.6f) acornBurst(base + Offset(0f, -s * 0.6f), t / 1.6f, u)
+    if (use.spot == -1 && t < 1.6f) acornBurst(base + Offset(0f, -s * 0.6f), t / 1.6f, u)
     val fire = SpotPositions.getValue(0).let { Offset(it.x * w, it.y * h) }
     when (use.thing) {
         "guitar" -> {
@@ -680,7 +680,8 @@ fun rememberIdleLife(placed: Map<Int, String>, rest: Int?, enabled: Boolean, onR
             kotlinx.coroutines.delay(6_000L + rnd.nextInt(9_000))
             if (!on) continue
             val choices = placedNow.filter { (spot, thing) -> spot != restNow && spot in SpotPositions && thing !in IDLE_SKIP }.entries.toList()
-            val (spot, thing, walk) = if (choices.isEmpty()) Triple(-1, if (rnd.nextBoolean()) "act_stretch" else "act_cheer", 0f)
+            // Nothing to use: a stretch or a cheer where they stand (spot -2: nothing earned, no acorns fly).
+            val (spot, thing, walk) = if (choices.isEmpty()) Triple(-2, if (rnd.nextBoolean()) "act_stretch" else "act_cheer", 0f)
                 else choices[rnd.nextInt(choices.size)].let { Triple(it.key, it.value, Uses.WALK) }
             val length = walk + minOf(Uses.seconds(thing), 7f)
             val start = androidx.compose.runtime.withFrameNanos { it }

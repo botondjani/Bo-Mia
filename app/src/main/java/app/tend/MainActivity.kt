@@ -651,6 +651,8 @@ class MainActivity : ComponentActivity() {
                 plus = store.isPlus,
                 onPlus = { openPlus(app.tend.ui.PlusFrom.SEASON) },
                 guests = fireGuests,
+                cheers = remember(refresh) { app.tend.data.Friends.cheersToShow(this@MainActivity) },
+                onCheersShown = { app.tend.data.Friends.markCheersShown(this@MainActivity) },
                 outfits = store.outfits,
                 outfitWorn = store.outfitWorn,
                 onBuyOutfit = { a -> store.buyOutfit(a).also { if (it) { saveProfile(); refresh++ } } },

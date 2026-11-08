@@ -19,6 +19,9 @@ object Friends {
         val focusStarted: Long? = null,
         val focusUntil: Long? = null,
         val focusTask: String? = null,
+        /** What they did last ("went for a walk") and when, within the last two days. */
+        val lastDone: String? = null,
+        val lastDoneAt: Long? = null,
     )
 
     /** A friend at your campfire: phone-free right now. */
@@ -59,6 +62,12 @@ object Friends {
     private fun time(s: String?): Long? = s?.takeIf { it.isNotBlank() && it != "null" }?.let { runCatching { java.time.OffsetDateTime.parse(it).toInstant().toEpochMilli() }.getOrNull() }
 
     // ---- The shared campfire ----
+
+    /** Tells friends what you just did ("went for a walk"), for them to cheer. Quietly does nothing offline. */
+    suspend fun setDone(c: Context, line: String) {
+        if (Account.user(c) == null) return
+        Account.rpc(c, "tend_set_done", JSONObject().put("p_done", line))
+    }
 
     /** Tells friends you're phone-free until [until] (epoch ms), doing [task]; null clears it. Quietly does nothing offline. */
     suspend fun setFocus(c: Context, until: Long?, task: String?) {
@@ -136,6 +145,7 @@ object Friends {
                 o.optString("week"), o.optInt("week_count"), o.optBoolean("bridge"),
                 app.tend.core.Clearing.parseLayout(o.optString("layout"), placed),
                 time(o.optString("focus_started")), time(o.optString("focus_until")), o.optString("focus_task").ifBlank { null },
+                o.optString("last_done").takeIf { it.isNotBlank() && it != "null" }, time(o.optString("last_done_at")),
             )
         }
     }.getOrDefault(emptyList())
@@ -179,20 +189,21 @@ object Friends {
 
     /** What friends do to each other's camps. */
     enum class Kind(val id: String) {
-        WAVE("wave"), VISIT("visit"), TP("tp");
+        WAVE("wave"), VISIT("visit"), TP("tp"), CHEER("cheer");
 
         /** How it reads for whoever got it: "Anna waved at you". */
         fun received(name: String) = when (this) {
             WAVE -> "$name waved at you"
             VISIT -> "$name visited your camp"
             TP -> "$name toilet-papered your oak"
+            CHEER -> "$name cheered you on"
         }
 
         /** For the widget's small label: "Anna: visited". */
-        val short: String get() = when (this) { WAVE -> "waved"; VISIT -> "visited"; TP -> "toilet paper!" }
+        val short: String get() = when (this) { WAVE -> "waved"; VISIT -> "visited"; TP -> "toilet paper!"; CHEER -> "cheered!" }
 
         /** For the 1x1 widget's badge. */
-        val emoji: String get() = when (this) { WAVE -> "\uD83D\uDC4B"; VISIT -> "\uD83E\uDD86"; TP -> "\uD83E\uDDFB" }
+        val emoji: String get() = when (this) { WAVE -> "\uD83D\uDC4B"; VISIT -> "\uD83E\uDD86"; TP -> "\uD83E\uDDFB"; CHEER -> "\uD83D\uDC4F" }
 
         companion object { fun of(id: String) = entries.firstOrNull { it.id == id } }
     }
@@ -271,6 +282,16 @@ object Friends {
     fun unseen(c: Context, now: Long = System.currentTimeMillis()): Note? =
         notes(c).firstOrNull()?.takeIf { it.id > prefs(c).getLong("notes_seen", 0) && now - it.at < DAY_MS }
 
+    /** Who cheered you since the camp last showed it (names, newest first). */
+    fun cheersToShow(c: Context): List<String> {
+        val shown = prefs(c).getLong("cheers_shown", 0)
+        return notes(c).filter { it.kind == Kind.CHEER && it.id > shown && System.currentTimeMillis() - it.at < DAY_MS }.map { it.name }.distinct()
+    }
+
+    fun markCheersShown(c: Context) {
+        notes(c).filter { it.kind == Kind.CHEER }.maxOfOrNull { it.id }?.let { prefs(c).edit().putLong("cheers_shown", it).apply() }
+    }
+
     fun markSeen(c: Context) {
         val newest = notes(c).maxOfOrNull { it.id } ?: return
         if (newest > prefs(c).getLong("notes_seen", 0)) {
@@ -289,6 +310,7 @@ object Friends {
             Kind.TP -> "Tap the oak in your camp to unroll it."
             Kind.VISIT -> "They left a rubber duck in your river."
             Kind.WAVE -> "Wave back from your camp."
+            Kind.CHEER -> "For what you did today. Cheer them back from your camp."
         } + if (fresh.size > 1) " And ${fresh.size - 1} more from friends." else ""
         val open = android.app.PendingIntent.getActivity(
             c, 21, android.content.Intent(c, app.tend.MainActivity::class.java).putExtra(app.tend.reminder.RecapReminder.EXTRA_OPEN, app.tend.reminder.WeeklyLetter.OPEN_CLEARING).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),

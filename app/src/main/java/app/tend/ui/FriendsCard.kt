@@ -59,6 +59,9 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
     var asking by remember { mutableStateOf<Pair<String, Friends.Friend>?>(null) }
     var removing by remember { mutableStateOf<Friends.Friend?>(null) }
     var note by rememberSaveable { mutableStateOf<String?>(null) }
+    // Cheered today (the server allows one a day per friend): kept here so the button says so at once.
+    var cheered by remember { mutableStateOf(setOf<String>()) }
+    LaunchedEffect(Unit) { Friends.sent(context)?.let { s -> cheered = s.used.filterValues { Friends.Kind.CHEER in it }.keys } }
 
     var claimed by remember { mutableStateOf(false) }
     suspend fun reload() {
@@ -105,7 +108,15 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
                 if (offline) "Can't reach the server right now." else "No friends yet. Invite someone: when they accept, you'll see each other's camps.",
                 style = MaterialTheme.typography.bodyMedium,
             )
-            list.forEach { f -> FriendRow(f, onVisit = { onOpenRiver(f.id) }) { removing = f } }
+            list.forEach { f ->
+                FriendRow(
+                    f, cheered = f.id in cheered, onVisit = { onOpenRiver(f.id) },
+                    onCheer = {
+                        cheered = cheered + f.id
+                        scope.launch { if (!Friends.send(context, f.id, Friends.Kind.CHEER)) note = "Couldn't send the cheer. Try again in a moment." else app.tend.data.Stats.log(context, "cheer") }
+                    },
+                ) { removing = f }
+            }
             if (list.isNotEmpty()) TogetherWeek(Friends.week(Friends.me(context), list), app.tend.data.TendStore(context).togetherDone.size, claimed)
             androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
                 if (list.isNotEmpty()) ChipButton("Along the river", { onOpenRiver(null) })
@@ -123,7 +134,7 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
             onDismissRequest = { asking = null },
             icon = { Face(owner.companion, 72) },
             title = { Text("Add ${owner.name} as a friend?") },
-            text = { Text("You'll see each other's camps, levels and weekly goals. Nothing else: not your apps, minutes or health data.") },
+            text = { Text("You'll see each other's camps, levels, weekly goals and what you did lately (like \"went for a walk\"). Nothing else: not your apps, minutes or health data.") },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     asking = null
@@ -149,13 +160,27 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
 }
 
 @Composable
-private fun FriendRow(f: Friends.Friend, onVisit: () -> Unit, onRemove: () -> Unit) = Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).tappable(onClick = onVisit).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun FriendRow(f: Friends.Friend, cheered: Boolean, onVisit: () -> Unit, onCheer: () -> Unit, onRemove: () -> Unit) = Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).tappable(onClick = onVisit).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
     Face(f.companion, 40)
     Spacer(Modifier.width(10.dp))
     Column(Modifier.weight(1f)) {
         Text(f.name, style = MaterialTheme.typography.titleSmall, maxLines = 1)
-        Text("Level ${f.level} · ${f.placed.size} thing${if (f.placed.size == 1) "" else "s"} at camp", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+        // What they did last, with when; otherwise their level and camp.
+        val done = f.lastDone
+        val at = f.lastDoneAt
+        Text(
+            if (done != null && at != null) "${done.replaceFirstChar { it.uppercase() }} · ${android.text.format.DateUtils.getRelativeTimeSpanString(at, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS)}"
+            else "Level ${f.level} · ${f.placed.size} thing${if (f.placed.size == 1) "" else "s"} at camp",
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, maxLines = 1,
+        )
     }
+    // Something done lately: one tap to cheer it (once a day).
+    if (f.lastDone != null) Text(
+        if (cheered) "Cheered" else "\uD83D\uDC4F Cheer", style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
+        color = if (cheered) Brand.Muted else androidx.compose.ui.graphics.Color.White,
+        modifier = Modifier.clip(RoundedCornerShape(50)).background(if (cheered) Brand.Sage else Brand.Moss)
+            .then(if (cheered) Modifier else Modifier.tappable(onClick = onCheer)).padding(horizontal = 10.dp, vertical = 6.dp),
+    )
     Text("Remove", style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp), color = Brand.Muted,
         modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onRemove).padding(horizontal = 8.dp, vertical = 6.dp))
 }
