@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.nativeCanvas
 import app.tend.core.Accessory
 import app.tend.core.Avatar
@@ -109,6 +110,8 @@ fun DrawScope.drawClearing(
     rest: Int? = null,
     /** Seconds since the camp came into view at night: walking to bed, then asleep (static pictures: long asleep). */
     nightClock: Float = 100f,
+    /** Things popping into the camp just now: spot to how far along (0..1). */
+    appear: Map<Int, Float> = emptyMap(),
 ) {
     val w = size.width
     val h = size.height
@@ -191,6 +194,7 @@ fun DrawScope.drawClearing(
 
     // Something strung between the trees, over the camp.
     placed[9]?.let { overhead(it, Offset(w * 0.445f, h * 0.4f), Offset(w * 0.955f, h * 0.38f), u, lights) }
+    appear[9]?.let { sparkles(Offset(w * 0.7f, h * 0.44f), u, it) }
 
     // The worn ground of the fire pit is always there.
     val pit = at(0)
@@ -233,8 +237,18 @@ fun DrawScope.drawClearing(
         if (spot.kind == SpotKind.FIRE) firePitStones(p, u)
         val thing = placed[spot.id]
         if (thing != null && !(act?.spot == spot.id && !walking && thing in Uses.redrawn)) {
-            if (spot.id != 7) shadow(p, u * thingWidth(thing) * 0.5f, u)
-            drawThing(thing, p, u, lights)
+            val k = appear[spot.id]
+            if (k != null) {
+                // Popping up from the ground with a little overshoot, and a burst of sparkles.
+                withTransform({ scale(easeOutBack(k), easeOutBack(k), pivot = p) }) {
+                    if (spot.id != 7) shadow(p, u * thingWidth(thing) * 0.5f, u)
+                    drawThing(thing, p, u, lights)
+                }
+                sparkles(p + Offset(0f, -u * 0.04f), u, k)
+            } else {
+                if (spot.id != 7) shadow(p, u * thingWidth(thing) * 0.5f, u)
+                drawThing(thing, p, u, lights)
+            }
         }
     }
     if (!companionDrawn) drawActor(lights)

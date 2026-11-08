@@ -16,6 +16,8 @@ import app.tend.core.Avatar
 import app.tend.core.Mood
 import kotlin.math.PI
 import kotlin.math.sin
+import kotlinx.coroutines.launch
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
@@ -504,4 +506,54 @@ fun rememberNightClock(night: Boolean): Float {
         while (true) androidx.compose.runtime.withFrameNanos { now -> if (start < 0) start = now; t = (now - start) / 1e9f }
     }
     return t
+}
+
+/** Overshoots a little and settles: things pop into the camp rather than just appearing. */
+fun easeOutBack(k: Float): Float {
+    val c = 1.9f
+    val x = k.coerceIn(0f, 1f) - 1f
+    return 1f + (c + 1f) * x * x * x + c * x * x
+}
+
+/**
+ * How far along each newly placed thing is in popping up (spot to 0..1). A spot that gets a new
+ * thing animates; everything already there at first sight just is.
+ */
+@androidx.compose.runtime.Composable
+fun rememberAppear(placed: Map<Int, String>): Map<Int, Float> {
+    val seen = androidx.compose.runtime.remember { mutableMapOf<Int, String>().apply { putAll(placed) } }
+    val anims = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateMapOf<Int, androidx.compose.animation.core.Animatable<Float, androidx.compose.animation.core.AnimationVector1D>>() }
+    androidx.compose.runtime.LaunchedEffect(placed) {
+        placed.forEach { (spot, thing) ->
+            if (seen[spot] != thing) {
+                seen[spot] = thing
+                val a = androidx.compose.animation.core.Animatable(0f)
+                anims[spot] = a
+                launch { a.animateTo(1f, androidx.compose.animation.core.tween(750, easing = androidx.compose.animation.core.LinearEasing)); anims.remove(spot) }
+            }
+        }
+        seen.keys.retainAll(placed.keys)
+    }
+    return anims.mapValues { it.value.value }
+}
+
+/** Little four-point stars bursting out from [at] and fading, [k] 0..1. */
+fun DrawScope.sparkles(at: Offset, u: Float, k: Float) {
+    if (k <= 0f || k >= 1f) return
+    for (i in 0 until 7) {
+        val a = i / 7f * 6.283f + 0.4f
+        val r = u * (0.03f + 0.07f * k)
+        val c = at + Offset(kotlin.math.cos(a) * r, kotlin.math.sin(a) * r * 0.7f)
+        val s = u * 0.008f * (1f - k) * (if (i % 2 == 0) 1.2f else 0.8f)
+        val col = Color(0xFFFFE7A3).copy(alpha = 1f - k)
+        drawPath(Path().apply { moveTo(c.x, c.y - s * 2); lineTo(c.x + s * 0.5f, c.y - s * 0.5f); lineTo(c.x + s * 2, c.y); lineTo(c.x + s * 0.5f, c.y + s * 0.5f); lineTo(c.x, c.y + s * 2); lineTo(c.x - s * 0.5f, c.y + s * 0.5f); lineTo(c.x - s * 2, c.y); lineTo(c.x - s * 0.5f, c.y - s * 0.5f); close() }, col)
+    }
+}
+
+/** The camp floating in when a page opens: from a touch larger and transparent to in place. */
+@androidx.compose.runtime.Composable
+fun androidx.compose.ui.Modifier.campEntrance(): androidx.compose.ui.Modifier {
+    val k = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(0f) }
+    androidx.compose.runtime.LaunchedEffect(Unit) { k.animateTo(1f, androidx.compose.animation.core.tween(650, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
+    return this.graphicsLayer { alpha = 0.3f + 0.7f * k.value; val s = 1.04f - 0.04f * k.value; scaleX = s; scaleY = s }
 }

@@ -443,6 +443,7 @@ class MainActivity : ComponentActivity() {
                 val finish: () -> Unit = {
                     store.onboarded = true
                     store.onboardedAt = System.currentTimeMillis()
+                    store.tourDone = true // the camp was shown at the end of setup
                     app.tend.data.Stats.log(this, "onboarding_done", mapOf("tasks" to store.selectedTasks.size))
                     if (permissions().usageAccess) MonitorService.start(this)
                     if (!permissions().overlay && Build.VERSION.SDK_INT >= 33 && !RecapReminder.canNotify(this)) {
@@ -463,7 +464,12 @@ class MainActivity : ComponentActivity() {
                     onToggleApp = toggleApp,
                     signedIn = app.tend.data.Account.user(this) != null,
                     // Logged in: straight into the app (after a restore offer, if there's a backup).
-                    account = { app.tend.ui.AccountCard(onChanged = { refresh++ }, onRestored = ::restartFresh, onSignedIn = finish) },
+                    account = { done -> app.tend.ui.AccountCard(onChanged = { refresh++ }, onRestored = ::restartFresh, onSignedIn = done) },
+                    placed = store.placed,
+                    acorns = store.acorns,
+                    // A new camp starts with its fire lit.
+                    onCampReady = { if (store.placed.isEmpty()) { store.placed = mapOf(0 to "campfire"); refresh++ } },
+                    onBuy = { thing -> store.buy(thing).also { if (it) refresh++ } },
                     onFinish = finish,
                 )
             }
@@ -498,7 +504,6 @@ class MainActivity : ComponentActivity() {
                 version = BuildConfig.VERSION_NAME,
                 shareStats = app.tend.data.Stats.consent(this) == true,
                 onShareStats = { app.tend.data.Stats.setConsent(this, it); refresh++ },
-                onReplayTour = { store.tourDone = false; screen = Screen.HOME },
                 notesMorning = store.notesMorning,
                 notesNudges = store.notesNudges,
                 onNotes = ::setNotes,
@@ -659,13 +664,14 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     val nightClock = app.tend.ui.rememberNightClock(night)
+                    val appear = app.tend.ui.rememberAppear(store.placed)
                     LaunchedEffect(nightClock > app.tend.ui.Uses.WALK + 2f) {
                         val bed = app.tend.ui.bedOf(store.placed)
                         if (night && nightClock > app.tend.ui.Uses.WALK + 2f && bed != null && store.restSpot != bed) store.restSpot = bed
                     }
                     val use = reaction?.takeIf { start >= 0 }?.let { app.tend.ui.InUse(-1, it, (frame - start) / 1e9f, if (store.restSpot != null) app.tend.ui.Uses.WALK else 0f) }
                     androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-                        drawClearing(store.avatar, store.placed, mood, shelf.first, night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor, rest = store.restSpot, nightClock = nightClock)
+                        drawClearing(store.avatar, store.placed, mood, shelf.first, night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor, rest = store.restSpot, nightClock = nightClock, appear = appear)
                     }
                 },
                 onOpenRecap = { screen = Screen.RECAP },
@@ -689,10 +695,8 @@ class MainActivity : ComponentActivity() {
                     (!store.reminderPrompted && !(store.reminderEnabled && RecapReminder.canNotify(this@MainActivity))),
                 onAllowNotes = ::allowNotes,
                 onAddWidget = ::pinWidget,
-                showTour = !store.tourDone,
                 exerciseTracked = store.exerciseTracked,
                 sleepEstimated = store.sleepEstimatedOn == LocalDate.now().toString(),
-                onTourDone = { store.tourDone = true; refresh++ },
                 brokenTimer = Tasks.presets.firstOrNull { it.id == store.timerBroken },
                 onDismissBroken = { store.timerBroken = ""; refresh++ },
                 level = progress.level,

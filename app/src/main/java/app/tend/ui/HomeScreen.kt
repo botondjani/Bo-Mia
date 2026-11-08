@@ -117,15 +117,11 @@ fun HomeScreen(
     /** Not asked yet about anonymous usage stats: the last, optional step. */
     /** Asks the launcher to place the widget in its own dialog; false when it can't. */
     onAddWidget: () -> Boolean = { false },
-    /** First run: Bo walks through the screen once. */
-    showTour: Boolean = false,
-    onTourDone: () -> Unit = {},
     /** Something writes workouts to Health Connect; otherwise the workout is a phone-off timer. */
     exerciseTracked: Boolean = true,
     /** Last night's sleep came from the screen, not a tracker. */
     sleepEstimated: Boolean = false,
 ) {
-    val tour = androidx.compose.runtime.remember { TourTargets() }
     // The first days: one clear thing to do (the first steps), and nothing that's still empty.
     val firstDays = steps.isNotEmpty() && !steps.all { it.claimed }
     var widgetGuide by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
@@ -165,7 +161,12 @@ fun HomeScreen(
         // Hero: the camp, with the companion living in it; what they say, today's minutes, and the
         // acorns to spend. Tapping it opens the camp.
         Box(
-            Modifier.fillMaxWidth().aspectRatio(1.35f).tourTarget(tour, "minutes").clip(RoundedCornerShape(28.dp)).tappable(onClick = onOpenClearing),
+            // Edge to edge: the camp as wide as the screen.
+            Modifier.fillMaxWidth().layout { m, c ->
+                val extra = 20.dp.roundToPx()
+                val p = m.measure(c.copy(minWidth = c.maxWidth + 2 * extra, maxWidth = c.maxWidth + 2 * extra))
+                layout(c.maxWidth, p.height) { p.place(-extra, 0) }
+            }.aspectRatio(1.15f).campEntrance().tappable(onClick = onOpenClearing),
         ) {
             camp()
             // What the companion says: one small bubble, so the camp shows.
@@ -173,11 +174,11 @@ fun HomeScreen(
                 Moods.line(cfg, day, tasks, welcomeBack),
                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 17.sp), color = Brand.Ink, maxLines = 2,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                modifier = Modifier.align(Alignment.TopStart).padding(10.dp).fillMaxWidth(0.58f)
+                modifier = Modifier.align(Alignment.TopStart).padding(16.dp).fillMaxWidth(0.58f)
                     .clip(RoundedCornerShape(14.dp)).background(Color(0xE6FFFFFF)).padding(horizontal = 10.dp, vertical = 6.dp),
             )
             Row(
-                Modifier.align(Alignment.TopEnd).padding(10.dp)
+                Modifier.align(Alignment.TopEnd).padding(16.dp)
                     .clip(RoundedCornerShape(50)).background(Color(0xF0FFFFFF)).padding(horizontal = 10.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -241,7 +242,7 @@ fun HomeScreen(
                 repeat(2) { glow.animateTo(1f, tween(300)); glow.animateTo(0f, tween(400)) }
             }
             androidx.compose.foundation.pager.HorizontalPager(
-                pager, Modifier.fillMaxWidth().tourTarget(tour, "activity"),
+                pager, Modifier.fillMaxWidth(),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(end = if (active.size > 1) 36.dp else 0.dp),
                 pageSpacing = 12.dp, verticalAlignment = Alignment.Top,
             ) { i ->
@@ -296,7 +297,6 @@ fun HomeScreen(
             ) { done.forEach { DoneRow(it, day, onUndo) } }
         }
     }
-    if (showTour) TourOverlay(avatar, tour, homeTour(avatar.displayName, cfg.freeMinutes), onTourDone)
     }
 }
 
@@ -320,11 +320,6 @@ private fun DoneRow(task: TaskDef, day: DayState, onUndo: (TaskDef) -> Unit) = R
         modifier = Modifier.padding(start = 8.dp).clip(RoundedCornerShape(8.dp)).tappable { onUndo(task) }.padding(horizontal = 6.dp, vertical = 2.dp),
     )
 }
-
-private fun homeTour(name: String, free: Int) = listOf(
-    TourStep("minutes", "Our camp, and your minutes", "I live here. Your minutes are in the corner: you start with $free a day. Activities earn more, and acorns for the camp: tap it to spend them."),
-    TourStep("activity", "Do one, earn minutes", "Finish one of these and I add minutes back. Walks and workouts count by themselves; the rest you start or tick off here."),
-)
 
 /**
  * A little after onboarding: what makes tend better from here, one card per step, swiped through.

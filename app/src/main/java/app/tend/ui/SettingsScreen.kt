@@ -71,7 +71,6 @@ fun SettingsScreen(
     /** Anonymous usage counts, off until the user says yes. */
     shareStats: Boolean = false,
     onShareStats: (Boolean) -> Unit = {},
-    onReplayTour: () -> Unit,
     notesMorning: Boolean,
     notesNudges: Boolean,
     onNotes: (kind: String, on: Boolean) -> Unit,
@@ -150,7 +149,6 @@ fun SettingsScreen(
         SwitchRow("Share anonymous stats", "No names, apps or health data", shareStats, onShareStats)
         // Small things, two to a row, all the same width.
         val links = listOfNotNull(
-            "Tour" to onReplayTour,
             onRate?.let { "Rate tend" to it },
             "Privacy" to onPrivacy,
             onFeedback?.let { "Feedback" to it },

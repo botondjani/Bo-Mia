@@ -14,6 +14,8 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -91,7 +93,7 @@ class PermissionActions(
 /** Where Android's restricted-settings lock stands: none, locked, or refused once (the unlock option now shows). */
 enum class PermissionLock { NONE, LOCKED, TRIPPED }
 
-private enum class Step { INTRO, COMPANION, USAGE, APPS, PAUSE, ACCOUNT }
+private enum class Step { INTRO, COMPANION, USAGE, APPS, PAUSE, ACCOUNT, CAMP }
 
 @Composable
 fun Onboarding(
@@ -104,7 +106,12 @@ fun Onboarding(
     onConfig: (BudgetConfig) -> Unit,
     onToggleApp: (String) -> Unit,
     signedIn: Boolean = false,
-    account: @Composable () -> Unit = {},
+    account: @Composable (onDone: () -> Unit) -> Unit = {},
+    /** The camp at the end: what's in it, the acorns, getting the campfire lit, and buying a first thing. */
+    placed: Map<Int, String> = emptyMap(),
+    acorns: Int = 0,
+    onCampReady: () -> Unit = {},
+    onBuy: (String) -> Boolean = { false },
     onFinish: () -> Unit,
 ) {
     var stepIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -178,12 +185,41 @@ fun Onboarding(
                     if (!perms.permissions.allGranted) LinkText("Continue without", { askSkip = true })
                 }
 
-                Step.ACCOUNT -> StepPage(cta = if (signedIn) "Start" else "Skip for now", onCta = onFinish) {
+                Step.ACCOUNT -> StepPage(cta = if (signedIn) "Continue" else "Skip for now", onCta = next) {
                     Title(
                         "Keep your camp safe",
                         "With an account your camp is backed up, and friends can visit it. Optional: tend works fully without one.",
                     )
-                    account()
+                    account(next)
+                }
+
+                // The end: the camp, its fire already lit, and the first thing bought right here.
+                Step.CAMP -> {
+                    LaunchedEffect(Unit) { onCampReady() }
+                    val firsts = listOf("wildflowers", "lantern", "woodpile")
+                    val picked = placed.values.any { it in firsts }
+                    StepPage(cta = if (picked) "Start" else "Pick your first thing", ctaEnabled = picked, onCta = onFinish) {
+                        Title(
+                            "Your camp",
+                            "${avatar.displayName} lives here. Activities and \"Not now\" earn acorns; spend them on things, and ${avatar.displayName} uses every one.",
+                        )
+                        val appear = rememberAppear(placed)
+                        Box(Modifier.fillMaxWidth().aspectRatio(1.35f).clip(RoundedCornerShape(26.dp)).campEntrance()) {
+                            Canvas(Modifier.fillMaxSize()) { drawClearing(avatar, placed, Mood.HAPPY, appear = appear) }
+                            AcornBadge(acorns, Modifier.align(Alignment.TopEnd).padding(10.dp))
+                        }
+                        Text(if (picked) "IN YOUR CAMP" else "PICK YOUR FIRST THING", style = MaterialTheme.typography.labelSmall)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            firsts.mapNotNull { app.tend.core.Things.byId(it) }.forEach { t ->
+                                ShopTile(t, owned = t.id in placed.values, affordable = !picked && acorns >= t.price, Modifier.weight(1f), background = Brand.Card) { if (!picked) onBuy(t.id) }
+                            }
+                        }
+                        Text(
+                            if (picked) "Nice. You have $acorns acorns left for the next one, and every activity adds more."
+                            else "The campfire is on us. You have $acorns acorns: pick one of these to start.",
+                            style = MaterialTheme.typography.bodyMedium, color = Brand.Muted,
+                        )
+                    }
                 }
             }
         }

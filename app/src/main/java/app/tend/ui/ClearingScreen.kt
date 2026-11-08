@@ -142,6 +142,7 @@ fun ClearingScreen(
     }
     val placedNow by androidx.compose.runtime.rememberUpdatedState(placed)
     val nightClock = rememberNightClock(night)
+    val appear = rememberAppear(placed)
     // Once in bed, they stay there: next time it doesn't walk again.
     androidx.compose.runtime.LaunchedEffect(nightClock > Uses.WALK + 2f) {
         val bed = bedOf(placed)
@@ -158,12 +159,12 @@ fun ClearingScreen(
             layout(c.maxWidth, p.height) { p.place(-extra, 0) }
         },
     ) {
-        val sceneHeight = maxWidth * 0.78f
+        val sceneHeight = maxWidth * 1.0f
         val pan = rememberScrollState()
         // Starts in the middle of the camp.
         var centered by rememberSaveable { mutableStateOf(false) }
         androidx.compose.runtime.LaunchedEffect(pan.maxValue) { if (!centered && pan.maxValue > 0) { pan.scrollTo(pan.maxValue / 2); centered = true } }
-        Box(Modifier.fillMaxWidth().height(sceneHeight).horizontalScroll(pan)) {
+        Box(Modifier.fillMaxWidth().height(sceneHeight).campEntrance().horizontalScroll(pan)) {
             Canvas(
                 Modifier.width(sceneHeight * CAMP_RATIO).height(sceneHeight).pointerInput(Unit) {
                     detectTapGestures { tap ->
@@ -204,7 +205,7 @@ fun ClearingScreen(
                 val use = using?.takeIf { useStart >= 0 }?.let { (spot, thing) -> InUse(spot, thing, (frame - useStart) / 1e9f, walk) }
                 drawClearing(
                     avatar, placed, mood, worn = worn, night = night, paper = paperLeft, ducks = ducks.size, bridge = bridge,
-                    use = use, lastStrum = (frame - strumAt) / 1e9f - walk, visitor = visitor, rest = rest, nightClock = nightClock,
+                    use = use, lastStrum = (frame - strumAt) / 1e9f - walk, visitor = visitor, rest = rest, nightClock = nightClock, appear = appear,
                 )
             }
         }
@@ -327,8 +328,8 @@ private fun Shop(acorns: Int, placed: Map<Int, String>, earnedToday: Int, name: 
 
 /** One thing in the shop: its picture, name and price (a tick when it's in the camp). */
 @Composable
-private fun ShopTile(thing: app.tend.core.Thing, owned: Boolean, affordable: Boolean, modifier: Modifier, onTap: () -> Unit) = Column(
-    modifier.clip(RoundedCornerShape(16.dp)).background(if (owned) Brand.Picked else Brand.Sage).tappable(onClick = onTap).padding(vertical = 8.dp, horizontal = 4.dp),
+internal fun ShopTile(thing: app.tend.core.Thing, owned: Boolean, affordable: Boolean, modifier: Modifier, background: Color = Brand.Sage, onTap: () -> Unit) = Column(
+    modifier.clip(RoundedCornerShape(16.dp)).background(if (owned) Brand.Picked else background).tappable(onClick = onTap).padding(vertical = 8.dp, horizontal = 4.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
 ) {
     Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) {
