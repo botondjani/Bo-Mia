@@ -85,7 +85,7 @@ class MainActivity : ComponentActivity() {
 
     private enum class Launched { NONE, TRIP, APP_INFO, OVERLAY, USAGE }
 
-    private enum class Screen { HOME, SETTINGS, PERMISSIONS, CLEARING, RIVER, RECAP, SLEEP }
+    private enum class Screen { HOME, SETTINGS, PERMISSIONS, CLEARING, RIVER, RECAP, SLEEP, INSIGHTS }
 
     /** Set when the evening notification was tapped. */
     private var openRecap by mutableStateOf(false)
@@ -524,6 +524,17 @@ class MainActivity : ComponentActivity() {
                 onDone = { screen = Screen.HOME },
             )
 
+            p == "INSIGHTS" -> {
+                val insights = remember(refresh) {
+                    app.tend.core.InsightsOf.of(
+                        store.daySummaries(), store.normalMinutes,
+                        store.answers().count { it.kind == "pause" && it.answer == "not_now" }, LocalDate.now(),
+                    )
+                }
+                val apps = remember(refresh) { store.appMinutes().map { (pkg, before, now) -> app.tend.ui.AppTime(catalog.label(pkg), catalog.icon(pkg), before, now) } }
+                app.tend.ui.InsightsScreen(insights, apps) { screen = Screen.HOME }
+            }
+
             p == "SLEEP" -> app.tend.ui.SleepScreen(store.avatar, store.placed, shelf.first, goodNightAcorns, campLayout()) { screen = Screen.HOME }
 
             p == "RECAP" -> {
@@ -717,6 +728,7 @@ class MainActivity : ComponentActivity() {
                 history = progress.days,
                 pausedUntil = store.pausedUntil,
                 onResume = { store.resume(); refresh++ },
+                onOpenInsights = { screen = Screen.INSIGHTS },
                 askStats = app.tend.data.Stats.consent(this@MainActivity) == null && store.daysTended >= 1,
                 onStats = { app.tend.data.Stats.setConsent(this@MainActivity, it); refresh++ },
                 levelUp = progress.level.level.takeIf { it > store.levelSeen && store.tourDone },

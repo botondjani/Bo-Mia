@@ -27,7 +27,7 @@ import kotlin.math.abs
  * (free + earned), and the average against the week before.
  */
 @Composable
-fun WeekCard(view: WeekView) = Card {
+fun WeekCard(view: WeekView, onOpen: (() -> Unit)? = null) = Card(if (onOpen != null) Modifier.tappable(onClick = onOpen) else Modifier) {
     Row {
         Text("YOUR WEEK", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
         view.average?.let { Text("avg $it min a day", style = MaterialTheme.typography.labelLarge, color = Brand.Moss) }
@@ -83,4 +83,5 @@ fun WeekCard(view: WeekView) = Card {
         },
         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted,
     )
+    if (onOpen != null) Text("See all your time →", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
 }

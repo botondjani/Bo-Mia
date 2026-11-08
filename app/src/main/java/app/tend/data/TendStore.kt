@@ -385,6 +385,24 @@ class TendStore(private val context: Context) {
         normalMinutes = (blockedPackages.sumOf { stats[it]?.totalTimeInForeground ?: 0L } / 60_000L / 14).toInt()
     }
 
+    /**
+     * Each picked app's minutes a day: in the 14 days before tend, and in the last 7 (since tend, if
+     * that's sooner). Most used before first; empty without usage access.
+     */
+    fun appMinutes(now: Long = System.currentTimeMillis()): List<Triple<String, Int, Int>> {
+        val start = onboardedAt.takeIf { it > 0 } ?: return emptyList()
+        val usm = context.getSystemService(android.app.usage.UsageStatsManager::class.java) ?: return emptyList()
+        fun minutes(from: Long, until: Long) = runCatching { usm.queryAndAggregateUsageStats(from, until) }.getOrNull().orEmpty()
+            .mapValues { it.value.totalTimeInForeground / 60_000.0 }
+        val before = minutes(start - 14 * 86_400_000L, start)
+        val from = maxOf(start, now - 7 * 86_400_000L)
+        val days = ((now - from) / 86_400_000.0).coerceAtLeast(1.0)
+        val after = minutes(from, now)
+        return blockedPackages.map { Triple(it, ((before[it] ?: 0.0) / 14).toInt(), ((after[it] ?: 0.0) / days).toInt()) }
+            .filter { it.second > 0 || it.third > 0 }
+            .sortedByDescending { it.second }
+    }
+
     /** At day close: within the budget, and below your normal (or, without one, a first week's average). */
     private fun closeDayAcorns(d: DayState) {
         if (d.date.toString() in pausedDays) return

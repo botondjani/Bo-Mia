@@ -87,6 +87,8 @@ fun HomeScreen(
     /** On a break until then (epoch ms); in the past = none. */
     pausedUntil: Long = 0,
     onResume: () -> Unit = {},
+    /** Opens the full picture: time won back, the weeks, each app. */
+    onOpenInsights: () -> Unit = {},
     /** Ask once whether anonymous usage counts may be shared; answered with true or false. */
     askStats: Boolean = false,
     onStats: (Boolean) -> Unit = {},
@@ -323,7 +325,7 @@ fun HomeScreen(
         }
         val today = app.tend.core.DaySummary(day.date, Budget.usedMinutes(day), remaining.coerceAtLeast(0), day.completedTasks.size)
         val week = app.tend.core.WeekOverview.of(history.filter { it.date != day.date } + today, day.date)
-        if (week.days.count { it != null } >= 2) Box(Modifier.padding(bottom = Space.xl)) { WeekCard(week) }
+        if (week.days.count { it != null } >= 2) Box(Modifier.padding(bottom = Space.xl)) { WeekCard(week, onOpenInsights) }
     }
     }
 }
