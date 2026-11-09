@@ -177,6 +177,8 @@ fun DrawScope.drawClearing(
     gifts: Int = 0,
     /** Milestones reached: what they've added to the camp for good. */
     unlocked: Set<app.tend.core.Milestone> = emptySet(),
+    /** Things waiting their turn to be used (spots, in order): a number over each. */
+    queued: List<Int> = emptyList(),
 ) {
     applySeason(season)
     val w = size.width
@@ -281,7 +283,7 @@ fun DrawScope.drawClearing(
     // Walking over first (from where they stay), then using it there.
     // At night they go to bed: walk to the shelter (if there is one) and sleep inside.
     val bed = if (night && use == null) bedOf(placed) else null
-    val act = use ?: bed?.let { InUse(it, placed.getValue(it), nightClock, if (rest == it) 0f else Uses.WALK) }
+    val act = use ?: bed?.let { InUse(it, placed.getValue(it), nightClock, if (rest == it) 0f else Uses.BED_WALK) }
     // Their place (or where they stopped, part way through something), and (just after a thing moved) where it was a moment ago.
     // (Going to bed doesn't count: in the morning they're back where they were.)
     Whereabouts.frame(carry?.let { "carry ${it.spot}" } ?: use?.let { "${it.spot} ${it.thing} ${it.walk}" })
@@ -438,7 +440,8 @@ fun DrawScope.drawClearing(
             return
         }
         // Walking about: the umbrella comes along.
-        fun walker(t: Float, right: Boolean) { umbrellaPart(false); drawWalker(avatar, mood, worn, anchor, t, right); umbrellaPart(true) }
+        // At night the steps are slower too.
+        fun walker(t: Float, right: Boolean) { umbrellaPart(false); drawWalker(avatar, mood, worn, anchor, if (night) t * 0.6f else t, right); umbrellaPart(true) }
         if (act != null && walking && fromBed && act.t < Uses.YAWN) { drawYawn(avatar, worn, anchor, act.t / Uses.YAWN); return }
         if (act != null && walking) { walker(act.t, target!!.x >= restAt.x); return }
         if (stepTo != null) { walker(stepK!! * 2f, stepTo.x >= target!!.x); return }
@@ -566,6 +569,20 @@ fun DrawScope.drawClearing(
         val sx = if (lift >= 0f) 1f + 0.06f * lift else 1f - 0.14f * lift
         val sy = if (lift >= 0f) 1f + 0.06f * lift else 1f + 0.18f * lift
         thingAt(thing, p, spotScale(id, layout), id, sx, sy, lift = u * 0.05f * up)
+    }
+
+    // Waiting their turn: 1, 2, 3 over the things tapped while the companion was busy.
+    queued.forEachIndexed { i, spot ->
+        if (placed[spot] == null) return@forEachIndexed
+        val p = at(spot) + Offset(0f, -u * 0.11f * spotScale(spot, layout))
+        drawCircle(Color.White, u * 0.022f, p)
+        drawCircle(Brand.Moss, u * 0.022f, p, style = Stroke(u * 0.003f))
+        drawIntoCanvas {
+            val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = 0xFF316849.toInt(); textSize = u * 0.028f; textAlign = android.graphics.Paint.Align.CENTER; isFakeBoldText = true
+            }
+            it.nativeCanvas.drawText("${i + 1}", p.x, p.y + u * 0.01f, paint)
+        }
     }
 
     // Today's visitor, waiting to be greeted.

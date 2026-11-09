@@ -876,18 +876,20 @@ class MainActivity : ComponentActivity() {
                                 // Used a thing of the camp: they stay by it. Acted out where they stood: they stay there.
                                 val at = if (r == "campfire") 0 else store.placed.entries.firstOrNull { it.value == r }?.key
                                 if (at != null) { store.restSpot = at; restSpot = at }
+                                // At night, acted out at the shelter's door: not in bed yet, so they walk back in.
+                                else if (night && yawn > 0f) { store.restSpot = null; restSpot = null }
                                 break
                             }
                         }
                     }
-                    val nightClock = app.tend.ui.rememberNightClock(night, backToBed)
+                    val nightClock = app.tend.ui.rememberNightClock(night, backToBed, asleep = restSpot != null && restSpot == app.tend.ui.bedOf(store.placed))
                     // Read once per change, not on every frame of the camp's life.
                     val placed = remember(refresh) { store.placed }
                     val layout = remember(refresh) { campLayout() }
                     val appear = app.tend.ui.rememberAppear(placed)
-                    LaunchedEffect(nightClock > app.tend.ui.Uses.WALK + 2f) {
+                    LaunchedEffect(nightClock > app.tend.ui.Uses.BED_WALK + 2f) {
                         val bed = app.tend.ui.bedOf(store.placed)
-                        if (night && nightClock > app.tend.ui.Uses.WALK + 2f && bed != null && store.restSpot != bed) { store.restSpot = bed; restSpot = bed }
+                        if (night && nightClock > app.tend.ui.Uses.BED_WALK + 2f && bed != null && store.restSpot != bed) { store.restSpot = bed; restSpot = bed }
                     }
                     val ambient = app.tend.ui.rememberAmbientClock()
                     val unlocked = remember(refresh) { app.tend.core.Milestone.reached(store.totals()) }

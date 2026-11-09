@@ -307,7 +307,7 @@ class InterstitialActivity : ComponentActivity() {
             SecondaryButton(notNowLabel(), ::notNow)
             // Good night is a promise to yourself, not a cage: a way out when something really can't wait.
             // Held for a few seconds, not just tapped: it's undoing a promise.
-            if (lock == app.tend.core.LockSchedule.GOOD_NIGHT && !store.isStrict) app.tend.ui.HoldToConfirm("Hold if it can't wait") {
+            if (lock == app.tend.core.LockSchedule.GOOD_NIGHT && !store.isStrict) app.tend.ui.HoldToConfirm("Hold if it can't wait", seconds = 7f) {
                 decide("woke")
                 store.wakeUp()
                 store.grantPass(pkgName, 5)

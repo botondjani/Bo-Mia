@@ -97,6 +97,12 @@ object Uses {
     /** Stepping off something at the end of a use (out of the hammock, off the swing). */
     const val STEP = 0.7f
 
+    /** At night everything goes slower: walks take this much longer. */
+    const val NIGHT_SLOW = 1.6f
+
+    /** The walk to bed at night, slow and sleepy. */
+    const val BED_WALK = WALK * NIGHT_SLOW
+
     /** Woken in the night for something: out of the shelter with a yawn and a stretch first. */
     const val YAWN = 1.1f
 
@@ -801,17 +807,20 @@ fun bedOf(placed: Map<Int, String>): Int? =
  * and the Zs); 100 by day, as if long asleep.
  */
 @androidx.compose.runtime.Composable
-fun rememberNightClock(night: Boolean, again: Int = 0): Float {
+fun rememberNightClock(night: Boolean, again: Int = 0, asleep: Boolean = false): Float {
     var t by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(100f) }
+    val asleepNow by androidx.compose.runtime.rememberUpdatedState(asleep)
     // [again] changed: back to bed once more (after being woken for something), from where they are.
+    // Already in bed when it starts ([asleep], e.g. the camp just opened): long asleep, no walk to bed again.
     androidx.compose.runtime.LaunchedEffect(night, again) {
         if (!night) { t = 100f; return@LaunchedEffect }
-        t = 0f
+        val base = if (asleepNow) 100f else 0f
+        t = base
         // Every frame while walking to bed; after that only the Zs drift, and a dozen frames a second is plenty.
         val start = System.nanoTime()
         while (true) {
-            if (t < Uses.WALK + 2f) androidx.compose.runtime.withFrameNanos { t = (System.nanoTime() - start) / 1e9f }
-            else { kotlinx.coroutines.delay(80); t = (System.nanoTime() - start) / 1e9f }
+            if (t < Uses.BED_WALK + 2f) androidx.compose.runtime.withFrameNanos { t = base + (System.nanoTime() - start) / 1e9f }
+            else { kotlinx.coroutines.delay(80); t = base + (System.nanoTime() - start) / 1e9f }
         }
     }
     return t

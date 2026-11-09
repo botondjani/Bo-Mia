@@ -222,6 +222,11 @@ fun HomeScreen(
             }
         }
 
+        // The evening: tonight's recap, right under the camp.
+        if (isEvening && !sleeping && pausedUntil <= System.currentTimeMillis()) {
+            val seen = app.tend.data.TendStore(context).recapSeenOn == day.date.toString()
+            Notice("moon", if (seen) "Tonight's recap" else "Tonight's recap is ready", if (seen) "See it again" else "See what today gave back", onOpenRecap)
+        }
         if (levelUp != null) LevelUpDialog(avatar, levelUp, onLevelUpSeen)
 
         if (onShareCrash != null) Notice("alert", "tend crashed last time", "Sorry! Tap to share the crash report.", onShareCrash)
@@ -255,7 +260,7 @@ fun HomeScreen(
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         Text("You said good night, and ${avatar.displayName} is asleep. The apps rest until 7:00. Do you really need them now?")
-                        HoldToConfirm("Hold to wake the apps") { waking = false; onWakeUp() }
+                        HoldToConfirm("Hold to wake the apps", seconds = 7f) { waking = false; onWakeUp() }
                     }
                 },
                 confirmButton = { androidx.compose.material3.TextButton(onClick = { waking = false }) { Text("Let them rest") } },
@@ -343,10 +348,6 @@ fun HomeScreen(
             level?.takeIf { !(firstDays && it.level == 1 && it.into == 0) }, challenge, onOpenInsights,
         )
         weekStory?.let { (back, days, letGo) -> WeekStoryCard(back, days, letGo, onShareWeek, onWeekStoryDone) }
-        if (isEvening && !sleeping && pausedUntil <= System.currentTimeMillis()) {
-            val seen = app.tend.data.TendStore(context).recapSeenOn == day.date.toString()
-            Notice("moon", if (seen) "Tonight's recap" else "Tonight's recap is ready", if (seen) "See it again" else "See what today gave back", onOpenRecap)
-        }
         // "Done today" right under the activities.
         if (done.isEmpty() && active.isNotEmpty()) {
             // Before the first one: an empty, dashed spot that says where finished things go.

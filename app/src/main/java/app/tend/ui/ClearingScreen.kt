@@ -203,10 +203,34 @@ fun ClearingScreen(
     val placedNow by androidx.compose.runtime.rememberUpdatedState(placed)
     // Woken in the night for something: when it's done, back to bed (the walk there starts again).
     var backToBed by remember { androidx.compose.runtime.mutableIntStateOf(0) }
-    val nightClock = rememberNightClock(night, backToBed)
+    val nightClock = rememberNightClock(night, backToBed, asleep = rest != null && rest == bedOf(placed))
+    // Things tapped while busy wait their turn (a few at most), shown with a number over each.
+    val queue = remember { androidx.compose.runtime.snapshots.SnapshotStateList<Int>() }
+
+    /** Over to the thing at [hit] and use it, from where they are now (slower at night; a yawn first out of bed). */
+    fun startUse(hit: Int, thing: String) {
+        // Switching, or stopped part way: from where they are now. The firewood and the rod: over to them again.
+        val here = if (using != null) Whereabouts.drawn else Whereabouts.standing
+        var w = if (here == null && restNow == hit && thing !in setOf("woodpile", "fishing_rod")) 0f
+            else walkSeconds(here ?: restFraction(restNow, pinnedNow), restFraction(hit, pinnedNow))
+        if (nightNow) w *= Uses.NIGHT_SLOW
+        // Asleep in the shelter: a yawn first, on the way out.
+        if (nightNow && using == null && restNow != null && restNow == bedOf(placedNow) && hit != restNow) w += Uses.YAWN
+        walk = w
+        using = hit to thing; caught = null; Sounds.forUse(context, thing, (w * 1000).toLong()); onUsed(thing)
+    }
+
+    // One done: on to the next waiting, straight from there; nothing waiting at night: back to bed.
     val wasUsing = remember { booleanArrayOf(false) }
     androidx.compose.runtime.LaunchedEffect(using == null) {
-        if (using == null && wasUsing[0] && night) backToBed++
+        if (using == null && wasUsing[0]) {
+            val next = queue.firstOrNull()
+            if (next != null) {
+                queue.removeAt(0)
+                kotlinx.coroutines.delay(250)
+                placedNow[next]?.let { startUse(next, it) }
+            } else if (night) backToBed++
+        }
         wasUsing[0] = using != null
     }
     val appear = rememberAppear(placed)
@@ -226,9 +250,9 @@ fun ClearingScreen(
     // After buying something: up to the camp to watch it pop in.
     fun showSpot(@Suppress("UNUSED_PARAMETER") spot: Int) = scope.launch { scroll.animateScrollTo(0) }
     // Once in bed, they stay there: next time it doesn't walk again.
-    androidx.compose.runtime.LaunchedEffect(nightClock > Uses.WALK + 2f) {
+    androidx.compose.runtime.LaunchedEffect(nightClock > Uses.BED_WALK + 2f) {
         val bed = bedOf(placed)
-        if (night && nightClock > Uses.WALK + 2f && bed != null && rest != bed) onRest(bed)
+        if (night && nightClock > Uses.BED_WALK + 2f && bed != null && rest != bed) onRest(bed)
     }
     val visitorNow by androidx.compose.runtime.rememberUpdatedState(visitor)
     // Cheered by friends: a card at the top, and the companion beaming (hearts) for a few seconds.
@@ -286,7 +310,7 @@ fun ClearingScreen(
             androidx.compose.runtime.snapshotFlow { carries.isNotEmpty() && drag == null && settling == null }.first { ready -> ready }
             carrying = true
             // Busy with something: they put it down where they are (and go from there).
-            if (using != null) { using = null; Sounds.stop() }
+            if (using != null) { using = null; queue.clear(); Sounds.stop() }
             // A couple of frames for where they stand to catch up (an idle use just stopped).
             repeat(2) { androidx.compose.runtime.withFrameNanos { } }
             val job = carries.firstOrNull() ?: run { carrying = false; null } ?: continue
@@ -391,18 +415,18 @@ fun ClearingScreen(
                         if (thing != null && (carrying || carries.isNotEmpty())) { caught = "${avatar.displayName} is busy moving things. One moment!"; return@detectTapGestures }
                         if (thing != null) {
                             tick()
-                            if (using?.second == thing && thing == "guitar") { strumAt = frame; useStart = frame - ((walk + 1f) * 1e9f).toLong(); Sounds.strum(context) }
-                            else {
+                            when {
+                                using?.second == thing && thing == "guitar" -> { strumAt = frame; useStart = frame - ((walk + 1f) * 1e9f).toLong(); Sounds.strum(context) }
+                                using?.first == hit -> {}
+                                // Busy: it waits its turn (three at most).
+                                using != null -> if (hit !in queue && queue.size < 3) {
+                                    queue += hit
+                                    caught = "Next: the ${Things.byId(thing)?.name?.lowercase() ?: thing}" + if (queue.size > 1) " (${queue.size} waiting)" else ""
+                                }
                                 // Walk over first, unless already there; the sound starts on arrival.
-                                // Switching mid-use, or stopped part way: from where they are now. The firewood and the rod: over to them again.
-                                val here = if (using != null) Whereabouts.drawn else Whereabouts.standing
-                                walk = if (here == null && restNow == hit && thing !in setOf("woodpile", "fishing_rod")) 0f
-                                    else walkSeconds(here ?: restFraction(restNow, pinnedNow), restFraction(hit, pinnedNow))
-                                // Asleep in the shelter: a yawn first, on the way out.
-                                if (nightNow && using == null && restNow != null && restNow == bedOf(placedNow) && hit != restNow) walk += Uses.YAWN
-                                using = hit to thing; caught = null; Sounds.forUse(context, thing, (walk * 1000).toLong()); onUsed(thing)
+                                else -> startUse(hit, thing)
                             }
-                        } else if (using != null) { using = null; Sounds.stop() }
+                        } else if (using != null) { using = null; queue.clear(); Sounds.stop() }
                     }
                 }.pointerInput(Unit) {
                     // Inside the tap handler, so it sees the finger first: once a thing is picked up, the drag is
@@ -448,7 +472,7 @@ fun ClearingScreen(
                                 caught = "The ${thing.name.lowercase()} has its own place."
                                 return@detectDragGesturesAfterLongPress
                             }
-                            if (using != null) { using = null; Sounds.stop() }
+                            if (using != null) { using = null; queue.clear(); Sounds.stop() }
                             kind = thing.kind
                             others = placedNow.keys.filter { it != hit && it in SpotPositions }.mapNotNull { id ->
                                 val k = app.tend.core.Clearing.spots.first { it.id == id }.kind
@@ -500,6 +524,7 @@ fun ClearingScreen(
                     ambient = ambient.value, guests = guests,
                     onCompanion = { companionAt[0] = it.x; companionAt[1] = it.y },
                     gifts = gifts.size,
+                    queued = queue.toList(),
                     unlocked = unlocked,
                 )
             }
@@ -544,7 +569,8 @@ fun ClearingScreen(
     Text(
         when {
             drag != null && caught != null -> caught!!
-            using != null -> Uses.line(using!!.second, avatar.displayName)
+            using != null -> Uses.line(using!!.second, avatar.displayName) + queue.mapNotNull { placed[it]?.let(Things::byId)?.name?.lowercase() }
+                .takeIf { it.isNotEmpty() }?.let { " Next: the ${it.joinToString(", then the ")}." }.orEmpty()
             gifts.isNotEmpty() -> "A present from ${gifts.distinct().joinToString(" and ")}! Tap it to open."
             paper -> "Someone toilet-papered your oak! Tap it to unroll."
             visitor != null -> "${visitor.aName.replaceFirstChar { it.uppercase() }} came to the camp. Tap it to say hello."
