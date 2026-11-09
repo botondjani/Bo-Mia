@@ -19,6 +19,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -504,14 +505,14 @@ class MainActivity : ComponentActivity() {
             else { store.blockedPackages = if (pkg in b) b - pkg else b + pkg; refresh++ }
         }
 
-        // Pages fade into each other; the camp is the same size and place on home and in the camp, so it stays put.
         val page = when {
             !store.onboarded -> "setup"
             screen != Screen.HOME -> screen.name
             (TaskSync.focusSecondsLeft(store, now) ?: 0) > 0 -> "focus"
             else -> "HOME"
         }
-        androidx.compose.animation.Crossfade(page, animationSpec = androidx.compose.animation.core.tween(200), label = "page") { p ->
+        // Each page (as a function, so `this` inside stays the activity).
+        val pageContent: @Composable (String) -> Unit = { p ->
         when {
             p == "setup" -> {
                 val finish: () -> Unit = {
@@ -808,7 +809,13 @@ class MainActivity : ComponentActivity() {
                         while (true) {
                             androidx.compose.runtime.withFrameNanos { frame = it; if (start < 0) start = it }
                             // Acted out where they usually stand; they stay there.
-                            if ((frame - start) / 1e9f > app.tend.ui.Uses.WALK + app.tend.ui.Uses.seconds(r)) { reaction = null; if (r == "campfire") { store.restSpot = 0; restSpot = 0 }; break }
+                            if ((frame - start) / 1e9f > app.tend.ui.Uses.WALK + app.tend.ui.Uses.seconds(r)) {
+                                reaction = null
+                                // Used a thing of the camp: they stay by it. Acted out where they stood: they stay there.
+                                val at = if (r == "campfire") 0 else store.placed.entries.firstOrNull { it.value == r }?.key
+                                if (at != null) { store.restSpot = at; restSpot = at }
+                                break
+                            }
                         }
                     }
                     val nightClock = app.tend.ui.rememberNightClock(night)
@@ -822,8 +829,12 @@ class MainActivity : ComponentActivity() {
                     }
                     val ambient = app.tend.ui.rememberAmbientClock()
                     val idle = app.tend.ui.rememberIdleLife(placed, restSpot, enabled = reaction == null && !night, layout = layout) { store.restSpot = it; restSpot = it }
-                    androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-                        val use = reaction?.takeIf { start >= 0 }?.let { app.tend.ui.InUse(-1, it, (frame - start) / 1e9f, if (it == "campfire") app.tend.ui.Uses.WALK else 0f) } ?: idle.value
+                    androidx.compose.foundation.Canvas(Modifier.fillMaxSize().then(app.tend.ui.sharedCamp() ?: Modifier)) {
+                        // An activity done: acted out where they stand, or with the thing from the camp where it is (over to it first).
+                        val use = reaction?.takeIf { start >= 0 }?.let { r ->
+                            val at = placed.entries.firstOrNull { it.value == r && r != "campfire" }?.key
+                            app.tend.ui.InUse(at ?: -1, r, (frame - start) / 1e9f, if (r == "campfire" || at != null) app.tend.ui.Uses.WALK else 0f, reward = true)
+                        } ?: idle.value
                         drawClearing(store.avatar, placed, mood, shelf.first, night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor, rest = restSpot, nightClock = nightClock, appear = appear, layout = layout, ambient = ambient.value, guests = fireGuests)
                     }
                 },
@@ -889,6 +900,18 @@ class MainActivity : ComponentActivity() {
             )
             }
         }
+        }
+        // The camp scene glides and grows from home into the camp page (and back); the rest fades.
+        androidx.compose.animation.SharedTransitionLayout {
+            androidx.compose.animation.AnimatedContent(
+                page, label = "page",
+                transitionSpec = {
+                    androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(320, delayMillis = 60)) togetherWith
+                        androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(220))
+                },
+            ) { p ->
+                androidx.compose.runtime.CompositionLocalProvider(app.tend.ui.LocalCampShare provides app.tend.ui.CampShare(this@SharedTransitionLayout, this@AnimatedContent)) { pageContent(p) }
+            }
         }
     }
 

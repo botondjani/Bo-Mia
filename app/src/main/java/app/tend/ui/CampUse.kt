@@ -27,7 +27,7 @@ import androidx.compose.runtime.setValue
  * ([walk] of them getting there). With [end] (seconds of use, once there) known, the last moments
  * are stepping off to where they'll stay.
  */
-data class InUse(val spot: Int, val thing: String, val t: Float, val walk: Float = 0f, val end: Float = 0f) {
+data class InUse(val spot: Int, val thing: String, val t: Float, val walk: Float = 0f, val end: Float = 0f, val reward: Boolean = false) {
     /** Walking over to the thing: the first [walk] seconds. */
     val walking: Boolean get() = t < walk
     /** The use itself, its clock starting once there. */
@@ -108,6 +108,26 @@ object Uses {
 
     /** Things drawn differently while used (they move, or the companion holds them). */
     val redrawn = setOf("guitar", "fishing_rod", "swing", "canoe", "raft", "rocking_chair")
+}
+
+/**
+ * Where the companion really is, shared by home and the camp page (scene fractions): whenever what
+ * they were doing ends (done, or something else took over part way), they stay just where they
+ * were and go on from there. Never a jump back to some usual place.
+ */
+object Whereabouts {
+    /** Where they were drawn last. */
+    var drawn: Offset? = null
+    /** Where they stand now; null: nothing happened yet (their usual place). */
+    var standing: Offset? = null
+    private var lastAct: String? = null
+
+    /** Each frame, with what they're doing (null: nothing). */
+    internal fun frame(act: String?) {
+        if (act == lastAct) return
+        if (lastAct != null) standing = drawn ?: standing
+        lastAct = act
+    }
 }
 
 /**
@@ -358,7 +378,7 @@ fun DrawScope.drawUse(
     val p = SpotPositions[use.spot]?.let { spotPos(use.spot, layout) }?.let { Offset(it.x * w, it.y * h) } ?: base
     val k = if (use.spot >= 0) spotScale(use.spot, layout) else 1f
     // An activity just done: acorns pop out and fly up to the corner.
-    if (use.spot == -1 && t < 1.6f) acornBurst(base + Offset(0f, -s * 0.6f), t / 1.6f, u)
+    if ((use.spot == -1 || use.reward) && t < 1.6f) acornBurst(base + Offset(0f, -s * 0.6f), t / 1.6f, u)
     val fire = SpotPositions.getValue(0).let { Offset(it.x * w, it.y * h) }
     when (use.thing) {
         "guitar" -> {
@@ -803,7 +823,7 @@ fun rememberIdleLife(
             // Now and then something where they stand: a stretch, a cheer (spot -2: nothing earned, no acorns fly).
             val pick = if (rnd.nextInt(100) < 15) null else rnd.nextInt(total).let { r -> var left = r; options.first { left -= it.third; left < 0 } }
             val (spot, thing) = pick?.let { it.first to it.second } ?: (-2 to listOf("act_stretch", "act_cheer", "act_hearts")[rnd.nextInt(3)])
-            val walk = if (spot == -2) 0f else walkSeconds(restFraction(restNow, layoutNow), restFraction(spot, layoutNow))
+            val walk = if (spot == -2) 0f else walkSeconds(Whereabouts.standing ?: restFraction(restNow, layoutNow), restFraction(spot, layoutNow))
             val end = minOf(Uses.seconds(thing), if (spot < 0 && spot > -10) 3.5f else 8.5f)
             val start = androidx.compose.runtime.withFrameNanos { it }
             var t = 0f
@@ -811,8 +831,8 @@ fun rememberIdleLife(
                 t = (androidx.compose.runtime.withFrameNanos { it } - start) / 1e9f
                 current.value = InUse(spot, thing, t, walk, end)
             }
-            // Got there: they stay (as after any use), and go on from there next time. Stopped on the way: back where they were.
-            if (spot != -2 && t >= walk) onRestNow(spot)
+            // Done: they stay (as after any use), and go on from there next time. Stopped part way: they stay where they got to.
+            if (t >= walk + end && spot != -2) onRestNow(spot)
             current.value = null
         }
     }
@@ -864,7 +884,9 @@ fun DrawScope.sparkles(at: Offset, u: Float, k: Float) {
 /** The camp floating in when a page opens: from a touch larger and transparent to in place. */
 @androidx.compose.runtime.Composable
 fun androidx.compose.ui.Modifier.campEntrance(): androidx.compose.ui.Modifier {
-    val k = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(0f) }
+    // Coming from the other page, the scene glides over by itself: no fade-in on top of that.
+    val gliding = LocalCampShare.current?.moving == true
+    val k = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(if (gliding) 1f else 0f) }
     androidx.compose.runtime.LaunchedEffect(Unit) { k.animateTo(1f, androidx.compose.animation.core.tween(650, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
     return this.graphicsLayer { alpha = 0.3f + 0.7f * k.value; val s = 1.04f - 0.04f * k.value; scaleX = s; scaleY = s }
 }

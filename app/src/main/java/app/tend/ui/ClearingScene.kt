@@ -276,9 +276,12 @@ fun DrawScope.drawClearing(
     // At night they go to bed: walk to the shelter (if there is one) and sleep inside.
     val bed = if (night && use == null) bedOf(placed) else null
     val act = use ?: bed?.let { InUse(it, placed.getValue(it), nightClock, if (rest == it) 0f else Uses.WALK) }
-    // Their place, and (just after a thing moved) where it was a moment ago.
-    val restTo = restPoint(rest, placed, layout)
-    val restWas = restFrom?.let { restPoint(rest, placed, it) }?.takeIf { (it - restTo).getDistance() > u * 0.01f }
+    // Their place (or where they stopped, part way through something), and (just after a thing moved) where it was a moment ago.
+    // (Going to bed doesn't count: in the morning they're back where they were.)
+    Whereabouts.frame(carry?.let { "carry ${it.spot}" } ?: use?.let { "${it.spot} ${it.thing} ${it.walk}" })
+    val standing = Whereabouts.standing
+    val restTo = standing?.let { Offset(it.x * w, it.y * h) } ?: restPoint(rest, placed, layout)
+    val restWas = restFrom?.takeIf { standing == null }?.let { restPoint(rest, placed, it) }?.takeIf { (it - restTo).getDistance() > u * 0.01f }
     val strolling = act == null && restWas != null && restClock in 0.001f..Uses.WALK
     val restAt = when {
         restWas == null || restClock >= Uses.WALK -> restTo
@@ -359,6 +362,7 @@ fun DrawScope.drawClearing(
         else -> target
     }
     var companionDrawn = false
+    Whereabouts.drawn = Offset(anchor.x / w, anchor.y / h)
     onCompanion?.invoke(Offset(anchor.x / w, anchor.y / h))
     val cs = u * 0.17f * depthScale(anchor.y / h)
     fun drawActor(glows: MutableList<Light>) {

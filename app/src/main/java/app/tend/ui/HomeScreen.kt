@@ -1,5 +1,8 @@
 package app.tend.ui
 
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.background
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -289,14 +292,22 @@ fun HomeScreen(
                 pager.animateScrollToPage(0)
                 repeat(2) { glow.animateTo(1f, tween(300)); glow.animateTo(0f, tween(400)) }
             }
-            androidx.compose.foundation.pager.HorizontalPager(
-                pager, Modifier.fillMaxWidth(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(end = if (active.size > 1) 36.dp else 0.dp),
-                pageSpacing = 12.dp, verticalAlignment = Alignment.Top,
-            ) { i ->
-                val task = active[i]
-                Box(Modifier.padding(vertical = 4.dp).border(2.dp, Brand.Moss.copy(alpha = if (i == 0) glow.value else 0f), RoundedCornerShape(22.dp))) {
-                    TaskRow(task, day, health, focusSecondsLeft?.takeIf { task.id == focusTaskId }, onStartFocus, onCheckOff, onUndo, exerciseTracked, sleepEstimated)
+            // Every card as tall as the tallest one (laid out unseen underneath): nothing jumps when swiping.
+            Box(Modifier.fillMaxWidth()) {
+                Box(Modifier.fillMaxWidth().padding(end = if (active.size > 1) 36.dp else 0.dp).alpha(0f).clearAndSetSemantics { }) {
+                    active.forEach { task ->
+                        TaskRow(task, day, health, focusSecondsLeft?.takeIf { task.id == focusTaskId }, {}, {}, {}, exerciseTracked, sleepEstimated, Modifier.padding(vertical = 4.dp))
+                    }
+                }
+                androidx.compose.foundation.pager.HorizontalPager(
+                    pager, Modifier.matchParentSize(),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(end = if (active.size > 1) 36.dp else 0.dp),
+                    pageSpacing = 12.dp, verticalAlignment = Alignment.Top,
+                ) { i ->
+                    val task = active[i]
+                    Box(Modifier.fillMaxHeight().padding(vertical = 4.dp).border(2.dp, Brand.Moss.copy(alpha = if (i == 0) glow.value else 0f), RoundedCornerShape(22.dp))) {
+                        TaskRow(task, day, health, focusSecondsLeft?.takeIf { task.id == focusTaskId }, onStartFocus, onCheckOff, onUndo, exerciseTracked, sleepEstimated, Modifier.fillMaxHeight())
+                    }
                 }
             }
             if (active.size > 1) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
@@ -550,9 +561,11 @@ internal fun TaskRow(
     onUndo: (TaskDef) -> Unit,
     exerciseTracked: Boolean = true,
     sleepEstimated: Boolean = false,
+    modifier: Modifier = Modifier,
 ) = Column(
-    Modifier.fillMaxWidth().graphicsLayer { alpha = if (task.id in day.completedTasks) 0.55f else 1f }
+    modifier.fillMaxWidth().graphicsLayer { alpha = if (task.id in day.completedTasks) 0.55f else 1f }
         .surface().padding(horizontal = 16.dp, vertical = 14.dp),
+    verticalArrangement = Arrangement.Center,
 ) {
     val done = task.id in day.completedTasks
     val progress = Tasks.progress(task, day)

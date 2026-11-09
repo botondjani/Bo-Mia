@@ -250,12 +250,13 @@ fun ClearingScreen(
         while (true) {
             androidx.compose.runtime.snapshotFlow { carries.isNotEmpty() && drag == null && settling == null }.first { ready -> ready }
             carrying = true
-            if (using != null) { using?.let { onRest(it.first) }; using = null; Sounds.stop() }
+            // Busy with something: they put it down where they are (and go from there).
+            if (using != null) { using = null; Sounds.stop() }
             // A couple of frames for where they stand to catch up (an idle use just stopped).
             repeat(2) { androidx.compose.runtime.withFrameNanos { } }
             val job = carries.firstOrNull() ?: run { carrying = false; null } ?: continue
             val (spot, from, to) = job
-            val walk = walkSeconds(restFraction(restNow, pinnedNow), from)
+            val walk = walkSeconds(Whereabouts.standing ?: Whereabouts.drawn ?: restFraction(restNow, pinnedNow), from)
             val move = walkSeconds(from, to) * 1.25f
             val down = walk + Carry.PICK + move + Carry.DOWN
             val start = androidx.compose.runtime.withFrameNanos { it }
@@ -302,7 +303,7 @@ fun ClearingScreen(
         val sceneHeight = maxWidth / 1.6f
         Box(Modifier.fillMaxWidth().height(sceneHeight).campEntrance()) {
             Canvas(
-                Modifier.fillMaxSize().pointerInput(Unit) {
+                Modifier.fillMaxSize().then(sharedCamp() ?: Modifier).pointerInput(Unit) {
                     // Long presses belong to moving things: a tap only counts when it's quick.
                     detectTapGestures(onLongPress = {}) { tap ->
                         val fx = tap.x / size.width
@@ -339,8 +340,10 @@ fun ClearingScreen(
                             if (using?.second == thing && thing == "guitar") { strumAt = frame; useStart = frame - ((walk + 1f) * 1e9f).toLong(); Sounds.strum(context) }
                             else {
                                 // Walk over first, unless already there; the sound starts on arrival.
-                                using?.let { onRest(it.first) } // switching mid-use: from where they are now
-                                walk = if ((using?.first ?: restNow) == hit) 0f else walkSeconds(restFraction(using?.first ?: restNow, pinnedNow), restFraction(hit, pinnedNow))
+                                // Switching mid-use, or stopped part way: from where they are now. The firewood and the rod: over to them again.
+                                val here = if (using != null) Whereabouts.drawn else Whereabouts.standing
+                                walk = if (here == null && restNow == hit && thing !in setOf("woodpile", "fishing_rod")) 0f
+                                    else walkSeconds(here ?: restFraction(restNow, pinnedNow), restFraction(hit, pinnedNow))
                                 using = hit to thing; caught = null; Sounds.forUse(context, thing, (walk * 1000).toLong()); onUsed(thing)
                             }
                         } else if (using != null) { using = null; Sounds.stop() }
@@ -390,7 +393,7 @@ fun ClearingScreen(
                                 caught = "The ${thing.name.lowercase()} has its own place."
                                 return@detectDragGesturesAfterLongPress
                             }
-                            if (using != null) { using?.let { onRest(it.first) }; using = null; Sounds.stop() }
+                            if (using != null) { using = null; Sounds.stop() }
                             kind = thing.kind
                             others = placedNow.keys.filter { it != hit && it in SpotPositions }.mapNotNull { id ->
                                 val k = app.tend.core.Clearing.spots.first { it.id == id }.kind
@@ -450,6 +453,12 @@ fun ClearingScreen(
             contentAlignment = Alignment.Center,
         ) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Share, "Share", tint = Brand.Moss, modifier = Modifier.size(18.dp)) }
         AcornBadge(acorns, Modifier.align(Alignment.TopEnd).padding(12.dp))
+        // Until something has been moved: how, right on the camp.
+        if (hintSpot != null && drag == null && carries.isEmpty()) Text(
+            "Tip: hold a thing to move it", style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp), color = Brand.Moss,
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 18.dp)
+                .clip(RoundedCornerShape(50)).background(Color(0xE6FFFFFF)).padding(horizontal = 12.dp, vertical = 5.dp),
+        )
         val shown = remember { mutableStateOf<app.tend.core.Visitor?>(null) }
         if (greeted != null) shown.value = greeted
         androidx.compose.animation.AnimatedVisibility(
