@@ -860,14 +860,19 @@ class MainActivity : ComponentActivity() {
                     // The reaction's clock: frame by frame while it plays, then gone.
                     var start by remember { mutableLongStateOf(-1L) }
                     var frame by remember { mutableLongStateOf(0L) }
+                    // At night, asleep in the shelter: out with a yawn first, and back to bed after.
+                    var yawn by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+                    var backToBed by remember { mutableIntStateOf(0) }
                     LaunchedEffect(reaction) {
                         val r = reaction ?: return@LaunchedEffect
                         start = -1L
+                        yawn = if (night && app.tend.ui.bedOf(store.placed)?.let { it == store.restSpot } == true) app.tend.ui.Uses.YAWN else 0f
                         while (true) {
                             androidx.compose.runtime.withFrameNanos { frame = it; if (start < 0) start = it }
                             // Acted out where they usually stand; they stay there.
-                            if ((frame - start) / 1e9f > app.tend.ui.Uses.WALK + app.tend.ui.Uses.seconds(r)) {
+                            if ((frame - start) / 1e9f > yawn + app.tend.ui.Uses.WALK + app.tend.ui.Uses.seconds(r)) {
                                 reaction = null
+                                if (night) backToBed++
                                 // Used a thing of the camp: they stay by it. Acted out where they stood: they stay there.
                                 val at = if (r == "campfire") 0 else store.placed.entries.firstOrNull { it.value == r }?.key
                                 if (at != null) { store.restSpot = at; restSpot = at }
@@ -875,7 +880,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
-                    val nightClock = app.tend.ui.rememberNightClock(night)
+                    val nightClock = app.tend.ui.rememberNightClock(night, backToBed)
                     // Read once per change, not on every frame of the camp's life.
                     val placed = remember(refresh) { store.placed }
                     val layout = remember(refresh) { campLayout() }
@@ -891,7 +896,7 @@ class MainActivity : ComponentActivity() {
                         // An activity done: acted out where they stand, or with the thing from the camp where it is (over to it first).
                         val use = reaction?.takeIf { start >= 0 }?.let { r ->
                             val at = placed.entries.firstOrNull { it.value == r && r != "campfire" }?.key
-                            app.tend.ui.InUse(at ?: -1, r, (frame - start) / 1e9f, if (r == "campfire" || at != null) app.tend.ui.Uses.WALK else 0f, reward = true)
+                            app.tend.ui.InUse(at ?: -1, r, (frame - start) / 1e9f, yawn + if (r == "campfire" || at != null) app.tend.ui.Uses.WALK else 0f, reward = true)
                         } ?: idle.value
                         drawClearing(store.avatar, placed, mood, shelf.first, night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor, rest = restSpot, nightClock = nightClock, appear = appear, layout = layout, ambient = ambient.value, guests = fireGuests, unlocked = unlocked)
                     }

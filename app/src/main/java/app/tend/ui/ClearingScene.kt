@@ -379,7 +379,7 @@ fun DrawScope.drawClearing(
         carryAt != null -> carryAt
         target == null -> restAt
         walking -> {
-            val k = (if (fromBed) ((act!!.t - Uses.YAWN) / (act.walk - Uses.YAWN)).coerceIn(0f, 1f) else act!!.t / act.walk).let { it * it * (3 - 2 * it) }
+            val k = (if (fromBed) ((act!!.t - Uses.YAWN) / (act.walk - Uses.YAWN).coerceAtLeast(0.01f)).coerceIn(0f, 1f) else act!!.t / act.walk).let { it * it * (3 - 2 * it) }
             Offset(restAt.x + (target.x - restAt.x) * k, restAt.y + (target.y - restAt.y) * k)
         }
         // Out of the canoe: a hop onto the bank.

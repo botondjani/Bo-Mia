@@ -124,12 +124,19 @@ object Sounds {
 
     private fun buffer(secs: Float) = FloatArray((secs * RATE).toInt())
 
-    private fun toPcm(f: FloatArray, gain: Float = 1f): ShortArray {
-        // Soft fade in and out, and a gentle limiter.
+    /**
+     * To 16 bits: a soft fade in and out and a gentle limiter; with [rms], brought to that loudness
+     * first, so the sounds sit at even levels next to each other (none blaring, none lost).
+     */
+    private fun toPcm(f: FloatArray, gain: Float = 1f, rms: Float? = null): ShortArray {
         val fade = (RATE * 0.03f).toInt()
+        val level = rms?.let { target ->
+            val now = kotlin.math.sqrt(f.sumOf { (it * gain).toDouble() * it * gain } / f.size.coerceAtLeast(1)).toFloat()
+            if (now > 1e-6f) target / now else 1f
+        } ?: 1f
         return ShortArray(f.size) { i ->
             val env = minOf(1f, i / fade.toFloat(), (f.size - i) / fade.toFloat())
-            val x = kotlin.math.tanh(f[i] * gain * env)
+            val x = kotlin.math.tanh(f[i] * gain * level * env)
             (x * 26000).toInt().toShort()
         }
     }
@@ -142,6 +149,8 @@ object Sounds {
     private fun pluck(out: FloatArray, start: Int, freq: Float, amp: Float, rnd: java.util.Random) {
         val n = (RATE / freq).toInt().coerceAtLeast(2)
         val ring = FloatArray(n) { (rnd.nextFloat() * 2 - 1) * amp }
+        // Softened before it rings (like a fingertip, not a pick): warmer, less metallic.
+        repeat(2) { for (k in 0 until n) ring[k] = (ring[(k + n - 1) % n] + 2 * ring[k] + ring[(k + 1) % n]) / 4f }
         var idx = 0
         var i = start
         while (i < out.size) {
@@ -189,7 +198,7 @@ object Sounds {
             t += beat * 4
             bar++
         }
-        return toPcm(out, 0.8f)
+        return toPcm(room(out), 0.8f, rms = 0.085f)
     }
 
     /** Crackling fire: a low rumble with pops. */
@@ -212,7 +221,7 @@ object Sounds {
                 out[at + k] += lp * amp * 1.6f * exp(-k / (len / 4f))
             }
         }
-        return toPcm(out, 1.3f)
+        return toPcm(out, 1.3f, rms = 0.065f)
     }
 
     /** Birdsong: little chirps, quick rising whistles in twos and threes. */
@@ -223,18 +232,19 @@ object Sounds {
         while (t < secs - 0.4f) {
             repeat(2 + rnd.nextInt(2)) { k ->
                 val start = ((t + k * 0.11f) * RATE).toInt()
-                val f0 = 2600f + rnd.nextFloat() * 900f
+                val f0 = 2100f + rnd.nextFloat() * 700f
                 var ph = 0.0
-                for (i in 0 until (RATE * 0.07f).toInt()) {
+                for (i in 0 until (RATE * 0.08f).toInt()) {
                     if (start + i >= out.size) break
-                    val x = i / (RATE * 0.07f)
-                    ph += 2 * PI * (f0 + 1400f * x) / RATE
-                    out[start + i] += (sin(ph) * sin(PI * x) * 0.4).toFloat()
+                    val x = i / (RATE * 0.08f)
+                    // A little rise with a trill in it, softly in and out.
+                    ph += 2 * PI * (f0 + 900f * x + 120f * sin(2 * PI * 38 * i / RATE)) / RATE
+                    out[start + i] += (sin(ph) * sin(PI * x) * sin(PI * x) * 0.22).toFloat()
                 }
             }
             t += 0.6f + rnd.nextFloat() * 0.9f
         }
-        return toPcm(out)
+        return toPcm(out, rms = 0.045f)
     }
 
     /** The kettle starts to sing towards the end. */
@@ -288,11 +298,13 @@ object Sounds {
         val out = buffer(secs)
         val rnd = java.util.Random(5)
         var lp = 0f
+        var lp2 = 0f
         for (i in out.indices) {
             lp += ((rnd.nextFloat() * 2 - 1) - lp) * 0.05f
-            out[i] = lp * level * 1.3f * (0.7f + 0.3f * sin(i / RATE.toFloat() * 1.3f))
+            lp2 += (lp - lp2) * 0.25f
+            out[i] = lp2 * level * 1.3f * (0.7f + 0.3f * sin(i / RATE.toFloat() * 1.3f))
         }
-        return toPcm(out, 1.5f)
+        return toPcm(out, 1.5f, rms = 0.12f * level)
     }
 
     private fun splash(secs: Float, at: Float): ShortArray {
@@ -315,24 +327,51 @@ object Sounds {
         return all
     }
 
-    /** The swing's ropes creak at each end of its arc. */
+    /**
+     * The swing, in time with how it's drawn (back and forth as sin(2.6 t)): a soft rush of air as it
+     * sweeps through the bottom, and the rope creaking quietly on the branch at each end.
+     */
     private fun creaks(secs: Float): ShortArray {
         val out = buffer(secs)
-        val period = (PI / 2.6).toFloat()
-        var t = period / 2
-        while (t < secs - 0.4f) {
-            val start = (t * RATE).toInt()
-            var ph = 0.0
-            for (k in 0 until (RATE * 0.22f).toInt()) {
-                if (start + k >= out.size) break
-                val f = 620 + 260 * sin(k / (RATE * 0.22f) * PI).toFloat()
-                ph += 2 * PI * f / RATE
-                val saw = ((ph / (2 * PI)) % 1.0).toFloat() * 2 - 1
-                out[start + k] += saw * 0.35f * sin(k / (RATE * 0.22f) * PI).toFloat()
-            }
-            t += period
+        val rnd = java.util.Random(17)
+        val w = 2.6f
+        // Air: low, soft noise swelling with the speed (fastest at the bottom of the arc).
+        var lp = 0f
+        var lp2 = 0f
+        for (i in out.indices) {
+            val t = i / RATE.toFloat()
+            val speed = kotlin.math.abs(kotlin.math.cos(w * t))
+            lp += ((rnd.nextFloat() * 2 - 1) - lp) * 0.06f
+            lp2 += (lp - lp2) * 0.3f
+            out[i] = lp2 * speed * speed * 0.55f
         }
-        return toPcm(out)
+        // The rope at each end: a short stick-slip creak through a woody resonance, a little different each time.
+        var n = 0
+        var t = (PI / 2 / w).toFloat()
+        while (t < secs - 0.3f) {
+            val f = 330.0 + (n % 3) * 35.0
+            val r = 0.996
+            val a1 = 2 * r * kotlin.math.cos(2 * PI * f / RATE)
+            val a2 = -r * r
+            var y1 = 0.0
+            var y2 = 0.0
+            val start = (t * RATE).toInt()
+            val len = (RATE * 0.18f).toInt()
+            var next = 0
+            for (k in 0 until len) {
+                if (start + k >= out.size) break
+                // Friction: little catches, a few dozen a second, slowing down as it settles.
+                var x = 0.0
+                if (k >= next) { x = (0.6 + rnd.nextDouble() * 0.4); next = k + (RATE / (55 - 30.0 * k / len)).toInt() }
+                val y = a1 * y1 + a2 * y2 + x
+                y2 = y1; y1 = y
+                val env = sin(PI * k / len)
+                out[start + k] += (y * 0.0045 * env).toFloat()
+            }
+            n++
+            t += (PI / w).toFloat()
+        }
+        return toPcm(out, 1.2f, rms = 0.055f)
     }
 
     // Tunes for the music box: (semitones from A4, beats).
@@ -361,6 +400,18 @@ object Sounds {
             t += beats * beat
             i++
         }
-        return toPcm(out)
+        return toPcm(room(out), rms = if (secs > 3f) 0.075f else null)
+    }
+
+    /** A little room around a sound (a few soft echoes, fading): warmer, less like a beep. */
+    private fun room(dry: FloatArray): FloatArray {
+        val out = dry.copyOf()
+        for ((ms, fb) in listOf(29.7f to 0.62f, 37.1f to 0.58f, 41.1f to 0.55f)) {
+            val d = (RATE * ms / 1000f).toInt()
+            val comb = FloatArray(dry.size)
+            for (i in dry.indices) comb[i] = dry[i] + (if (i >= d) comb[i - d] * fb else 0f)
+            for (i in out.indices) out[i] += comb[i] * 0.12f
+        }
+        return out
     }
 }

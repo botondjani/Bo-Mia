@@ -352,6 +352,13 @@ fun ClearingScreen(
                         if (cx >= 0f && using == null && idle.value == null && carry.value == null && !night &&
                             kotlin.math.abs(cx - fx) * size.width < size.height * 0.08f && fy in (cy - 0.17f)..(cy + 0.02f)
                         ) { poke(); return@detectTapGestures }
+                        // Asleep in the shelter: tapping it lets them sleep (nothing to do there at night).
+                        if (nightNow) bedOf(placedNow)?.let { bed ->
+                            if (restNow == bed && spotAt(Offset(fx, fy), size.width / size.height.toFloat(), pinnedNow, placedNow) == bed) {
+                                caught = "Shh\u2026 ${avatar.displayName} is asleep in the ${Things.byId(placedNow.getValue(bed))?.name?.lowercase() ?: "tent"}."
+                                tick(); return@detectTapGestures
+                            }
+                        }
                         // A present from a friend: opened, its acorns fly out.
                         if (giftsNow.isNotEmpty() && kotlin.math.abs(GiftSpot.x - fx) * size.width < size.height * 0.07f && fy in (GiftSpot.y - 0.1f)..(GiftSpot.y + 0.03f)) {
                             val who = giftsNow.distinct()
