@@ -52,7 +52,9 @@ import app.tend.core.Tasks
 import app.tend.data.TendStore
 import app.tend.ui.Brand
 import app.tend.ui.Card
-import app.tend.ui.CharacterView
+import app.tend.ui.drawClearing
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.foundation.layout.aspectRatio
 import app.tend.ui.TendTheme
 import kotlinx.coroutines.delay
 
@@ -148,9 +150,28 @@ class InterstitialActivity : ComponentActivity() {
 
     @Composable
     private fun Header(v: View) {
+        // The camp itself, as it is right now (the weather, the dark, what's in it), with the companion in it.
+        val placed = androidx.compose.runtime.remember { store.placed }
+        val layout = androidx.compose.runtime.remember { store.layout.mapValues { androidx.compose.ui.geometry.Offset(it.value.first, it.value.second) } }
+        val worn = app.tend.ui.LocalAccessories.current
+        val ambient = app.tend.ui.rememberAmbientClock()
+        val mood = if (v.locked || v.evening || v.scheduled != null) Mood.TIRED else Mood.SCROLLING
+        androidx.compose.foundation.Canvas(
+            Modifier.fillMaxWidth().aspectRatio(2.1f).clip(RoundedCornerShape(22.dp)),
+        ) {
+            // Closer in, around where the companion is (the whole camp would leave them tiny here).
+            val zoom = 1.3f
+            val scene = androidx.compose.ui.geometry.Size(size.width * zoom, size.width * zoom / 1.6f)
+            val at = app.tend.ui.Whereabouts.standing ?: app.tend.ui.restFraction(store.restSpot, layout)
+            val dx = (size.width / 2f - at.x * scene.width).coerceIn(size.width - scene.width, 0f)
+            val dy = (size.height * 0.74f - at.y * scene.height).coerceIn(size.height - scene.height, 0f)
+            translate(dx, dy) {
+                androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(this, layoutDirection, drawContext.canvas, scene) {
+                    drawClearing(store.avatar, placed, mood, worn, layout = layout, ambient = ambient.value, rest = store.restSpot)
+                }
+            }
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            CharacterView(store.avatar, if (v.locked || v.evening || v.scheduled != null) Mood.TIRED else Mood.SCROLLING, 76.dp, lightweight = true)
-            Spacer(Modifier.width(12.dp))
             Column {
                 Text(
                     when {
@@ -221,10 +242,10 @@ class InterstitialActivity : ComponentActivity() {
         if (instead != null) {
             // The pause turns into the thing you'd rather do, one tap away.
             PrimaryButton(instead.first, { decide("instead"); instead.second() })
-            SecondaryButton("Not now", ::notNow)
+            SecondaryButton(notNowLabel(), ::notNow)
             OpenLinks(v, left, openFor)
         } else {
-            PrimaryButton("Not now", ::notNow)
+            PrimaryButton(notNowLabel(), ::notNow)
             OpenLinks(v, left, openFor)
         }
         }
@@ -282,7 +303,7 @@ class InterstitialActivity : ComponentActivity() {
         }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp)) {
             if (instead != null) PrimaryButton(instead.first, { decide("instead"); instead.second() })
-            SecondaryButton("Not now", ::notNow)
+            SecondaryButton(notNowLabel(), ::notNow)
             // Good night is a promise to yourself, not a cage: a way out when something really can't wait.
             if (lock == app.tend.core.LockSchedule.GOOD_NIGHT && !store.isStrict) Text(
                 "I need it now: wake the apps", style = MaterialTheme.typography.labelLarge, color = Brand.Muted, textAlign = TextAlign.Center,
@@ -312,10 +333,11 @@ class InterstitialActivity : ComponentActivity() {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp)) {
         PrimaryButton(if (v.appLimit != null) "Do something with ${store.avatar.displayName} instead" else "Let's earn some", {
             decide(if (v.appLimit != null) "instead" else "earn")
-            startActivity(Intent(this@InterstitialActivity, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            startActivity(Intent(this@InterstitialActivity, MainActivity::class.java).putExtra(app.tend.reminder.RecapReminder.EXTRA_OPEN, app.tend.reminder.RecapReminder.OPEN_ACTIVITIES)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
             finish()
         })
-        SecondaryButton("Not now", ::notNow)
+        SecondaryButton(notNowLabel(), ::notNow)
         // Once a day, when it really can't wait: five minutes now, paid in acorns.
         if (store.canBorrow) Text(
             "I need 5 minutes now (${app.tend.core.Acorns.BORROW} acorns, once a day)",
@@ -332,14 +354,23 @@ class InterstitialActivity : ComponentActivity() {
 
     private fun notNow() { decide("not_now"); goHome() }
 
-    /** Instead of the app: back to tend's activities, to pick one with the companion. */
+    /**
+     * Instead of the app: a friend phone-free at the fire right now (join them), or the next
+     * activity, by name and what it brings (to tend, with the activities in view).
+     */
     private fun insteadSuggestion(@Suppress("UNUSED_PARAMETER") evening: Boolean): Pair<String, () -> Unit>? {
-        if (store.selectedTasks.isEmpty()) return null
-        return "Do something with ${store.avatar.displayName} instead" to {
-            startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+        fun open(extra: String) {
+            startActivity(Intent(this, MainActivity::class.java).putExtra(app.tend.reminder.RecapReminder.EXTRA_OPEN, extra)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
             finish()
         }
+        app.tend.data.Friends.atFire(this).firstOrNull()?.let { f -> return "Join ${f.name} at the fire" to { open(app.tend.data.Friends.OPEN_JOIN) } }
+        val next = Tasks.next(store.today(), store.selectedTasks) ?: return null
+        return "${next.title} with ${store.avatar.displayName} · +${next.rewardMinutes} min" to { open(app.tend.reminder.RecapReminder.OPEN_ACTIVITIES) }
     }
+
+    /** "Not now", and what it earns while today's acorns for it last. */
+    private fun notNowLabel() = store.nextNotNowAcorns.let { if (it > 0) "Not now · +$it acorns" else "Not now" }
 
     private fun goHome() {
         startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

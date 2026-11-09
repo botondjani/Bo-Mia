@@ -27,6 +27,8 @@ object RecapReminder {
     private const val CHANNEL = "recap"
     private const val WINDOW_MS = 10 * 60_000L
     const val EXTRA_OPEN = "open"
+    /** Opened from a pause: home, with the activities in view. */
+    const val OPEN_ACTIVITIES = "activities"
     const val OPEN_RECAP = "recap"
 
     fun schedule(context: Context) {

@@ -34,6 +34,17 @@ import androidx.compose.ui.unit.sp
 import app.tend.core.Avatar
 import app.tend.core.BudgetConfig
 import app.tend.core.TaskDef
+import androidx.compose.animation.togetherWith
+import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 
 /** Settings after onboarding: the same pickers, on one page. */
 @Composable
@@ -110,135 +121,196 @@ fun SettingsScreen(
     aboutYou: @Composable () -> Unit = {},
     townName: String? = null,
     onDone: () -> Unit,
-) = Column(
-    Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
-    verticalArrangement = Arrangement.spacedBy(12.dp),
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = Space.l)) {
-        IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, "Back", onDone)
-        Spacer(Modifier.width(Space.m))
-        Text("Settings", style = MaterialTheme.typography.headlineMedium)
-    }
-    PlusCard(plus, trialDaysLeft, plusPaid, onTestTrial) { onPlus(PlusFrom.SETTINGS) }
-    Text("COMPANION", style = MaterialTheme.typography.labelSmall)
-    CompanionPicker(avatar, onAvatar, compact = true)
-    // The apps, each with its own limit, in one list; the full picker opens below it.
-    Text("APPS TO PAUSE", style = MaterialTheme.typography.labelSmall)
-    AppsCard(catalog, blocked, onToggleApp, appLimits, appSecondsToday, strict, plus, onAppLimit) { onPlus(PlusFrom.APP_LIMITS) }
-    // Minutes: the day's budget, strict mode and a break, together.
-    Text("MINUTES", style = MaterialTheme.typography.labelSmall)
-    Card {
-        BudgetSteppers(cfg, onConfig)
-        Divider()
-        if (plus) StrictRow(strict, strictEndsAt, onStrict)
-        else Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tappable { onPlus(PlusFrom.STRICT) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Strict mode", style = MaterialTheme.typography.bodyLarge)
-                Text("No shortcuts, for the days you need it", style = MaterialTheme.typography.bodyMedium)
-            }
-            PlusMark()
+    // One short menu; each part opens on its own page (back, or the back gesture, returns).
+    var page by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    androidx.activity.compose.BackHandler(enabled = page != null) { page = null }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    androidx.compose.animation.AnimatedContent(
+        page, label = "settings",
+        transitionSpec = {
+            val forward = targetState != null
+            (androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(280)) { if (forward) it / 3 else -it / 3 } +
+                androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(280))) togetherWith
+                (androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.tween(240)) { if (forward) -it / 4 else it / 4 } +
+                    androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(200)))
+        },
+    ) { open ->
+    Column(
+        Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = Space.l)) {
+            IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, "Back") { if (open == null) onDone() else page = null }
+            Spacer(Modifier.width(Space.m))
+            Text(SETTINGS_PAGES.firstOrNull { it.first == open }?.second ?: "Settings", style = MaterialTheme.typography.headlineMedium)
         }
-        Divider()
-        BreakRows(pausedUntil, strict, onPause)
-    }
-    Text("INSTEAD OF SCROLLING", style = MaterialTheme.typography.labelSmall)
-    ActivitySummary(tasks, onToggleTask)
-
-    // Everything about the evening in one place: when it starts, the pause, the recap, the lock.
-    val bedtime = lockSchedules.firstOrNull { it.label == app.tend.core.LockSchedule.BEDTIME.label }
-    val work = lockSchedules.firstOrNull { it.label == app.tend.core.LockSchedule.WORK.label }
-    // Notes and the evening in one place.
-    Text("NOTES & EVENING", style = MaterialTheme.typography.labelSmall)
-    Card {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Evening starts at", style = MaterialTheme.typography.bodyLarge)
-                Text("Until 5:00", style = MaterialTheme.typography.bodyMedium)
+        when (open) {
+            null -> {
+                PlusCard(plus, trialDaysLeft, plusPaid, onTestTrial) { onPlus(PlusFrom.SETTINGS) }
+                val soundsOff = Sounds.Kind.entries.filter { !Sounds.on(ctx, it) }
+                val summaries = mapOf(
+                    "companion" to avatar.displayName,
+                    "apps" to if (blocked.isEmpty()) "None yet" else "${blocked.size} app${if (blocked.size == 1) "" else "s"}" + if (appLimits.isNotEmpty()) " · ${appLimits.size} with a limit" else "",
+                    "minutes" to "${cfg.freeMinutes} free a day" + if (strict) " · strict" else "",
+                    "activities" to "${tasks.size} picked",
+                    "evening" to "From %d:00".format(eveningFrom) + if (lockSchedules.any { it.on }) " · a lock on" else "",
+                    "sounds" to when (soundsOff.size) { 0 -> "All on"; Sounds.Kind.entries.size -> "Off"; else -> soundsOff.joinToString(", ") { it.title } + " off" },
+                    "town" to (townName ?: "Not set"),
+                    "account" to "Sign in, backup",
+                    "more" to "Theme, widget, privacy",
+                )
+                Card {
+                    SETTINGS_PAGES.forEachIndexed { i, (key, title, icon) ->
+                        if (i > 0) Divider()
+                        MenuRow(icon, title, summaries[key] ?: "") { page = key }
+                    }
+                }
+                // Testers only: the Play build doesn't show it.
+                val diagnostics = if (app.tend.BuildConfig.PLAY) "" else if (missCount == 0) " · no blocking misses" else " · $missCount blocking misses"
+                Text("tend $version$diagnostics", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, modifier = Modifier.align(Alignment.CenterHorizontally))
             }
-            EveningStepper(eveningFrom, onEvening)
-        }
-        SwitchRow("Sleepy pauses", "The pause waits 15 s and ${avatar.displayName} gets sleepy", eveningPause, onEveningPause)
-        SwitchRow("Evening recap", "A note when the evening starts", reminderEnabled, onReminder)
-        bedtime?.let { LockRow(it, "Bedtime lock", onLockSchedule) }
-        Divider()
-        SwitchRow("Morning plan", "8:30: today's minutes and what's worth the most", notesMorning) { onNotes("morning", it) }
-        SwitchRow("Gentle nudges", "When 10 minutes are left", notesNudges) { onNotes("nudges", it) }
-        SwitchRow("${avatar.displayName} peeks in", "After 10 minutes in a row in a paused app, from the edge of the screen", peekOn, onPeek)
-        SwitchRow("Sunday letter", "Your week, on Sunday evening", weeklyLetter, onWeeklyLetter)
-        work?.let { LockRow(it, "Work hours lock", onLockSchedule) }
-        Text("At most 3 notes a day. A lock keeps the picked apps closed; only \"Not now\" or something better.", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
-    }
-
-    Text("ACCOUNT", style = MaterialTheme.typography.labelSmall)
-    AccountCard(onAccountChanged, onRestored)
-
-    Text("MORE", style = MaterialTheme.typography.labelSmall)
-    var confirmReset by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
-    Card {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("light" to "Light", "dark" to "Dark", "system" to "Auto").forEach { (key, label) ->
-                val on = key == theme
-                Text(
-                    label,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (on) Color.White else Brand.Moss,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
-                        .background(if (on) Brand.Moss else Brand.Sage)
-                        .clickable { onTheme(key) }.padding(vertical = 10.dp),
+            "companion" -> CompanionPicker(avatar, onAvatar, compact = true)
+            // The apps, each with its own limit, in one list; the full picker opens below it.
+            "apps" -> AppsCard(catalog, blocked, onToggleApp, appLimits, appSecondsToday, strict, plus, onAppLimit) { onPlus(PlusFrom.APP_LIMITS) }
+            // Minutes: the day's budget, strict mode and a break, together.
+            "minutes" -> {
+                Card {
+                    BudgetSteppers(cfg, onConfig)
+                    Divider()
+                    if (plus) StrictRow(strict, strictEndsAt, onStrict)
+                    else Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tappable { onPlus(PlusFrom.STRICT) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Strict mode", style = MaterialTheme.typography.bodyLarge)
+                            Text("No shortcuts, for the days you need it", style = MaterialTheme.typography.bodyMedium)
+                        }
+                        PlusMark()
+                    }
+                    Divider()
+                    BreakRows(pausedUntil, strict, onPause)
+                }
+            }
+            "activities" -> ActivitySummary(tasks, onToggleTask)
+            // Everything about the evening and the notes in one place.
+            "evening" -> {
+                // Everything about the evening in one place: when it starts, the pause, the recap, the lock.
+                val bedtime = lockSchedules.firstOrNull { it.label == app.tend.core.LockSchedule.BEDTIME.label }
+                val work = lockSchedules.firstOrNull { it.label == app.tend.core.LockSchedule.WORK.label }
+                // Notes and the evening in one place.
+                Card {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Evening starts at", style = MaterialTheme.typography.bodyLarge)
+                            Text("Until 5:00", style = MaterialTheme.typography.bodyMedium)
+                        }
+                        EveningStepper(eveningFrom, onEvening)
+                    }
+                    SwitchRow("Sleepy pauses", "The pause waits 15 s and ${avatar.displayName} gets sleepy", eveningPause, onEveningPause)
+                    SwitchRow("Evening recap", "A note when the evening starts", reminderEnabled, onReminder)
+                    bedtime?.let { LockRow(it, "Bedtime lock", onLockSchedule) }
+                    Divider()
+                    SwitchRow("Morning plan", "8:30: today's minutes and what's worth the most", notesMorning) { onNotes("morning", it) }
+                    SwitchRow("Gentle nudges", "When 10 minutes are left", notesNudges) { onNotes("nudges", it) }
+                    SwitchRow("${avatar.displayName} peeks in", "After 10 minutes in a row in a paused app, from the edge of the screen", peekOn, onPeek)
+                    SwitchRow("Sunday letter", "Your week, on Sunday evening", weeklyLetter, onWeeklyLetter)
+                    work?.let { LockRow(it, "Work hours lock", onLockSchedule) }
+                    Text("At most 3 notes a day. A lock keeps the picked apps closed; only \"Not now\" or something better.", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+                }
+            }
+            "sounds" -> Card {
+                // Each kind of sound on its own.
+                Sounds.Kind.entries.forEach { kind ->
+                    var on by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(Sounds.on(ctx, kind)) }
+                    SwitchRow(kind.title, kind.about, on) { on = it; Sounds.set(ctx, kind, it) }
+                }
+            }
+            "town" -> Card { aboutYou() }
+            "account" -> AccountCard(onAccountChanged, onRestored)
+            else -> {
+                var confirmReset by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+                Card {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("light" to "Light", "dark" to "Dark", "system" to "Auto").forEach { (key, label) ->
+                            val on = key == theme
+                            Text(
+                                label,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = if (on) Color.White else Brand.Moss,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
+                                    .background(if (on) Brand.Moss else Brand.Sage)
+                                    .clickable { onTheme(key) }.padding(vertical = 10.dp),
+                            )
+                        }
+                    }
+                    WidgetButton(avatar, onAddWidget)
+                    SwitchRow("Share anonymous stats", "No names, apps or health data", shareStats, onShareStats)
+                    // Small things, two to a row, all the same width.
+                    val links = listOfNotNull(
+                        onRate?.let { "Rate tend" to it },
+                        "Privacy" to onPrivacy,
+                        onFeedback?.let { "Feedback" to it },
+                        onExport?.let { "Export data" to it },
+                        "Start over" to { confirmReset = true },
+                    )
+                    links.chunked(2).forEach { pair ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            pair.forEach { (label, action) ->
+                                Text(
+                                    label, style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = TextAlign.Center, maxLines = 1,
+                                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(Brand.Sage).clickable(onClick = action).padding(vertical = 10.dp),
+                                )
+                            }
+                            if (pair.size == 1) Spacer(Modifier.weight(1f))
+                        }
+                    }
+                    // Testers only: the Play build doesn't show it.
+                    val diagnostics = if (app.tend.BuildConfig.PLAY) "" else if (missCount == 0) " · no blocking misses" else " · $missCount blocking misses"
+                    Text("tend $version$diagnostics", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+                }
+                if (confirmReset) androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { confirmReset = false },
+                    title = { Text("Start over?") },
+                    text = { Text("This deletes your minutes, activities, camp and settings on this phone. It can't be undone.") },
+                    confirmButton = { androidx.compose.material3.TextButton(onClick = { confirmReset = false; onStartOver() }) { Text("Delete everything", color = Brand.Coral) } },
+                    dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmReset = false }) { Text("Keep") } },
+                    containerColor = Brand.Card,
                 )
             }
         }
-        // Your town and you: folded into one row until opened.
-        var aboutOpen by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
-        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tappable { aboutOpen = !aboutOpen }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Your town and you", style = MaterialTheme.typography.bodyLarge)
-                Text(townName?.let { "Weather from $it" } ?: "Set your town for the camp's weather", style = MaterialTheme.typography.bodyMedium)
-            }
-            Text(if (aboutOpen) "Done" else "Change", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
-        }
-        androidx.compose.animation.AnimatedVisibility(aboutOpen) { aboutYou() }
-        WidgetButton(avatar, onAddWidget)
-        val ctx = androidx.compose.ui.platform.LocalContext.current
-        // Each kind of sound on its own.
-        Sounds.Kind.entries.forEach { kind ->
-            var on by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(Sounds.on(ctx, kind)) }
-            SwitchRow(kind.title, kind.about, on) { on = it; Sounds.set(ctx, kind, it) }
-        }
-        SwitchRow("Share anonymous stats", "No names, apps or health data", shareStats, onShareStats)
-        // Small things, two to a row, all the same width.
-        val links = listOfNotNull(
-            onRate?.let { "Rate tend" to it },
-            "Privacy" to onPrivacy,
-            onFeedback?.let { "Feedback" to it },
-            onExport?.let { "Export data" to it },
-            "Start over" to { confirmReset = true },
-        )
-        links.chunked(2).forEach { pair ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                pair.forEach { (label, action) ->
-                    Text(
-                        label, style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = TextAlign.Center, maxLines = 1,
-                        modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(Brand.Sage).clickable(onClick = action).padding(vertical = 10.dp),
-                    )
-                }
-                if (pair.size == 1) Spacer(Modifier.weight(1f))
-            }
-        }
-        // Testers only: the Play build doesn't show it.
-        val diagnostics = if (app.tend.BuildConfig.PLAY) "" else if (missCount == 0) " · no blocking misses" else " · $missCount blocking misses"
-        Text("tend $version$diagnostics", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+        Spacer(Modifier.padding(bottom = 24.dp))
     }
-    if (confirmReset) androidx.compose.material3.AlertDialog(
-        onDismissRequest = { confirmReset = false },
-        title = { Text("Start over?") },
-        text = { Text("This deletes your minutes, activities, camp and settings on this phone. It can't be undone.") },
-        confirmButton = { androidx.compose.material3.TextButton(onClick = { confirmReset = false; onStartOver() }) { Text("Delete everything", color = Brand.Coral) } },
-        dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmReset = false }) { Text("Keep") } },
-        containerColor = Brand.Card,
-    )
-    Spacer(Modifier.padding(bottom = 24.dp))
+    }
+}
+
+/** The settings menu: key, title, icon. */
+private val SETTINGS_PAGES = listOf(
+    Triple("companion", "Companion", androidx.compose.material.icons.Icons.Filled.Face),
+    Triple("apps", "Apps to pause", androidx.compose.material.icons.Icons.Filled.Lock),
+    Triple("minutes", "Minutes", androidx.compose.material.icons.Icons.Filled.DateRange),
+    Triple("activities", "Instead of scrolling", androidx.compose.material.icons.Icons.Filled.Favorite),
+    Triple("evening", "Evening & notes", androidx.compose.material.icons.Icons.Filled.Notifications),
+    Triple("sounds", "Sounds", androidx.compose.material.icons.Icons.Filled.PlayArrow),
+    Triple("town", "Your town & you", androidx.compose.material.icons.Icons.Filled.Place),
+    Triple("account", "Account", androidx.compose.material.icons.Icons.Filled.AccountCircle),
+    Triple("more", "More", androidx.compose.material.icons.Icons.Filled.Info),
+)
+
+/** One row of the settings menu: an icon, the title, how it's set now, and an arrow. */
+@Composable
+private fun MenuRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, summary: String, onClick: () -> Unit) = Row(
+    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tappable(onClick = onClick).padding(vertical = 8.dp),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    Box(Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)).background(Brand.Sage), contentAlignment = Alignment.Center) {
+        androidx.compose.material3.Icon(icon, null, tint = Brand.Moss, modifier = Modifier.size(19.dp))
+    }
+    Spacer(Modifier.width(14.dp))
+    Column(Modifier.weight(1f)) {
+        Text(title, style = MaterialTheme.typography.bodyLarge)
+        Text(summary, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp), color = Brand.Muted, maxLines = 1)
+    }
+    androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Brand.Muted, modifier = Modifier.size(20.dp))
 }
 
 /** A lock as one switch; its hours show while it's on. */

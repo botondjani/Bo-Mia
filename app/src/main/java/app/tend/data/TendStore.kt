@@ -800,6 +800,13 @@ class TendStore(private val context: Context) {
         get() = prefs.getBoolean("monitor_slept", false)
         set(v) = edit { putBoolean("monitor_slept", v) }
 
+    /** Acorns the next "Not now" earns today (0 once today's are all earned). */
+    val nextNotNowAcorns: Int
+        get() {
+            val n = if (prefs.getString("not_now_day", "") == LocalDate.now().toString()) prefs.getInt("not_now_count", 0) else 0
+            return app.tend.core.Acorns.forNotNows(n + 1) - app.tend.core.Acorns.forNotNows(n)
+        }
+
     /** Answers to "What are you looking for?" and "Worth it?" — source of the weekly patterns. */
     fun logAnswer(kind: String, pkg: String, answer: String, sessionSeconds: Long = 0) {
         Stats.log(context, kind, mapOf((if (kind == "pause") "outcome" else "answer") to answer))

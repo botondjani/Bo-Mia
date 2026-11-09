@@ -91,6 +91,7 @@ class MainActivity : ComponentActivity() {
     /** Set when the evening notification was tapped. */
     private var openRecap by mutableStateOf(false)
     private var openClearing by mutableStateOf(false)
+    private var openActivities by mutableStateOf(false)
     /** Opened from "Anna put her phone down": join her at the fire. */
     private var joinFire by mutableStateOf(false)
 
@@ -135,6 +136,7 @@ class MainActivity : ComponentActivity() {
             RecapReminder.OPEN_RECAP -> openRecap = true
             app.tend.reminder.WeeklyLetter.OPEN_CLEARING -> openClearing = true
             app.tend.data.Friends.OPEN_JOIN -> joinFire = true
+            RecapReminder.OPEN_ACTIVITIES -> openActivities = true
         }
         // A friend's invite: keep the code (it waits through onboarding or logging in) and open the clearing.
         app.tend.data.Friends.codeFrom(intent?.dataString)?.let { code ->
@@ -431,6 +433,8 @@ class MainActivity : ComponentActivity() {
         }
         LaunchedEffect(openRecap) { if (openRecap) { screen = Screen.RECAP; openRecap = false } }
         LaunchedEffect(openClearing) { if (openClearing) { screen = Screen.CLEARING; openClearing = false } }
+        // From a pause: home, with the activities in view.
+        LaunchedEffect(openActivities) { if (openActivities) { screen = Screen.HOME; activitiesFocus++; openActivities = false } }
         celebrate?.let { done ->
             // Only a single hand check-off can be undone; measured tasks are facts.
             val undoable = done.tasks.singleOrNull()?.takeIf { it.manual }
