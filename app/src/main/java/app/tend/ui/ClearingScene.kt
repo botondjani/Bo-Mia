@@ -173,6 +173,8 @@ fun DrawScope.drawClearing(
     onCompanion: ((Offset) -> Unit)? = null,
     /** A thing being moved by the companion ([layout] still has it where it was). */
     carry: Carry? = null,
+    /** Presents from friends waiting to be opened. */
+    gifts: Int = 0,
 ) {
     applySeason(season)
     val w = size.width
@@ -488,6 +490,16 @@ fun DrawScope.drawClearing(
                 it.nativeCanvas.drawRoundRect(pill, u * 0.017f, u * 0.017f, bg)
                 it.nativeCanvas.drawText(label, seat.x, top - u * 0.009f, paint)
             }
+        }
+    }
+    // A present from a friend, waiting by the fire: a little hop now and then, so it's noticed.
+    if (gifts > 0) {
+        val p = Offset(GiftSpot.x * w, GiftSpot.y * h)
+        ground += p.y to {
+            val k = (ambient % 3f) / 0.5f
+            val hop = if (k < 1f) kotlin.math.sin(k * Math.PI.toFloat()) * u * 0.02f else 0f
+            withTransform({ translate(0f, -hop) }) { drawThing("gift_boxes", p, u, lights) }
+            if (k < 1f) sparkles(p + Offset(0f, -u * 0.05f), u, k)
         }
     }
     // Where a thing being moved is going: a faint outline, until it's there.
@@ -831,6 +843,9 @@ private fun DrawScope.bridge(a: Offset, b: Offset, u: Float, night: Boolean, lig
 // ---- What friends do ----
 
 /** Where visitors' rubber ducks bob in the river, as fractions of the scene; the first ones fill first. */
+/** Where presents from friends wait (scene fractions): in front, by the fire. */
+val GiftSpot = Offset(0.53f, 0.93f)
+
 val DuckSpots = listOf(Offset(0.12f, 0.885f), Offset(0.045f, 0.8f), Offset(0.2f, 0.965f))
 
 /** The toilet-papered trees on the right, for taps: anything right of this and above [PAPER_BOTTOM]. */

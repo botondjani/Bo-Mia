@@ -715,6 +715,12 @@ class MainActivity : ComponentActivity() {
                 askTown = store.weatherPlace == null && !store.townAsked,
                 onTown = onTown,
                 onTownLater = { store.townAsked = true; refresh++ },
+                gifts = remember(refresh) { app.tend.data.Friends.giftsToOpen(this@MainActivity) },
+                onOpenGifts = {
+                    val n = app.tend.data.Friends.giftsToOpen(this@MainActivity).size
+                    if (n > 0) store.addAcorns(n * app.tend.data.Friends.GIFT_ACORNS, "gift")
+                    app.tend.data.Friends.markGiftsOpened(this@MainActivity); refresh++
+                },
                 mood = app.tend.core.Moods.atNight(app.tend.core.Moods.of(store.config, store.today()), app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour)),
                 openInvite = campInvite,
                 onStep = goToStep,

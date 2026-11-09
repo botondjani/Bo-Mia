@@ -197,7 +197,7 @@ object Friends {
 
     /** What friends do to each other's camps. */
     enum class Kind(val id: String) {
-        WAVE("wave"), VISIT("visit"), TP("tp"), CHEER("cheer");
+        WAVE("wave"), VISIT("visit"), TP("tp"), CHEER("cheer"), GIFT("gift");
 
         /** How it reads for whoever got it: "Anna waved at you". */
         fun received(name: String) = when (this) {
@@ -205,13 +205,14 @@ object Friends {
             VISIT -> "$name visited your camp"
             TP -> "$name toilet-papered your oak"
             CHEER -> "$name cheered you on"
+            GIFT -> "$name sent you a present"
         }
 
         /** For the widget's small label: "Anna: visited". */
-        val short: String get() = when (this) { WAVE -> "waved"; VISIT -> "visited"; TP -> "toilet paper!"; CHEER -> "cheered!" }
+        val short: String get() = when (this) { WAVE -> "waved"; VISIT -> "visited"; TP -> "toilet paper!"; CHEER -> "cheered!"; GIFT -> "a present!" }
 
         /** For the 1x1 widget's badge. */
-        val emoji: String get() = when (this) { WAVE -> "\uD83D\uDC4B"; VISIT -> "\uD83E\uDD86"; TP -> "\uD83E\uDDFB"; CHEER -> "\uD83D\uDC4F" }
+        val emoji: String get() = when (this) { WAVE -> "\uD83D\uDC4B"; VISIT -> "\uD83E\uDD86"; TP -> "\uD83E\uDDFB"; CHEER -> "\uD83D\uDC4F"; GIFT -> "\uD83C\uDF81" }
 
         companion object { fun of(id: String) = entries.firstOrNull { it.id == id } }
     }
@@ -308,6 +309,20 @@ object Friends {
         }
     }
 
+    /** Acorns in a present from a friend. */
+    const val GIFT_ACORNS = 10
+
+    /** Presents from friends not opened yet: who sent each (newest first). */
+    fun giftsToOpen(c: Context): List<String> {
+        val opened = prefs(c).getLong("gifts_opened", 0)
+        return notes(c).filter { it.kind == Kind.GIFT && it.id > opened }.map { it.name }
+    }
+
+    /** The presents shown are opened. */
+    fun markGiftsOpened(c: Context) {
+        notes(c).filter { it.kind == Kind.GIFT }.maxOfOrNull { it.id }?.let { prefs(c).edit().putLong("gifts_opened", it).apply() }
+    }
+
     /** One notification for what's new: "Anna toilet-papered your oak" (and how many more). */
     private fun notify(c: Context, fresh: List<Note>) {
         if (!app.tend.reminder.RecapReminder.canNotify(c)) return
@@ -319,6 +334,7 @@ object Friends {
             Kind.VISIT -> "They left a rubber duck in your river."
             Kind.WAVE -> "Wave back from your camp."
             Kind.CHEER -> "For what you did today. Cheer them back from your camp."
+            Kind.GIFT -> "It's waiting in your camp. Tap it to open."
         } + if (fresh.size > 1) " And ${fresh.size - 1} more from friends." else ""
         val open = android.app.PendingIntent.getActivity(
             c, 21, android.content.Intent(c, app.tend.MainActivity::class.java).putExtra(app.tend.reminder.RecapReminder.EXTRA_OPEN, app.tend.reminder.WeeklyLetter.OPEN_CLEARING).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),

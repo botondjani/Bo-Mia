@@ -61,7 +61,14 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
     var note by rememberSaveable { mutableStateOf<String?>(null) }
     // Cheered today (the server allows one a day per friend): kept here so the button says so at once.
     var cheered by remember { mutableStateOf(setOf<String>()) }
-    LaunchedEffect(Unit) { Friends.sent(context)?.let { s -> cheered = s.used.filterValues { Friends.Kind.CHEER in it }.keys } }
+    // Presents sent today (one a day to each friend), the same way.
+    var gifted by remember { mutableStateOf(setOf<String>()) }
+    LaunchedEffect(Unit) {
+        Friends.sent(context)?.let { s ->
+            cheered = s.used.filterValues { Friends.Kind.CHEER in it }.keys
+            gifted = s.used.filterValues { Friends.Kind.GIFT in it }.keys
+        }
+    }
 
     var claimed by remember { mutableStateOf(false) }
     suspend fun reload() {
@@ -110,7 +117,22 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
             )
             list.forEach { f ->
                 FriendRow(
-                    f, cheered = f.id in cheered, onVisit = { onOpenRiver(f.id) },
+                    f, cheered = f.id in cheered, gifted = f.id in gifted, onVisit = { onOpenRiver(f.id) },
+                    onGift = {
+                        // Ten of your acorns, to open in their camp (back to you if it doesn't go).
+                        val store = app.tend.data.TendStore(context)
+                        if (store.acorns < Friends.GIFT_ACORNS) note = "A present is ${Friends.GIFT_ACORNS} acorns: earn a few more first."
+                        else {
+                            gifted = gifted + f.id
+                            store.addAcorns(-Friends.GIFT_ACORNS, "spent")
+                            scope.launch {
+                                if (!Friends.send(context, f.id, Friends.Kind.GIFT)) {
+                                    store.addAcorns(Friends.GIFT_ACORNS, "spent"); gifted = gifted - f.id
+                                    note = "Couldn't send the present (one a day to each friend). Your acorns are back."
+                                } else { note = "A present is on its way to ${f.name}."; app.tend.data.Stats.log(context, "gift") }
+                            }
+                        }
+                    },
                     onCheer = {
                         cheered = cheered + f.id
                         scope.launch { if (!Friends.send(context, f.id, Friends.Kind.CHEER)) note = "Couldn't send the cheer. Try again in a moment." else app.tend.data.Stats.log(context, "cheer") }
@@ -160,7 +182,7 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
 }
 
 @Composable
-private fun FriendRow(f: Friends.Friend, cheered: Boolean, onVisit: () -> Unit, onCheer: () -> Unit, onRemove: () -> Unit) = Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).tappable(onClick = onVisit).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun FriendRow(f: Friends.Friend, cheered: Boolean, gifted: Boolean, onVisit: () -> Unit, onCheer: () -> Unit, onGift: () -> Unit, onRemove: () -> Unit) = Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).tappable(onClick = onVisit).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
     Face(f.companion, 40)
     Spacer(Modifier.width(10.dp))
     Column(Modifier.weight(1f)) {
@@ -180,6 +202,14 @@ private fun FriendRow(f: Friends.Friend, cheered: Boolean, onVisit: () -> Unit, 
         color = if (cheered) Brand.Muted else androidx.compose.ui.graphics.Color.White,
         modifier = Modifier.clip(RoundedCornerShape(50)).background(if (cheered) Brand.Sage else Brand.Moss)
             .then(if (cheered) Modifier else Modifier.tappable(onClick = onCheer)).padding(horizontal = 10.dp, vertical = 6.dp),
+    )
+    // A present: ten acorns, once a day.
+    Spacer(Modifier.width(6.dp))
+    Text(
+        if (gifted) "\uD83C\uDF81 Sent" else "\uD83C\uDF81 ${Friends.GIFT_ACORNS}", style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
+        color = if (gifted) Brand.Muted else Brand.Moss,
+        modifier = Modifier.clip(RoundedCornerShape(50)).background(Brand.Sage)
+            .then(if (gifted) Modifier else Modifier.tappable(onClick = onGift)).padding(horizontal = 10.dp, vertical = 6.dp),
     )
     Text("Remove", style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp), color = Brand.Muted,
         modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onRemove).padding(horizontal = 8.dp, vertical = 6.dp))

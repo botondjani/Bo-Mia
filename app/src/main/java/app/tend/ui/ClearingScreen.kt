@@ -124,6 +124,9 @@ fun ClearingScreen(
     askTown: Boolean = false,
     onTown: (app.tend.data.WeatherService.Place?) -> Unit = {},
     onTownLater: () -> Unit = {},
+    /** Presents from friends to open (who sent each); opening them is [onOpenGifts]. */
+    gifts: List<String> = emptyList(),
+    onOpenGifts: () -> Unit = {},
 ) {
     val scroll = rememberScrollState()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -147,6 +150,7 @@ fun ClearingScreen(
     // What friends did: toilet paper unrolls when tapped; a visitor's duck is fished out.
     val paperLeft by androidx.compose.animation.core.animateFloatAsState(if (paper) 1f else 0f, androidx.compose.animation.core.tween(1400), label = "paper")
     val ducksNow by androidx.compose.runtime.rememberUpdatedState(ducks)
+    val giftsNow by androidx.compose.runtime.rememberUpdatedState(gifts)
     val paperNow by androidx.compose.runtime.rememberUpdatedState(paper)
     val bridgeNow by androidx.compose.runtime.rememberUpdatedState(bridge)
     var caught by remember { mutableStateOf<String?>(null) }
@@ -325,6 +329,14 @@ fun ClearingScreen(
                         if (cx >= 0f && using == null && idle.value == null && carry.value == null && !night &&
                             kotlin.math.abs(cx - fx) * size.width < size.height * 0.08f && fy in (cy - 0.17f)..(cy + 0.02f)
                         ) { poke(); return@detectTapGestures }
+                        // A present from a friend: opened, its acorns fly out.
+                        if (giftsNow.isNotEmpty() && kotlin.math.abs(GiftSpot.x - fx) * size.width < size.height * 0.07f && fy in (GiftSpot.y - 0.1f)..(GiftSpot.y + 0.03f)) {
+                            val who = giftsNow.distinct()
+                            caught = "${who.joinToString(" and ")} sent you ${if (giftsNow.size == 1) "a present" else "presents"}: ${giftsNow.size * app.tend.data.Friends.GIFT_ACORNS} acorns!"
+                            burst(Offset(GiftSpot.x, GiftSpot.y - 0.05f)); tick(firm = true); Sounds.acorns(context)
+                            onOpenGifts()
+                            return@detectTapGestures
+                        }
                         val duck = DuckSpots.take(ducksNow.size).indexOfFirst { kotlin.math.abs(it.x - fx) * size.width < size.height * 0.08f && kotlin.math.abs(it.y - fy) < 0.09f }
                         if (duck >= 0) {
                             val n = ducksNow[duck]
@@ -455,6 +467,7 @@ fun ClearingScreen(
                     restFrom = restFrom, restClock = restClock.value,
                     ambient = ambient.value, guests = guests,
                     onCompanion = { companionAt[0] = it.x; companionAt[1] = it.y },
+                    gifts = gifts.size,
                 )
             }
         }
