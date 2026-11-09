@@ -449,19 +449,21 @@ class MainActivity : ComponentActivity() {
         }
         val toggleTask: (TaskDef) -> Unit = { store.toggleTask(it); refresh++ }
 
-        // A little about you: the town (its weather fetched at once), an age range, a gender.
+        // The town chosen: saved, and its weather fetched at once.
+        val onTown: (app.tend.data.WeatherService.Place?) -> Unit = { p ->
+            store.setWeatherPlace(p); refresh++
+            lifecycleScope.launch {
+                if (kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { app.tend.data.WeatherService.refresh(this@MainActivity, force = true) }) {
+                    refresh++; app.tend.widget.Widgets.refresh(this@MainActivity)
+                }
+            }
+        }
+        // A little about you: the town, an age range, a gender.
         val aboutYou: @Composable () -> Unit = {
             @Suppress("UNUSED_VARIABLE") val changed = refresh // redraw after each choice
             app.tend.ui.AboutYou(
                 store.weatherPlace, store.ageBand, store.gender,
-                onPlace = { p ->
-                    store.setWeatherPlace(p); refresh++
-                    lifecycleScope.launch {
-                        if (kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { app.tend.data.WeatherService.refresh(this@MainActivity, force = true) }) {
-                            refresh++; app.tend.widget.Widgets.refresh(this@MainActivity)
-                        }
-                    }
-                },
+                onPlace = onTown,
                 onAge = { store.ageBand = it; refresh++ },
                 onGender = { store.gender = it; refresh++ },
             )
@@ -705,6 +707,10 @@ class MainActivity : ComponentActivity() {
                 onCatchDuck = { n -> app.tend.data.Friends.catchDuck(this, n); refresh++; store.ducksCaught },
                 onBack = { campInvite = false; screen = Screen.HOME },
                 onShare = ::shareCamp,
+                // No town yet (set up before it was asked): once, a card for the real weather.
+                askTown = store.weatherPlace == null && !store.townAsked,
+                onTown = onTown,
+                onTownLater = { store.townAsked = true; refresh++ },
                 mood = app.tend.core.Moods.atNight(app.tend.core.Moods.of(store.config, store.today()), app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour)),
                 openInvite = campInvite,
                 onStep = goToStep,

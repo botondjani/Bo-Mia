@@ -562,6 +562,11 @@ class TendStore(private val context: Context) {
 
     // ---- Where the camp is, and a little about you (all optional) ----
 
+    /** Asked once in the camp for a town (for those who set up tend before it was asked during setup). */
+    var townAsked: Boolean
+        get() = prefs.getBoolean("town_asked", false)
+        set(v) = edit { putBoolean("town_asked", v) }
+
     /** The city whose weather the camp has (chosen by name; never the phone's location). */
     val weatherPlace: WeatherService.Place?
         get() = prefs.getString("weather_place", null)?.let { j ->

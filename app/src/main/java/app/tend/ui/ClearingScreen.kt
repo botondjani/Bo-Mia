@@ -1,5 +1,9 @@
 package app.tend.ui
 
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Home
 import kotlinx.coroutines.flow.first
 import androidx.compose.foundation.Canvas
@@ -61,6 +65,7 @@ import kotlinx.coroutines.launch
  * "Place things" (or the scene) to see the spots; tap a spot to buy, swap or sell.
  */
 @Composable
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 fun ClearingScreen(
     avatar: Avatar,
     placed: Map<Int, String>,
@@ -113,6 +118,10 @@ fun ClearingScreen(
     onCheersShown: () -> Unit = {},
     /** Today's minutes: left, available and still to earn, shown in the header as on home; null hides them. */
     minutes: Triple<Int, Int, Int>? = null,
+    /** No town set yet: a card asking for one (for the real weather), until set or [onTownLater]. */
+    askTown: Boolean = false,
+    onTown: (app.tend.data.WeatherService.Place?) -> Unit = {},
+    onTownLater: () -> Unit = {},
 ) {
     val scroll = rememberScrollState()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -121,8 +130,11 @@ fun ClearingScreen(
         .padding(horizontal = 20.dp).padding(top = Space.xs, bottom = Space.xxl),
     verticalArrangement = Arrangement.spacedBy(Space.m),
 ) {
-    var tab by rememberSaveable { mutableIntStateOf(if (openInvite) 1 else 0) }
-    androidx.compose.runtime.LaunchedEffect(openInvite) { if (openInvite) tab = 1 }
+    // Friends open from a button, over the page; the shop and the collection are on the page itself.
+    var friendsOpen by rememberSaveable { mutableStateOf(openInvite) }
+    androidx.compose.runtime.LaunchedEffect(openInvite) { if (openInvite) friendsOpen = true }
+    var shopAt by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    var collectionAt by remember { androidx.compose.runtime.mutableIntStateOf(0) }
 
     // The same header as home (nothing moves going between them); the round button leads home.
     TodayHeader(java.time.LocalDate.now(), minutes, {}) {
@@ -297,7 +309,7 @@ fun ClearingScreen(
         },
     ) {
         // The whole camp, framed like on home: nothing cut off at the sides.
-        val sceneHeight = maxWidth / 1.6f
+        val sceneHeight = maxWidth / CAMP_ASPECT
         Box(Modifier.fillMaxWidth().height(sceneHeight).campEntrance()) {
             Canvas(
                 Modifier.fillMaxSize().then(sharedCamp() ?: Modifier).pointerInput(Unit) {
@@ -443,11 +455,11 @@ fun ClearingScreen(
                 )
             }
         }
-        // On the camp: sharing it (top left) and the acorns (top right).
+        // On the camp: the settings (top left) and the acorns (top right).
         Box(
-            Modifier.align(Alignment.TopStart).padding(12.dp).size(36.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xE6FFFFFF)).tappable(onClick = onShare),
+            Modifier.align(Alignment.TopStart).padding(start = 28.dp, top = 12.dp).size(36.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xE6FFFFFF)).tappable(onClick = onOpenSettings),
             contentAlignment = Alignment.Center,
-        ) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Share, "Share", tint = Brand.Moss, modifier = Modifier.size(18.dp)) }
+        ) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Settings, "Settings", tint = Brand.Moss, modifier = Modifier.size(18.dp)) }
         AcornBadge(acorns, Modifier.align(Alignment.TopEnd).padding(12.dp))
         // Until something has been moved: how, right on the camp.
         if (hintSpot != null && drag == null && carries.isEmpty()) Text(
@@ -475,6 +487,11 @@ fun ClearingScreen(
             )
         }
     }
+    // What the companion is up to, for a familiar camp (the same for the hour). Worked out every time,
+    // not only when shown: a remember inside a changing branch can trip up what follows it.
+    val campLine = remember(java.time.LocalTime.now().hour) {
+        java.time.LocalDateTime.now().let { app.tend.core.Voice.camp(avatar.displayName, it, app.tend.core.LiveWeather.fresh() ?: app.tend.core.Weather.of(it.toLocalDate(), it.hour)) }
+    }
     Text(
         when {
             drag != null && caught != null -> caught!!
@@ -486,57 +503,73 @@ fun ClearingScreen(
             hintSpot != null -> "Hold the ${app.tend.core.Things.byId(placed.getValue(hintSpot))?.name?.lowercase()} to pick it up, then drag it anywhere. ${avatar.displayName} carries it over."
             bridge -> "Cross the bridge to visit your friends' camps."
             // Once the camp is familiar, what the companion is up to; before that, how it works.
-            placed.isNotEmpty() -> if (placed.size >= 3) remember(java.time.LocalTime.now().hour) {
-                java.time.LocalDateTime.now().let { app.tend.core.Voice.camp(avatar.displayName, it, app.tend.core.LiveWeather.fresh() ?: app.tend.core.Weather.of(it.toLocalDate(), it.hour)) }
-            } else "Tap something: ${avatar.displayName} will use it. Hold it to move it."
+            placed.isNotEmpty() -> if (placed.size >= 3) campLine else "Tap something: ${avatar.displayName} will use it. Hold it to move it."
             else -> "Earn acorns by living; spend them in the shop below."
         },
         style = MaterialTheme.typography.bodyMedium,
     )
 
+    // Friends, and sharing the camp: a button each.
+    Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
+        PillButton("Friends", androidx.compose.material.icons.Icons.Filled.Person, Modifier.weight(1f)) { friendsOpen = true }
+        PillButton("Share the camp", androidx.compose.material.icons.Icons.Filled.Share, Modifier.weight(1f), onShare)
+    }
+
+    // Set up before the town was asked: once, the real weather offered.
+    if (askTown) Card {
+        Text("REAL WEATHER IN YOUR CAMP", style = MaterialTheme.typography.labelSmall)
+        Text("Set your town and the camp gets its rain, snow and sunshine.", style = MaterialTheme.typography.bodyMedium)
+        TownPicker(null, onTown)
+        Text("Not now", style = MaterialTheme.typography.labelLarge, color = Brand.Muted, modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onTownLater).padding(vertical = 6.dp))
+    }
+
     FirstStepsCard(steps, onClaim = { onClaimStep(it); Sounds.acorns(context) }, onGo = { step ->
         when (step) {
-            app.tend.core.Step.PLACE, app.tend.core.Step.TREES, app.tend.core.Step.BETTER_FIRE, app.tend.core.Step.SHELTER, app.tend.core.Step.ON_THE_RIVER -> tab = 0
+            app.tend.core.Step.PLACE, app.tend.core.Step.TREES, app.tend.core.Step.BETTER_FIRE, app.tend.core.Step.SHELTER, app.tend.core.Step.ON_THE_RIVER -> scope.launch { scroll.animateScrollTo(shopAt) }
             app.tend.core.Step.USE, app.tend.core.Step.MOVE, app.tend.core.Step.GREET, app.tend.core.Step.THREE_THINGS -> scope.launch { scroll.animateScrollTo(0) }
-            app.tend.core.Step.FRIEND, app.tend.core.Step.TOGETHER -> tab = 1
-            app.tend.core.Step.FIVE_ANIMALS, app.tend.core.Step.RARE -> tab = 2
+            app.tend.core.Step.FRIEND, app.tend.core.Step.TOGETHER -> friendsOpen = true
+            app.tend.core.Step.FIVE_ANIMALS, app.tend.core.Step.RARE -> scope.launch { scroll.animateScrollTo(collectionAt) }
             else -> onStep(step)
         }
     })
 
-    // One thing at a time below the camp: the shop, friends, or what's been collected.
-    Tabs(listOf("Shop", "Friends", "Collection"), tab) { tab = it }
-    when (tab) {
-        0 -> Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, plus = plus, onPlus = onPlus, outfits = outfits, outfitWorn = outfitWorn,
+    // The shop, then what's been collected (visitors met, things found).
+    Box(Modifier.onGloballyPositioned { shopAt = it.positionInParent().y.toInt() }) {
+        Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, plus = plus, onPlus = onPlus, outfits = outfits, outfitWorn = outfitWorn,
             onBuyOutfit = { a -> onBuyOutfit(a).also { if (it) { tick(firm = true); Sounds.chime(context); scope.launch { scroll.animateScrollTo(0) } } } },
             onWearOutfit = { tick(); onWearOutfit(it) }, onBuy = { id ->
             // Bought: a firm tick, a chime, and up to the camp to watch it pop in.
             val spot = Things.byId(id)?.let { Clearing.spotFor(placed, it) }
             onBuy(id).also { ok -> if (ok) { tick(firm = true); Sounds.chime(context); spot?.let { showSpot(it) } } }
         }, onSell = onSell)
-        1 -> FriendsCard(onOpenSettings, onOpenRiver, onFriendsChanged, openInvite)
-        else -> {
-            Guestbook(guestbook)
-            Things(avatar, worn, onShelf)
+    }
+    Column(Modifier.onGloballyPositioned { collectionAt = it.positionInParent().y.toInt() }, verticalArrangement = Arrangement.spacedBy(Space.m)) {
+        Guestbook(guestbook)
+        Things(avatar, worn, onShelf)
+    }
+
+    // Friends: over the page, from the bottom.
+    if (friendsOpen) androidx.compose.material3.ModalBottomSheet(onDismissRequest = { friendsOpen = false }, containerColor = Brand.Sage) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = Space.xl)) {
+            FriendsCard(onOpenSettings, onOpenRiver, onFriendsChanged, openInvite)
         }
     }
 }
 }
 
-/** A row of tabs as one rounded control; the picked one is filled. */
+/** A round-ended button with an icon, for the row under the camp. */
 @Composable
-private fun Tabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) = Row(
-    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Brand.Card).padding(4.dp),
+private fun PillButton(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) = Row(
+    modifier.clip(RoundedCornerShape(50)).background(Brand.Card).tappable(onClick = onClick).padding(vertical = 11.dp),
+    horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
 ) {
-    labels.forEachIndexed { i, label ->
-        Text(
-            label, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center,
-            color = if (i == selected) Color.White else Brand.Moss,
-            modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if (i == selected) Brand.Moss else Color.Transparent)
-                .tappable { onSelect(i) }.padding(vertical = 10.dp),
-        )
-    }
+    androidx.compose.material3.Icon(icon, null, tint = Brand.Moss, modifier = Modifier.size(18.dp))
+    Spacer(Modifier.width(8.dp))
+    Text(label, style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
 }
+
+/** The camp's shape on its own page: a little taller than on home, so it's bigger. */
+private const val CAMP_ASPECT = 1.4f
 
 /**
  * The shop: every thing, three to a row, grouped by where it goes, each bought once. Tapping one

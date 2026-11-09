@@ -56,7 +56,7 @@ fun AboutYou(
 
 /** Your town: the one chosen (with a way to change it), or a search by name. */
 @Composable
-private fun TownPicker(place: WeatherService.Place?, onPlace: (WeatherService.Place?) -> Unit) {
+internal fun TownPicker(place: WeatherService.Place?, onPlace: (WeatherService.Place?) -> Unit) {
     var searching by rememberSaveable { mutableStateOf(place == null) }
     if (place != null && !searching) {
         Row(
