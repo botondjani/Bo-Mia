@@ -20,6 +20,9 @@ enum class Visitor(val title: String, val rarity: Rarity, val x: Float, val y: F
     HERON("Heron", Rarity.RARE, 0.25f, 0.69f),
     OWL("Owl", Rarity.RARE, 0.883f, 0.47f);
 
+    /** "a fox", "an owl". */
+    val aName: String get() = (if (title.first().lowercaseChar() in "aeiou") "an " else "a ") + title.lowercase()
+
     val rare: Boolean get() = rarity == Rarity.RARE
 }
 

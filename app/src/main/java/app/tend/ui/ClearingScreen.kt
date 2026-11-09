@@ -237,10 +237,20 @@ fun ClearingScreen(
             layout(c.maxWidth, p.height) { p.place(-extra, 0) }
         },
     ) {
-        val sceneHeight = maxWidth * 1.0f
-        // Starts in the middle of the camp.
+        // Bigger than on home, but not so much that the edges go missing: about 70% of the camp at once.
+        val sceneHeight = maxWidth * 0.78f
+        // Starts in the middle of the camp, then glides over to a visitor waiting at the edge.
         var centered by rememberSaveable { mutableStateOf(false) }
-        androidx.compose.runtime.LaunchedEffect(pan.maxValue) { if (!centered && pan.maxValue > 0) { pan.scrollTo(pan.maxValue / 2); centered = true } }
+        androidx.compose.runtime.LaunchedEffect(pan.maxValue) {
+            if (centered || pan.maxValue <= 0) return@LaunchedEffect
+            pan.scrollTo(pan.maxValue / 2)
+            centered = true
+            visitorNow?.let { v ->
+                val view = sceneWidthPx - pan.maxValue
+                val target = (v.x * sceneWidthPx - view / 2f).toInt().coerceIn(0, pan.maxValue)
+                if (kotlin.math.abs(target - pan.value) > view * 0.1f) { kotlinx.coroutines.delay(500); pan.animateScrollTo(target, androidx.compose.animation.core.tween(900)) }
+            }
+        }
         Box(Modifier.fillMaxWidth().height(sceneHeight).campEntrance().horizontalScroll(pan)) {
             Canvas(
                 Modifier.width(sceneHeight * CAMP_RATIO).height(sceneHeight).onSizeChanged { sceneWidthPx = it.width }.pointerInput(Unit) {
@@ -405,7 +415,7 @@ fun ClearingScreen(
             drag != null && caught != null -> caught!!
             using != null -> Uses.line(using!!.second, avatar.displayName)
             paper -> "Someone toilet-papered your oak! Tap it to unroll."
-            visitor != null -> "A ${visitor.title.lowercase()} came to the camp. Tap it to say hello."
+            visitor != null -> "${visitor.aName.replaceFirstChar { it.uppercase() }} came to the camp. Tap it to say hello."
             ducks.isNotEmpty() -> "A rubber duck: someone visited. Tap it to fish it out."
             caught != null -> caught!!
             bridge -> "Cross the bridge to visit your friends' camps."
@@ -662,7 +672,7 @@ private fun GreetedCard(v: app.tend.core.Visitor, inBook: Int) = Row(
     Box(Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(Brand.Sage)) { Canvas(Modifier.fillMaxSize().padding(4.dp)) { drawVisitorIcon(v) } }
     Spacer(Modifier.width(10.dp))
     Column {
-        Text("A ${v.title.lowercase()}!", style = MaterialTheme.typography.titleSmall)
+        Text("${v.aName.replaceFirstChar { it.uppercase() }}!", style = MaterialTheme.typography.titleSmall)
         Text("${v.rarity.label} · guestbook $inBook/${app.tend.core.Visitor.entries.size}", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
     }
     Spacer(Modifier.width(10.dp))

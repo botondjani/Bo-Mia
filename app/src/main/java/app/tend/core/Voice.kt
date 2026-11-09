@@ -40,7 +40,7 @@ object Voice {
             ?: "Out of minutes: your apps are closed until tomorrow."
         if (m.welcomeBack && done.isEmpty()) return "Welcome back! I missed you. Let's start small today: ${next!!.title.lowercase()}?"
         m.atFire.firstOrNull()?.let { f -> return pick(m, "fire", listOf("$f is at our fire, phone down. Join them?", "Look who's by the fire: $f. Shall we sit with them?")) }
-        m.visitor?.let { v -> return pick(m, "visitor", listOf("A ${v.title.lowercase()} is at the camp! Come say hello.", "Shh… a ${v.title.lowercase()} came by. Go and greet it?")) }
+        m.visitor?.let { v -> return pick(m, "visitor", listOf("${v.aName.replaceFirstChar { it.uppercase() }} is at the camp! Come say hello.", "Shh… ${v.aName} came by. Go and greet it?")) }
 
         val hour = m.now.hour
         val weekend = m.now.dayOfWeek == DayOfWeek.SATURDAY || m.now.dayOfWeek == DayOfWeek.SUNDAY

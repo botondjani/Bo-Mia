@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name">tend</string>
     <string name="widget_min_left">min left</string>
+    <string name="widget_min">min</string>
     <string name="widget_description">Your companion, minutes left and the next task</string>
     <string name="widget_face_description">Your companion, in today\'s mood</string>
     <string name="widget_garden_description">Your camp by the river and the minutes left today</string>

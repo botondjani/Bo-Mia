@@ -101,7 +101,7 @@ object Widgets {
         if (garden.isNotEmpty()) manager.updateAppWidget(garden, RemoteViews(context.packageName, R.layout.widget_garden).apply {
             setImageViewBitmap(R.id.garden, clearingBitmap(store.avatar, placed, worn, 440, 440, night = night, paper = paper, ducks = ducks, bridge = store.bridgeBuilt, visitor = visitor,
                 layout = layout.mapValues { androidx.compose.ui.geometry.Offset(it.value.first, it.value.second) }, guests = guests))
-            val label = fresh?.let { "${it.name}: ${it.kind.short}" } ?: guests.firstOrNull()?.let { "${it.second} is at your fire" } ?: visitor?.let { "A ${it.title.lowercase()} is here" }
+            val label = fresh?.let { "${it.name}: ${it.kind.short}" } ?: guests.firstOrNull()?.let { "${it.second} at your fire" } ?: visitor?.let { "${it.aName.replaceFirstChar { c -> c.uppercase() }} is here" }
             setViewVisibility(R.id.note, if (label != null) android.view.View.VISIBLE else android.view.View.GONE)
             setTextViewText(R.id.note, label ?: "")
             setInt(R.id.note, "setBackgroundResource", if (night) R.drawable.widget_pill_night else R.drawable.widget_pill)
