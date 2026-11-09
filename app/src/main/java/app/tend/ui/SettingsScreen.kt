@@ -84,6 +84,8 @@ fun SettingsScreen(
     onFeedback: (() -> Unit)? = null,
     /** Asks the launcher to place the widget in its own dialog; false when it can't. */
     onAddWidget: () -> Boolean = { false },
+    /** Asks to add the "Phone down" tile to the quick settings (Android 13+); null where it can't. */
+    onAddTile: (() -> Unit)? = null,
     /** Deletes everything and starts onboarding again. */
     onStartOver: () -> Unit = {},
     version: String = "",
@@ -210,6 +212,15 @@ fun SettingsScreen(
                     }
                 }
                 WidgetButton(avatar, onAddWidget)
+        onAddTile?.let { add ->
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tappable(onClick = add).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Phone down, from the quick settings", style = MaterialTheme.typography.bodyLarge)
+                    Text("Swipe down, one tap: your next activity starts", style = MaterialTheme.typography.bodyMedium)
+                }
+                Text("Add", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+            }
+        }
                 SwitchRow("Share anonymous stats", "No names, apps or health data", shareStats, onShareStats)
                 // Small things, two to a row, all the same width.
                 val links = listOfNotNull(

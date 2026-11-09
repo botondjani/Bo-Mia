@@ -590,6 +590,12 @@ class MainActivity : ComponentActivity() {
                 onFeedback = getString(R.string.support_email).takeIf { it.isNotBlank() }?.let { mail -> { sendFeedback(mail) } },
                 onStartOver = ::startOver,
                 onAddWidget = ::pinWidget,
+                onAddTile = if (Build.VERSION.SDK_INT >= 33) ({
+                    getSystemService(android.app.StatusBarManager::class.java).requestAddTileService(
+                        android.content.ComponentName(this, app.tend.monitor.PhoneDownTile::class.java), "Phone down",
+                        android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_t_hourglass), mainExecutor,
+                    ) { }
+                }) else null,
                 version = BuildConfig.VERSION_NAME,
                 shareStats = app.tend.data.Stats.consent(this) == true,
                 onShareStats = { app.tend.data.Stats.setConsent(this, it); refresh++ },

@@ -110,6 +110,18 @@
                 android:value="Detects when the user opens apps they chose to pause and shows a short delay screen." />
         </service>
 
+        <!-- "Phone down" in the quick settings: starts the next timed activity in one tap. -->
+        <service
+            android:name=".monitor.PhoneDownTile"
+            android:exported="true"
+            android:icon="@drawable/ic_t_hourglass"
+            android:label="Phone down"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <receiver
             android:name=".monitor.BootReceiver"
             android:exported="true">
