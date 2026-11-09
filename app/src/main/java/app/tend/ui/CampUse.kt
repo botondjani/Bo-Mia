@@ -919,7 +919,8 @@ fun rememberAppear(placed: Map<Int, String>): Map<Int, Float> {
                 seen[spot] = thing
                 val a = androidx.compose.animation.core.Animatable(0f)
                 anims[spot] = a
-                launch { a.animateTo(1f, androidx.compose.animation.core.tween(750, easing = androidx.compose.animation.core.LinearEasing)); anims.remove(spot) }
+                // A moment first (the shop closing, the page scrolling up), so it pops in where it's seen.
+                launch { kotlinx.coroutines.delay(550); a.animateTo(1f, androidx.compose.animation.core.tween(750, easing = androidx.compose.animation.core.LinearEasing)); anims.remove(spot) }
             }
         }
         seen.keys.retainAll(placed.keys)

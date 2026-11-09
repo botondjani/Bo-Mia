@@ -1,5 +1,7 @@
 package app.tend.ui
 
+import androidx.compose.animation.togetherWith
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.material.icons.filled.Person
@@ -130,10 +132,11 @@ fun ClearingScreen(
         .padding(horizontal = 20.dp).padding(top = Space.xs, bottom = Space.xxl),
     verticalArrangement = Arrangement.spacedBy(Space.m),
 ) {
-    // Friends open from a button, over the page; the shop and the collection are on the page itself.
+    // The shop and friends open from buttons, over the page; the challenges fold into a strip.
     var friendsOpen by rememberSaveable { mutableStateOf(openInvite) }
     androidx.compose.runtime.LaunchedEffect(openInvite) { if (openInvite) friendsOpen = true }
-    var shopAt by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    var shopOpen by rememberSaveable { mutableStateOf(false) }
+    var stepsOpen by rememberSaveable { mutableStateOf(false) }
     var collectionAt by remember { androidx.compose.runtime.mutableIntStateOf(0) }
 
     // The same header as home (nothing moves going between them); the round button leads home.
@@ -509,10 +512,11 @@ fun ClearingScreen(
         style = MaterialTheme.typography.bodyMedium,
     )
 
-    // Friends, and sharing the camp: a button each.
+    // The shop, friends, and sharing the camp: a button each.
     Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
+        PillButton("Shop", androidx.compose.material.icons.Icons.Filled.ShoppingCart, Modifier.weight(1f)) { shopOpen = true }
         PillButton("Friends", androidx.compose.material.icons.Icons.Filled.Person, Modifier.weight(1f)) { friendsOpen = true }
-        PillButton("Share the camp", androidx.compose.material.icons.Icons.Filled.Share, Modifier.weight(1f), onShare)
+        PillButton("Share", androidx.compose.material.icons.Icons.Filled.Share, Modifier.weight(1f), onShare)
     }
 
     // Set up before the town was asked: once, the real weather offered.
@@ -523,29 +527,53 @@ fun ClearingScreen(
         Text("Not now", style = MaterialTheme.typography.labelLarge, color = Brand.Muted, modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onTownLater).padding(vertical = 6.dp))
     }
 
+    // The challenges: a strip with the round's progress; tapped, the whole list unfolds (and folds back).
+    androidx.compose.animation.AnimatedContent(
+        stepsOpen, label = "steps",
+        transitionSpec = {
+            (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(260, delayMillis = 80)) togetherWith
+                androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(140)))
+                .using(androidx.compose.animation.SizeTransform(clip = false) { _, _ -> androidx.compose.animation.core.spring(dampingRatio = 0.85f, stiffness = 380f) })
+        },
+    ) { open ->
+    if (!open) FirstStepsStrip(steps, onOpen = { stepsOpen = true }, onGo = { stepsOpen = true })
+    else Column(verticalArrangement = Arrangement.spacedBy(Space.xs)) {
     FirstStepsCard(steps, onClaim = { onClaimStep(it); Sounds.acorns(context) }, onGo = { step ->
         when (step) {
-            app.tend.core.Step.PLACE, app.tend.core.Step.TREES, app.tend.core.Step.BETTER_FIRE, app.tend.core.Step.SHELTER, app.tend.core.Step.ON_THE_RIVER -> scope.launch { scroll.animateScrollTo(shopAt) }
+            app.tend.core.Step.PLACE, app.tend.core.Step.TREES, app.tend.core.Step.BETTER_FIRE, app.tend.core.Step.SHELTER, app.tend.core.Step.ON_THE_RIVER -> shopOpen = true
             app.tend.core.Step.USE, app.tend.core.Step.MOVE, app.tend.core.Step.GREET, app.tend.core.Step.THREE_THINGS -> scope.launch { scroll.animateScrollTo(0) }
             app.tend.core.Step.FRIEND, app.tend.core.Step.TOGETHER -> friendsOpen = true
             app.tend.core.Step.FIVE_ANIMALS, app.tend.core.Step.RARE -> scope.launch { scroll.animateScrollTo(collectionAt) }
             else -> onStep(step)
         }
     })
-
-    // The shop, then what's been collected (visitors met, things found).
-    Box(Modifier.onGloballyPositioned { shopAt = it.positionInParent().y.toInt() }) {
-        Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, plus = plus, onPlus = onPlus, outfits = outfits, outfitWorn = outfitWorn,
-            onBuyOutfit = { a -> onBuyOutfit(a).also { if (it) { tick(firm = true); Sounds.chime(context); scope.launch { scroll.animateScrollTo(0) } } } },
-            onWearOutfit = { tick(); onWearOutfit(it) }, onBuy = { id ->
-            // Bought: a firm tick, a chime, and up to the camp to watch it pop in.
-            val spot = Things.byId(id)?.let { Clearing.spotFor(placed, it) }
-            onBuy(id).also { ok -> if (ok) { tick(firm = true); Sounds.chime(context); spot?.let { showSpot(it) } } }
-        }, onSell = onSell)
+    Text(
+        "Show less", style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
+        modifier = Modifier.align(Alignment.CenterHorizontally).clip(RoundedCornerShape(10.dp)).tappable { stepsOpen = false }.padding(horizontal = 12.dp, vertical = 6.dp),
+    )
     }
+    }
+
     Column(Modifier.onGloballyPositioned { collectionAt = it.positionInParent().y.toInt() }, verticalArrangement = Arrangement.spacedBy(Space.m)) {
         Guestbook(guestbook)
         Things(avatar, worn, onShelf)
+    }
+
+    // The shop: over the page, all the way up. Bought: it closes, and up to the camp to watch it pop in.
+    if (shopOpen) {
+        val shopSheet = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        fun closeShopThen(then: () -> Unit) = scope.launch { shopSheet.hide(); shopOpen = false; then() }
+        androidx.compose.material3.ModalBottomSheet(onDismissRequest = { shopOpen = false }, sheetState = shopSheet, containerColor = Brand.Sage) {
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = Space.xl)) {
+            Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, plus = plus, onPlus = onPlus, outfits = outfits, outfitWorn = outfitWorn,
+                onBuyOutfit = { a -> onBuyOutfit(a).also { if (it) { tick(firm = true); Sounds.chime(context); closeShopThen { scope.launch { scroll.animateScrollTo(0) } } } } },
+                onWearOutfit = { tick(); onWearOutfit(it) }, onBuy = { id ->
+                // Bought: a firm tick, a chime, and up to the camp to watch it pop in.
+                val spot = Things.byId(id)?.let { Clearing.spotFor(placed, it) }
+                onBuy(id).also { ok -> if (ok) { tick(firm = true); Sounds.chime(context); closeShopThen { spot?.let { showSpot(it) } } } }
+            }, onSell = onSell)
+            }
+        }
     }
 
     // Friends: over the page, from the bottom.

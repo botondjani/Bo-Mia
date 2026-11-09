@@ -441,7 +441,7 @@ fun DrawScope.drawClearing(
             // At night with no shelter: asleep where they stand.
             // Standing about: breathing, and a blink every few seconds.
             val pose = if (night) CharacterPainter.Pose() else CharacterPainter.Pose(
-                blink = if (ambient % 4.3f < 0.14f) 1f else 0f, breathe = kotlin.math.sin(ambient * 2.2f) * 0.6f,
+                blink = if (ambient % 4.3f > 4.16f) 1f else 0f, breathe = kotlin.math.sin(ambient * 2.2f) * 0.6f,
             )
             CharacterPainter.draw(it.nativeCanvas, avatar, if (night) Mood.SLEEPING else mood, cs, pose, accessories = worn)
             it.nativeCanvas.restore()
@@ -560,12 +560,15 @@ fun DrawScope.drawClearing(
     }
     if (!night) hourTint(hour, weather)
 
-    // Night: a blue veil over everything, then the lights.
-    if (night) {
-        drawRect(NightVeil.copy(alpha = 0.6f), size = size)
-        for ((sx, sy) in listOf(0.08f to 0.08f, 0.22f to 0.15f, 0.35f to 0.05f, 0.52f to 0.12f, 0.7f to 0.06f, 0.86f to 0.14f, 0.95f to 0.04f))
-            drawCircle(Color.White.copy(alpha = 0.8f), h * 0.004f, Offset(w * sx, h * sy))
-        drawCircle(Color(0xFFF3EBC8), h * 0.035f, Offset(w * 0.16f, h * 0.12f))
+    // After dark (by the real sunset and sunrise), and at bedtime: a blue veil over everything, then the lights.
+    val dark = if (night) 1f else darkOf(hour)
+    if (dark > 0f) {
+        drawRect(NightVeil.copy(alpha = 0.6f * dark), size = size)
+        if (weather != app.tend.core.Weather.RAIN && weather != app.tend.core.Weather.SNOW) {
+            for ((sx, sy) in listOf(0.08f to 0.08f, 0.22f to 0.15f, 0.35f to 0.05f, 0.52f to 0.12f, 0.7f to 0.06f, 0.86f to 0.14f, 0.95f to 0.04f))
+                drawCircle(Color.White.copy(alpha = 0.8f * dark), h * 0.004f, Offset(w * sx, h * sy))
+            drawCircle(Color(0xFFF3EBC8).copy(alpha = dark), h * 0.035f, Offset(w * 0.16f, h * 0.12f))
+        }
         // The companion stays readable: drawn again over the veil, cooled down to match the night.
         drawIntoCanvas {
             val paint = android.graphics.Paint().apply { colorFilter = android.graphics.LightingColorFilter(0xFF9DA6C4.toInt(), 0x101410) }
@@ -580,12 +583,12 @@ fun DrawScope.drawClearing(
                 val base = Offset(w * (0.4f + 0.58f * rnd.nextFloat()), h * (0.55f + 0.38f * rnd.nextFloat()))
                 val at = base + Offset(kotlin.math.sin(ambient * 0.6f + i) * w * 0.025f, kotlin.math.cos(ambient * 0.45f + i * 1.3f) * h * 0.03f)
                 val on = ((kotlin.math.sin(ambient * 1.8f + i * 1.7f) + 1f) / 2f).let { it * it }
-                drawCircle(Color(0xFFF7F3A0).copy(alpha = 0.3f + 0.7f * on), u * 0.0035f, at)
+                drawCircle(Color(0xFFF7F3A0).copy(alpha = (0.3f + 0.7f * on) * dark), u * 0.0035f, at)
                 lights += Light(at, u * 0.035f, 0.5f * on)
             }
         }
         lights.forEach { l ->
-            drawCircle(Brush.radialGradient(listOf(Glow.copy(alpha = 0.55f * l.strength), Color.Transparent), center = l.at, radius = l.radius), l.radius, l.at)
+            drawCircle(Brush.radialGradient(listOf(Glow.copy(alpha = 0.55f * l.strength * dark), Color.Transparent), center = l.at, radius = l.radius), l.radius, l.at)
         }
     }
 }
@@ -1023,6 +1026,21 @@ private fun skyAt(hour: Float, weather: app.tend.core.Weather): Pair<Color, Colo
     bump(set - 2.1f, set, set + 1f).let { k -> top = androidx.compose.ui.graphics.lerp(top, Color(0xFFE6CFAE), k * 0.45f * clear); low = androidx.compose.ui.graphics.lerp(low, Color(0xFFF6B56C), k * 0.7f * clear) }
     bump(set + 0.4f, set + 1.9f, set + 4.4f).let { k -> top = androidx.compose.ui.graphics.lerp(top, Color(0xFF8292C2), k * 0.7f); low = androidx.compose.ui.graphics.lerp(low, Color(0xFFE5A28C), k * 0.65f * clear) }
     return top to low
+}
+
+/**
+ * How dark it is at [hour] (0 day, 1 night), by the real sunset and sunrise when a town is set:
+ * falling over the hour or so after sunset, lifting in the hour before sunrise.
+ */
+internal fun darkOf(hour: Float): Float {
+    val rise = app.tend.core.LiveWeather.sunrise
+    val set = app.tend.core.LiveWeather.sunset
+    fun ramp(x: Float, from: Float, to: Float) = ((x - from) / (to - from)).coerceIn(0f, 1f)
+    return when {
+        hour >= set -> ramp(hour, set + 0.4f, set + 1.5f)
+        hour < rise -> 1f - ramp(hour, rise - 1.2f, rise - 0.1f)
+        else -> 0f
+    }
 }
 
 /** The light of the hour over the whole camp: rosy at dawn, golden late in the day, violet at dusk; dimmer in the rain. */
