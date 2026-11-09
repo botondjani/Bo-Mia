@@ -146,6 +146,7 @@ fun ClearingScreen(
     var local by remember { mutableStateOf(layout) }
     androidx.compose.runtime.LaunchedEffect(layout) { local = layout }
     val localNow by androidx.compose.runtime.rememberUpdatedState(local)
+    val nightNow by androidx.compose.runtime.rememberUpdatedState(night)
     // Things put somewhere new, for the companion to carry over (spot, from, to), the first one now.
     // Until it's there, a thing shows where it was (saved at once all the same).
     val carries = remember { androidx.compose.runtime.mutableStateListOf<Triple<Int, Offset, Offset>>() }
@@ -280,6 +281,10 @@ fun ClearingScreen(
     }
     // Camp life: clouds and weather move, and the companion gets on with things when left alone.
     val ambient = rememberAmbientClock()
+    // Until something has been moved: which small thing hints that things can be picked up.
+    val hintSpot = if (layout.isNotEmpty() || night) null else placed.entries.firstOrNull { (spot, id) ->
+        spot in SpotPositions && app.tend.core.Things.byId(id)?.let { app.tend.core.Clearing.movable(it) && it.kind == app.tend.core.SpotKind.SMALL } == true
+    }?.key
     val idle = rememberIdleLife(placed, rest, enabled = using == null && drag == null && settling == null && !carrying && carries.isEmpty() && greeted == null && pokeAct == null && !night, layout = local) { onRest(it) }
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { Sounds.stop() } }
 
@@ -343,11 +348,15 @@ fun ClearingScreen(
                     // its own (the camp doesn't pan, and the tap handler only waits for the finger to lift).
                     var grab = Offset.Zero
                     var kind = app.tend.core.SpotKind.SMALL
+                    // What else stands on the meadow (where it's going, if it's being carried): not to be put on.
+                    var others = emptyList<Pair<Float, Pair<Float, Float>>>()
+                    var half = 0.02f
                     fun drop() {
                         val (spot, at) = drag ?: return
                         drag = null
-                        // Small things and seats: the companion carries them over. Shelters hop there themselves.
-                        val carried = kind != app.tend.core.SpotKind.SHELTER
+                        // Small things and seats: the companion carries them over. Shelters hop there themselves
+                        // (and at night everything does: the companion is asleep).
+                        val carried = kind != app.tend.core.SpotKind.SHELTER && !nightNow
                         if (carried) {
                             val from = spotPos(spot, pinnedNow)
                             carries.removeAll { it.first == spot }
@@ -381,6 +390,12 @@ fun ClearingScreen(
                             }
                             if (using != null) { using?.let { onRest(it.first) }; using = null; Sounds.stop() }
                             kind = thing.kind
+                            others = placedNow.keys.filter { it != hit && it in SpotPositions }.mapNotNull { id ->
+                                val k = app.tend.core.Clearing.spots.first { it.id == id }.kind
+                                if (k == app.tend.core.SpotKind.FIRE || k == app.tend.core.SpotKind.WATER || k == app.tend.core.SpotKind.ABOVE) null
+                                else spotPos(id, localNow).let { thingWidth(placedNow.getValue(id)) / 2f to (it.x to it.y) }
+                            }
+                            half = thingWidth(thing.id) / 2f
                             val from = spotPos(hit, pinnedNow)
                             grab = from - f
                             drag = hit to from
@@ -396,7 +411,7 @@ fun ClearingScreen(
                             val (spot, _) = drag ?: return@detectDragGesturesAfterLongPress
                             change.consume()
                             val f = Offset(change.position.x / size.width, change.position.y / size.height) + grab
-                            val (x, y) = app.tend.core.Clearing.keepOnMeadow(kind, f.x, f.y, size.width / size.height.toFloat())
+                            val (x, y) = app.tend.core.Clearing.keepApart(kind, half, f.x, f.y, others, size.width / size.height.toFloat())
                             drag = spot to Offset(x, y)
                         },
                         onDragEnd = { drop() },
@@ -414,7 +429,12 @@ fun ClearingScreen(
                     bursts = bursts.map { it.first to it.second.value },
                     layout = drag?.let { (spot, at) -> pinned + (spot to at) } ?: pinned,
                     carry = carry.value,
-                    lifted = (drag?.first ?: settling)?.let { it to lift.value },
+                    lifted = (drag?.first ?: settling)?.let { it to lift.value }
+                        ?: hintSpot?.takeIf { using == null && carry.value == null && idle.value == null }?.let { spot ->
+                            // Not moved anything yet: now and then a small thing hops, as if to say "pick me up".
+                            val k = ambient.value % 4f
+                            if (k < 0.6f) spot to kotlin.math.sin(k / 0.6f * Math.PI.toFloat()) * 0.45f else null
+                        },
                     dust = dustAt?.let { it to dust.value },
                     restFrom = restFrom, restClock = restClock.value,
                     ambient = ambient.value, guests = guests,
@@ -456,6 +476,7 @@ fun ClearingScreen(
             visitor != null -> "${visitor.aName.replaceFirstChar { it.uppercase() }} came to the camp. Tap it to say hello."
             ducks.isNotEmpty() -> "A rubber duck: someone visited. Tap it to fish it out."
             caught != null -> caught!!
+            hintSpot != null -> "Hold the ${app.tend.core.Things.byId(placed.getValue(hintSpot))?.name?.lowercase()} to pick it up, then drag it anywhere. ${avatar.displayName} carries it over."
             bridge -> "Cross the bridge to visit your friends' camps."
             // Once the camp is familiar, what the companion is up to; before that, how it works.
             placed.isNotEmpty() -> if (placed.size >= 3) remember(java.time.LocalTime.now().hour) {

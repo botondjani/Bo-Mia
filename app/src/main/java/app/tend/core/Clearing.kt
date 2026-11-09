@@ -116,6 +116,35 @@ object Clearing {
         return ofKind.minByOrNull { Things.byId(placed.getValue(it.id))?.price ?: 0 }?.id
     }
 
+    /**
+     * Where a thing of [kind], [half] as wide as it is (in scene heights), may stand near (x, y) without
+     * standing in another one: nudged just clear of [others] (their half widths and places), and still
+     * on the meadow. With no room at all, as close as it gets.
+     */
+    fun keepApart(kind: SpotKind, half: Float, x: Float, y: Float, others: List<Pair<Float, Pair<Float, Float>>>, ratio: Float = 1.8f): Pair<Float, Float> {
+        var (px, py) = keepOnMeadow(kind, x, y, ratio)
+        repeat(10) {
+            var moved = false
+            for ((otherHalf, at) in others) {
+                // Things are wide and shallow, so the gap is an ellipse; a little room between them.
+                val rx = (half + otherHalf + 0.01f) / ratio
+                val ry = (half + otherHalf + 0.01f) * 0.6f
+                val dx = (px - at.first) / rx
+                val dy = (py - at.second) / ry
+                val d = kotlin.math.sqrt(dx * dx + dy * dy)
+                if (d < 1f) {
+                    val (ux, uy) = if (d < 1e-4f) 1f to 0f else dx / d to dy / d
+                    px = at.first + ux * rx * 1.01f
+                    py = at.second + uy * ry * 1.01f
+                    moved = true
+                }
+            }
+            keepOnMeadow(kind, px, py, ratio).let { px = it.first; py = it.second }
+            if (!moved) return px to py
+        }
+        return px to py
+    }
+
     /** Things that can stand anywhere on the meadow: small things, seats and shelters. The fire, trees, river and overhead keep their place. */
     fun movable(thing: Thing): Boolean = thing.spot == null && thing.kind in setOf(SpotKind.SMALL, SpotKind.SEAT, SpotKind.SHELTER)
 

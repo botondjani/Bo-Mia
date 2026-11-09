@@ -105,4 +105,15 @@ class ClearingTest {
         assertTrue(Things.forKind(SpotKind.SMALL).none { it.season != null })
         assertTrue(Things.forSeason(Season.WINTER).all { Clearing.movable(it) })
     }
+
+    @Test fun `a thing put down on another one is nudged just clear of it, still on the meadow`() {
+        val bench = 0.055f to (0.6f to 0.9f)
+        val (x, y) = Clearing.keepApart(SpotKind.SMALL, 0.02f, 0.6f, 0.9f, listOf(bench), 1.6f)
+        val dx = (x - 0.6f) * 1.6f / 0.085f
+        val dy = (y - 0.9f) / (0.085f * 0.6f)
+        assertTrue("clear of the bench: $x, $y", dx * dx + dy * dy >= 0.99f)
+        assertEquals(x to y, Clearing.keepOnMeadow(SpotKind.SMALL, x, y, 1.6f))
+        // Room enough: left where it is.
+        assertEquals(0.5f to 0.8f, Clearing.keepApart(SpotKind.SMALL, 0.02f, 0.5f, 0.8f, listOf(bench), 1.6f))
+    }
 }

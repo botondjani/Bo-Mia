@@ -1076,7 +1076,7 @@ private fun DrawScope.firePitStones(c: Offset, u: Float) {
 }
 
 /** How wide a thing is, in scene heights, for its shadow. */
-private fun thingWidth(id: String): Float = when (id) {
+internal fun thingWidth(id: String): Float = when (id) {
     "leaf_pile", "sled", "deck_chair", "scarecrow" -> 0.05f
     "cabin" -> 0.22f
     "bell_tent", "tent" -> 0.16f
