@@ -1,5 +1,6 @@
 package app.tend.ui
 
+import androidx.compose.material.icons.filled.Home
 import kotlinx.coroutines.flow.first
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -123,16 +124,9 @@ fun ClearingScreen(
     var tab by rememberSaveable { mutableIntStateOf(if (openInvite) 1 else 0) }
     androidx.compose.runtime.LaunchedEffect(openInvite) { if (openInvite) tab = 1 }
 
-    // The same height as the home page's header.
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, "Back", onBack)
-        Spacer(Modifier.width(Space.m))
-        Column(Modifier.weight(1f)) {
-            Text("Tap to use, hold to move", style = MaterialTheme.typography.bodyMedium, maxLines = 1)
-            Text("${avatar.displayName}'s camp", style = MaterialTheme.typography.headlineMedium, maxLines = 1)
-        }
-        // Today's minutes, as on home.
-        minutes?.let { (left, available, toEarn) -> MinutesSummary(left, available, toEarn) }
+    // The same header as home (nothing moves going between them); the round button leads home.
+    TodayHeader(java.time.LocalDate.now(), minutes, {}) {
+        IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Home, "Home", onBack)
     }
 
     // What friends did: toilet paper unrolls when tapped; a visitor's duck is fished out.

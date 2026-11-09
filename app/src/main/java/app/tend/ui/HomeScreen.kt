@@ -163,14 +163,7 @@ fun HomeScreen(
             .padding(horizontal = 20.dp).padding(top = Space.xs),
         verticalArrangement = Arrangement.spacedBy(Space.m),
     ) {
-        // Header: greeting + settings
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(day.date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.ENGLISH)), style = MaterialTheme.typography.bodyMedium)
-                Text(greeting(), style = MaterialTheme.typography.headlineMedium)
-            }
-            // Today's minutes, next to the greeting: what's left, a small bar, what's still to earn.
-            MinutesSummary(remaining, (cfg.freeMinutes + day.earnedMinutes).coerceAtLeast(1), Budget.earnableFrom(cfg, day, tasks), Modifier.padding(end = 12.dp)) { explain = "minutes" }
+        TodayHeader(day.date, Triple(remaining, (cfg.freeMinutes + day.earnedMinutes).coerceAtLeast(1), Budget.earnableFrom(cfg, day, tasks)), { explain = "minutes" }) {
             IconButtonSoft(Icons.Filled.Settings, "Settings", onOpenSettings)
         }
 
@@ -541,6 +534,25 @@ private fun LevelUpDialog(avatar: Avatar, level: Int, onDone: () -> Unit) = andr
             style = MaterialTheme.typography.bodyMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
         PrimaryButton("Nice", onDone)
+    }
+}
+
+/**
+ * The header, the same on home and in the camp (so nothing moves between them): the date, a
+ * greeting, today's minutes (left, available, still to earn), and one round button: [button].
+ */
+@Composable
+internal fun TodayHeader(date: java.time.LocalDate, minutes: Triple<Int, Int, Int>?, onMinutes: () -> Unit, button: @Composable () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f).then(sharedCamp("header-text") ?: Modifier)) {
+            Text(date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.ENGLISH)), style = MaterialTheme.typography.bodyMedium)
+            Text(greeting(), style = MaterialTheme.typography.headlineMedium)
+        }
+        // Today's minutes, next to the greeting: what's left, a small bar, what's still to earn.
+        minutes?.let { (left, available, toEarn) ->
+            MinutesSummary(left, available, toEarn, Modifier.padding(end = 12.dp).then(sharedCamp("header-minutes") ?: Modifier), onMinutes)
+        }
+        button()
     }
 }
 

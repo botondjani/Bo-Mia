@@ -381,16 +381,59 @@ fun DrawScope.drawClearing(
     Whereabouts.drawn = Offset(anchor.x / w, anchor.y / h)
     onCompanion?.invoke(Offset(anchor.x / w, anchor.y / h))
     val cs = u * 0.17f * depthScale(anchor.y / h)
+    // The umbrella in a shower (0 put away, 0.5 out but closed, 1 open): from behind the back, up over
+    // the head and open; folded and back behind them when the shower's over. Not while busy with something.
+    // Wanted while it rains (a moment after a shower starts), unless they're busy, under a tree, or
+    // nearly at what they're walking to (folded on the way).
+    val showering = weather == app.tend.core.Weather.RAIN && (ambient <= 0f || showerOf((ambient - 0.5f).coerceAtLeast(0f)) > 0.25f)
+    val free = carryAt == null && (act == null && (rest ?: 0) > -20 || act != null && walking && act.t < act.walk - 0.9f || stepTo != null || strolling)
+    val umbrella = Whereabouts.umbrellaTo(showering && !night && free, ambient)
+    fun umbrellaPart(front: Boolean) {
+        if (umbrella <= 0f || front != (umbrella >= 0.5f)) return
+        val hand = anchor + Offset(cs * 0.3f, -cs * 0.38f)
+        val top = Offset(anchor.x + cs * 0.12f, anchor.y - cs * 1.18f)
+        val shaft = Color(0xFF3A2414)
+        val coral = Color(0xFFE07A5F)
+        if (umbrella < 0.5f) {
+            // Closed, swinging up from behind their back (drawn before them, so they hide most of it).
+            val e = (umbrella / 0.5f).let { it * it * (3 - 2 * it) }
+            val b = anchor + Offset(-cs * 0.12f, -cs * 0.32f) + (hand - (anchor + Offset(-cs * 0.12f, -cs * 0.32f))) * e
+            val tip = anchor + Offset(-cs * 0.62f, -cs * 0.1f) + (top - (anchor + Offset(-cs * 0.62f, -cs * 0.1f))) * e
+            drawLine(shaft, b, tip, strokeWidth = cs * 0.025f, cap = StrokeCap.Round)
+            val dir = (tip - b) / (tip - b).getDistance().coerceAtLeast(1f)
+            val side = Offset(-dir.y, dir.x) * cs * 0.05f
+            val m = tip - dir * cs * 0.4f
+            drawPath(Path().apply { moveTo(tip.x, tip.y); lineTo(m.x + side.x, m.y + side.y); lineTo(m.x - side.x, m.y - side.y); close() }, coral)
+            return
+        }
+        // Up over the head, and opening.
+        val o = ((umbrella - 0.5f) / 0.5f).let { 0.1f + 0.9f * it * it * (3 - 2 * it) }
+        drawLine(shaft, hand, top, strokeWidth = cs * 0.025f, cap = StrokeCap.Round)
+        drawArc(shaft, 0f, 180f, false, hand + Offset(-cs * 0.06f, -cs * 0.04f), Size(cs * 0.06f, cs * 0.08f), style = Stroke(cs * 0.022f))
+        val hem = top.y + cs * (0.2f + 0.2f * (1f - o))
+        val canopy = Path().apply {
+            moveTo(top.x - cs * 0.48f * o, hem)
+            quadraticTo(top.x, top.y - cs * 0.22f * o, top.x + cs * 0.48f * o, hem)
+            // A scalloped hem.
+            for (k in 0 until 4) quadraticTo(top.x + cs * (0.36f - k * 0.24f) * o, hem - cs * 0.1f, top.x + cs * (0.24f - k * 0.24f) * o, hem)
+            close()
+        }
+        drawPath(canopy, coral)
+        drawPath(Path().apply { moveTo(top.x, top.y - cs * 0.01f); quadraticTo(top.x - cs * 0.06f * o, top.y + cs * 0.1f, top.x - cs * 0.12f * o, hem); lineTo(top.x + cs * 0.12f * o, hem); quadraticTo(top.x + cs * 0.06f * o, top.y + cs * 0.1f, top.x, top.y - cs * 0.01f); close() }, Color(0xFFF2D27A))
+    }
     fun drawActor(glows: MutableList<Light>) {
         if (carryAt != null) {
             if (carryWalk >= 0f) drawWalker(avatar, mood, worn, anchor, carryWalk, carryRight)
             else drawCrouch(avatar, mood, worn, anchor, carryCrouch, if (carryRight) 0.8f else -0.8f)
             return
         }
-        if (act != null && walking) { drawWalker(avatar, mood, worn, anchor, act.t, target!!.x >= restAt.x); return }
-        if (stepTo != null) { drawWalker(avatar, mood, worn, anchor, stepK!! * 2f, stepTo.x >= target!!.x); return }
-        if (strolling) { drawWalker(avatar, mood, worn, anchor, restClock, restTo.x >= restWas!!.x); return }
+        // Walking about: the umbrella comes along.
+        fun walker(t: Float, right: Boolean) { umbrellaPart(false); drawWalker(avatar, mood, worn, anchor, t, right); umbrellaPart(true) }
+        if (act != null && walking) { walker(act.t, target!!.x >= restAt.x); return }
+        if (stepTo != null) { walker(stepK!! * 2f, stepTo.x >= target!!.x); return }
+        if (strolling) { walker(restClock, restTo.x >= restWas!!.x); return }
         if (act != null) { drawUse(act.arrived(), avatar, mood, worn, placed, anchor, glows, lastStrum, layout); return }
+        umbrellaPart(false)
         shadow(anchor, cs * 0.5f, u)
         drawIntoCanvas {
             it.nativeCanvas.save()
@@ -403,22 +446,7 @@ fun DrawScope.drawClearing(
             CharacterPainter.draw(it.nativeCanvas, avatar, if (night) Mood.SLEEPING else mood, cs, pose, accessories = worn)
             it.nativeCanvas.restore()
         }
-        // In the rain, standing about: under a little umbrella.
-        if (weather == app.tend.core.Weather.RAIN && !night) {
-            val hand = anchor + Offset(cs * 0.3f, -cs * 0.38f)
-            val top = Offset(anchor.x + cs * 0.12f, anchor.y - cs * 1.18f)
-            drawLine(Color(0xFF3A2414), hand, top, strokeWidth = cs * 0.025f, cap = StrokeCap.Round)
-            drawArc(Color(0xFF3A2414), 0f, 180f, false, hand + Offset(-cs * 0.06f, -cs * 0.04f), Size(cs * 0.06f, cs * 0.08f), style = Stroke(cs * 0.022f))
-            val canopy = Path().apply {
-                moveTo(top.x - cs * 0.48f, top.y + cs * 0.2f)
-                quadraticTo(top.x, top.y - cs * 0.22f, top.x + cs * 0.48f, top.y + cs * 0.2f)
-                // A scalloped hem.
-                for (k in 0 until 4) quadraticTo(top.x + cs * (0.36f - k * 0.24f), top.y + cs * 0.1f, top.x + cs * (0.24f - k * 0.24f), top.y + cs * 0.2f)
-                close()
-            }
-            drawPath(canopy, Color(0xFFE07A5F))
-            drawPath(Path().apply { moveTo(top.x, top.y - cs * 0.01f); quadraticTo(top.x - cs * 0.06f, top.y + cs * 0.1f, top.x - cs * 0.12f, top.y + cs * 0.2f); lineTo(top.x + cs * 0.12f, top.y + cs * 0.2f); quadraticTo(top.x + cs * 0.06f, top.y + cs * 0.1f, top.x, top.y - cs * 0.01f); close() }, Color(0xFFF2D27A))
-        }
+        umbrellaPart(true)
     }
     // A thing on the ground, at its size for where it stands. Glows it adds are moved and sized with it.
     fun thingAt(thing: String, p: Offset, k: Float, spot: Int, sx: Float = 1f, sy: Float = 1f, lift: Float = 0f) {
@@ -525,7 +553,7 @@ fun DrawScope.drawClearing(
     foreground(w, h)
     // The weather over everything: rain, snow, morning fog; and the light of the hour.
     when (weather) {
-        app.tend.core.Weather.RAIN -> rain(ambient, u)
+        app.tend.core.Weather.RAIN -> rain(ambient, u, if (ambient > 0f) showerOf(ambient) else 1f)
         app.tend.core.Weather.SNOW -> snowfall(ambient, u)
         app.tend.core.Weather.FOG -> drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.5f), Color.White.copy(alpha = 0.18f)), startY = horizon - h * 0.12f, endY = h * 0.85f), size = size)
         else -> {}
@@ -1032,22 +1060,24 @@ private fun DrawScope.clouds(weather: app.tend.core.Weather, t: Float) {
 }
 
 /** Rain falling, slanting a little, and rings on the river. */
-private fun DrawScope.rain(t: Float, u: Float) {
+private fun DrawScope.rain(t: Float, u: Float, k: Float = 1f) {
+    if (k <= 0f) return
     val w = size.width
     val h = size.height
     val rnd = java.util.Random(41L)
-    repeat(110) {
+    repeat(110) { i ->
         val x0 = rnd.nextFloat()
         val y0 = rnd.nextFloat()
         val speed = 0.9f + 0.4f * rnd.nextFloat()
         val y = ((y0 + t * speed) % 1.1f - 0.05f) * h
         val x = x0 * w + y * 0.06f
-        drawLine(Color(0xFFDCE6EC).copy(alpha = 0.55f), Offset(x, y), Offset(x + h * 0.0025f, y + h * 0.028f), strokeWidth = u * 0.0022f, cap = StrokeCap.Round)
+        // Fewer drops as a shower fades in or out.
+        if (i < 110 * k) drawLine(Color(0xFFDCE6EC).copy(alpha = 0.55f), Offset(x, y), Offset(x + h * 0.0025f, y + h * 0.028f), strokeWidth = u * 0.0022f, cap = StrokeCap.Round)
     }
     repeat(7) { i ->
         val c = Offset(w * (0.04f + 0.22f * rnd.nextFloat()), h * (0.64f + 0.3f * rnd.nextFloat()))
-        val k = ((t * 0.7f + i / 7f) % 1f)
-        drawOval(Color.White.copy(alpha = 0.45f * (1f - k)), Offset(c.x - u * 0.03f * k, c.y - u * 0.006f * k), Size(u * 0.06f * k, u * 0.012f * k), style = Stroke(u * 0.0018f))
+        val r = ((t * 0.7f + i / 7f) % 1f)
+        drawOval(Color.White.copy(alpha = 0.45f * (1f - r) * k), Offset(c.x - u * 0.03f * r, c.y - u * 0.006f * r), Size(u * 0.06f * r, u * 0.012f * r), style = Stroke(u * 0.0018f))
     }
 }
 

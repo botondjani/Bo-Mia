@@ -122,6 +122,22 @@ object Whereabouts {
     var standing: Offset? = null
     private var lastAct: String? = null
 
+    /** The umbrella: 0 put away, 0.5 out but closed, 1 open. */
+    var umbrella = 0f
+        private set
+    private var umbrellaClock = 0f
+
+    /**
+     * Each frame: whether they'd like the umbrella up now ([clock]: seconds of camp life). It comes
+     * out from behind the back and opens over a second or so, and folds and goes back the same way.
+     */
+    internal fun umbrellaTo(want: Boolean, clock: Float): Float {
+        val dt = (clock - umbrellaClock).coerceIn(0f, 0.1f)
+        umbrellaClock = clock
+        umbrella = if (clock <= 0f) (if (want) 1f else 0f) else (umbrella + (if (want) dt else -dt) / 1.1f).coerceIn(0f, 1f)
+        return umbrella
+    }
+
     /** Each frame, with what they're doing (null: nothing). */
     internal fun frame(act: String?) {
         if (act == lastAct) return
@@ -145,6 +161,21 @@ data class Carry(val spot: Int, val from: Offset, val to: Offset, val t: Float, 
         /** With more to move: just a breath before the next one. */
         const val NEXT = 0.3f
         fun length(walk: Float, move: Float, admire: Boolean) = walk + PICK + move + DOWN + if (admire) ROUND + LOOK else NEXT
+    }
+}
+
+/**
+ * On a rainy day the rain comes in showers: about 45 seconds of it, a dry spell of a quarter of a
+ * minute, and again ([t]: seconds of camp life). How hard it rains now, 0..1 (fading in and out).
+ */
+fun showerOf(t: Float): Float {
+    val p = t % 75f
+    return when {
+        p < 42f -> 1f
+        p < 46f -> 1f - (p - 42f) / 4f
+        p < 60f -> 0f
+        p < 64f -> (p - 60f) / 4f
+        else -> 1f
     }
 }
 
@@ -449,6 +480,17 @@ fun DrawScope.drawUse(
             }
         } else if (use.thing == "fishing_rod") fishing(use.copy(t = t - Uses.FETCH), avatar, mood, worn, base, s, u, w, h)
         else woodToFire(use.copy(t = t - Uses.FETCH), avatar, mood, worn, base, s, u, fire, lights)
+        // Under a tree, out of the rain or snow: a good shake (drops flying), then a look out from under it.
+        "shelter" -> {
+            shadowAt(base, s * 0.45f)
+            val shake = if (t < 1f) sin(t * 34f) * 9f * (1f - t) else 0f
+            rotate(shake, base + Offset(0f, -s * 0.3f)) {
+                actor(avatar, mood, worn, base, s, look = if (t < 1f) 0f else sin(t * 0.7f) * 0.9f, bounce = if (t < 1f) 0f else sin(t * 1.3f) * 0.2f)
+            }
+            if (t < 1.1f) for (side in listOf(-1f, 1f)) droplets(base + Offset(side * s * 0.35f, -s * 0.55f), u, t / 1.1f)
+            // Now and then a peek up at the branches.
+            if (t > 3f && (t % 4f) < 0.6f) drawCircle(Color.White.copy(alpha = 0.5f), u * 0.003f, base + Offset(s * 0.1f, -s * 1.15f - (t % 4f) * s * 0.2f))
+        }
         // A stroll among the trees: looking about, a leaf coming down, a butterfly passing.
         "stroll" -> {
             shadowAt(base, s * 0.45f)
@@ -781,7 +823,14 @@ private val WANDER = listOf(
     Offset(0.44f, 0.635f) to "stroll", Offset(0.68f, 0.625f) to "stroll", Offset(0.83f, 0.665f) to "stroll",
     Offset(0.355f, 0.72f) to "river", Offset(0.31f, 0.8f) to "river",
 )
-private fun wanderAt(spot: Int?): Offset? = spot?.takeIf { it <= -10 }?.let { WANDER.getOrNull(-10 - it)?.first }
+/** Under the trees, out of the rain or the snow (rest codes -20 and down): by the big tree on the right, under the oak. */
+private val SHELTERS = listOf(Offset(0.83f, 0.745f), Offset(0.475f, 0.625f))
+private fun wanderAt(spot: Int?): Offset? = when {
+    spot == null -> null
+    spot <= -20 -> SHELTERS.getOrNull(-20 - spot)
+    spot <= -10 -> WANDER.getOrNull(-10 - spot)?.first
+    else -> null
+}
 
 /** How much the companion likes using each thing on their own: favourites often, shelters and the lights now and then. */
 private fun idleWeight(thing: String) = when (thing) {
@@ -822,13 +871,18 @@ fun rememberIdleLife(
             kotlinx.coroutines.delay(2_500L + rnd.nextInt(5_000))
             if (!on) continue
             // Everything in the camp, more or less often, and a stroll or the river now and then.
+            // In rain or snow, under a tree is the favourite (a dash over there, a shake, and a look out).
+            val wet = (app.tend.core.LiveWeather.fresh() ?: java.time.LocalDateTime.now().let { app.tend.core.Weather.of(it.toLocalDate(), it.hour) })
+                .let { it == app.tend.core.Weather.RAIN || it == app.tend.core.Weather.SNOW }
             val options = placedNow.filter { (spot, _) -> spot != restNow && spot in SpotPositions }.map { (spot, thing) -> Triple(spot, thing, idleWeight(thing)) } +
-                WANDER.indices.map { -10 - it }.filter { it != restNow }.map { Triple(it, WANDER[-10 - it].second, 1) }
+                WANDER.indices.map { -10 - it }.filter { it != restNow }.map { Triple(it, WANDER[-10 - it].second, 1) } +
+                (if (wet) SHELTERS.indices.map { -20 - it }.filter { it != restNow }.map { Triple(it, "shelter", 6) } else emptyList())
             val total = options.sumOf { it.third }
             // Now and then something where they stand: a stretch, a cheer (spot -2: nothing earned, no acorns fly).
             val pick = if (rnd.nextInt(100) < 15) null else rnd.nextInt(total).let { r -> var left = r; options.first { left -= it.third; left < 0 } }
             val (spot, thing) = pick?.let { it.first to it.second } ?: (-2 to listOf("act_stretch", "act_cheer", "act_hearts")[rnd.nextInt(3)])
-            val walk = if (spot == -2) 0f else walkSeconds(Whereabouts.standing ?: restFraction(restNow, layoutNow), restFraction(spot, layoutNow))
+            val walk = if (spot == -2) 0f else walkSeconds(Whereabouts.standing ?: restFraction(restNow, layoutNow), restFraction(spot, layoutNow)) *
+                (if (thing == "shelter") 0.65f else 1f) // under a tree: a dash
             val end = minOf(Uses.seconds(thing), if (spot < 0 && spot > -10) 3.5f else 8.5f)
             val start = androidx.compose.runtime.withFrameNanos { it }
             var t = 0f

@@ -19,10 +19,13 @@ class CampShare(val shared: SharedTransitionScope, val visibility: AnimatedVisib
 
 val LocalCampShare = staticCompositionLocalOf<CampShare?> { null }
 
-/** For the camp scene's drawing, on home and on the camp page: the shared part. Null outside the app's page switcher. */
+/**
+ * For what home and the camp page have in common (the camp scene's drawing, the header): it stays
+ * put or glides over as the page changes. Null outside the app's page switcher.
+ */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-fun sharedCamp(): Modifier? {
+fun sharedCamp(key: String = "camp"): Modifier? {
     val s = LocalCampShare.current ?: return null
-    return with(s.shared) { Modifier.sharedElement(rememberSharedContentState("camp"), s.visibility) }
+    return with(s.shared) { Modifier.sharedElement(rememberSharedContentState(key), s.visibility) }
 }
