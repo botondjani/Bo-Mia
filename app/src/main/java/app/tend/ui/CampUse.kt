@@ -22,8 +22,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
-/** The companion using a thing in the camp: which spot, which thing, and [t] seconds since it started. */
-data class InUse(val spot: Int, val thing: String, val t: Float, val walk: Float = 0f) {
+/**
+ * The companion using a thing in the camp: which spot, which thing, and [t] seconds since it started
+ * ([walk] of them getting there). With [end] (seconds of use, once there) known, the last moments
+ * are stepping off to where they'll stay.
+ */
+data class InUse(val spot: Int, val thing: String, val t: Float, val walk: Float = 0f, val end: Float = 0f) {
     /** Walking over to the thing: the first [walk] seconds. */
     val walking: Boolean get() = t < walk
     /** The use itself, its clock starting once there. */
@@ -86,6 +90,9 @@ object Uses {
     /** Seconds to walk over to a thing before using it. */
     const val WALK = 1.2f
 
+    /** Stepping off something at the end of a use (out of the hammock, off the swing). */
+    const val STEP = 0.7f
+
     /** Picking a thing up where it lies (half a second), then carrying it over (a second). */
     const val FETCH = 1.5f
 
@@ -130,6 +137,7 @@ fun DrawScope.restPoint(spot: Int?, placed: Map<Int, String>, layout: Map<Int, O
     val h = size.height
     val u = h
     val home = Offset(w * 0.395f, h * 0.86f)
+    wanderAt(spot)?.let { return Offset(it.x * w, it.y * h) }
     if (spot == null || placed[spot] == null) return home
     val p = spotPos(spot, layout).let { Offset(it.x * w, it.y * h) }
     // After something used standing up (playing, cooking, fishing...), they stay just where they were.
@@ -164,6 +172,7 @@ fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>, here: Offset? = nu
     val seat = spotPos(1, layout).let { Offset(it.x * w, it.y * h) }
     // The bench only counts as a seat by the fire while it's near the fire.
     val bench = placed[1] != null && (seat - fire).getDistance() < u * 0.3f
+    wanderAt(use.spot)?.let { return Offset(it.x * w, it.y * h) }
     return when (use.thing) {
         // Activities done in real life, acted out where the companion stands.
         "act_run" -> home + Offset(sin(use.t * 0.9f) * u * 0.14f, 0f)
@@ -186,7 +195,8 @@ fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>, here: Offset? = nu
         "hammock" -> p + Offset(0f, -u * 0.03f)
         "swing" -> p + Offset(-u * 0.01f, -u * 0.04f)
         "treehouse" -> Offset(p.x + u * 0.03f, u * 0.6f - u * 0.42f * 0.4f - u * 0.004f) // on the platform, in the tree
-        "canoe", "raft" -> p + Offset(sin(use.t * 0.7f) * w * 0.04f, -u * 0.02f)
+        // Out on the water, and drifting back to the mooring before stepping off.
+        "canoe", "raft" -> p + Offset(sin(use.t * 0.7f) * w * 0.04f * (if (use.end > 0f) ((use.end - Uses.STEP - use.t) / 1.5f).coerceIn(0f, 1f) else 1f), -u * 0.02f)
         "rocking_chair" -> p + Offset(0f, -u * 0.012f * k)
         "wind_chimes", "bird_feeder" -> Offset(w * 0.64f, h * 0.71f)
         "dock" -> p + Offset(-u * 0.05f, u * 0.0f)
@@ -393,6 +403,27 @@ fun DrawScope.drawUse(
             }
         } else if (use.thing == "fishing_rod") fishing(use.copy(t = t - Uses.FETCH), avatar, mood, worn, base, s, u, w, h)
         else woodToFire(use.copy(t = t - Uses.FETCH), avatar, mood, worn, base, s, u, fire, lights)
+        // A stroll among the trees: looking about, a leaf coming down, a butterfly passing.
+        "stroll" -> {
+            shadowAt(base, s * 0.45f)
+            actor(avatar, mood, worn, base, s, look = sin(t * 0.9f), bounce = sin(t * 1.4f) * 0.3f)
+            leafFalling(base + Offset(s * 0.5f, -s * 1.3f), u, t)
+            butterfly(base + Offset(-s * 0.6f + sin(t * 0.8f) * s * 0.5f, -s * (1.1f + 0.2f * sin(t * 1.7f))), u, t * 14f, Color(0xFFF2C14E))
+        }
+        // Down by the river: watching the water, then a pebble skipped across it.
+        "river" -> {
+            shadowAt(base, s * 0.45f)
+            actor(avatar, mood, worn, base, s, look = -1f, bounce = if (t in 1.6f..2.1f) sin((t - 1.6f) * 12f) else sin(t * 1.2f) * 0.2f)
+            val water = Offset(w * 0.13f, base.y - u * 0.02f)
+            val throwK = ((t - 2f) / 0.8f).coerceIn(0f, 1f)
+            val hand = base + Offset(-s * 0.3f, -s * 0.45f)
+            if (throwK in 0.001f..0.999f) drawCircle(Color(0xFF8D8A82), u * 0.004f, hand + (water - hand) * throwK + Offset(0f, -sin(throwK * PI.toFloat()) * u * 0.06f))
+            for (r in 0 until 3) {
+                val k = ((t - 2.8f) / 1.4f - r * 0.25f).coerceIn(0f, 1f)
+                if (k in 0.01f..0.99f) drawOval(Color.White.copy(alpha = 0.6f * (1 - k)), Offset(water.x - u * 0.05f * k, water.y - u * 0.008f * k), Size(u * 0.1f * k, u * 0.016f * k), style = Stroke(u * 0.002f))
+            }
+            if (t in 2.8f..3.4f) droplets(water, u, (t - 2.8f) / 0.6f)
+        }
         "wildflowers" -> {
             shadowAt(base, s * 0.45f)
             actor(avatar, mood, worn, base, s, look = -0.8f, bounce = sin(t * 1.5f) * 0.4f)
@@ -696,43 +727,72 @@ fun rememberAmbientClock(): androidx.compose.runtime.State<Float> {
     return t
 }
 
-/** What the companion likes to do by themselves, when nobody asks: not the shelters by day, nothing overhead. */
-private val IDLE_SKIP = setOf("tent", "bell_tent", "cabin", "wind_chimes", "bird_feeder", "string_lights")
+/**
+ * Places to go that aren't things, as rest codes (-10 and down): among the trees at the back,
+ * and down on the river bank.
+ */
+private val WANDER = listOf(
+    Offset(0.44f, 0.635f) to "stroll", Offset(0.68f, 0.625f) to "stroll", Offset(0.83f, 0.665f) to "stroll",
+    Offset(0.355f, 0.72f) to "river", Offset(0.31f, 0.8f) to "river",
+)
+private fun wanderAt(spot: Int?): Offset? = spot?.takeIf { it <= -10 }?.let { WANDER.getOrNull(-10 - it)?.first }
+
+/** How much the companion likes using each thing on their own: favourites often, shelters and the lights now and then. */
+private fun idleWeight(thing: String) = when (thing) {
+    "guitar", "campfire", "fishing_rod", "swing", "hammock", "woodpile", "canoe", "raft" -> 3
+    "tent", "bell_tent", "cabin", "treehouse", "wind_chimes", "bird_feeder", "string_lights" -> 1
+    else -> 2
+}
+
+/** About where the companion is when staying at [rest], as scene fractions (to time a walk). */
+internal fun restFraction(rest: Int?, layout: Map<Int, Offset>): Offset =
+    wanderAt(rest) ?: rest?.takeIf { it in SpotPositions }?.let { spotPos(it, layout) } ?: Offset(0.395f, 0.86f)
+
+/** A walk across [from] to [to] (scene fractions, at the camp's width to height): longer for farther. */
+internal fun walkSeconds(from: Offset, to: Offset): Float =
+    (0.7f + kotlin.math.hypot((to.x - from.x) * 1.6f, to.y - from.y) * 2.6f).coerceIn(1f, 3.2f)
 
 /**
  * The companion getting on with camp life on their own: every so often they walk over to something
- * and use it, quietly (no sound, no challenge counted), then stay there. Paused while [enabled] is
- * false (something chosen by the user, the night, a thing being moved). With nothing to use, they
- * stretch or cheer where they stand.
+ * and use it (each thing now and then, favourites more often), quietly (no sound, no challenge
+ * counted), or stroll among the trees or down to the river; then they stay there, and go on from
+ * there to the next thing. Paused while [enabled] is false (something chosen by the user, the night,
+ * a thing being moved). Now and then a stretch or a cheer where they stand.
  */
 @androidx.compose.runtime.Composable
-fun rememberIdleLife(placed: Map<Int, String>, rest: Int?, enabled: Boolean, onRest: (Int) -> Unit): androidx.compose.runtime.State<InUse?> {
+fun rememberIdleLife(
+    placed: Map<Int, String>, rest: Int?, enabled: Boolean, layout: Map<Int, Offset> = emptyMap(), onRest: (Int) -> Unit,
+): androidx.compose.runtime.State<InUse?> {
     // Returned as state, read only where it's drawn: the walk redraws the camp, nothing else recomposes.
     val current = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<InUse?>(null) }
     val placedNow by androidx.compose.runtime.rememberUpdatedState(placed)
     val restNow by androidx.compose.runtime.rememberUpdatedState(rest)
+    val layoutNow by androidx.compose.runtime.rememberUpdatedState(layout)
     val on by androidx.compose.runtime.rememberUpdatedState(enabled)
     val onRestNow by androidx.compose.runtime.rememberUpdatedState(onRest)
     androidx.compose.runtime.LaunchedEffect(Unit) {
         val rnd = java.util.Random()
         while (true) {
-            kotlinx.coroutines.delay(3_000L + rnd.nextInt(5_000))
+            kotlinx.coroutines.delay(2_500L + rnd.nextInt(5_000))
             if (!on) continue
-            val choices = placedNow.filter { (spot, thing) -> spot != restNow && spot in SpotPositions && thing !in IDLE_SKIP }.entries.toList()
-            // Now and then (or with nothing to use) something where they stand: a stretch, a cheer, a hum
-            // (spot -2: nothing earned, no acorns fly). Otherwise over to something.
-            val (spot, thing, walk) = if (choices.isEmpty() || rnd.nextInt(10) < 3) Triple(-2, listOf("act_stretch", "act_cheer", "act_hearts")[rnd.nextInt(3)], 0f)
-                else choices[rnd.nextInt(choices.size)].let { Triple(it.key, it.value, Uses.WALK) }
-            val length = walk + minOf(Uses.seconds(thing), if (spot < 0) 3.5f else 8.5f)
+            // Everything in the camp, more or less often, and a stroll or the river now and then.
+            val options = placedNow.filter { (spot, _) -> spot != restNow && spot in SpotPositions }.map { (spot, thing) -> Triple(spot, thing, idleWeight(thing)) } +
+                WANDER.indices.map { -10 - it }.filter { it != restNow }.map { Triple(it, WANDER[-10 - it].second, 1) }
+            val total = options.sumOf { it.third }
+            // Now and then something where they stand: a stretch, a cheer (spot -2: nothing earned, no acorns fly).
+            val pick = if (rnd.nextInt(100) < 15) null else rnd.nextInt(total).let { r -> var left = r; options.first { left -= it.third; left < 0 } }
+            val (spot, thing) = pick?.let { it.first to it.second } ?: (-2 to listOf("act_stretch", "act_cheer", "act_hearts")[rnd.nextInt(3)])
+            val walk = if (spot == -2) 0f else walkSeconds(restFraction(restNow, layoutNow), restFraction(spot, layoutNow))
+            val end = minOf(Uses.seconds(thing), if (spot < 0 && spot > -10) 3.5f else 8.5f)
             val start = androidx.compose.runtime.withFrameNanos { it }
             var t = 0f
-            while (on && t < length) {
+            while (on && t < walk + end) {
                 t = (androidx.compose.runtime.withFrameNanos { it } - start) / 1e9f
-                current.value = InUse(spot, thing, t, walk)
+                current.value = InUse(spot, thing, t, walk, end)
             }
+            // Got there: they stay (as after any use), and go on from there next time. Stopped on the way: back where they were.
+            if (spot != -2 && t >= walk) onRestNow(spot)
             current.value = null
-            // Got there: they stay (as after any use). Stopped on the way: back where they were.
-            if (spot >= 0 && t >= walk) onRestNow(spot)
         }
     }
     return current

@@ -285,12 +285,18 @@ fun DrawScope.drawClearing(
     }
     val target = act?.let { useAnchor(it.arrived(), placed, restAt, layout) }
     val walking = act?.walking == true
+    // Done with it: the last moments, stepping off to where they'll stay (out of the hammock, off the swing).
+    val stepK = act?.takeIf { !walking && it.end > 0f && it.spot >= 0 }?.let { (it.arrived().t - (it.end - Uses.STEP)) / Uses.STEP }?.takeIf { it >= 0f }
+    val stepTo = stepK?.let { restPoint(act.spot, placed, layout) }?.takeIf { (it - target!!).getDistance() > u * 0.01f }
     val anchor = when {
         target == null -> restAt
         walking -> {
             val k = (act!!.t / act.walk).let { it * it * (3 - 2 * it) }
             Offset(restAt.x + (target.x - restAt.x) * k, restAt.y + (target.y - restAt.y) * k)
         }
+        // Out of the canoe: a hop onto the bank.
+        stepTo != null -> target + (stepTo - target) * stepK.coerceAtMost(1f).let { it * it * (3 - 2 * it) } -
+            Offset(0f, if (act.thing == "canoe" || act.thing == "raft") kotlin.math.sin(stepK.coerceAtMost(1f) * Math.PI.toFloat()) * u * 0.07f else 0f)
         else -> target
     }
     var companionDrawn = false
@@ -298,6 +304,7 @@ fun DrawScope.drawClearing(
     val cs = u * 0.17f * depthScale(anchor.y / h)
     fun drawActor(glows: MutableList<Light>) {
         if (act != null && walking) { drawWalker(avatar, mood, worn, anchor, act.t, target!!.x >= restAt.x); return }
+        if (stepTo != null) { drawWalker(avatar, mood, worn, anchor, stepK!! * 2f, stepTo.x >= target!!.x); return }
         if (strolling) { drawWalker(avatar, mood, worn, anchor, restClock, restTo.x >= restWas!!.x); return }
         if (act != null) { drawUse(act.arrived(), avatar, mood, worn, placed, anchor, glows, lastStrum, layout); return }
         shadow(anchor, cs * 0.5f, u)
@@ -377,7 +384,7 @@ fun DrawScope.drawClearing(
         ground += p.y to {
             if (spot.kind == SpotKind.FIRE) firePitStones(p, u)
             val thing = placed[spot.id]
-            if (thing != null && spot.id != held && !(act?.spot == spot.id && !walking && thing in Uses.redrawn)) {
+            if (thing != null && spot.id != held && !(act?.spot == spot.id && !walking && stepTo == null && thing in Uses.redrawn)) {
                 val k = spotScale(spot.id, layout)
                 val a = appear[spot.id]
                 // Popping up from the ground with a little overshoot, and a burst of sparkles.

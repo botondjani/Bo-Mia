@@ -238,7 +238,7 @@ fun ClearingScreen(
     }
     // Camp life: clouds and weather move, and the companion gets on with things when left alone.
     val ambient = rememberAmbientClock()
-    val idle = rememberIdleLife(placed, rest, enabled = using == null && drag == null && settling == null && greeted == null && pokeAct == null && !night) { onRest(it) }
+    val idle = rememberIdleLife(placed, rest, enabled = using == null && drag == null && settling == null && greeted == null && pokeAct == null && !night, layout = local) { onRest(it) }
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { Sounds.stop() } }
 
     // The camp, big and edge to edge: wider than the screen, so it pans left and right.
@@ -290,7 +290,7 @@ fun ClearingScreen(
                             else {
                                 // Walk over first, unless already there; the sound starts on arrival.
                                 using?.let { onRest(it.first) } // switching mid-use: from where they are now
-                                walk = if ((using?.first ?: restNow) == hit) 0f else Uses.WALK
+                                walk = if ((using?.first ?: restNow) == hit) 0f else walkSeconds(restFraction(using?.first ?: restNow, localNow), restFraction(hit, localNow))
                                 using = hit to thing; caught = null; Sounds.forUse(context, thing, (walk * 1000).toLong()); onUsed(thing)
                             }
                         } else if (using != null) { using = null; Sounds.stop() }
@@ -356,7 +356,7 @@ fun ClearingScreen(
                 // Cheered: hearts where they stand (spot -2: no acorns fly, nothing was earned).
                 val use = pokeAct?.takeIf { pokeT >= 0f }?.let { InUse(-2, it, pokeT) }
                     ?: cheerT.takeIf { it >= 0f }?.let { InUse(-2, "act_hearts", it) }
-                    ?: using?.takeIf { useStart >= 0 }?.let { (spot, thing) -> InUse(spot, thing, (frame - useStart) / 1e9f, walk) } ?: idle.value
+                    ?: using?.takeIf { useStart >= 0 }?.let { (spot, thing) -> InUse(spot, thing, (frame - useStart) / 1e9f, walk, Uses.seconds(thing)) } ?: idle.value
                 drawClearing(
                     avatar, placed, mood, worn = worn, night = night, paper = paperLeft, ducks = ducks.size, bridge = bridge,
                     use = use, lastStrum = (frame - strumAt) / 1e9f - walk, visitor = visitor, rest = rest, nightClock = nightClock, appear = appear,

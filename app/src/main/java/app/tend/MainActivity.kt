@@ -815,7 +815,7 @@ class MainActivity : ComponentActivity() {
                         if (night && nightClock > app.tend.ui.Uses.WALK + 2f && bed != null && store.restSpot != bed) { store.restSpot = bed; restSpot = bed }
                     }
                     val ambient = app.tend.ui.rememberAmbientClock()
-                    val idle = app.tend.ui.rememberIdleLife(placed, restSpot, enabled = reaction == null && !night) { store.restSpot = it; restSpot = it }
+                    val idle = app.tend.ui.rememberIdleLife(placed, restSpot, enabled = reaction == null && !night, layout = layout) { store.restSpot = it; restSpot = it }
                     androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
                         val use = reaction?.takeIf { start >= 0 }?.let { app.tend.ui.InUse(-1, it, (frame - start) / 1e9f, if (it == "campfire") app.tend.ui.Uses.WALK else 0f) } ?: idle.value
                         drawClearing(store.avatar, placed, mood, shelf.first, night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor, rest = restSpot, nightClock = nightClock, appear = appear, layout = layout, ambient = ambient.value, guests = fireGuests)
