@@ -106,6 +106,9 @@ fun SettingsScreen(
     /** The companion peeking in after ten minutes in a row in paused apps. */
     peekOn: Boolean = true,
     onPeek: (Boolean) -> Unit = {},
+    /** Your town (for the camp's weather), age range and gender, and the town's name for the row. */
+    aboutYou: @Composable () -> Unit = {},
+    townName: String? = null,
     onDone: () -> Unit,
 ) = Column(
     Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
@@ -186,6 +189,16 @@ fun SettingsScreen(
                 )
             }
         }
+        // Your town and you: folded into one row until opened.
+        var aboutOpen by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tappable { aboutOpen = !aboutOpen }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Your town and you", style = MaterialTheme.typography.bodyLarge)
+                Text(townName?.let { "Weather from $it" } ?: "Set your town for the camp's weather", style = MaterialTheme.typography.bodyMedium)
+            }
+            Text(if (aboutOpen) "Done" else "Change", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+        }
+        androidx.compose.animation.AnimatedVisibility(aboutOpen) { aboutYou() }
         WidgetButton(avatar, onAddWidget)
         val ctx = androidx.compose.ui.platform.LocalContext.current
         var sounds by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(Sounds.enabled(ctx)) }

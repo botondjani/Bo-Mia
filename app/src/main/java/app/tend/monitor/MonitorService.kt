@@ -301,6 +301,8 @@ class MonitorService : Service() {
      */
     private suspend fun backgroundSync() {
         trialNote()
+        // The town's weather for the widgets (at most hourly; nothing without a town).
+        if (runCatching { app.tend.data.WeatherService.refresh(this) }.getOrDefault(false)) app.tend.widget.Widgets.refresh(this)
         if (!store.onboarded || store.selectedTasks.none { it.verification == app.tend.core.Verification.AUTOMATIC }) return
         val done = runCatching { app.tend.health.TaskSync.sync(this) }.getOrNull() ?: return
         if (done.tasks.isEmpty() || !app.tend.reminder.RecapReminder.canNotify(this)) return

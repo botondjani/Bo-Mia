@@ -96,7 +96,7 @@ class PermissionActions(
 /** Where Android's restricted-settings lock stands: none, locked, or refused once (the unlock option now shows). */
 enum class PermissionLock { NONE, LOCKED, TRIPPED }
 
-private enum class Step { WELCOME, USAGE, APPS, ACTIVITIES, PAUSE, ACCOUNT, CAMP }
+private enum class Step { WELCOME, USAGE, APPS, ACTIVITIES, ABOUT, PAUSE, ACCOUNT, CAMP }
 
 @Composable
 fun Onboarding(
@@ -119,6 +119,8 @@ fun Onboarding(
     acorns: Int = 0,
     onBuy: (String) -> Boolean = { false },
     onUsed: (String) -> Unit = {},
+    /** A little about you (all optional): your town for the weather, an age range, a gender. */
+    about: @Composable () -> Unit = {},
     onFinish: () -> Unit,
 ) {
     var stepIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -192,6 +194,11 @@ fun Onboarding(
                         LinkText("Skip, use the defaults", { onDefaultTasks(true); next() })
                         ActivityPicker(tasks, onToggleTask)
                     }
+                }
+
+                Step.ABOUT -> StepPage(cta = "Continue", onCta = next) {
+                    Title("A little about you", "All optional. Your town gives the camp its own weather: rain there, rain here.")
+                    about()
                 }
 
                 Step.PAUSE -> StepPage(

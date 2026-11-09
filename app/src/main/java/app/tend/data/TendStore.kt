@@ -26,6 +26,18 @@ import java.time.LocalDateTime
 class TendStore(private val context: Context) {
     private val prefs = context.getSharedPreferences("tend", Context.MODE_PRIVATE)
 
+    init {
+        // The last fetched weather, once per process: the camp can show it before the next fetch.
+        if (app.tend.core.LiveWeather.fetchedAt == 0L) prefs.getString("weather_code", null)?.let { code ->
+            runCatching { app.tend.core.Weather.valueOf(code) }.getOrNull()?.let { w ->
+                app.tend.core.LiveWeather.current = w
+                app.tend.core.LiveWeather.fetchedAt = prefs.getLong("weather_at", 0)
+                app.tend.core.LiveWeather.sunrise = prefs.getFloat("sunrise", 6.5f)
+                app.tend.core.LiveWeather.sunset = prefs.getFloat("sunset", 18.6f)
+            }
+        }
+    }
+
     var avatar: Avatar
         get() = Avatar.valueOf(prefs.getString("avatar", Avatar.BO.name)!!)
         set(v) = edit { putString("avatar", v.name) }
@@ -547,6 +559,45 @@ class TendStore(private val context: Context) {
 
     fun credit(taskId: String, minutes: Int, manual: Boolean) =
         update { Budget.credit(config, it, taskId, minutes, manual) }
+
+    // ---- Where the camp is, and a little about you (all optional) ----
+
+    /** The city whose weather the camp has (chosen by name; never the phone's location). */
+    val weatherPlace: WeatherService.Place?
+        get() = prefs.getString("weather_place", null)?.let { j ->
+            runCatching { org.json.JSONObject(j).let { o -> WeatherService.Place(o.getString("name"), o.optString("area"), o.optString("country"), o.optString("cc"), o.getDouble("lat"), o.getDouble("lon")) } }.getOrNull()
+        }
+
+    fun setWeatherPlace(p: WeatherService.Place?) {
+        edit {
+            if (p == null) remove("weather_place")
+            else putString("weather_place", org.json.JSONObject().put("name", p.name).put("area", p.area).put("country", p.country).put("cc", p.countryCode).put("lat", p.lat).put("lon", p.lon).toString())
+            remove("weather_code"); remove("weather_at")
+        }
+        app.tend.core.LiveWeather.current = null
+        app.tend.core.LiveWeather.fetchedAt = 0
+        logProfile()
+    }
+
+    /** The fetched weather, kept for the widgets and the next start. */
+    fun keepWeather(w: app.tend.core.Weather, sunrise: Float, sunset: Float) {
+        val now = System.currentTimeMillis()
+        app.tend.core.LiveWeather.current = w; app.tend.core.LiveWeather.fetchedAt = now
+        app.tend.core.LiveWeather.sunrise = sunrise; app.tend.core.LiveWeather.sunset = sunset
+        edit { putString("weather_code", w.name); putLong("weather_at", now); putFloat("sunrise", sunrise); putFloat("sunset", sunset) }
+    }
+
+    /** Age range ("25-34") and gender, if given; only ever counted (with consent), never shown. */
+    var ageBand: String?
+        get() = prefs.getString("age_band", null)
+        set(v) { edit { if (v == null) remove("age_band") else putString("age_band", v) }; logProfile() }
+
+    var gender: String?
+        get() = prefs.getString("gender", null)
+        set(v) { edit { if (v == null) remove("gender") else putString("gender", v) }; logProfile() }
+
+    /** For the counts (sent only with consent): age range, gender and country, never the city. */
+    private fun logProfile() = Stats.log(context, "profile", mapOf("age" to (ageBand ?: ""), "gender" to (gender ?: ""), "country" to (weatherPlace?.countryCode ?: "")))
 
     // ---- tend Plus ----
 

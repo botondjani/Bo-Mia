@@ -59,7 +59,7 @@ object Widgets {
         // Cheap things only before the "has anything changed?" check: this runs on every store write.
         val layout = store.layout
         val guests = app.tend.data.Friends.atFire(context).map { (runCatching { app.tend.core.Avatar.valueOf(it.companion) }.getOrDefault(app.tend.core.Avatar.BO)) to it.name }
-        val shown = listOf(store.avatar, mood, remaining, next?.id, day.completedTasks.sorted(), placed, night, paper, ducks, fresh?.id, store.bridgeBuilt, visitor, store.outfitWorn, layout, guests).joinToString("|")
+        val shown = listOf(store.avatar, mood, remaining, next?.id, day.completedTasks.sorted(), placed, night, paper, ducks, fresh?.id, store.bridgeBuilt, visitor, store.outfitWorn, layout, guests, app.tend.core.LiveWeather.fresh(), java.time.LocalTime.now().hour).joinToString("|")
         if (!force && shown == lastShown) return
         lastShown = shown
         val worn = store.accessories().first

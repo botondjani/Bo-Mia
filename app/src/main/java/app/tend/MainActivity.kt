@@ -447,11 +447,33 @@ class MainActivity : ComponentActivity() {
         }
         val toggleTask: (TaskDef) -> Unit = { store.toggleTask(it); refresh++ }
 
+        // A little about you: the town (its weather fetched at once), an age range, a gender.
+        val aboutYou: @Composable () -> Unit = {
+            @Suppress("UNUSED_VARIABLE") val changed = refresh // redraw after each choice
+            app.tend.ui.AboutYou(
+                store.weatherPlace, store.ageBand, store.gender,
+                onPlace = { p ->
+                    store.setWeatherPlace(p); refresh++
+                    lifecycleScope.launch {
+                        if (kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { app.tend.data.WeatherService.refresh(this@MainActivity, force = true) }) {
+                            refresh++; app.tend.widget.Widgets.refresh(this@MainActivity)
+                        }
+                    }
+                },
+                onAge = { store.ageBand = it; refresh++ },
+                onGender = { store.gender = it; refresh++ },
+            )
+        }
+
         // The shared campfire: who's phone-free now (heard every minute while tend is open), and joining them.
         var atFire by remember { mutableStateOf(app.tend.data.Friends.atFire(this)) }
         LaunchedEffect(Unit) {
             while (true) {
                 if (app.tend.data.Account.user(this@MainActivity) != null) runCatching { app.tend.data.Friends.list(this@MainActivity) }
+                // The town's weather, at most hourly.
+                if (kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { app.tend.data.WeatherService.refresh(this@MainActivity) }) {
+                    refresh++; app.tend.widget.Widgets.refresh(this@MainActivity)
+                }
                 val now = app.tend.data.Friends.atFire(this@MainActivity)
                 if (now != atFire) { atFire = now; app.tend.widget.Widgets.refresh(this@MainActivity) }
                 kotlinx.coroutines.delay(60_000)
@@ -525,6 +547,7 @@ class MainActivity : ComponentActivity() {
                     // The camp starts empty: the first thing (the campfire) is bought, guided, at the end of setup.
                     onBuy = { thing -> store.buy(thing).also { if (it) refresh++ } },
                     onUsed = { thing -> store.markUsed(thing); refresh++ },
+                    about = aboutYou,
                     onFinish = finish,
                 )
             }
@@ -587,6 +610,8 @@ class MainActivity : ComponentActivity() {
                 onPlus = openPlus,
                 onTestTrial = if (BuildConfig.PLAY) null else { days -> store.setTrialStart(days); refresh++ },
                 peekOn = store.peekOn,
+                aboutYou = aboutYou,
+                townName = store.weatherPlace?.name,
                 onPeek = { store.peekOn = it; refresh++ },
                 onDone = { screen = Screen.HOME },
             )
@@ -837,7 +862,7 @@ class MainActivity : ComponentActivity() {
                         store.avatar.displayName, now, store.config, store.today(), store.selectedTasks,
                         yesterday = days.firstOrNull { it.date == now.toLocalDate().minusDays(1) }?.done.orEmpty(),
                         streak = app.tend.core.Voice.streak(days, now.toLocalDate()),
-                        weather = app.tend.core.Weather.of(now.toLocalDate(), now.hour),
+                        weather = app.tend.core.LiveWeather.fresh() ?: app.tend.core.Weather.of(now.toLocalDate(), now.hour),
                         visitor = store.visitorWaiting(),
                         atFire = atFire.map { it.name },
                         welcomeBack = store.welcomeBackOn == LocalDate.now().toString(),

@@ -152,7 +152,7 @@ fun DrawScope.drawClearing(
     /** The hour now (with minutes as a fraction): dawn, day, the golden hour and dusk colour the sky. */
     hour: Float = java.time.LocalTime.now().let { it.hour + it.minute / 60f },
     /** Today's weather. */
-    weather: app.tend.core.Weather = app.tend.core.Weather.of(java.time.LocalDate.now(), hour.toInt(), season),
+    weather: app.tend.core.Weather = app.tend.core.LiveWeather.fresh() ?: app.tend.core.Weather.of(java.time.LocalDate.now(), hour.toInt(), season),
     /** Seconds of camp life, for what moves by itself: clouds, rain, snow, fireflies (0 for a still picture). */
     ambient: Float = 0f,
     /** Where the user moved things to (spot to scene fraction). */
@@ -873,9 +873,12 @@ private fun skyAt(hour: Float, weather: app.tend.core.Weather): Pair<Color, Colo
     top = androidx.compose.ui.graphics.lerp(top, Color(0xFFA9B5BD), grey)
     low = androidx.compose.ui.graphics.lerp(low, Color(0xFFD5D9D8), grey)
     val clear = 1f - grey
-    bump(5f, 6.5f, 8.5f).let { k -> top = androidx.compose.ui.graphics.lerp(top, Color(0xFFC6B8D8), k * 0.7f * clear); low = androidx.compose.ui.graphics.lerp(low, Color(0xFFF7C6A6), k * 0.75f * clear) }
-    bump(16.5f, 18.6f, 19.6f).let { k -> top = androidx.compose.ui.graphics.lerp(top, Color(0xFFE6CFAE), k * 0.45f * clear); low = androidx.compose.ui.graphics.lerp(low, Color(0xFFF6B56C), k * 0.7f * clear) }
-    bump(19f, 20.5f, 23f).let { k -> top = androidx.compose.ui.graphics.lerp(top, Color(0xFF8292C2), k * 0.7f); low = androidx.compose.ui.graphics.lerp(low, Color(0xFFE5A28C), k * 0.65f * clear) }
+    // Around the real sunrise and sunset when a city is set (the usual hours otherwise).
+    val rise = app.tend.core.LiveWeather.sunrise
+    val set = app.tend.core.LiveWeather.sunset
+    bump(rise - 1.5f, rise, rise + 2f).let { k -> top = androidx.compose.ui.graphics.lerp(top, Color(0xFFC6B8D8), k * 0.7f * clear); low = androidx.compose.ui.graphics.lerp(low, Color(0xFFF7C6A6), k * 0.75f * clear) }
+    bump(set - 2.1f, set, set + 1f).let { k -> top = androidx.compose.ui.graphics.lerp(top, Color(0xFFE6CFAE), k * 0.45f * clear); low = androidx.compose.ui.graphics.lerp(low, Color(0xFFF6B56C), k * 0.7f * clear) }
+    bump(set + 0.4f, set + 1.9f, set + 4.4f).let { k -> top = androidx.compose.ui.graphics.lerp(top, Color(0xFF8292C2), k * 0.7f); low = androidx.compose.ui.graphics.lerp(low, Color(0xFFE5A28C), k * 0.65f * clear) }
     return top to low
 }
 
@@ -885,9 +888,11 @@ private fun DrawScope.hourTint(hour: Float, weather: app.tend.core.Weather) {
     val wet = weather == app.tend.core.Weather.RAIN
     if (wet) drawRect(Color(0xFF6E7C86).copy(alpha = 0.14f), size = size)
     val k = if (wet) 0.4f else 1f
-    bump(5f, 6.5f, 8.5f).takeIf { it > 0f }?.let { drawRect(Color(0xFFFFB49A).copy(alpha = 0.07f * it * k), size = size) }
-    bump(16.5f, 18.6f, 19.6f).takeIf { it > 0f }?.let { drawRect(Color(0xFFFFA347).copy(alpha = 0.1f * it * k), size = size) }
-    bump(19f, 20.5f, 23f).takeIf { it > 0f }?.let { drawRect(Color(0xFF5E4FA0).copy(alpha = 0.16f * it), size = size) }
+    val rise = app.tend.core.LiveWeather.sunrise
+    val set = app.tend.core.LiveWeather.sunset
+    bump(rise - 1.5f, rise, rise + 2f).takeIf { it > 0f }?.let { drawRect(Color(0xFFFFB49A).copy(alpha = 0.07f * it * k), size = size) }
+    bump(set - 2.1f, set, set + 1f).takeIf { it > 0f }?.let { drawRect(Color(0xFFFFA347).copy(alpha = 0.1f * it * k), size = size) }
+    bump(set + 0.4f, set + 1.9f, set + 4.4f).takeIf { it > 0f }?.let { drawRect(Color(0xFF5E4FA0).copy(alpha = 0.16f * it), size = size) }
 }
 
 /** Soft clouds drifting slowly across: a couple on a clear day, more and greyer when it's cloudy. */

@@ -19,3 +19,29 @@ enum class Weather { CLEAR, CLOUDY, RAIN, FOG, SNOW;
         }
     }
 }
+
+/**
+ * The real weather where the user said they live (a city they picked; never their location),
+ * as last fetched, with that day's sunrise and sunset. Empty until a city is chosen: then each day
+ * keeps its made-up weather.
+ */
+object LiveWeather {
+    /** The weather now, if known and fresh enough (3 hours). */
+    @Volatile var current: Weather? = null
+    @Volatile var fetchedAt: Long = 0
+    /** Sunrise and sunset as hours of the day (7.5 = 7:30); the usual ones until known. */
+    @Volatile var sunrise: Float = 6.5f
+    @Volatile var sunset: Float = 18.6f
+
+    fun fresh(now: Long = System.currentTimeMillis()): Weather? = current?.takeIf { now - fetchedAt < 3 * 3_600_000L }
+
+    /** WMO weather codes (as Open-Meteo gives them) to the camp's weather. */
+    fun fromWmo(code: Int): Weather = when (code) {
+        0, 1 -> Weather.CLEAR
+        2, 3 -> Weather.CLOUDY
+        45, 48 -> Weather.FOG
+        in 51..67, in 80..82, in 95..99 -> Weather.RAIN
+        in 71..77, 85, 86 -> Weather.SNOW
+        else -> Weather.CLOUDY
+    }
+}

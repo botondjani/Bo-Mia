@@ -25,4 +25,19 @@ class WeatherTest {
         // Not all one thing: a mix over the year.
         assertTrue(year.map { Weather.of(it, 8) }.toSet().size == Weather.entries.size)
     }
+
+    @Test fun `real weather codes map to the camp's weather, and stale weather is not used`() {
+        assertEquals(Weather.CLEAR, LiveWeather.fromWmo(0))
+        assertEquals(Weather.CLOUDY, LiveWeather.fromWmo(3))
+        assertEquals(Weather.FOG, LiveWeather.fromWmo(45))
+        assertEquals(Weather.RAIN, LiveWeather.fromWmo(61))
+        assertEquals(Weather.RAIN, LiveWeather.fromWmo(95))
+        assertEquals(Weather.SNOW, LiveWeather.fromWmo(73))
+        LiveWeather.current = Weather.RAIN
+        LiveWeather.fetchedAt = System.currentTimeMillis() - 4 * 3_600_000L
+        assertEquals(null, LiveWeather.fresh())
+        LiveWeather.fetchedAt = System.currentTimeMillis()
+        assertEquals(Weather.RAIN, LiveWeather.fresh())
+        LiveWeather.current = null; LiveWeather.fetchedAt = 0
+    }
 }
