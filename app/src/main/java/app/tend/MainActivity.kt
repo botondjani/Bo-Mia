@@ -806,6 +806,37 @@ class MainActivity : ComponentActivity() {
                 onOpenClearing = { screen = Screen.CLEARING },
                 steps = remember(refresh) { firstSteps() },
                 onStep = goToStep,
+                // Bo's quest for today (once something's picked to do instead).
+                quest = remember(refresh, LocalDate.now()) { app.tend.core.Quests.of(LocalDate.now(), store.selectedTasks, store.config.freeMinutes).takeIf { store.selectedTasks.isNotEmpty() } },
+                questDone = remember(refresh, LocalTime.now().hour) {
+                    app.tend.core.Quests.done(app.tend.core.Quests.of(LocalDate.now(), store.selectedTasks, store.config.freeMinutes), store.today(), store.notNowsToday, LocalTime.now().hour)
+                },
+                questClaimed = store.questClaimedOn == LocalDate.now().toString(),
+                // The week's story: from Sunday 17:00 through Monday, until shared or put away.
+                weekStory = remember(refresh, LocalTime.now().hour) {
+                    val today = LocalDate.now()
+                    val sunday = when (today.dayOfWeek) {
+                        java.time.DayOfWeek.SUNDAY -> today.takeIf { LocalTime.now().hour >= 17 }
+                        java.time.DayOfWeek.MONDAY -> today.minusDays(1)
+                        else -> null
+                    }
+                    sunday?.takeIf { store.weekStoryDone != it.toString() && store.daysTended >= 3 }?.let { sun ->
+                        val week = Patterns.week(sun, store.daySummaries(), store.answers())
+                        Triple(week.gotBackMinutes, week.days.count { it.tasksDone > 0 }, week.letGo)
+                    }
+                },
+                onShareWeek = { shareCamp() },
+                onWeekStoryDone = {
+                    val today = LocalDate.now()
+                    store.weekStoryDone = (if (today.dayOfWeek == java.time.DayOfWeek.MONDAY) today.minusDays(1) else today).toString(); refresh++
+                },
+                onClaimQuest = {
+                    if (store.questClaimedOn != LocalDate.now().toString()) {
+                        store.questClaimedOn = LocalDate.now().toString()
+                        store.addAcorns(app.tend.core.Quests.of(LocalDate.now(), store.selectedTasks, store.config.freeMinutes).acorns, "quest")
+                        app.tend.ui.Sounds.acorns(this@MainActivity); refresh++
+                    }
+                },
                 focusActivities = activitiesFocus,
                 sleeping = now < store.sleepUntil,
                 onWakeUp = { store.wakeUp(); refresh++ },

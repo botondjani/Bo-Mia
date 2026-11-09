@@ -498,7 +498,7 @@ fun DrawScope.drawClearing(
         ground += p.y to {
             val k = (ambient % 3f) / 0.5f
             val hop = if (k < 1f) kotlin.math.sin(k * Math.PI.toFloat()) * u * 0.02f else 0f
-            withTransform({ translate(0f, -hop) }) { drawThing("gift_boxes", p, u, lights) }
+            withTransform({ translate(0f, -hop); scale(1.7f, 1.7f, pivot = p) }) { drawThing("gift_boxes", p, u, lights) }
             if (k < 1f) sparkles(p + Offset(0f, -u * 0.05f), u, k)
         }
     }
@@ -1198,6 +1198,60 @@ private fun DrawScope.overhead(id: String, a: Offset, b: Offset, u: Float, light
  */
 fun DrawScope.drawThing(id: String, p: Offset, u: Float, lights: MutableList<Light> = mutableListOf()) {
     when (id) {
+        // ---- The events' own ----
+        "jack_o_lantern" -> {
+            // A carved pumpkin with a grin, lit from inside.
+            val c = p + Offset(0f, -u * 0.016f)
+            drawOval(Color(0xFFD9772B), Offset(c.x - u * 0.022f, c.y - u * 0.016f), Size(u * 0.044f, u * 0.032f))
+            drawOval(Color(0xFFE88E3C), Offset(c.x - u * 0.012f, c.y - u * 0.016f), Size(u * 0.024f, u * 0.032f))
+            drawLine(Color(0xFF4D7139), c + Offset(0f, -u * 0.016f), c + Offset(u * 0.004f, -u * 0.024f), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
+            for (side in listOf(-1f, 1f)) drawPath(Path().apply { moveTo(c.x + side * u * 0.011f, c.y - u * 0.007f); lineTo(c.x + side * u * 0.005f, c.y - u * 0.001f); lineTo(c.x + side * u * 0.015f, c.y - u * 0.001f); close() }, Glow)
+            drawArc(Glow, 10f, 160f, true, Offset(c.x - u * 0.012f, c.y - u * 0.006f), Size(u * 0.024f, u * 0.014f))
+            lights += Light(c, u * 0.07f, 0.9f)
+        }
+        "paper_lanterns" -> {
+            // Three paper lanterns on a crooked stick, red, yellow and blue, glowing softly.
+            val top = p + Offset(-u * 0.006f, -u * 0.075f)
+            drawLine(BarkDark, p, top, strokeWidth = u * 0.003f, cap = StrokeCap.Round)
+            drawLine(BarkDark, top, top + Offset(u * 0.04f, -u * 0.006f), strokeWidth = u * 0.0025f, cap = StrokeCap.Round)
+            listOf(Color(0xFFE5677A), Color(0xFFF2C14E), Color(0xFF6FA8DC)).forEachIndexed { i, col ->
+                val hook = top + Offset(u * (0.008f + i * 0.014f), -u * 0.0015f * i)
+                val at = hook + Offset(0f, u * (0.012f + (i % 2) * 0.006f))
+                drawLine(Color(0xFF6B5A4A), hook, at, strokeWidth = u * 0.001f)
+                drawOval(col, Offset(at.x - u * 0.0065f, at.y), Size(u * 0.013f, u * 0.016f))
+                drawOval(Color.White.copy(alpha = 0.35f), Offset(at.x - u * 0.003f, at.y + u * 0.003f), Size(u * 0.005f, u * 0.008f))
+                lights += Light(at + Offset(0f, u * 0.008f), u * 0.04f, 0.7f)
+            }
+        }
+        "xmas_tree" -> {
+            // A little fir in three tiers, a star on top, and lights hung in it.
+            drawRect(Wood, Offset(p.x - u * 0.004f, p.y - u * 0.012f), Size(u * 0.008f, u * 0.012f))
+            for (k in 0 until 3) {
+                val base = p.y - u * (0.01f + k * 0.022f)
+                val half = u * (0.032f - k * 0.008f)
+                drawPath(Path().apply { moveTo(p.x - half, base); lineTo(p.x, base - u * 0.032f); lineTo(p.x + half, base); close() }, if (k % 2 == 0) Color(0xFF2E5E3E) else Color(0xFF356B47))
+            }
+            val star = p + Offset(0f, -u * 0.088f)
+            drawCircle(Color(0xFFF2C14E), u * 0.006f, star)
+            lights += Light(star, u * 0.05f, 0.8f)
+            listOf(Offset(-0.014f, -0.022f), Offset(0.012f, -0.03f), Offset(-0.006f, -0.048f), Offset(0.009f, -0.06f), Offset(-0.018f, -0.012f)).forEachIndexed { i, o ->
+                val at = p + Offset(o.x * u, o.y * u)
+                drawCircle(listOf(Color(0xFFE5677A), Color(0xFFF2C14E), Color(0xFF6FA8DC))[i % 3], u * 0.0035f, at)
+                lights += Light(at, u * 0.025f, 0.5f)
+            }
+        }
+        "flower_arch" -> {
+            // Two posts with a garland of flowers between them.
+            val l = p + Offset(-u * 0.03f, 0f)
+            val r = p + Offset(u * 0.03f, 0f)
+            for (b in listOf(l, r)) drawLine(Wood, b, b + Offset(0f, -u * 0.07f), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
+            for (k in 0..8) {
+                val t = k / 8f
+                val at = Offset(l.x + (r.x - l.x) * t, l.y - u * 0.07f + kotlin.math.sin(t * Math.PI.toFloat()) * u * 0.018f)
+                drawCircle(Color(0xFF6E9A4A), u * 0.005f, at + Offset(0f, u * 0.002f))
+                drawCircle(listOf(Color(0xFFF2A0B8), Color(0xFFF2C14E), Color.White, Color(0xFFE5677A))[k % 4], u * 0.0045f, at)
+            }
+        }
         // ---- The seasons' own ----
         "tulips" -> for (k in 0 until 5) {
             val dx = (k - 2) * u * 0.009f
@@ -1641,6 +1695,10 @@ fun noteBadge(sizePx: Int, duck: Boolean, emoji: String): android.graphics.Bitma
 
 /** Rough size of each thing (width, height) in scene heights, to fit it into an icon. */
 private fun thingSize(id: String): Pair<Float, Float> = when (id) {
+    "jack_o_lantern" -> 0.05f to 0.05f
+    "paper_lanterns" -> 0.06f to 0.095f
+    "xmas_tree" -> 0.07f to 0.1f
+    "flower_arch" -> 0.08f to 0.095f
     "scarecrow" -> 0.08f to 0.11f
     "snowman" -> 0.06f to 0.09f
     "birdhouse" -> 0.05f to 0.11f

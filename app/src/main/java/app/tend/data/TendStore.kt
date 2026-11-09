@@ -337,6 +337,8 @@ class TendStore(private val context: Context) {
         // A season's things are sold only in that season.
         if (thing.season != null && thing.season != app.tend.core.Season.of(LocalDate.now()) && thingId !in placed.values) return false
         if (thing.season != null && !isPlus && thingId !in placed.values) return false // the season's own come with Plus
+        // An event's things: only while it's on, and with Plus, like the seasons'.
+        if (thing.event != null && (!thing.event.on(LocalDate.now()) || !isPlus) && thingId !in placed.values) return false
         val refund = placed[spotId]?.let(app.tend.core.Things::byId)?.let(app.tend.core.Clearing::sellValue) ?: 0
         if (acorns + refund < thing.price) return false
         if (refund > 0) addAcorns(refund, "sold")
@@ -799,6 +801,20 @@ class TendStore(private val context: Context) {
     var monitorSlept: Boolean
         get() = prefs.getBoolean("monitor_slept", false)
         set(v) = edit { putBoolean("monitor_slept", v) }
+
+    /** "Not now"s said today. */
+    val notNowsToday: Int
+        get() = if (prefs.getString("not_now_day", "") == LocalDate.now().toString()) prefs.getInt("not_now_count", 0) else 0
+
+    /** The week whose story card was put away (the date of its Sunday). */
+    var weekStoryDone: String
+        get() = prefs.getString("week_story_done", "") ?: ""
+        set(v) = edit { putString("week_story_done", v) }
+
+    /** The day Bo's quest was last claimed (its acorns added). */
+    var questClaimedOn: String
+        get() = prefs.getString("quest_claimed", "") ?: ""
+        set(v) = edit { putString("quest_claimed", v) }
 
     /** Acorns the next "Not now" earns today (0 once today's are all earned). */
     val nextNotNowAcorns: Int

@@ -114,6 +114,15 @@ fun HomeScreen(
     /** A small tip on the camp (how to move things), until it's been tried. */
     campTip: String? = null,
     steps: List<app.tend.core.StepState> = emptyList(),
+    /** Bo's quest for today: what, whether it's done and claimed, and claiming it. */
+    quest: app.tend.core.Quest? = null,
+    questDone: Boolean = false,
+    questClaimed: Boolean = false,
+    onClaimQuest: () -> Unit = {},
+    /** Sunday evening and Monday: the week (minutes got back, active days, scrolls let go), to share or put away. */
+    weekStory: Triple<Int, Int, Int>? = null,
+    onShareWeek: () -> Unit = {},
+    onWeekStoryDone: () -> Unit = {},
     onStep: (app.tend.core.Step) -> Unit = {},
     /** Bumped when 'Do one activity' is tapped: the list comes into view with a glow. */
     focusActivities: Int = 0,
@@ -214,6 +223,8 @@ fun HomeScreen(
         }
 
         FirstStepsStrip(steps, onOpenClearing, onStep)
+        quest?.let { QuestCard(it, questDone, questClaimed, avatar.displayName, onClaimQuest) }
+        weekStory?.let { (back, days, letGo) -> WeekStoryCard(back, days, letGo, onShareWeek, onWeekStoryDone) }
         if (level != null && !(firstDays && level.level == 1 && level.into == 0)) ProgressStrip(level, skills, challenge)
         if (levelUp != null) LevelUpDialog(avatar, levelUp, onLevelUpSeen)
 

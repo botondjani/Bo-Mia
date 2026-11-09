@@ -24,7 +24,7 @@ enum class Season(val title: String) {
  * [spot]: the one spot this thing always goes to (the hammock between two trees, the swing under the branch).
  * [season]: sold only in that season (once bought, it stays).
  */
-data class Thing(val id: String, val name: String, val price: Int, val kind: SpotKind, val spot: Int? = null, val season: Season? = null)
+data class Thing(val id: String, val name: String, val price: Int, val kind: SpotKind, val spot: Int? = null, val season: Season? = null, val event: CampEvent? = null)
 
 object Things {
     val all: List<Thing> = listOf(
@@ -72,6 +72,11 @@ object Things {
         Thing("gift_boxes", "Presents", 25, SpotKind.SMALL, season = Season.WINTER),
         Thing("sled", "Sled", 30, SpotKind.SMALL, season = Season.WINTER),
         Thing("snowman", "Snowman", 40, SpotKind.SMALL, season = Season.WINTER),
+        // A few days a year: each event's own, sold only then.
+        Thing("jack_o_lantern", "Jack-o'-lantern", 40, SpotKind.SMALL, event = CampEvent.PUMPKINS),
+        Thing("paper_lanterns", "Paper lanterns", 40, SpotKind.SMALL, event = CampEvent.LANTERNS),
+        Thing("xmas_tree", "Little fir tree", 60, SpotKind.SMALL, event = CampEvent.ADVENT),
+        Thing("flower_arch", "Flower garland", 50, SpotKind.SMALL, event = CampEvent.MIDSUMMER),
     )
 
     /** Things no longer sold, with what they cost: whoever had one gets it back in acorns. */
@@ -82,7 +87,10 @@ object Things {
     fun byId(id: String): Thing? = all.firstOrNull { it.id == id }
 
     /** What the shop always has for [kind] (not the seasons' own). */
-    fun forKind(kind: SpotKind): List<Thing> = all.filter { it.kind == kind && it.season == null }.sortedBy { it.price }
+    fun forKind(kind: SpotKind): List<Thing> = all.filter { it.kind == kind && it.season == null && it.event == null }.sortedBy { it.price }
+
+    /** An event's own things. */
+    fun forEvent(event: CampEvent): List<Thing> = all.filter { it.event == event }
 
     /** The season's own things, cheapest first. */
     fun forSeason(season: Season): List<Thing> = all.filter { it.season == season }.sortedBy { it.price }

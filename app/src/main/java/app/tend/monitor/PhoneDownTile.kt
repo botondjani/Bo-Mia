@@ -44,7 +44,9 @@ class PhoneDownTile : TileService() {
     }
 
     /** tend, where the running activity shows. */
+    // Below Android 14 only the Intent form exists; from 14 on, the PendingIntent one is used.
     @Suppress("DEPRECATION")
+    @android.annotation.SuppressLint("StartActivityAndCollapseDeprecated")
     private fun open() {
         val intent = Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         if (Build.VERSION.SDK_INT >= 34) startActivityAndCollapse(PendingIntent.getActivity(this, 31, intent, PendingIntent.FLAG_IMMUTABLE))

@@ -512,6 +512,7 @@ fun ClearingScreen(
         when {
             drag != null && caught != null -> caught!!
             using != null -> Uses.line(using!!.second, avatar.displayName)
+            gifts.isNotEmpty() -> "A present from ${gifts.distinct().joinToString(" and ")}! Tap it to open."
             paper -> "Someone toilet-papered your oak! Tap it to unroll."
             visitor != null -> "${visitor.aName.replaceFirstChar { it.uppercase() }} came to the camp. Tap it to say hello."
             ducks.isNotEmpty() -> "A rubber duck: someone visited. Tap it to fish it out."
@@ -524,6 +525,22 @@ fun ClearingScreen(
         },
         style = MaterialTheme.typography.bodyMedium,
     )
+
+    // An event on (a few days a year): a word about it, and its thing in the shop.
+    app.tend.core.CampEvent.on(java.time.LocalDate.now())?.let { event ->
+        val left = event.daysLeft(java.time.LocalDate.now())
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Brand.Coral.copy(alpha = 0.12f)).tappable { shopOpen = true }.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Canvas(Modifier.size(40.dp)) { drawThingIcon(event.thing) }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text("${event.title.uppercase()} · ${if (left == 1) "LAST DAY" else "$left DAYS LEFT"}", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Brand.Coral)
+                Text(event.line, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp), maxLines = 2)
+            }
+        }
+    }
 
     // The shop, friends, and sharing the camp: a button each.
     Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
@@ -636,7 +653,24 @@ private fun Shop(
             }
             AcornBadge(acorns)
         }
-        // The season's own, first: sold only while it lasts.
+        // An event's own, first, while it's on (a few days): then the season's.
+        app.tend.core.CampEvent.on(java.time.LocalDate.now())?.let { event ->
+            val left = event.daysLeft(java.time.LocalDate.now())
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)) {
+                Text("${event.title.uppercase()} · ${if (left == 1) "LAST DAY" else "$left DAYS LEFT"}", style = MaterialTheme.typography.labelSmall, color = Brand.Coral, modifier = Modifier.weight(1f))
+                Text("Yours to keep ", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted)
+                PlusMark()
+            }
+            Text(event.line, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+                Things.forEvent(event).forEach { thing ->
+                    val owned = thing.id in placed.values
+                    ShopTile(thing, owned = owned, affordable = plus && acorns >= thing.price, Modifier.weight(1f), background = Brand.Coral.copy(alpha = 0.12f)) { if (plus || owned) open = thing else onPlus() }
+                }
+                repeat(2) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+        // The season's own: sold only while it lasts.
         val season = app.tend.core.Season.of(java.time.LocalDate.now())
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)) {
             Text("THIS ${season.title.uppercase()} ONLY", style = MaterialTheme.typography.labelSmall, color = Brand.Coral, modifier = Modifier.weight(1f))
@@ -668,9 +702,11 @@ private fun Shop(
             }
         }
         // Bought in other seasons: still here, to sell if wanted.
-        val earlier = app.tend.core.Season.entries.filter { it != season }.flatMap { Things.forSeason(it) }.filter { it.id in placed.values }
+        val nowEvent = app.tend.core.CampEvent.on(java.time.LocalDate.now())
+        val earlier = (app.tend.core.Season.entries.filter { it != season }.flatMap { Things.forSeason(it) } +
+            app.tend.core.CampEvent.entries.filter { it != nowEvent }.flatMap { Things.forEvent(it) }).filter { it.id in placed.values }
         if (earlier.isNotEmpty()) {
-            Text("FROM OTHER SEASONS", style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
+            Text("FROM OTHER SEASONS AND NIGHTS", style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
             earlier.chunked(3).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
                     row.forEach { thing -> ShopTile(thing, owned = true, affordable = true, Modifier.weight(1f)) { open = thing } }

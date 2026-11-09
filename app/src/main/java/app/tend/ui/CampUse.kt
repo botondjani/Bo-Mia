@@ -71,6 +71,10 @@ object Uses {
         "gift_boxes" -> "$name peeks into a present."
         "sled" -> "$name sits on the sled and dreams of hills."
         "snowman" -> "$name gives the snowman a hug."
+        "jack_o_lantern" -> "$name peeks into the pumpkin. Spooky!"
+        "paper_lanterns" -> "$name hums a lantern song."
+        "xmas_tree" -> "$name straightens the star on the little tree."
+        "flower_arch" -> "$name tucks one more flower into the garland."
         else -> "$name looks around."
     }
 
@@ -203,6 +207,7 @@ internal fun depthScale(y: Float) = (0.55f + (y - 0.6f) * 1.6f).coerceIn(0.5f, 1
 private val STANDING = setOf(
     "guitar", "campfire", "kettle", "pizza_oven", "woodpile", "wildflowers", "lantern", "telescope", "fishing_rod", "wind_chimes", "bird_feeder",
     "tulips", "watering_can", "birdhouse", "beach_ball", "watermelon", "leaf_pile", "pumpkins", "scarecrow", "gift_boxes", "sled", "snowman",
+    "jack_o_lantern", "paper_lanterns", "xmas_tree", "flower_arch",
 )
 
 /**
@@ -263,7 +268,8 @@ fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>, here: Offset? = nu
         // Fetched first: to the woodpile for a log, then over to the fire; to the rod, then to the bank.
         "woodpile" -> fetched(use.t, p + Offset(u * 0.05f * k, u * 0.004f), fire + Offset(-u * 0.21f, u * 0.03f))
         "fishing_rod" -> fetched(use.t, p + Offset(u * 0.05f * k, u * 0.004f), Offset(w * 0.335f, h * 0.84f))
-        "wildflowers", "lantern", "tulips", "watering_can", "birdhouse", "beach_ball", "watermelon", "pumpkins", "scarecrow", "gift_boxes", "snowman" ->
+        "wildflowers", "lantern", "tulips", "watering_can", "birdhouse", "beach_ball", "watermelon", "pumpkins", "scarecrow", "gift_boxes", "snowman",
+        "jack_o_lantern", "paper_lanterns", "xmas_tree", "flower_arch" ->
             p + Offset(u * 0.055f * k, u * 0.004f)
         "leaf_pile", "sled", "deck_chair" -> p + Offset(0f, -u * 0.004f)
         "telescope" -> p + Offset(-u * 0.05f * k, u * 0.004f)
@@ -687,7 +693,8 @@ fun DrawScope.drawUse(
             rising(t, base + Offset(0f, -s * 1f), u * 0.012f, every = 0.8f, drift = 2f) { at, a -> drawCircle(GlowWarm.copy(alpha = a), u * 0.005f, at) }
         }
         // The seasons' own: beside it, with a little something happening.
-        "tulips", "watering_can", "birdhouse", "watermelon", "pumpkins", "scarecrow", "gift_boxes", "snowman" -> {
+        "tulips", "watering_can", "birdhouse", "watermelon", "pumpkins", "scarecrow", "gift_boxes", "snowman",
+        "jack_o_lantern", "paper_lanterns", "xmas_tree", "flower_arch" -> {
             shadowAt(base, s * 0.45f)
             actor(avatar, mood, worn, base, s, look = -0.8f, bounce = sin(t * 1.8f) * 0.4f)
             when (use.thing) {
