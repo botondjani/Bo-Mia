@@ -443,7 +443,8 @@ class MainActivity : ComponentActivity() {
                 celebrate = null
                 val r = app.tend.ui.Uses.reactionFor(done.tasks.first().id)
                 reaction = if (r == "campfire" && store.placed[0] == null) "act_cheer" else r
-                reaction?.let { app.tend.ui.Sounds.forUse(this@MainActivity, it) }
+                // With a thing from the camp (the guitar), the sound starts once they're there.
+                reaction?.let { r -> app.tend.ui.Sounds.forUse(this@MainActivity, r, if (r != "campfire" && r in store.placed.values) (app.tend.ui.Uses.WALK * 1000).toLong() else 0L) }
             }
         }
         val toggleTask: (TaskDef) -> Unit = { store.toggleTask(it); refresh++ }

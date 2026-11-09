@@ -132,14 +132,19 @@ object Whereabouts {
 
 /**
  * The companion moving a thing: [spot] from [from] to [to] (scene fractions), [t] seconds in: [walk]
- * getting to it, picked up (or taken hold of, if it's big), [move] carrying it over, put down, a moment after.
+ * getting to it, picked up (or taken hold of, if it's big), [move] carrying it over, put down; then,
+ * with nothing else to move ([admire]), a little walk round it to see how it looks.
  */
-data class Carry(val spot: Int, val from: Offset, val to: Offset, val t: Float, val walk: Float, val move: Float) {
+data class Carry(val spot: Int, val from: Offset, val to: Offset, val t: Float, val walk: Float, val move: Float, val admire: Boolean = false) {
     companion object {
         const val PICK = 0.5f
         const val DOWN = 0.4f
-        const val AFTER = 1f
-        fun length(walk: Float, move: Float) = walk + PICK + move + DOWN + AFTER
+        /** Round it (to the other side, past its front), then a look. */
+        const val ROUND = 2.6f
+        const val LOOK = 1.2f
+        /** With more to move: just a breath before the next one. */
+        const val NEXT = 0.3f
+        fun length(walk: Float, move: Float, admire: Boolean) = walk + PICK + move + DOWN + if (admire) ROUND + LOOK else NEXT
     }
 }
 

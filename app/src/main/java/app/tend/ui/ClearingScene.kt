@@ -309,13 +309,13 @@ fun DrawScope.drawClearing(
         val from = Offset(c.from.x * w, c.from.y * h)
         val to = Offset(c.to.x * w, c.to.y * h)
         val side = if (c.to.x >= c.from.x) 1f else -1f
-        val big = app.tend.core.Things.byId(placed.getValue(c.spot))?.kind == SpotKind.SEAT
-        // From the companion's feet to the thing: in front (in their hands), or behind (dragged).
-        fun reach(y: Float) = Offset(side * u * (if (big) -0.085f else 0.06f) * depthScale(y / h), u * 0.01f)
+        val id = placed.getValue(c.spot)
+        val big = app.tend.core.Things.byId(id)?.kind.let { it == SpotKind.SEAT || it == SpotKind.SHELTER }
+        // From the companion's feet to the thing: in front (in their hands), or behind (dragged, clear of it).
+        fun reach(y: Float) = Offset(side * u * (if (big) -(thingWidth(id) / 2f + 0.03f) else 0.06f) * depthScale(y / h), u * 0.01f)
         fun held(bo: Offset) = bo + Offset(reach(bo.y).x, -u * 0.01f)
         val b1 = from - reach(from.y)
         val b2 = to - reach(to.y)
-        val b3 = restPoint(c.spot, placed, layout + (c.spot to c.to))
         fun ease(k: Float) = k.coerceIn(0f, 1f).let { it * it * (3 - 2 * it) }
         val t1 = c.walk
         val t2 = t1 + Carry.PICK
@@ -342,10 +342,26 @@ fun DrawScope.drawClearing(
                 carryThing = held(b2) + (to - held(b2)) * ease(k); carryLift = up * (1f - ease(k))
             }
             else -> {
-                val k = (c.t - t4) / Carry.AFTER
-                carryThing = to; carrySparkle = k
-                if ((b3 - b2).getDistance() > u * 0.01f) { carryAt = b2 + (b3 - b2) * ease(k); carryWalk = c.t; carryRight = b3.x >= b2.x }
-                else { carryAt = b2; carryRight = side > 0f }
+                // Put down. Then (nothing else to move) round it, behind it (so it stays in view), to the other side, and a look at it.
+                val k = (c.t - t4) / Carry.ROUND
+                carryThing = to; carrySparkle = (c.t - t4) / 1f
+                val rx = (thingWidth(id) / 2f + 0.06f) * u * depthScale(to.y / h)
+                val ry = u * 0.035f
+                val startsLeft = b2.x < to.x
+                fun round(k: Float): Offset {
+                    val a = Math.PI.toFloat() * (if (startsLeft) 1f + ease(k) else -ease(k))
+                    return to + Offset(kotlin.math.cos(a) * rx, kotlin.math.sin(a) * ry + u * 0.01f)
+                }
+                when {
+                    !c.admire || k <= 0f -> { carryAt = b2; carryRight = side > 0f }
+                    k < 1f -> {
+                        // From where they put it down onto the circle round it, then along it.
+                        val on = round(k)
+                        val p = if (k < 0.15f) b2 + (round(0.15f) - b2) * ease(k / 0.15f) else on
+                        carryAt = p; carryWalk = c.t; carryRight = round((k + 0.02f).coerceAtMost(1f)).x >= round(k).x
+                    }
+                    else -> { carryAt = round(1f); carryRight = to.x >= round(1f).x }
+                }
             }
         }
     }

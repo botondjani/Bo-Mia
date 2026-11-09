@@ -201,8 +201,11 @@ fun SettingsScreen(
         androidx.compose.animation.AnimatedVisibility(aboutOpen) { aboutYou() }
         WidgetButton(avatar, onAddWidget)
         val ctx = androidx.compose.ui.platform.LocalContext.current
-        var sounds by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(Sounds.enabled(ctx)) }
-        SwitchRow("Sounds", "The guitar, the fire, the river: when ${avatar.displayName} uses things", sounds) { sounds = it; Sounds.setEnabled(ctx, it) }
+        // Each kind of sound on its own.
+        Sounds.Kind.entries.forEach { kind ->
+            var on by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(Sounds.on(ctx, kind)) }
+            SwitchRow(kind.title, kind.about, on) { on = it; Sounds.set(ctx, kind, it) }
+        }
         SwitchRow("Share anonymous stats", "No names, apps or health data", shareStats, onShareStats)
         // Small things, two to a row, all the same width.
         val links = listOfNotNull(

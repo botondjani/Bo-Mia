@@ -11,9 +11,15 @@ import kotlin.math.sin
 
 /**
  * The camp's sounds, made here rather than recorded: a guitar (plucked strings), the fire, the
- * river, a creaky swing, a music box. Played at media volume; off when the user turns sounds off.
+ * river, a creaky swing, a music box. Played at media volume; each kind can be turned off on its own.
  */
 object Sounds {
+    /** The kinds of sound, each with its own switch. */
+    enum class Kind(val key: String, val title: String, val about: String) {
+        MUSIC("sound_music", "Music", "The guitar, music box tunes"),
+        CAMP("sound_camp", "Camp sounds", "The fire, the river, the swing, the birds"),
+        LITTLE("sound_little", "Little sounds", "Acorns, chimes, things put down"),
+    }
     private const val RATE = 22050
     private val worker = Executors.newSingleThreadExecutor()
     private var main: AudioTrack? = null
@@ -21,15 +27,23 @@ object Sounds {
     private var chord = 0
     private val cache = HashMap<String, ShortArray>()
 
-    fun enabled(c: Context) = c.getSharedPreferences("tend", Context.MODE_PRIVATE).getBoolean("sounds", true)
-    fun setEnabled(c: Context, on: Boolean) {
-        c.getSharedPreferences("tend", Context.MODE_PRIVATE).edit().putBoolean("sounds", on).apply()
+    // (Before the kinds there was one switch, "sounds": it's where each kind starts from.)
+    fun on(c: Context, kind: Kind) = c.getSharedPreferences("tend", Context.MODE_PRIVATE).let { it.getBoolean(kind.key, it.getBoolean("sounds", true)) }
+    fun set(c: Context, kind: Kind, on: Boolean) {
+        c.getSharedPreferences("tend", Context.MODE_PRIVATE).edit().putBoolean(kind.key, on).apply()
         if (!on) stop()
+    }
+
+    /** What kind of sound using [thing] makes. */
+    private fun kindOf(thing: String) = when (thing) {
+        "guitar", "rocking_chair", "wind_chimes", "tent", "bell_tent", "cabin", "hammock", "string_lights", "log_bench" -> Kind.MUSIC
+        "campfire", "pizza_oven", "kettle", "woodpile", "canoe", "raft", "bird_feeder", "fishing_rod", "dock", "swing" -> Kind.CAMP
+        else -> Kind.LITTLE
     }
 
     /** The sound for the companion using [thing], as long as the use lasts. */
     fun forUse(c: Context, thing: String, delayMs: Long = 0) {
-        if (!enabled(c)) return
+        if (!on(c, kindOf(thing))) return
         if (delayMs > 0) worker.execute { Thread.sleep(delayMs) }
         val secs = Uses.seconds(thing)
         when (thing) {
@@ -48,37 +62,62 @@ object Sounds {
             "tent", "bell_tent", "cabin", "hammock" -> play("lullaby", true) { musicBox(LULLABY, 0.55f, secs) }
             "string_lights" -> play("dance", true) { musicBox(DANCE, 0.22f, secs) }
             "log_bench" -> play("hum", true) { musicBox(HUM, 0.45f, secs) }
-            else -> play("chime", true) { musicBox(CHIME, 0.12f, 1.6f) }
+            // An activity done (acted out, acorns flying): the acorns dropping in.
+            "act_read", "act_run", "act_walk", "act_stretch", "act_hearts", "act_tidy", "act_cheer" -> play("acorns", false) { acornDrops() }
+            else -> play("chime", false) { musicBox(CHIME, 0.12f, CHIME_SECS) }
         }
     }
 
     /** One more strum on the guitar, on top of the song. */
     fun strum(c: Context) {
-        if (!enabled(c)) return
+        if (!on(c, Kind.MUSIC)) return
         chord = (chord + 1) % CHORDS.size
         val key = "strum$chord"
         play(key, false) { strumOf(CHORDS[chord], 2.2f) }
     }
 
     /** Something set down on the grass: a soft, woody knock. */
-    fun place(c: Context) { if (enabled(c)) play("place", false) { knock() } }
+    fun place(c: Context) { if (on(c, Kind.LITTLE)) play("place", false) { knock() } }
 
-    /** A short happy chime: a duck caught, a task done. */
-    fun chime(c: Context) { if (enabled(c)) play("chime", false) { musicBox(CHIME, 0.12f, 1.6f) } }
+    /** A short happy chime (once through): a duck caught, something bought. */
+    fun chime(c: Context) { if (on(c, Kind.LITTLE)) play("chime", false) { musicBox(CHIME, 0.12f, CHIME_SECS) } }
+
+    /** Acorns claimed: a few soft wooden taps, like acorns dropping into a pouch. */
+    fun acorns(c: Context) { if (on(c, Kind.LITTLE)) play("acorns", false) { acornDrops() } }
 
     fun stop() = worker.execute { main?.runCatching { stop(); release() }; main = null }
 
     private fun play(key: String, isMain: Boolean, make: () -> ShortArray) = worker.execute {
         val pcm = cache.getOrPut(key, make)
+        // The one it replaces goes first: two long sounds at once can be more than the phone gives an app.
+        if (isMain) { main?.runCatching { stop(); release() }; main = null } else { extra?.runCatching { stop(); release() }; extra = null }
         runCatching {
+            // Long ones (the guitar's song, the fire) are fed in as they play, short ones loaded whole.
+            val stream = pcm.size > RATE * 3
+            val min = AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
             val track = AudioTrack.Builder()
                 .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
                 .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(RATE).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
-                .setTransferMode(AudioTrack.MODE_STATIC).setBufferSizeInBytes(pcm.size * 2).build()
-            track.write(pcm, 0, pcm.size)
-            if (isMain) { main?.runCatching { stop(); release() }; main = track } else { extra?.runCatching { stop(); release() }; extra = track }
-            track.play()
-        }
+                .setTransferMode(if (stream) AudioTrack.MODE_STREAM else AudioTrack.MODE_STATIC)
+                .setBufferSizeInBytes(if (stream) maxOf(min, RATE / 2) * 2 else pcm.size * 2).build()
+            if (isMain) main = track else extra = track
+            if (stream) {
+                track.play()
+                Thread {
+                    runCatching {
+                        var i = 0
+                        while (i < pcm.size && track.playState == AudioTrack.PLAYSTATE_PLAYING) {
+                            val n = track.write(pcm, i, minOf(RATE / 4, pcm.size - i))
+                            if (n <= 0) break
+                            i += n
+                        }
+                    }
+                }.start()
+            } else {
+                track.write(pcm, 0, pcm.size)
+                track.play()
+            }
+        }.onFailure { android.util.Log.w("Sounds", "Couldn't play $key", it) }
     }
 
     // ---- Making the sounds ----
@@ -211,6 +250,20 @@ object Sounds {
         return toPcm(out)
     }
 
+    /** Three small wooden taps, quick and soft, rising and falling a little. */
+    private fun acornDrops(): ShortArray {
+        val out = buffer(0.42f)
+        for ((at, f) in listOf(0.0 to 1250.0, 0.085 to 1480.0, 0.16 to 1180.0)) {
+            val start = (at * RATE).toInt()
+            for (k in 0 until (RATE * 0.12f).toInt()) {
+                if (start + k >= out.size) break
+                val t = k.toDouble() / RATE
+                out[start + k] += ((sin(2 * PI * f * t) * exp(-t / 0.016) + sin(2 * PI * f * 0.5 * t) * exp(-t / 0.03) * 0.4) * 0.28).toFloat()
+            }
+        }
+        return toPcm(out)
+    }
+
     private fun knock(): ShortArray {
         val out = buffer(0.3f)
         val rnd = java.util.Random(11)
@@ -287,6 +340,8 @@ object Sounds {
     private val DANCE = listOf(0 to 1f, 4 to 1f, 7 to 1f, 12 to 1f, 7 to 1f, 4 to 1f, 2 to 1f, 5 to 1f, 9 to 1f, 14 to 1f, 9 to 1f, 5 to 1f, 4 to 1f, 7 to 1f, 11 to 1f, 16 to 2f)
     private val HUM = listOf(0 to 2f, 2 to 1f, 4 to 1f, 2 to 2f, 0 to 2f, -3 to 2f, 0 to 4f)
     private val CHIME = listOf(12 to 1f, 16 to 1f, 19 to 1f, 24 to 3f)
+    /** Long enough for the chime once through (a music box tune repeats to fill its time). */
+    private const val CHIME_SECS = 1.05f
     private val CHIMES = listOf(19 to 1f, 24 to 2f, 16 to 1f, 21 to 3f, 12 to 1f, 19 to 2f, 26 to 1f, 24 to 4f)
 
     /** A tune on a music box: sine bells with a bright overtone, each ringing out. */

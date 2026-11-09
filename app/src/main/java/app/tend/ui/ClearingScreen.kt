@@ -262,9 +262,12 @@ fun ClearingScreen(
             val start = androidx.compose.runtime.withFrameNanos { it }
             var t = 0f
             var landed = false
-            while (t < Carry.length(walk, move)) {
+            // The last one to move: afterwards a walk round it to see how it looks (more to move: straight on).
+            var admire = carries.size == 1
+            while (t < Carry.length(walk, move, admire)) {
                 t = (androidx.compose.runtime.withFrameNanos { it } - start) / 1e9f
-                carry.value = Carry(spot, from, to, t, walk, move)
+                if (admire && carries.size > 1 && t < down) admire = false
+                carry.value = Carry(spot, from, to, t, walk, move, admire)
                 if (!landed && t >= down) {
                     // Put down: it's there now (a puff of dust, a soft thud).
                     landed = true
@@ -359,9 +362,8 @@ fun ClearingScreen(
                     fun drop() {
                         val (spot, at) = drag ?: return
                         drag = null
-                        // Small things and seats: the companion carries them over. Shelters hop there themselves
-                        // (and at night everything does: the companion is asleep).
-                        val carried = kind != app.tend.core.SpotKind.SHELTER && !nightNow
+                        // The companion carries it over (big things dragged). At night things hop there themselves: they're asleep.
+                        val carried = !nightNow
                         if (carried) {
                             val from = spotPos(spot, pinnedNow)
                             carries.removeAll { it.first == spot }
@@ -498,7 +500,7 @@ fun ClearingScreen(
         style = MaterialTheme.typography.bodyMedium,
     )
 
-    FirstStepsCard(steps, onClaim = { onClaimStep(it); Sounds.chime(context) }, onGo = { step ->
+    FirstStepsCard(steps, onClaim = { onClaimStep(it); Sounds.acorns(context) }, onGo = { step ->
         when (step) {
             app.tend.core.Step.PLACE, app.tend.core.Step.TREES, app.tend.core.Step.BETTER_FIRE, app.tend.core.Step.SHELTER, app.tend.core.Step.ON_THE_RIVER -> tab = 0
             app.tend.core.Step.USE, app.tend.core.Step.MOVE, app.tend.core.Step.GREET, app.tend.core.Step.THREE_THINGS -> scope.launch { scroll.animateScrollTo(0) }
