@@ -808,19 +808,22 @@ fun bedOf(placed: Map<Int, String>): Int? =
  */
 @androidx.compose.runtime.Composable
 fun rememberNightClock(night: Boolean, again: Int = 0, asleep: Boolean = false): Float {
-    var t by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(100f) }
     val asleepNow by androidx.compose.runtime.rememberUpdatedState(asleep)
     // [again] changed: back to bed once more (after being woken for something), from where they are.
     // Already in bed when it starts ([asleep], e.g. the camp just opened): long asleep, no walk to bed again.
+    // A fresh clock in the very frame it changes (not a frame later), so nothing shows the old one in between.
+    val start0 = if (!night || asleep) 100f else 0f
+    var t by androidx.compose.runtime.remember(night, again) { androidx.compose.runtime.mutableFloatStateOf(start0) }
     androidx.compose.runtime.LaunchedEffect(night, again) {
         if (!night) { t = 100f; return@LaunchedEffect }
         val base = if (asleepNow) 100f else 0f
         t = base
         // Every frame while walking to bed; after that only the Zs drift, and a dozen frames a second is plenty.
-        val start = System.nanoTime()
+        // (On the frame clock, like every other movement here.)
+        val start = androidx.compose.runtime.withFrameNanos { it }
         while (true) {
-            if (t < Uses.BED_WALK + 2f) androidx.compose.runtime.withFrameNanos { t = base + (System.nanoTime() - start) / 1e9f }
-            else { kotlinx.coroutines.delay(80); t = base + (System.nanoTime() - start) / 1e9f }
+            if (t >= Uses.BED_WALK + 2f) kotlinx.coroutines.delay(80)
+            t = base + (androidx.compose.runtime.withFrameNanos { it } - start) / 1e9f
         }
     }
     return t

@@ -213,8 +213,11 @@ class TendStore(private val context: Context) {
     }
 
     /** Today's visitor, still waiting to be greeted; null once greeted today. */
-    fun visitorWaiting(today: LocalDate = LocalDate.now()): app.tend.core.Visitor? {
+    fun visitorWaiting(today: LocalDate = LocalDate.now(), now: java.time.LocalTime = java.time.LocalTime.now()): app.tend.core.Visitor? {
         if (prefs.getString("visitor_greeted", "") == today.toString()) return null
+        // Animals come in the morning: from sunrise until noon (then they're off again).
+        val hour = now.hour + now.minute / 60f
+        if (hour < app.tend.core.LiveWeather.sunrise || hour >= 12f) return null
         val y = daySummaries().firstOrNull { it.date == today.minusDays(1) }
         val good = y != null && (y.unusedMinutes > 0 || y.tasksDone > 0)
         return app.tend.core.Visitors.of(today, good, feeder = "bird_feeder" in placed.values)

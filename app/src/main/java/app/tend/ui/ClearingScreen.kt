@@ -1,5 +1,8 @@
 package app.tend.ui
 
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.animation.togetherWith
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -127,6 +130,9 @@ fun ClearingScreen(
     /** Presents from friends to open (who sent each); opening them is [onOpenGifts]. */
     gifts: List<String> = emptyList(),
     onOpenGifts: () -> Unit = {},
+    /** Opened by tapping the animal on home: greet it right away. */
+    greetOnOpen: Boolean = false,
+    onGreetedOnOpen: () -> Unit = {},
     /** How far you've come (for the milestones), and the ones already celebrated. */
     totals: app.tend.core.Totals? = null,
     milestonesSeen: Set<app.tend.core.Milestone> = emptySet(),
@@ -182,7 +188,7 @@ fun ClearingScreen(
     val restClock = remember { androidx.compose.animation.core.Animatable(100f) }
     // An animal just greeted: a little card pops up on the camp for a moment.
     var greeted by remember { mutableStateOf<app.tend.core.Visitor?>(null) }
-    androidx.compose.runtime.LaunchedEffect(greeted) { if (greeted != null) { kotlinx.coroutines.delay(2800); greeted = null } }
+    androidx.compose.runtime.LaunchedEffect(greeted) { if (greeted != null) { kotlinx.coroutines.delay(4000); greeted = null } }
     // The companion using a thing: which spot and thing, and the frame clock that moves it.
     var using by remember { mutableStateOf<Pair<Int, String>?>(null) }
     var walk by remember { mutableStateOf(0f) }
@@ -191,21 +197,27 @@ fun ClearingScreen(
     var frame by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
     var strumAt by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
     val context = androidx.compose.ui.platform.LocalContext.current
+    // Things tapped while busy wait their turn (a few at most), shown with a number over each.
+    val queue = remember { androidx.compose.runtime.snapshots.SnapshotStateList<Int>() }
+    // Woken in the night for something: when it's done, back to bed (the walk there starts again).
+    var backToBed by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    // Sent back to bed in the same moment a use ends (so no frame shows them anywhere else in between).
+    val sentToBed = remember { booleanArrayOf(false) }
     androidx.compose.runtime.LaunchedEffect(using) {
         val u = using ?: return@LaunchedEffect
         useStart = -1L
         while (true) {
             androidx.compose.runtime.withFrameNanos { frame = it; if (useStart < 0) { useStart = it; strumAt = it } }
             // Done: they stay there.
-            if ((frame - useStart) / 1e9f > walk + Uses.seconds(u.second)) { using = null; onRest(u.first); break }
+            if ((frame - useStart) / 1e9f > walk + Uses.seconds(u.second)) {
+                using = null; onRest(u.first)
+                if (night && queue.isEmpty()) { backToBed++; sentToBed[0] = true }
+                break
+            }
         }
     }
     val placedNow by androidx.compose.runtime.rememberUpdatedState(placed)
-    // Woken in the night for something: when it's done, back to bed (the walk there starts again).
-    var backToBed by remember { androidx.compose.runtime.mutableIntStateOf(0) }
     val nightClock = rememberNightClock(night, backToBed, asleep = rest != null && rest == bedOf(placed))
-    // Things tapped while busy wait their turn (a few at most), shown with a number over each.
-    val queue = remember { androidx.compose.runtime.snapshots.SnapshotStateList<Int>() }
 
     /** Over to the thing at [hit] and use it, from where they are now (slower at night; a yawn first out of bed). */
     fun startUse(hit: Int, thing: String) {
@@ -229,9 +241,10 @@ fun ClearingScreen(
                 queue.removeAt(0)
                 kotlinx.coroutines.delay(250)
                 placedNow[next]?.let { startUse(next, it) }
-            } else if (night) backToBed++
+            } else if (night && !sentToBed[0]) backToBed++
         }
         wasUsing[0] = using != null
+        sentToBed[0] = false
     }
     val appear = rememberAppear(placed)
     // A light tick under the finger when a tap does something; a firmer one for a purchase.
@@ -293,6 +306,13 @@ fun ClearingScreen(
             pokeT = -1f
             pokeAct = null
         }
+    }
+    // Came from tapping the animal on home: a moment for the page, then the greeting.
+    androidx.compose.runtime.LaunchedEffect(greetOnOpen) {
+        if (!greetOnOpen) return@LaunchedEffect
+        kotlinx.coroutines.delay(650)
+        visitor?.let { v -> onGreet()?.let { greeted = it; caught = null; burst(Offset(v.x, v.y - 0.05f)); tick(firm = true); Sounds.chime(context) } }
+        onGreetedOnOpen()
     }
     // A milestone just reached: what it adds to the camp, with sparkles where it appears.
     val fresh = unlocked - milestonesSeen
@@ -543,11 +563,13 @@ fun ClearingScreen(
         )
         val shown = remember { mutableStateOf<app.tend.core.Visitor?>(null) }
         if (greeted != null) shown.value = greeted
+        // Greeted: the animal, big, in a card in the middle of the camp ("You found a rare fox!"); a tap closes it.
         androidx.compose.animation.AnimatedVisibility(
-            greeted != null, Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
-            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.scaleIn(initialScale = 0.7f),
-            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically { -it },
-        ) { shown.value?.let { GreetedCard(it, guestbook.size) } }
+            greeted != null, Modifier.align(Alignment.Center),
+            enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(180)) +
+                androidx.compose.animation.scaleIn(androidx.compose.animation.core.spring(dampingRatio = 0.55f, stiffness = 420f), initialScale = 0.6f),
+            exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(200)) + androidx.compose.animation.scaleOut(targetScale = 0.9f),
+        ) { shown.value?.let { GreetedCard(it, guestbook, Modifier.tappable { greeted = null }) } }
         val cheerShown = remember { mutableStateOf("") }
         cheerCard?.let { cheerShown.value = it }
         androidx.compose.animation.AnimatedVisibility(
@@ -940,20 +962,34 @@ private fun kindTitle(kind: SpotKind) = when (kind) {
 
 /** "A deer!": the animal, how rare it is, its acorns, and how full the guestbook is now. */
 @Composable
-private fun GreetedCard(v: app.tend.core.Visitor, inBook: Int) = Row(
-    Modifier.clip(RoundedCornerShape(20.dp)).background(Brand.Card).padding(start = 8.dp, end = 14.dp, top = 6.dp, bottom = 6.dp),
-    verticalAlignment = Alignment.CenterVertically,
+private fun GreetedCard(v: app.tend.core.Visitor, book: Map<app.tend.core.Visitor, Int>, modifier: Modifier = Modifier) = Column(
+    modifier.width(250.dp).clip(RoundedCornerShape(26.dp)).background(Brand.Card).padding(horizontal = 18.dp, vertical = 16.dp),
+    horizontalAlignment = Alignment.CenterHorizontally,
+    verticalArrangement = Arrangement.spacedBy(4.dp),
 ) {
-    Box(Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(Brand.Sage)) { Canvas(Modifier.fillMaxSize().padding(4.dp)) { drawVisitorIcon(v) } }
-    Spacer(Modifier.width(10.dp))
-    Column {
-        Text("${v.aName.replaceFirstChar { it.uppercase() }}!", style = MaterialTheme.typography.titleSmall)
-        Text("${v.rarity.label} · guestbook $inBook/${app.tend.core.Visitor.entries.size}", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+    // The animal, big, with a little sway and sparkles around it.
+    val sway = androidx.compose.animation.core.rememberInfiniteTransition(label = "sway")
+    val k by sway.animateFloat(0f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1400), androidx.compose.animation.core.RepeatMode.Reverse), label = "k")
+    Box(Modifier.size(116.dp).clip(CircleShape).background(Brand.Sage), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.size(96.dp).graphicsLayer { rotationZ = (k - 0.5f) * 8f; scaleX = 1f + k * 0.04f; scaleY = 1f + k * 0.04f }) { drawVisitorIcon(v) }
     }
-    Spacer(Modifier.width(10.dp))
-    Text("+${v.rarity.acorns}", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
-    Spacer(Modifier.width(3.dp))
-    AcornIcon(16.dp)
+    val first = (book[v] ?: 0) <= 1
+    Text(
+        when (v.rarity) {
+            app.tend.core.Rarity.COMMON -> "You found ${v.aName}!"
+            else -> "You found ${if (v.rarity == app.tend.core.Rarity.RARE) "a rare" else "an uncommon"} ${v.title.lowercase()}!"
+        },
+        style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 6.dp),
+    )
+    Text(
+        (if (first) "New in your guestbook! " else "") + "${book.size} of ${app.tend.core.Visitor.entries.size} met",
+        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp), color = Brand.Muted, textAlign = TextAlign.Center,
+    )
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(50)).background(Brand.Moss).padding(horizontal = 12.dp, vertical = 5.dp)) {
+        Text("+${v.rarity.acorns}", style = MaterialTheme.typography.labelLarge, color = Color.White)
+        Spacer(Modifier.width(4.dp))
+        AcornIcon(14.dp)
+    }
 }
 
 /** The animals that came to the camp: seen ones in colour with how often, the rest as shadows, four to a row. */

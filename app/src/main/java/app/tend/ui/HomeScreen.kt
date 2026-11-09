@@ -1,5 +1,7 @@
 package app.tend.ui
 
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.draw.alpha
@@ -111,6 +113,9 @@ fun HomeScreen(
     onOpenClearing: () -> Unit,
     /** The camp scene for the top of the page (drawn by the caller, which knows what's in it). */
     camp: @Composable () -> Unit = {},
+    /** The animal waiting in the camp (tapped on home: into the camp to greet it). */
+    visitor: app.tend.core.Visitor? = null,
+    onGreetVisitor: () -> Unit = {},
     /** A small tip on the camp (how to move things), until it's been tried. */
     campTip: String? = null,
     steps: List<app.tend.core.StepState> = emptyList(),
@@ -184,7 +189,15 @@ fun HomeScreen(
                 val extra = 20.dp.roundToPx()
                 val p = m.measure(c.copy(minWidth = c.maxWidth + 2 * extra, maxWidth = c.maxWidth + 2 * extra))
                 layout(c.maxWidth, p.height) { p.place(-extra, 0) }
-            }.aspectRatio(1.6f).campEntrance().tappable(onClick = onOpenClearing),
+            }.aspectRatio(1.6f).campEntrance().pointerInput(visitor) {
+                // Tapped: into the camp; on the animal waiting there, in to greet it.
+                detectTapGestures { at ->
+                    val v = visitor
+                    val near = v != null && kotlin.math.abs(v.x - at.x / size.width) * size.width < size.height * 0.1f &&
+                        (at.y / size.height) in (v.y - 0.18f)..(v.y + 0.04f)
+                    if (near) onGreetVisitor() else onOpenClearing()
+                }
+            },
         ) {
             camp()
             campTip?.let {

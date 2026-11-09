@@ -374,6 +374,8 @@ class MainActivity : ComponentActivity() {
         var riverFocus by rememberSaveable { mutableStateOf<String?>(null) }
         // A first step tapped: open the camp (the shop), or with the invite open.
         var campInvite by rememberSaveable { mutableStateOf(false) }
+        // The animal tapped on home: into the camp, and greet it there.
+        var greetOnOpen by rememberSaveable { mutableStateOf(false) }
         var activitiesFocus by remember { mutableIntStateOf(0) }
         var goodNightAcorns by remember { mutableIntStateOf(0) }
         val goToStep: (app.tend.core.Step) -> Unit = { step ->
@@ -708,9 +710,11 @@ class MainActivity : ComponentActivity() {
                 onUsed = { thing -> if (thing !in store.usedThings) { store.markUsed(thing); refresh++ } },
                 rest = store.restSpot,
                 onRest = { store.restSpot = it; refresh++ },
-                visitor = remember(refresh) { store.visitorWaiting() },
+                visitor = remember(refresh, LocalTime.now().hour) { store.visitorWaiting() },
                 guestbook = remember(refresh) { store.guestbook },
                 onGreet = { store.greetVisitor().also { refresh++ } },
+                greetOnOpen = greetOnOpen,
+                onGreetedOnOpen = { greetOnOpen = false },
                 onFriendsChanged = { saveProfile(); refresh++ },
                 ducks = app.tend.data.Friends.ducks(this).take(3),
                 onUnroll = { lifecycleScope.launch { app.tend.data.Friends.clearPaper(this@MainActivity) }; refresh++ },
@@ -807,6 +811,8 @@ class MainActivity : ComponentActivity() {
                 onUndo = { TaskSync.undo(store, it); refresh++ },
                 onOpenSettings = { screen = Screen.SETTINGS },
                 onOpenClearing = { screen = Screen.CLEARING },
+                visitor = remember(refresh, LocalTime.now().hour) { store.visitorWaiting() },
+                onGreetVisitor = { greetOnOpen = true; screen = Screen.CLEARING },
                 steps = remember(refresh) { firstSteps() },
                 onStep = goToStep,
                 // Bo's quest for today (once something's picked to do instead).
@@ -854,7 +860,7 @@ class MainActivity : ComponentActivity() {
                     val mood = app.tend.core.Moods.atNight(app.tend.core.Moods.of(store.config, store.today()), night)
                     val paper = remember(refresh) { app.tend.data.Friends.paperOnMe(this@MainActivity).isNotEmpty() }
                     val ducks = remember(refresh) { app.tend.data.Friends.ducks(this@MainActivity).size.coerceAtMost(3) }
-                    val visitor = remember(refresh) { store.visitorWaiting() }
+                    val visitor = remember(refresh, LocalTime.now().hour) { store.visitorWaiting() }
                     // Where the companion stays (shared with the camp page through the store).
                     var restSpot by remember(refresh) { mutableStateOf(store.restSpot) }
                     // The reaction's clock: frame by frame while it plays, then gone.
