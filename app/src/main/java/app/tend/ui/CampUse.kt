@@ -97,6 +97,9 @@ object Uses {
     /** Stepping off something at the end of a use (out of the hammock, off the swing). */
     const val STEP = 0.7f
 
+    /** Woken in the night for something: out of the shelter with a yawn and a stretch first. */
+    const val YAWN = 1.1f
+
     /** Picking a thing up where it lies (half a second), then carrying it over (a second). */
     const val FETCH = 1.5f
 
@@ -181,6 +184,14 @@ fun showerOf(t: Float): Float {
         p < 64f -> (p - 60f) / 4f
         else -> 1f
     }
+}
+
+/** Just woken: a big yawn and a stretch, sleepy-eyed, [k] 0..1. */
+fun DrawScope.drawYawn(avatar: Avatar, worn: Set<Accessory>, at: Offset, k: Float) {
+    val s = size.height * 0.17f * depthScale(at.y / size.height)
+    shadowAt(at, s * 0.45f)
+    val stretch = sin(k.coerceIn(0f, 1f) * PI.toFloat())
+    actor(avatar, Mood.SLEEPY, worn, at + Offset(0f, -stretch * s * 0.05f), s, rotation = sin(k * 9f) * 4f * stretch, bounce = stretch)
 }
 
 /** Bending down (to pick something up, or put it down) and back up, [k] 0..1; at 0, just standing. */
@@ -790,10 +801,12 @@ fun bedOf(placed: Map<Int, String>): Int? =
  * and the Zs); 100 by day, as if long asleep.
  */
 @androidx.compose.runtime.Composable
-fun rememberNightClock(night: Boolean): Float {
+fun rememberNightClock(night: Boolean, again: Int = 0): Float {
     var t by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(100f) }
-    androidx.compose.runtime.LaunchedEffect(night) {
+    // [again] changed: back to bed once more (after being woken for something), from where they are.
+    androidx.compose.runtime.LaunchedEffect(night, again) {
         if (!night) { t = 100f; return@LaunchedEffect }
+        t = 0f
         // Every frame while walking to bed; after that only the Zs drift, and a dozen frames a second is plenty.
         val start = System.nanoTime()
         while (true) {
@@ -809,13 +822,16 @@ fun rememberNightClock(night: Boolean): Float {
  * fireflies). About 30 updates a second: smooth enough for drifting things, easy on the battery.
  */
 @androidx.compose.runtime.Composable
-fun rememberAmbientClock(): androidx.compose.runtime.State<Float> {
+fun rememberAmbientClock(paused: Boolean = false): androidx.compose.runtime.State<Float> {
     // Returned as state, to be read only where it's drawn: then each tick redraws, nothing recomposes.
     val t = androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
-    androidx.compose.runtime.LaunchedEffect(Unit) {
+    // Paused (something over the camp, like a sheet): it stands still, and goes on from there after.
+    androidx.compose.runtime.LaunchedEffect(paused) {
+        if (paused) return@LaunchedEffect
+        val from = t.floatValue
         val start = androidx.compose.runtime.withFrameNanos { it }
         while (true) {
-            t.floatValue = (androidx.compose.runtime.withFrameNanos { it } - start) / 1e9f
+            t.floatValue = from + (androidx.compose.runtime.withFrameNanos { it } - start) / 1e9f
             kotlinx.coroutines.delay(33)
         }
     }

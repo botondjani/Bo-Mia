@@ -1,5 +1,9 @@
 package app.tend.ui
 
+import androidx.compose.foundation.gestures.detectTapGestures
+import kotlinx.coroutines.launch
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -151,4 +155,38 @@ fun brandTend(text: String): androidx.compose.ui.text.AnnotatedString = androidx
         at = m.range.last + 1
     }
     append(text.substring(at))
+}
+
+/**
+ * A button that has to be held (a few seconds) for [onDone]: for undoing a promise to yourself, like
+ * good night. It fills while held; let go early and it empties again.
+ */
+@Composable
+fun HoldToConfirm(label: String, modifier: Modifier = Modifier, seconds: Float = 3f, onDone: () -> Unit) {
+    val progress = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(0f) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val view = androidx.compose.ui.platform.LocalView.current
+    val done = androidx.compose.runtime.remember { booleanArrayOf(false) }
+    androidx.compose.foundation.layout.Box(
+        modifier.fillMaxWidth().clip(RoundedCornerShape(50)).background(Brand.Sage)
+            .pointerInput(Unit) {
+                detectTapGestures(onPress = {
+                    val fill = scope.launch {
+                        progress.animateTo(1f, androidx.compose.animation.core.tween(((1f - progress.value) * seconds * 1000).toInt(), easing = androidx.compose.animation.core.LinearEasing))
+                        if (!done[0]) {
+                            done[0] = true
+                            view.performHapticFeedback(if (android.os.Build.VERSION.SDK_INT >= 30) android.view.HapticFeedbackConstants.CONFIRM else android.view.HapticFeedbackConstants.LONG_PRESS)
+                            onDone()
+                        }
+                    }
+                    tryAwaitRelease()
+                    if (progress.value < 1f) { fill.cancel(); scope.launch { progress.animateTo(0f, androidx.compose.animation.core.tween(250)) } }
+                })
+            }
+            .drawBehind { drawRect(Brand.Mint, size = size.copy(width = size.width * progress.value)) }
+            .padding(vertical = 13.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(if (progress.value > 0f && progress.value < 1f) "Keep holding…" else label, style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+    }
 }

@@ -34,10 +34,7 @@ import androidx.compose.ui.unit.sp
 import app.tend.core.Avatar
 import app.tend.core.BudgetConfig
 import app.tend.core.TaskDef
-import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.positionInParent
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.DateRange
@@ -132,8 +129,6 @@ fun SettingsScreen(
     androidx.activity.compose.BackHandler(enabled = page != null) { page = null }
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val scroll = rememberScrollState()
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
-    val rowAt = remember { mutableMapOf<String, Int>() }
 
     @Composable
     fun Section(key: String) {
@@ -284,12 +279,10 @@ fun SettingsScreen(
         )
         SETTINGS_PAGES.forEach { (key, title, icon) ->
             val open = page == key
-            Box(Modifier.onGloballyPositioned { rowAt[key] = it.positionInParent().y.toInt() }.surface(radius = 20.dp).padding(horizontal = 14.dp, vertical = 2.dp)) {
+            Box(Modifier.surface(radius = 20.dp).padding(horizontal = 14.dp, vertical = 2.dp)) {
                 run {
                     MenuRow(icon, title, summaries[key] ?: "", open) {
                         page = if (open) null else key
-                        // Opened: up to its row, so what's in it is in view.
-                        if (!open) scope.launch { kotlinx.coroutines.delay(60); rowAt[key]?.let { scroll.animateScrollTo((it - 24).coerceAtLeast(0)) } }
                     }
                 }
             }

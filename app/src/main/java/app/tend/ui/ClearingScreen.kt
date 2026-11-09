@@ -7,7 +7,6 @@ import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Home
 import kotlinx.coroutines.flow.first
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -148,9 +147,9 @@ fun ClearingScreen(
     var stepsOpen by rememberSaveable { mutableStateOf(false) }
     var collectionAt by remember { androidx.compose.runtime.mutableIntStateOf(0) }
 
-    // The same header as home (nothing moves going between them); the round button leads home.
+    // The same header as home, settings and all (nothing moves going between them).
     TodayHeader(java.time.LocalDate.now(), minutes, {}) {
-        IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Home, "Home", onBack)
+        IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Settings, "Settings", onOpenSettings)
     }
 
     // What friends did: toilet paper unrolls when tapped; a visitor's duck is fished out.
@@ -202,7 +201,14 @@ fun ClearingScreen(
         }
     }
     val placedNow by androidx.compose.runtime.rememberUpdatedState(placed)
-    val nightClock = rememberNightClock(night)
+    // Woken in the night for something: when it's done, back to bed (the walk there starts again).
+    var backToBed by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    val nightClock = rememberNightClock(night, backToBed)
+    val wasUsing = remember { booleanArrayOf(false) }
+    androidx.compose.runtime.LaunchedEffect(using == null) {
+        if (using == null && wasUsing[0] && night) backToBed++
+        wasUsing[0] = using != null
+    }
     val appear = rememberAppear(placed)
     // A light tick under the finger when a tap does something; a firmer one for a purchase.
     val view = androidx.compose.ui.platform.LocalView.current
@@ -313,14 +319,15 @@ fun ClearingScreen(
         }
     }
     // Camp life: clouds and weather move, and the companion gets on with things when left alone.
-    val ambient = rememberAmbientClock()
+    // A sheet over the page (the shop, friends): the camp holds still behind it, so the sheet moves smoothly.
+    val ambient = rememberAmbientClock(paused = shopOpen || friendsOpen)
     // Until something has been moved: which small thing hints that things can be picked up.
     // Something light and easy to carry, ideally (not the firewood, which belongs by the fire).
     val hintSpot = if (layout.isNotEmpty() || night) null else placed.entries.filter { (spot, id) ->
         spot in SpotPositions && id != "woodpile" &&
             app.tend.core.Things.byId(id)?.let { app.tend.core.Clearing.movable(it) && it.kind == app.tend.core.SpotKind.SMALL } == true
     }.minByOrNull { (_, id) -> listOf("lantern", "wildflowers", "guitar", "telescope").indexOf(id).let { if (it < 0) 9 else it } }?.key
-    val idle = rememberIdleLife(placed, rest, enabled = using == null && drag == null && settling == null && !carrying && carries.isEmpty() && greeted == null && pokeAct == null && !night, layout = local) { onRest(it) }
+    val idle = rememberIdleLife(placed, rest, enabled = using == null && drag == null && settling == null && !carrying && carries.isEmpty() && !shopOpen && !friendsOpen && greeted == null && pokeAct == null && !night, layout = local) { onRest(it) }
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { Sounds.stop() } }
 
     // The camp, big and edge to edge: wider than the screen, so it pans left and right.
@@ -384,6 +391,8 @@ fun ClearingScreen(
                                 val here = if (using != null) Whereabouts.drawn else Whereabouts.standing
                                 walk = if (here == null && restNow == hit && thing !in setOf("woodpile", "fishing_rod")) 0f
                                     else walkSeconds(here ?: restFraction(restNow, pinnedNow), restFraction(hit, pinnedNow))
+                                // Asleep in the shelter: a yawn first, on the way out.
+                                if (nightNow && using == null && restNow != null && restNow == bedOf(placedNow) && hit != restNow) walk += Uses.YAWN
                                 using = hit to thing; caught = null; Sounds.forUse(context, thing, (walk * 1000).toLong()); onUsed(thing)
                             }
                         } else if (using != null) { using = null; Sounds.stop() }
@@ -488,11 +497,11 @@ fun ClearingScreen(
                 )
             }
         }
-        // On the camp: the settings (top left) and the acorns (top right).
+        // On the camp: the way back home (top left) and the acorns (top right).
         Box(
-            Modifier.align(Alignment.TopStart).padding(start = 28.dp, top = 12.dp).size(36.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xE6FFFFFF)).tappable(onClick = onOpenSettings),
+            Modifier.align(Alignment.TopStart).padding(start = 28.dp, top = 12.dp).size(36.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xE6FFFFFF)).tappable(onClick = onBack),
             contentAlignment = Alignment.Center,
-        ) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Settings, "Settings", tint = Brand.Moss, modifier = Modifier.size(18.dp)) }
+        ) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, "Home", tint = Brand.Moss, modifier = Modifier.size(18.dp)) }
         AcornBadge(acorns, Modifier.align(Alignment.TopEnd).padding(12.dp))
         // Until something has been moved: how, right on the camp.
         if (hintSpot != null && drag == null && carries.isEmpty()) Text(
@@ -583,9 +592,13 @@ fun ClearingScreen(
                 .using(androidx.compose.animation.SizeTransform(clip = false) { _, _ -> androidx.compose.animation.core.spring(dampingRatio = 0.85f, stiffness = 380f) })
         },
     ) { open ->
-    if (!open) FirstStepsStrip(steps, onOpen = { stepsOpen = true }, onGo = { stepsOpen = true })
+    // Folded: what's done waits on top, to claim right away; then the strip with what's next.
+    if (!open) Column(verticalArrangement = Arrangement.spacedBy(Space.xs)) {
+        ClaimableSteps(steps) { onClaimStep(it); Sounds.acorns(context) }
+        FirstStepsStrip(steps, onOpen = { stepsOpen = true }, onGo = { stepsOpen = true }, showWaiting = false)
+    }
     else Column(verticalArrangement = Arrangement.spacedBy(Space.xs)) {
-    FirstStepsCard(steps, onClaim = { onClaimStep(it); Sounds.acorns(context) }, onGo = { step ->
+    FirstStepsCard(steps, onClaim = { onClaimStep(it); Sounds.acorns(context) }, onFold = { stepsOpen = false }, onGo = { step ->
         when (step) {
             app.tend.core.Step.PLACE, app.tend.core.Step.TREES, app.tend.core.Step.BETTER_FIRE, app.tend.core.Step.SHELTER, app.tend.core.Step.ON_THE_RIVER -> shopOpen = true
             app.tend.core.Step.USE, app.tend.core.Step.MOVE, app.tend.core.Step.GREET, app.tend.core.Step.THREE_THINGS -> scope.launch { scroll.animateScrollTo(0) }

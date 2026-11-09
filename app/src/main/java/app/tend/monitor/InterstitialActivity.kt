@@ -306,16 +306,14 @@ class InterstitialActivity : ComponentActivity() {
             if (instead != null) PrimaryButton(instead.first, { decide("instead"); instead.second() })
             SecondaryButton(notNowLabel(), ::notNow)
             // Good night is a promise to yourself, not a cage: a way out when something really can't wait.
-            if (lock == app.tend.core.LockSchedule.GOOD_NIGHT && !store.isStrict) Text(
-                "I need it now: wake the apps", style = MaterialTheme.typography.labelLarge, color = Brand.Muted, textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
-                    decide("woke")
-                    store.wakeUp()
-                    store.grantPass(pkgName, 5)
-                    packageManager.getLaunchIntentForPackage(pkgName)?.let { startActivity(it) }
-                    finish()
-                }.padding(vertical = 10.dp),
-            )
+            // Held for a few seconds, not just tapped: it's undoing a promise.
+            if (lock == app.tend.core.LockSchedule.GOOD_NIGHT && !store.isStrict) app.tend.ui.HoldToConfirm("Hold if it can't wait") {
+                decide("woke")
+                store.wakeUp()
+                store.grantPass(pkgName, 5)
+                packageManager.getLaunchIntentForPackage(pkgName)?.let { startActivity(it) }
+                finish()
+            }
         }
     }
 

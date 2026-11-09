@@ -33,13 +33,15 @@ import app.tend.core.StepState
  * done yet to go where it's done; tap the acorns of a done one to claim them.
  */
 @Composable
-fun FirstStepsCard(steps: List<StepState>, onClaim: (Step) -> Unit, onGo: (Step) -> Unit = {}) {
+fun FirstStepsCard(steps: List<StepState>, onClaim: (Step) -> Unit, onGo: (Step) -> Unit = {}, onFold: (() -> Unit)? = null) {
     val round = app.tend.core.FirstSteps.current(steps)
     if (round.isEmpty()) return
     Card {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // Tapped (where it folds), the header folds it back into the strip.
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).then(if (onFold != null) Modifier.tappable(onClick = onFold) else Modifier), verticalAlignment = Alignment.CenterVertically) {
             Text("CHALLENGES · ROUND ${app.tend.core.FirstSteps.roundOf(steps)} OF ${app.tend.core.FirstSteps.rounds}", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
             Text("${round.count { it.claimed }} / ${round.size}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+            if (onFold != null) Text(" \u2303", style = MaterialTheme.typography.labelLarge, color = Brand.Muted)
         }
         val next = round.firstOrNull { !it.done }
         round.forEach { s ->
@@ -73,15 +75,38 @@ fun FirstStepsCard(steps: List<StepState>, onClaim: (Step) -> Unit, onGo: (Step)
     }
 }
 
+/** Challenges done and waiting: a row each, claimed right there (above the folded strip). */
+@Composable
+fun ClaimableSteps(steps: List<StepState>, onClaim: (Step) -> Unit) {
+    app.tend.core.FirstSteps.current(steps).filter { it.claimable }.forEach { s ->
+        Row(
+            Modifier.fillMaxWidth().surface(radius = 18.dp).tappable { onClaim(s.step) }.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Check(true)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(s.step.title, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                Text("Done! Tap to claim", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted, maxLines = 1)
+            }
+            Row(Modifier.clip(RoundedCornerShape(50)).background(Brand.Moss).padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("+${s.step.acorns}", style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), color = Color.White)
+                Spacer(Modifier.width(3.dp))
+                AcornIcon(12.dp)
+            }
+        }
+    }
+}
+
 /**
  * On the home page, the round at a glance: how many are done (a ring), what's next or waiting to be
  * claimed, and how much is still there to earn. Tap: go do the next one, or claim in the camp.
  */
 @Composable
-fun FirstStepsStrip(steps: List<StepState>, onOpen: () -> Unit, onGo: (Step) -> Unit = {}) {
+fun FirstStepsStrip(steps: List<StepState>, onOpen: () -> Unit, onGo: (Step) -> Unit = {}, showWaiting: Boolean = true) {
     val round = app.tend.core.FirstSteps.current(steps)
     if (round.isEmpty()) return
-    val waiting = round.filter { it.claimable }.sumOf { it.step.acorns }
+    val waiting = if (showWaiting) round.filter { it.claimable }.sumOf { it.step.acorns } else 0
     val next = round.firstOrNull { !it.done }?.step
     val done = round.count { it.done }
     val toEarn = round.filter { !it.done }.sumOf { it.step.acorns }

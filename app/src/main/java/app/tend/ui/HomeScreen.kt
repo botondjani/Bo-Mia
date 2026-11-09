@@ -244,7 +244,24 @@ fun HomeScreen(
         )
         if (pausedUntil > System.currentTimeMillis()) Notice("sun", "On a break until ${breakEnd(pausedUntil)}", "No pauses, locks or counting. Tap to come back.", onResume)
         // After "Good night": the paused apps rest until morning, with a way back.
-        else if (sleeping) Notice("moon", "Good night: your apps rest until 7:00", if (strict) "Strict mode: they wake at 7:00" else "Up again? Tap to wake them", onWakeUp)
+        else if (sleeping) {
+            // Waking them takes a moment's thought: a dialog, and a button held for a few seconds.
+            var waking by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+            Notice("moon", "Good night: your apps rest until 7:00", if (strict) "Strict mode: they wake at 7:00" else "Need them? Tap", { if (!strict) waking = true })
+            if (waking) androidx.compose.material3.AlertDialog(
+                onDismissRequest = { waking = false },
+                icon = { CharacterView(avatar, app.tend.core.Mood.SLEEPING, 72.dp, lightweight = true) },
+                title = { Text("Wake the apps?") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Text("You said good night, and ${avatar.displayName} is asleep. The apps rest until 7:00. Do you really need them now?")
+                        HoldToConfirm("Hold to wake the apps") { waking = false; onWakeUp() }
+                    }
+                },
+                confirmButton = { androidx.compose.material3.TextButton(onClick = { waking = false }) { Text("Let them rest") } },
+                containerColor = Brand.Card,
+            )
+        }
 
         when {
             !permissions.usageAccess -> Notice("alert", "Limited mode", "${avatar.displayName} can't see screen time. Tap to turn it on.", onFixPermissions)

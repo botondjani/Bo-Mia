@@ -289,7 +289,11 @@ fun DrawScope.drawClearing(
     val restTo = standing?.let { Offset(it.x * w, it.y * h) } ?: restPoint(rest, placed, layout)
     val restWas = restFrom?.takeIf { standing == null }?.let { restPoint(rest, placed, it) }?.takeIf { (it - restTo).getDistance() > u * 0.01f }
     val strolling = act == null && restWas != null && restClock in 0.001f..Uses.WALK
+    // Asleep in the shelter and woken for something: out of the shelter (a yawn first), and from there.
+    val bedSpot = if (night) bedOf(placed) else null
+    val fromBed = use != null && carry == null && bedSpot != null && rest == bedSpot && use.spot != bedSpot && use.walk >= Uses.YAWN
     val restAt = when {
+        fromBed -> useAnchor(InUse(bedSpot!!, placed.getValue(bedSpot), 100f), placed, layout = layout)
         restWas == null || restClock >= Uses.WALK -> restTo
         restClock <= 0f -> restWas
         else -> { val k = (restClock / Uses.WALK).let { it * it * (3 - 2 * it) }; restWas + (restTo - restWas) * k }
@@ -375,7 +379,7 @@ fun DrawScope.drawClearing(
         carryAt != null -> carryAt
         target == null -> restAt
         walking -> {
-            val k = (act!!.t / act.walk).let { it * it * (3 - 2 * it) }
+            val k = (if (fromBed) ((act!!.t - Uses.YAWN) / (act.walk - Uses.YAWN)).coerceIn(0f, 1f) else act!!.t / act.walk).let { it * it * (3 - 2 * it) }
             Offset(restAt.x + (target.x - restAt.x) * k, restAt.y + (target.y - restAt.y) * k)
         }
         // Out of the canoe: a hop onto the bank.
@@ -435,6 +439,7 @@ fun DrawScope.drawClearing(
         }
         // Walking about: the umbrella comes along.
         fun walker(t: Float, right: Boolean) { umbrellaPart(false); drawWalker(avatar, mood, worn, anchor, t, right); umbrellaPart(true) }
+        if (act != null && walking && fromBed && act.t < Uses.YAWN) { drawYawn(avatar, worn, anchor, act.t / Uses.YAWN); return }
         if (act != null && walking) { walker(act.t, target!!.x >= restAt.x); return }
         if (stepTo != null) { walker(stepK!! * 2f, stepTo.x >= target!!.x); return }
         if (strolling) { walker(restClock, restTo.x >= restWas!!.x); return }
