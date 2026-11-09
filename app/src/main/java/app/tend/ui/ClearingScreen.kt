@@ -1,5 +1,6 @@
 package app.tend.ui
 
+import kotlinx.coroutines.flow.first
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -145,6 +146,13 @@ fun ClearingScreen(
     var local by remember { mutableStateOf(layout) }
     androidx.compose.runtime.LaunchedEffect(layout) { local = layout }
     val localNow by androidx.compose.runtime.rememberUpdatedState(local)
+    // Things put somewhere new, for the companion to carry over (spot, from, to), the first one now.
+    // Until it's there, a thing shows where it was (saved at once all the same).
+    val carries = remember { androidx.compose.runtime.mutableStateListOf<Triple<Int, Offset, Offset>>() }
+    val carry = remember { mutableStateOf<Carry?>(null) } // read only where it's drawn
+    var carrying by remember { mutableStateOf(false) }
+    val pinned = if (carries.isEmpty()) local else local + carries.associate { it.first to it.second }
+    val pinnedNow by androidx.compose.runtime.rememberUpdatedState(pinned)
     var drag by remember { mutableStateOf<Pair<Int, Offset>?>(null) } // spot, where (scene fractions)
     var settling by remember { mutableStateOf<Int?>(null) } // just put down, still springing
     val lift = remember { androidx.compose.animation.core.Animatable(0f) }
@@ -236,9 +244,43 @@ fun ClearingScreen(
             pokeAct = null
         }
     }
+    // Carrying things over, one by one, once the finger's off and the thing has settled.
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        while (true) {
+            androidx.compose.runtime.snapshotFlow { carries.isNotEmpty() && drag == null && settling == null }.first { ready -> ready }
+            carrying = true
+            if (using != null) { using?.let { onRest(it.first) }; using = null; Sounds.stop() }
+            // A couple of frames for where they stand to catch up (an idle use just stopped).
+            repeat(2) { androidx.compose.runtime.withFrameNanos { } }
+            val job = carries.firstOrNull() ?: run { carrying = false; null } ?: continue
+            val (spot, from, to) = job
+            val walk = walkSeconds(restFraction(restNow, pinnedNow), from)
+            val move = walkSeconds(from, to) * 1.25f
+            val down = walk + Carry.PICK + move + Carry.DOWN
+            val start = androidx.compose.runtime.withFrameNanos { it }
+            var t = 0f
+            var landed = false
+            while (t < Carry.length(walk, move)) {
+                t = (androidx.compose.runtime.withFrameNanos { it } - start) / 1e9f
+                carry.value = Carry(spot, from, to, t, walk, move)
+                if (!landed && t >= down) {
+                    // Put down: it's there now (a puff of dust, a soft thud).
+                    landed = true
+                    carries.remove(job)
+                    tick()
+                    Sounds.place(context)
+                    scope.launch { dustAt = spot; dust.snapTo(0f); dust.animateTo(1f, androidx.compose.animation.core.tween(650)) }
+                }
+            }
+            if (!landed) carries.remove(job)
+            onRest(spot)
+            carry.value = null
+            if (carries.isEmpty()) { carrying = false; if (caught?.endsWith("carry it over.") == true) caught = null }
+        }
+    }
     // Camp life: clouds and weather move, and the companion gets on with things when left alone.
     val ambient = rememberAmbientClock()
-    val idle = rememberIdleLife(placed, rest, enabled = using == null && drag == null && settling == null && greeted == null && pokeAct == null && !night, layout = local) { onRest(it) }
+    val idle = rememberIdleLife(placed, rest, enabled = using == null && drag == null && settling == null && !carrying && carries.isEmpty() && greeted == null && pokeAct == null && !night, layout = local) { onRest(it) }
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { Sounds.stop() } }
 
     // The camp, big and edge to edge: wider than the screen, so it pans left and right.
@@ -260,7 +302,7 @@ fun ClearingScreen(
                         val fy = tap.y / size.height
                         // The companion themselves (standing about, not mid-walk): a reaction.
                         val (cx, cy) = companionAt[0] to companionAt[1]
-                        if (cx >= 0f && using == null && idle.value == null && !night &&
+                        if (cx >= 0f && using == null && idle.value == null && carry.value == null && !night &&
                             kotlin.math.abs(cx - fx) * size.width < size.height * 0.08f && fy in (cy - 0.17f)..(cy + 0.02f)
                         ) { poke(); return@detectTapGestures }
                         val duck = DuckSpots.take(ducksNow.size).indexOfFirst { kotlin.math.abs(it.x - fx) * size.width < size.height * 0.08f && kotlin.math.abs(it.y - fy) < 0.09f }
@@ -282,15 +324,16 @@ fun ClearingScreen(
                         // The bridge leads to friends' camps along the river.
                         if (bridgeNow && fx in 0.06f..0.37f && fy in 0.48f..0.62f) { onOpenRiver(null); return@detectTapGestures } // the bridge or its signpost
                         // A thing in the camp: the companion uses it (the guitar: another strum).
-                        val hit = spotAt(Offset(fx, fy), size.width / size.height.toFloat(), localNow, placedNow)
+                        val hit = spotAt(Offset(fx, fy), size.width / size.height.toFloat(), pinnedNow, placedNow)
                         val thing = hit?.let { placedNow[it] }
+                        if (thing != null && (carrying || carries.isNotEmpty())) { caught = "${avatar.displayName} is busy moving things. One moment!"; return@detectTapGestures }
                         if (thing != null) {
                             tick()
                             if (using?.second == thing && thing == "guitar") { strumAt = frame; useStart = frame - ((walk + 1f) * 1e9f).toLong(); Sounds.strum(context) }
                             else {
                                 // Walk over first, unless already there; the sound starts on arrival.
                                 using?.let { onRest(it.first) } // switching mid-use: from where they are now
-                                walk = if ((using?.first ?: restNow) == hit) 0f else walkSeconds(restFraction(using?.first ?: restNow, localNow), restFraction(hit, localNow))
+                                walk = if ((using?.first ?: restNow) == hit) 0f else walkSeconds(restFraction(using?.first ?: restNow, pinnedNow), restFraction(hit, pinnedNow))
                                 using = hit to thing; caught = null; Sounds.forUse(context, thing, (walk * 1000).toLong()); onUsed(thing)
                             }
                         } else if (using != null) { using = null; Sounds.stop() }
@@ -303,14 +346,21 @@ fun ClearingScreen(
                     fun drop() {
                         val (spot, at) = drag ?: return
                         drag = null
+                        // Small things and seats: the companion carries them over. Shelters hop there themselves.
+                        val carried = kind != app.tend.core.SpotKind.SHELTER
+                        if (carried) {
+                            val from = spotPos(spot, pinnedNow)
+                            carries.removeAll { it.first == spot }
+                            carries += Triple(spot, from, at)
+                        }
                         local = localNow + (spot to at)
                         onPlace(spot, at)
                         settling = spot
-                        caught = null
+                        caught = if (carried) "${avatar.displayName} will carry it over." else null
                         tick(firm = true)
-                        Sounds.place(context)
+                        if (!carried) Sounds.place(context)
                         scope.launch { lift.animateTo(0f, androidx.compose.animation.core.spring(dampingRatio = 0.32f, stiffness = 520f)); if (drag == null) settling = null }
-                        scope.launch { dustAt = spot; dust.snapTo(0f); dust.animateTo(1f, androidx.compose.animation.core.tween(650)) }
+                        if (!carried) scope.launch { dustAt = spot; dust.snapTo(0f); dust.animateTo(1f, androidx.compose.animation.core.tween(650)) }
                         // If the companion's place moved with it, they walk over.
                         scope.launch {
                             restClock.animateTo(Uses.WALK + 0.05f, androidx.compose.animation.core.tween(((Uses.WALK + 0.05f) * 1000).toInt(), easing = androidx.compose.animation.core.LinearEasing))
@@ -321,7 +371,8 @@ fun ClearingScreen(
                         onDragStart = { at ->
                             val ratio = size.width / size.height.toFloat()
                             val f = Offset(at.x / size.width, at.y / size.height)
-                            val hit = spotAt(f, ratio, localNow, placedNow) ?: return@detectDragGesturesAfterLongPress
+                            val hit = spotAt(f, ratio, pinnedNow, placedNow) ?: return@detectDragGesturesAfterLongPress
+                            if (carry.value?.spot == hit) return@detectDragGesturesAfterLongPress // in the companion's hands
                             val thing = placedNow[hit]?.let(app.tend.core.Things::byId) ?: return@detectDragGesturesAfterLongPress
                             if (!app.tend.core.Clearing.movable(thing)) {
                                 tick(firm = true)
@@ -330,12 +381,12 @@ fun ClearingScreen(
                             }
                             if (using != null) { using?.let { onRest(it.first) }; using = null; Sounds.stop() }
                             kind = thing.kind
-                            val from = spotPos(hit, localNow)
+                            val from = spotPos(hit, pinnedNow)
                             grab = from - f
                             drag = hit to from
                             settling = null
                             // The companion waits where they are until it's put down.
-                            if (restFrom == null) restFrom = localNow
+                            if (restFrom == null) restFrom = pinnedNow
                             scope.launch { restClock.snapTo(0f) }
                             scope.launch { lift.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.55f, stiffness = 380f)) }
                             tick(firm = true)
@@ -361,7 +412,8 @@ fun ClearingScreen(
                     avatar, placed, mood, worn = worn, night = night, paper = paperLeft, ducks = ducks.size, bridge = bridge,
                     use = use, lastStrum = (frame - strumAt) / 1e9f - walk, visitor = visitor, rest = rest, nightClock = nightClock, appear = appear,
                     bursts = bursts.map { it.first to it.second.value },
-                    layout = drag?.let { (spot, at) -> local + (spot to at) } ?: local,
+                    layout = drag?.let { (spot, at) -> pinned + (spot to at) } ?: pinned,
+                    carry = carry.value,
                     lifted = (drag?.first ?: settling)?.let { it to lift.value },
                     dust = dustAt?.let { it to dust.value },
                     restFrom = restFrom, restClock = restClock.value,

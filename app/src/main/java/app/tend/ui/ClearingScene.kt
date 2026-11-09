@@ -171,6 +171,8 @@ fun DrawScope.drawClearing(
     guests: List<Pair<Avatar, String>> = emptyList(),
     /** Told where the companion stands (scene fractions, feet), each time it's drawn: for tapping them. */
     onCompanion: ((Offset) -> Unit)? = null,
+    /** A thing being moved by the companion ([layout] still has it where it was). */
+    carry: Carry? = null,
 ) {
     applySeason(season)
     val w = size.width
@@ -288,7 +290,64 @@ fun DrawScope.drawClearing(
     // Done with it: the last moments, stepping off to where they'll stay (out of the hammock, off the swing).
     val stepK = act?.takeIf { !walking && it.end > 0f && it.spot >= 0 }?.let { (it.arrived().t - (it.end - Uses.STEP)) / Uses.STEP }?.takeIf { it >= 0f }
     val stepTo = stepK?.let { restPoint(act.spot, placed, layout) }?.takeIf { (it - target!!).getDistance() > u * 0.01f }
+    // Moving a thing: over to it, picked up (big ones taken hold of), carried over (big ones dragged
+    // behind), put down; then on to their usual place by it.
+    val carrying = carry?.takeIf { placed[it.spot] != null }
+    var carryAt: Offset? = null
+    var carryThing = Offset.Zero
+    var carryLift = 0f
+    var carryWalk = -1f // the walker's clock, or below 0: standing or crouching
+    var carryCrouch = 0f
+    var carryRight = true
+    var carryGhost = false
+    var carrySparkle = -1f
+    if (carrying != null) {
+        val c = carrying
+        val from = Offset(c.from.x * w, c.from.y * h)
+        val to = Offset(c.to.x * w, c.to.y * h)
+        val side = if (c.to.x >= c.from.x) 1f else -1f
+        val big = app.tend.core.Things.byId(placed.getValue(c.spot))?.kind == SpotKind.SEAT
+        // From the companion's feet to the thing: in front (in their hands), or behind (dragged).
+        fun reach(y: Float) = Offset(side * u * (if (big) -0.085f else 0.06f) * depthScale(y / h), u * 0.01f)
+        fun held(bo: Offset) = bo + Offset(reach(bo.y).x, -u * 0.01f)
+        val b1 = from - reach(from.y)
+        val b2 = to - reach(to.y)
+        val b3 = restPoint(c.spot, placed, layout + (c.spot to c.to))
+        fun ease(k: Float) = k.coerceIn(0f, 1f).let { it * it * (3 - 2 * it) }
+        val t1 = c.walk
+        val t2 = t1 + Carry.PICK
+        val t3 = t2 + c.move
+        val t4 = t3 + Carry.DOWN
+        val up = if (big) 0f else u * 0.05f
+        carryGhost = c.t < t3
+        when {
+            c.t < t1 -> { carryAt = restAt + (b1 - restAt) * ease(c.t / t1); carryWalk = c.t; carryRight = b1.x >= restAt.x; carryThing = from }
+            c.t < t2 -> {
+                val k = (c.t - t1) / Carry.PICK
+                carryAt = b1; carryCrouch = k; carryRight = side > 0f
+                carryThing = from + (held(b1) - from) * ease(k); carryLift = up * ease(k)
+            }
+            c.t < t3 -> {
+                val bo = b1 + (b2 - b1) * ease((c.t - t2) / c.move)
+                carryAt = bo; carryWalk = c.t; carryRight = side > 0f
+                carryThing = held(bo)
+                carryLift = up * (1f + 0.08f * kotlin.math.sin(c.t * 22f)) + if (big) kotlin.math.abs(kotlin.math.sin(c.t * 11f)) * u * 0.004f else 0f
+            }
+            c.t < t4 -> {
+                val k = (c.t - t3) / Carry.DOWN
+                carryAt = b2; carryCrouch = k; carryRight = side > 0f
+                carryThing = held(b2) + (to - held(b2)) * ease(k); carryLift = up * (1f - ease(k))
+            }
+            else -> {
+                val k = (c.t - t4) / Carry.AFTER
+                carryThing = to; carrySparkle = k
+                if ((b3 - b2).getDistance() > u * 0.01f) { carryAt = b2 + (b3 - b2) * ease(k); carryWalk = c.t; carryRight = b3.x >= b2.x }
+                else { carryAt = b2; carryRight = side > 0f }
+            }
+        }
+    }
     val anchor = when {
+        carryAt != null -> carryAt
         target == null -> restAt
         walking -> {
             val k = (act!!.t / act.walk).let { it * it * (3 - 2 * it) }
@@ -303,6 +362,11 @@ fun DrawScope.drawClearing(
     onCompanion?.invoke(Offset(anchor.x / w, anchor.y / h))
     val cs = u * 0.17f * depthScale(anchor.y / h)
     fun drawActor(glows: MutableList<Light>) {
+        if (carryAt != null) {
+            if (carryWalk >= 0f) drawWalker(avatar, mood, worn, anchor, carryWalk, carryRight)
+            else drawCrouch(avatar, mood, worn, anchor, carryCrouch, if (carryRight) 0.8f else -0.8f)
+            return
+        }
         if (act != null && walking) { drawWalker(avatar, mood, worn, anchor, act.t, target!!.x >= restAt.x); return }
         if (stepTo != null) { drawWalker(avatar, mood, worn, anchor, stepK!! * 2f, stepTo.x >= target!!.x); return }
         if (strolling) { drawWalker(avatar, mood, worn, anchor, restClock, restTo.x >= restWas!!.x); return }
@@ -378,8 +442,24 @@ fun DrawScope.drawClearing(
             }
         }
     }
+    // Where a thing being moved is going: a faint outline, until it's there.
+    if (carrying != null && carryGhost) {
+        val p = Offset(carrying.to.x * w, carrying.to.y * h)
+        drawContext.canvas.saveLayer(androidx.compose.ui.geometry.Rect(Offset.Zero, size), androidx.compose.ui.graphics.Paint().apply { alpha = 0.35f })
+        thingAt(placed.getValue(carrying.spot), p, (depthScale(p.y / h) / depthScale(SpotPositions.getValue(carrying.spot).y)).coerceIn(0.7f, 1.35f), carrying.spot)
+        drawContext.canvas.restore()
+    }
     for (spot in Clearing.spots) {
         if (spot.kind == SpotKind.ABOVE) continue
+        if (spot.id == carrying?.spot) {
+            // In the companion's hands (in front of them), or dragged along the ground.
+            val p = carryThing
+            ground += (if (carryLift > u * 0.01f) p.y + u * 0.03f else p.y) to {
+                thingAt(placed.getValue(spot.id), p, (depthScale(p.y / h) / depthScale(SpotPositions.getValue(spot.id).y)).coerceIn(0.7f, 1.35f), spot.id, lift = carryLift)
+                if (carrySparkle in 0f..0.7f) sparkles(p + Offset(0f, -u * 0.04f), u, carrySparkle / 0.7f)
+            }
+            continue
+        }
         val p = at(spot.id)
         ground += p.y to {
             if (spot.kind == SpotKind.FIRE) firePitStones(p, u)
@@ -403,6 +483,7 @@ fun DrawScope.drawClearing(
     dust?.let { (id, k) -> if (placed[id] != null) dustPuff(at(id), u * spotScale(id, layout), k) }
     // Picked up: held above everything, a little bigger; landing, it squashes and springs back.
     lifted?.let { (id, lift) ->
+        if (id == carrying?.spot) return@let
         val thing = placed[id] ?: return@let
         val p = at(id)
         val up = lift.coerceAtLeast(0f)

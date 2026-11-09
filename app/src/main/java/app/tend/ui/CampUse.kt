@@ -110,6 +110,27 @@ object Uses {
     val redrawn = setOf("guitar", "fishing_rod", "swing", "canoe", "raft", "rocking_chair")
 }
 
+/**
+ * The companion moving a thing: [spot] from [from] to [to] (scene fractions), [t] seconds in: [walk]
+ * getting to it, picked up (or taken hold of, if it's big), [move] carrying it over, put down, a moment after.
+ */
+data class Carry(val spot: Int, val from: Offset, val to: Offset, val t: Float, val walk: Float, val move: Float) {
+    companion object {
+        const val PICK = 0.5f
+        const val DOWN = 0.4f
+        const val AFTER = 1f
+        fun length(walk: Float, move: Float) = walk + PICK + move + DOWN + AFTER
+    }
+}
+
+/** Bending down (to pick something up, or put it down) and back up, [k] 0..1; at 0, just standing. */
+fun DrawScope.drawCrouch(avatar: Avatar, mood: Mood, worn: Set<Accessory>, at: Offset, k: Float, look: Float) {
+    val s = size.height * 0.17f * depthScale(at.y / size.height)
+    shadowAt(at, s * 0.45f)
+    val d = sin(k.coerceIn(0f, 1f) * PI.toFloat())
+    actor(avatar, mood, worn, at + Offset(0f, d * s * 0.05f), s, look = look, bounce = -d)
+}
+
 private val Wood = Color(0xFF9C6B45)
 private val WoodLight = Color(0xFFC99766)
 private val BarkDark = Color(0xFF452F21)
