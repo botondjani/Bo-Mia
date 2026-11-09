@@ -722,6 +722,9 @@ class MainActivity : ComponentActivity() {
                 onTown = onTown,
                 onTownLater = { store.townAsked = true; refresh++ },
                 gifts = remember(refresh) { app.tend.data.Friends.giftsToOpen(this@MainActivity) },
+                totals = remember(refresh) { store.totals() },
+                milestonesSeen = store.milestonesSeen,
+                onMilestonesSeen = { store.milestonesSeen = store.milestonesSeen + it; refresh++ },
                 onOpenGifts = {
                     val n = app.tend.data.Friends.giftsToOpen(this@MainActivity).size
                     if (n > 0) store.addAcorns(n * app.tend.data.Friends.GIFT_ACORNS, "gift")
@@ -882,6 +885,7 @@ class MainActivity : ComponentActivity() {
                         if (night && nightClock > app.tend.ui.Uses.WALK + 2f && bed != null && store.restSpot != bed) { store.restSpot = bed; restSpot = bed }
                     }
                     val ambient = app.tend.ui.rememberAmbientClock()
+                    val unlocked = remember(refresh) { app.tend.core.Milestone.reached(store.totals()) }
                     val idle = app.tend.ui.rememberIdleLife(placed, restSpot, enabled = reaction == null && !night, layout = layout) { store.restSpot = it; restSpot = it }
                     androidx.compose.foundation.Canvas(Modifier.fillMaxSize().then(app.tend.ui.sharedCamp() ?: Modifier)) {
                         // An activity done: acted out where they stand, or with the thing from the camp where it is (over to it first).
@@ -889,7 +893,7 @@ class MainActivity : ComponentActivity() {
                             val at = placed.entries.firstOrNull { it.value == r && r != "campfire" }?.key
                             app.tend.ui.InUse(at ?: -1, r, (frame - start) / 1e9f, if (r == "campfire" || at != null) app.tend.ui.Uses.WALK else 0f, reward = true)
                         } ?: idle.value
-                        drawClearing(store.avatar, placed, mood, shelf.first, night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor, rest = restSpot, nightClock = nightClock, appear = appear, layout = layout, ambient = ambient.value, guests = fireGuests)
+                        drawClearing(store.avatar, placed, mood, shelf.first, night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor, rest = restSpot, nightClock = nightClock, appear = appear, layout = layout, ambient = ambient.value, guests = fireGuests, unlocked = unlocked)
                     }
                 },
                 onOpenRecap = { screen = Screen.RECAP },

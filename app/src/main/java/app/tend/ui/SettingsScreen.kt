@@ -140,7 +140,10 @@ fun SettingsScreen(
         when (key) {
         "companion" -> CompanionPicker(avatar, onAvatar, compact = true)
         // The apps, each with its own limit, in one list; the full picker opens below it.
-        "apps" -> AppsCard(catalog, blocked, onToggleApp, appLimits, appSecondsToday, strict, plus, onAppLimit) { onPlus(PlusFrom.APP_LIMITS) }
+        "apps" -> {
+            AppsCard(catalog, blocked, onToggleApp, appLimits, appSecondsToday, strict, plus, onAppLimit) { onPlus(PlusFrom.APP_LIMITS) }
+            ShortsGuardCard(plus) { onPlus(PlusFrom.SETTINGS) }
+        }
         // Minutes: the day's budget, strict mode and a break, together.
         "minutes" -> {
             Card {
@@ -304,6 +307,63 @@ fun SettingsScreen(
         Text("tend $version$diagnostics", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, modifier = Modifier.align(Alignment.CenterHorizontally))
         Spacer(Modifier.padding(bottom = 24.dp))
     }
+}
+
+/**
+ * Optional (Plus): Reels and Shorts closed, the rest of those apps open. Turning it on says plainly
+ * what it does and doesn't look at, then leads to Android's switch for it.
+ */
+@Composable
+private fun ShortsGuardCard(plus: Boolean, onPlus: () -> Unit) = Card {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val store = remember { app.tend.data.TendStore(ctx) }
+    var on by remember { androidx.compose.runtime.mutableStateOf(store.shortsGuardOn) }
+    var asking by remember { androidx.compose.runtime.mutableStateOf(false) }
+    // Back from Android's settings: whether its switch is on now.
+    var running by remember { androidx.compose.runtime.mutableStateOf(app.tend.monitor.ShortsGuard.enabled(ctx)) }
+    val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(owner) {
+        val o = androidx.lifecycle.LifecycleEventObserver { _, e -> if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) running = app.tend.monitor.ShortsGuard.enabled(ctx) }
+        owner.lifecycle.addObserver(o)
+        onDispose { owner.lifecycle.removeObserver(o) }
+    }
+    fun openAndroid() = ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("Close only Reels & Shorts", style = MaterialTheme.typography.bodyLarge)
+            Text("Instagram, YouTube and Facebook stay open; the endless videos don't", style = MaterialTheme.typography.bodyMedium)
+        }
+        Spacer(Modifier.width(12.dp))
+        if (plus) Switch(checked = on, onCheckedChange = { want -> if (want) asking = true else { on = false; store.shortsGuardOn = false } })
+        else Box(Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onPlus).padding(6.dp)) { PlusMark() }
+    }
+    if (on && !running) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tappable { openAndroid() }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("One more step: switch on \u201ctend: Reels and Shorts\u201d in Android's accessibility settings", style = MaterialTheme.typography.bodyMedium, color = Brand.Coral, modifier = Modifier.weight(1f))
+        Text("Open", style = MaterialTheme.typography.labelLarge, color = Brand.Moss, modifier = Modifier.padding(start = 8.dp))
+    }
+    if (on && running) Text(
+        store.shortsClosedToday.let { if (it > 0) "Closed $it time${if (it == 1) "" else "s"} today" else "On. Nothing to close yet today." },
+        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted,
+    )
+    if (asking) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { asking = false },
+        title = { Text("Close Reels & Shorts?") },
+        text = {
+            Text(
+                "tend uses Android's accessibility service for this. In Instagram, YouTube and Facebook it only checks whether the screen " +
+                    "showing is the short-video player; if it is, it goes back and ${store.avatar.displayName} says so. Nothing on your screen is read, " +
+                    "kept or sent anywhere, and no other app is looked at. You can turn it off here or in Android's settings any time.",
+            )
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = {
+                asking = false; on = true; store.shortsGuardOn = true
+                if (!app.tend.monitor.ShortsGuard.enabled(ctx)) openAndroid()
+            }) { Text("Turn on") }
+        },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = { asking = false }) { Text("Not now") } },
+        containerColor = Brand.Card,
+    )
 }
 
 /** The settings menu: key, title, icon. */

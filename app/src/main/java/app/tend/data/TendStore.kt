@@ -806,6 +806,30 @@ class TendStore(private val context: Context) {
     val notNowsToday: Int
         get() = if (prefs.getString("not_now_day", "") == LocalDate.now().toString()) prefs.getInt("not_now_count", 0) else 0
 
+    /** Reels and Shorts closed (Plus, optional; Android's accessibility switch must be on too). */
+    var shortsGuardOn: Boolean
+        get() = prefs.getBoolean("shorts_guard", false)
+        set(v) = edit { putBoolean("shorts_guard", v) }
+
+    /** Reels and Shorts closed today. */
+    val shortsClosedToday: Int
+        get() = if (prefs.getString("shorts_day", "") == LocalDate.now().toString()) prefs.getInt("shorts_count", 0) else 0
+
+    fun countShortsClosed() {
+        val today = LocalDate.now().toString()
+        edit { putString("shorts_day", today); putInt("shorts_count", shortsClosedToday + 1) }
+    }
+
+    /** How far you've come: days at the camp, activities done, hours got back (minutes left unused). */
+    fun totals(): app.tend.core.Totals = daySummaries().let { days ->
+        app.tend.core.Totals(daysTended, days.sumOf { it.tasksDone }, days.sumOf { it.unusedMinutes } / 60)
+    }
+
+    /** Milestones already celebrated in the camp. */
+    var milestonesSeen: Set<app.tend.core.Milestone>
+        get() = prefs.getStringSet("milestones_seen", emptySet())!!.mapNotNull { runCatching { app.tend.core.Milestone.valueOf(it) }.getOrNull() }.toSet()
+        set(v) = edit { putStringSet("milestones_seen", v.map { it.name }.toSet()) }
+
     /** The week whose story card was put away (the date of its Sunday). */
     var weekStoryDone: String
         get() = prefs.getString("week_story_done", "") ?: ""

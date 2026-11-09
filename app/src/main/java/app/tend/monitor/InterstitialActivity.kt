@@ -155,6 +155,7 @@ class InterstitialActivity : ComponentActivity() {
         val layout = androidx.compose.runtime.remember { store.layout.mapValues { androidx.compose.ui.geometry.Offset(it.value.first, it.value.second) } }
         val worn = app.tend.ui.LocalAccessories.current
         val ambient = app.tend.ui.rememberAmbientClock()
+        val unlocked = androidx.compose.runtime.remember { app.tend.core.Milestone.reached(store.totals()) }
         val mood = if (v.locked || v.evening || v.scheduled != null) Mood.TIRED else Mood.SCROLLING
         androidx.compose.foundation.Canvas(
             Modifier.fillMaxWidth().aspectRatio(2.1f).clip(RoundedCornerShape(22.dp)),
@@ -167,7 +168,7 @@ class InterstitialActivity : ComponentActivity() {
             val dy = (size.height * 0.74f - at.y * scene.height).coerceIn(size.height - scene.height, 0f)
             translate(dx, dy) {
                 androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(this, layoutDirection, drawContext.canvas, scene) {
-                    drawClearing(store.avatar, placed, mood, worn, layout = layout, ambient = ambient.value, rest = store.restSpot)
+                    drawClearing(store.avatar, placed, mood, worn, layout = layout, ambient = ambient.value, rest = store.restSpot, unlocked = unlocked)
                 }
             }
         }

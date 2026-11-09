@@ -110,6 +110,18 @@
                 android:value="Detects when the user opens apps they chose to pause and shows a short delay screen." />
         </service>
 
+        <!-- Optional (Plus): closes Reels and Shorts only, leaving the rest of those apps open. -->
+        <service
+            android:name=".monitor.ShortsGuard"
+            android:exported="false"
+            android:label="tend: Reels and Shorts"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/shorts_guard" />
+        </service>
+
         <!-- "Phone down" in the quick settings: starts the next timed activity in one tap. -->
         <service
             android:name=".monitor.PhoneDownTile"

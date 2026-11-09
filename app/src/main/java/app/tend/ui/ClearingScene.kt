@@ -175,6 +175,8 @@ fun DrawScope.drawClearing(
     carry: Carry? = null,
     /** Presents from friends waiting to be opened. */
     gifts: Int = 0,
+    /** Milestones reached: what they've added to the camp for good. */
+    unlocked: Set<app.tend.core.Milestone> = emptySet(),
 ) {
     applySeason(season)
     val w = size.width
@@ -193,6 +195,8 @@ fun DrawScope.drawClearing(
 
     // Snow-capped mountains far behind, pale with distance.
     mountains(horizon)
+    // A month at the camp: a hut up the mountain, its chimney smoking, its window lit after dark.
+    if (app.tend.core.Milestone.HUT in unlocked) mountainHut(Offset(w * 0.735f, h * 0.33f), u, ambient, lights)
 
     // Two hazy forest walls far away: lighter and bluer the farther they are.
     forestWall(horizon + h * 0.02f, h * 0.2f, Haze1, seed = 3)
@@ -492,6 +496,13 @@ fun DrawScope.drawClearing(
             }
         }
     }
+    // Milestones: a flag over the camp, lamps along the path, a garden between the tent and the cabin.
+    if (app.tend.core.Milestone.FLAG in unlocked) Offset(w * 0.37f, h * 0.665f).let { p -> ground += p.y to { flag(p, u, ambient) } }
+    if (app.tend.core.Milestone.PATH_LIGHTS in unlocked) for (f in listOf(Offset(0.345f, 0.69f), Offset(0.325f, 0.79f), Offset(0.305f, 0.885f))) {
+        val p = Offset(f.x * w, f.y * h)
+        ground += p.y to { pathLamp(p, u, lights) }
+    }
+    if (app.tend.core.Milestone.GARDEN in unlocked) Offset(w * 0.63f, h * 0.605f).let { p -> ground += p.y to { garden(p, u) } }
     // A present from a friend, waiting by the fire: a little hop now and then, so it's noticed.
     if (gifts > 0) {
         val p = Offset(GiftSpot.x * w, GiftSpot.y * h)
@@ -601,6 +612,17 @@ fun DrawScope.drawClearing(
         }
         lights.forEach { l ->
             drawCircle(Brush.radialGradient(listOf(Glow.copy(alpha = 0.55f * l.strength * dark), Color.Transparent), center = l.at, radius = l.radius), l.radius, l.at)
+        }
+        // A hundred activities: now and then a shooting star across the dark.
+        if (app.tend.core.Milestone.SHOOTING_STARS in unlocked && dark > 0.6f && weather != app.tend.core.Weather.RAIN && weather != app.tend.core.Weather.SNOW) {
+            val k = (ambient % 9f) / 0.9f
+            if (k < 1f) {
+                val n = (ambient / 9f).toInt()
+                val from = Offset(w * (0.3f + 0.5f * ((n * 37) % 10) / 10f), h * (0.05f + 0.04f * (n % 3)))
+                val head = from + Offset(w * 0.18f * k, h * 0.08f * k)
+                drawLine(Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.9f * (1f - k))), start = head - Offset(w * 0.06f, h * 0.027f), end = head),
+                    head - Offset(w * 0.06f, h * 0.027f), head, strokeWidth = u * 0.003f, cap = StrokeCap.Round)
+            }
         }
     }
 }
@@ -1127,6 +1149,61 @@ private fun DrawScope.snowfall(t: Float, u: Float) {
         val y = ((y0 + t * speed) % 1f) * h
         val x = (x0 + kotlin.math.sin(t * 0.6f + i) * 0.008f) * w
         drawCircle(Color.White.copy(alpha = 0.6f + 0.35f * rnd.nextFloat()), r, Offset(x, y))
+    }
+}
+
+/** A small hut up the mountain: a roof, a lit window after dark, smoke curling up. */
+private fun DrawScope.mountainHut(p: Offset, u: Float, t: Float, lights: MutableList<Light>) {
+    val s = u * 0.028f
+    drawRect(Color(0xFF7A5A43), Offset(p.x - s, p.y - s * 1.1f), Size(s * 2f, s * 1.1f))
+    drawPath(Path().apply { moveTo(p.x - s * 1.3f, p.y - s * 1.05f); lineTo(p.x, p.y - s * 2f); lineTo(p.x + s * 1.3f, p.y - s * 1.05f); close() }, Color(0xFF4A3528))
+    drawRect(Color(0xFF4A3528), Offset(p.x + s * 0.45f, p.y - s * 2f), Size(s * 0.3f, s * 0.6f))
+    drawRect(Glow, Offset(p.x - s * 0.45f, p.y - s * 0.75f), Size(s * 0.45f, s * 0.4f))
+    lights += Light(p + Offset(-s * 0.22f, -s * 0.55f), u * 0.03f, 0.6f)
+    for (i in 0 until 3) {
+        val k = ((t * 0.25f + i / 3f) % 1f)
+        drawCircle(Color.White.copy(alpha = 0.45f * (1f - k)), s * (0.18f + 0.3f * k), Offset(p.x + s * 0.6f + kotlin.math.sin(k * 5f + i) * s * 0.4f, p.y - s * 2.1f - k * s * 2.2f))
+    }
+}
+
+/** A pennant flag on a pole, flapping in the breeze. */
+private fun DrawScope.flag(p: Offset, u: Float, t: Float) {
+    val top = p + Offset(0f, -u * 0.13f)
+    shadow(p, u * 0.01f, u)
+    drawLine(Color(0xFF6B4A33), p, top, strokeWidth = u * 0.004f, cap = StrokeCap.Round)
+    drawCircle(Color(0xFFF2C14E), u * 0.004f, top)
+    val wave = kotlin.math.sin(t * 3.2f) * u * 0.006f
+    drawPath(Path().apply {
+        moveTo(top.x, top.y + u * 0.004f)
+        quadraticTo(top.x + u * 0.025f, top.y + u * 0.008f + wave, top.x + u * 0.05f, top.y + u * 0.016f + wave * 1.4f)
+        quadraticTo(top.x + u * 0.025f, top.y + u * 0.026f + wave, top.x, top.y + u * 0.032f)
+        close()
+    }, Color(0xFFE07A5F))
+}
+
+/** A little lamp on a post by the path; lit after dark. */
+private fun DrawScope.pathLamp(p: Offset, u: Float, lights: MutableList<Light>) {
+    val k = depthScale(p.y / size.height)
+    val top = p + Offset(0f, -u * 0.045f * k)
+    drawLine(Color(0xFF4A3B2E), p, top, strokeWidth = u * 0.003f * k, cap = StrokeCap.Round)
+    drawRoundRect(Color(0xFF4A3B2E), top + Offset(-u * 0.007f * k, -u * 0.012f * k), Size(u * 0.014f * k, u * 0.004f * k), CornerRadius(u * 0.002f))
+    drawRoundRect(Glow, top + Offset(-u * 0.005f * k, -u * 0.008f * k), Size(u * 0.01f * k, u * 0.009f * k), CornerRadius(u * 0.002f))
+    lights += Light(top + Offset(0f, -u * 0.004f * k), u * 0.06f * k, 0.8f)
+}
+
+/** A small vegetable garden: a raised bed, rows of greens, a few carrots and a pumpkin. */
+private fun DrawScope.garden(p: Offset, u: Float) = withTransform({ scale(1.3f, 1.3f, pivot = p) }) {
+    val w = u * 0.09f
+    shadow(p, w * 0.55f, u)
+    drawRoundRect(Color(0xFF8B6446), Offset(p.x - w / 2, p.y - u * 0.016f), Size(w, u * 0.018f), CornerRadius(u * 0.004f))
+    drawRoundRect(Color(0xFF5E4232), Offset(p.x - w / 2 + u * 0.003f, p.y - u * 0.016f), Size(w - u * 0.006f, u * 0.006f), CornerRadius(u * 0.003f))
+    for (i in 0 until 6) {
+        val x = p.x - w / 2 + u * 0.009f + i * (w - u * 0.018f) / 5f
+        val y = p.y - u * 0.017f
+        if (i % 3 == 1) drawCircle(Color(0xFFE88E3C), u * 0.006f, Offset(x, y - u * 0.003f))
+        else {
+            for (l in listOf(-1f, 0f, 1f)) drawOval(Color(0xFF6E9A4A), Offset(x + l * u * 0.003f - u * 0.0025f, y - u * 0.012f), Size(u * 0.005f, u * 0.012f))
+        }
     }
 }
 

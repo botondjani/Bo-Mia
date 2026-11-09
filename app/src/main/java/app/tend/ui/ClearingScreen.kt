@@ -1,5 +1,6 @@
 package app.tend.ui
 
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.animation.togetherWith
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.ui.layout.positionInParent
@@ -127,7 +128,12 @@ fun ClearingScreen(
     /** Presents from friends to open (who sent each); opening them is [onOpenGifts]. */
     gifts: List<String> = emptyList(),
     onOpenGifts: () -> Unit = {},
+    /** How far you've come (for the milestones), and the ones already celebrated. */
+    totals: app.tend.core.Totals? = null,
+    milestonesSeen: Set<app.tend.core.Milestone> = emptySet(),
+    onMilestonesSeen: (Set<app.tend.core.Milestone>) -> Unit = {},
 ) {
+    val unlocked = totals?.let { app.tend.core.Milestone.reached(it) }.orEmpty()
     val scroll = rememberScrollState()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     Column(
@@ -257,6 +263,16 @@ fun ClearingScreen(
             pokeT = -1f
             pokeAct = null
         }
+    }
+    // A milestone just reached: what it adds to the camp, with sparkles where it appears.
+    val fresh = unlocked - milestonesSeen
+    androidx.compose.runtime.LaunchedEffect(fresh) {
+        val m = fresh.firstOrNull() ?: return@LaunchedEffect
+        kotlinx.coroutines.delay(900)
+        caught = "New in your camp: ${m.adds}! (${m.title})"
+        burst(MILESTONE_AT.getValue(m)); tick(firm = true); Sounds.chime(context)
+        kotlinx.coroutines.delay(2500)
+        onMilestonesSeen(setOf(m))
     }
     // Carrying things over, one by one, once the finger's off and the thing has settled.
     androidx.compose.runtime.LaunchedEffect(Unit) {
@@ -468,6 +484,7 @@ fun ClearingScreen(
                     ambient = ambient.value, guests = guests,
                     onCompanion = { companionAt[0] = it.x; companionAt[1] = it.y },
                     gifts = gifts.size,
+                    unlocked = unlocked,
                 )
             }
         }
@@ -586,6 +603,7 @@ fun ClearingScreen(
 
     Column(Modifier.onGloballyPositioned { collectionAt = it.positionInParent().y.toInt() }, verticalArrangement = Arrangement.spacedBy(Space.m)) {
         Guestbook(guestbook)
+        totals?.let { MilestonesCard(it) }
         Things(avatar, worn, onShelf)
     }
 
@@ -613,6 +631,41 @@ fun ClearingScreen(
         }
     }
 }
+}
+
+/** Where each milestone's addition is in the camp (scene fractions), for its sparkles. */
+private val MILESTONE_AT = mapOf(
+    app.tend.core.Milestone.FLAG to Offset(0.37f, 0.6f),
+    app.tend.core.Milestone.PATH_LIGHTS to Offset(0.32f, 0.76f),
+    app.tend.core.Milestone.GARDEN to Offset(0.63f, 0.58f),
+    app.tend.core.Milestone.HUT to Offset(0.735f, 0.3f),
+    app.tend.core.Milestone.SHOOTING_STARS to Offset(0.55f, 0.12f),
+)
+
+/** The milestones: each with how far along it is, and what it adds to the camp; the reached ones ticked. */
+@Composable
+private fun MilestonesCard(t: app.tend.core.Totals) = Card {
+    val reached = app.tend.core.Milestone.reached(t)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("MILESTONES", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+        Text("${reached.size} / ${app.tend.core.Milestone.entries.size}", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
+    }
+    app.tend.core.Milestone.entries.forEach { m ->
+        val done = m in reached
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+            Box(Modifier.size(28.dp).clip(androidx.compose.foundation.shape.CircleShape).background(if (done) Brand.Moss else Brand.Sage), contentAlignment = Alignment.Center) {
+                if (done) androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(m.title, style = MaterialTheme.typography.bodyLarge, color = if (done) Brand.Ink else Brand.Ink)
+                Text(if (done) "Added ${m.adds}" else "${m.label(t)} · adds ${m.adds}", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+                if (!done) Box(Modifier.padding(top = 4.dp).fillMaxWidth().height(4.dp).clip(RoundedCornerShape(50)).background(Brand.Sage)) {
+                    Box(Modifier.fillMaxWidth(m.progress(t) / m.need.toFloat()).height(4.dp).clip(RoundedCornerShape(50)).background(Brand.Mint))
+                }
+            }
+        }
+    }
 }
 
 /** A round-ended button with an icon, for the row under the camp. */
