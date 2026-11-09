@@ -86,10 +86,16 @@ object Uses {
     /** Seconds to walk over to a thing before using it. */
     const val WALK = 1.2f
 
+    /** Picking a thing up where it lies (half a second), then carrying it over (a second). */
+    const val FETCH = 1.5f
+
     fun seconds(thing: String): Float = when (thing) {
         "act_read", "act_run", "act_walk", "act_stretch", "act_hearts", "act_tidy", "act_cheer" -> 8f
         "guitar" -> 12f
-        "canoe", "raft", "fishing_rod", "hammock", "tent", "bell_tent", "cabin" -> 9f
+        "canoe", "raft", "hammock", "tent", "bell_tent", "cabin" -> 9f
+        // Fetched first (the log, the rod), then used where it's used.
+        "fishing_rod" -> 9f + FETCH
+        "woodpile" -> 7f + FETCH
         else -> 7f
     }
 
@@ -128,7 +134,7 @@ fun DrawScope.restPoint(spot: Int?, placed: Map<Int, String>, layout: Map<Int, O
     val p = spotPos(spot, layout).let { Offset(it.x * w, it.y * h) }
     // After something used standing up (playing, cooking, fishing...), they stay just where they were.
     val thing = placed.getValue(spot)
-    if (thing in STANDING) return useAnchor(InUse(spot, thing, 0f), placed, layout = layout)
+    if (thing in STANDING) return useAnchor(InUse(spot, thing, 100f), placed, layout = layout) // where the use ends
     return when (spot) {
         7 -> Offset(w * 0.33f, h * 0.8f) // the river: on our bank
         8 -> p + Offset(u * 0.13f, -u * 0.01f) // the dock: where it meets the shore
@@ -165,10 +171,12 @@ fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>, here: Offset? = nu
         "act_read", "act_stretch", "act_hearts", "act_tidy", "act_cheer" -> home
         "guitar", "campfire" -> if (use.spot < 0) (if (use.thing == "campfire") fire + Offset(-u * 0.21f, u * 0.03f) else home) else
             if (use.thing == "campfire" && bench) seat + Offset(0f, -u * 0.012f) else if (use.thing == "campfire") fire + Offset(-u * 0.21f, u * 0.03f) else p
-        "kettle", "pizza_oven", "woodpile" ->
+        "kettle", "pizza_oven" ->
             // Beside the fire pit, clear of the stones and the flames (or on the bench, if there is one).
-            if (bench && use.thing != "woodpile") seat + Offset(0f, -u * 0.012f) else fire + Offset(-u * 0.21f, u * 0.03f)
-        "fishing_rod" -> Offset(w * 0.335f, h * 0.84f)
+            if (bench) seat + Offset(0f, -u * 0.012f) else fire + Offset(-u * 0.21f, u * 0.03f)
+        // Fetched first: to the woodpile for a log, then over to the fire; to the rod, then to the bank.
+        "woodpile" -> fetched(use.t, p + Offset(u * 0.05f * k, u * 0.004f), fire + Offset(-u * 0.21f, u * 0.03f))
+        "fishing_rod" -> fetched(use.t, p + Offset(u * 0.05f * k, u * 0.004f), Offset(w * 0.335f, h * 0.84f))
         "wildflowers", "lantern", "tulips", "watering_can", "birdhouse", "beach_ball", "watermelon", "pumpkins", "scarecrow", "gift_boxes", "snowman" ->
             p + Offset(u * 0.055f * k, u * 0.004f)
         "leaf_pile", "sled", "deck_chair" -> p + Offset(0f, -u * 0.004f)
@@ -185,6 +193,61 @@ fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>, here: Offset? = nu
         "string_lights" -> Offset(w * 0.6f, h * 0.7f)
         else -> p
     }
+}
+
+/** A log from the companion's hands into the fire (after fetching it), then sparks. */
+private fun DrawScope.woodToFire(use: InUse, avatar: Avatar, mood: Mood, worn: Set<Accessory>, base: Offset, s: Float, u: Float, fire: Offset, lights: MutableList<Light>) {
+    val t = use.t
+    shadowAt(base, s * 0.45f)
+    actor(avatar, mood, worn, base, s, look = 0.8f, bounce = if (t < 1.2f) sin(t * 6f) else 0f)
+    if (t < 1.2f) {
+        // A log flies from the companion's hands into the fire.
+        val k = t / 1.2f
+        val from = base + Offset(s * 0.3f, -s * 0.5f)
+        val to = fire + Offset(0f, -u * 0.02f)
+        val at = Offset(from.x + (to.x - from.x) * k, from.y + (to.y - from.y) * k - sin(k * PI.toFloat()) * u * 0.08f)
+        rotate(k * 360f, at) { drawRoundRect(Wood, at + Offset(-u * 0.018f, -u * 0.005f), Size(u * 0.036f, u * 0.01f), CornerRadius(u * 0.004f)) }
+    } else {
+        rising(t, fire + Offset(0f, -u * 0.06f), u * 0.012f, every = 0.6f, drift = 2f) { at, a -> drawCircle(Color(0xFFFFB347).copy(alpha = a), u * 0.003f, at) }
+        lights += Light(fire + Offset(0f, -u * 0.05f), u * 0.24f, 1f)
+    }
+}
+
+/** Casting from the bank (after fetching the rod): the float flies, lands, bobs; a fish jumps and is caught. */
+private fun DrawScope.fishing(use: InUse, avatar: Avatar, mood: Mood, worn: Set<Accessory>, base: Offset, s: Float, u: Float, w: Float, h: Float) {
+    val t = use.t
+    shadowAt(base, s * 0.45f)
+    actor(avatar, mood, worn, base, s, look = -1f)
+    val hand = base + Offset(-s * 0.3f, -s * 0.45f)
+    val tip = hand + Offset(-u * 0.09f, -u * 0.09f)
+    drawLine(BarkDark, hand, tip, strokeWidth = u * 0.004f, cap = StrokeCap.Round)
+    // The cast: the float flies out in an arc, lands with a splash, then bobs.
+    val target = Offset(w * 0.2f, h * 0.8f)
+    val castK = (t / 0.9f).coerceIn(0f, 1f)
+    val float = if (castK < 1f) Offset(tip.x + (target.x - tip.x) * castK, tip.y + (target.y - tip.y) * castK - sin(castK * PI.toFloat()) * u * 0.08f)
+        else target + Offset(0f, sin(t * 3f) * u * 0.003f)
+    drawLine(Color.White.copy(alpha = 0.7f), tip, float, strokeWidth = u * 0.0012f)
+    drawCircle(Color(0xFFD64541), u * 0.005f, float)
+    if (castK >= 1f) {
+        drawOval(Color.White.copy(alpha = 0.3f), Offset(float.x - u * 0.015f, float.y + u * 0.002f), Size(u * 0.03f, u * 0.006f))
+        for (r in 0 until 2) {
+            val k = ((t - 0.9f) / 1.2f - r * 0.3f).coerceIn(0f, 1f)
+            if (k in 0.01f..0.99f) drawOval(Color.White.copy(alpha = 0.6f * (1 - k)), Offset(target.x - u * 0.05f * k, target.y - u * 0.008f * k), Size(u * 0.1f * k, u * 0.016f * k), style = Stroke(u * 0.002f))
+        }
+    }
+    // A fish jumps, then it's caught.
+    if (t in 4f..5.2f) {
+        val k = (t - 4f) / 1.2f
+        val at = float + Offset(-u * 0.04f + k * u * 0.06f, -sin(k * PI.toFloat()) * u * 0.07f)
+        fish(at, u, k * 180f - 90f)
+        droplets(float + Offset(-u * 0.03f, 0f), u, k)
+    } else if (t > 5.2f) fish(hand + Offset(-u * 0.01f, u * 0.01f), u, 80f)
+}
+
+/** Where the companion is while fetching something: at it, then carrying it over (eased), then there. */
+private fun fetched(t: Float, at: Offset, to: Offset): Offset {
+    val k = ((t - 0.5f) / (Uses.FETCH - 0.5f)).coerceIn(0f, 1f).let { it * it * (3 - 2 * it) }
+    return at + (to - at) * k
 }
 
 /** Draws the companion at [base] (feet), [s] tall, optionally rotated, faded, or with eyes closed. */
@@ -313,21 +376,23 @@ fun DrawScope.drawUse(
                 }
             }
         }
-        "woodpile" -> {
-            shadowAt(base, s * 0.45f)
-            actor(avatar, mood, worn, base, s, look = 0.8f, bounce = if (t < 1.2f) sin(t * 6f) else 0f)
-            if (t < 1.2f) {
-                // A log flies from the companion's hands into the fire.
-                val k = t / 1.2f
-                val from = base + Offset(s * 0.3f, -s * 0.5f)
-                val to = fire + Offset(0f, -u * 0.02f)
-                val at = Offset(from.x + (to.x - from.x) * k, from.y + (to.y - from.y) * k - sin(k * PI.toFloat()) * u * 0.08f)
-                rotate(k * 360f, at) { drawRoundRect(Wood, at + Offset(-u * 0.018f, -u * 0.005f), Size(u * 0.036f, u * 0.01f), CornerRadius(u * 0.004f)) }
+        "woodpile", "fishing_rod" -> if (t < Uses.FETCH) {
+            // Fetching: a little crouch to pick it up, then carried over.
+            val log = use.thing == "woodpile"
+            if (t < 0.5f) {
+                shadowAt(base, s * 0.45f)
+                actor(avatar, mood, worn, base + Offset(0f, sin(t / 0.5f * PI.toFloat()) * s * 0.04f), s, look = 0.6f, bounce = -sin(t / 0.5f * PI.toFloat()))
             } else {
-                rising(t, fire + Offset(0f, -u * 0.06f), u * 0.012f, every = 0.6f, drift = 2f) { at, a -> drawCircle(Color(0xFFFFB347).copy(alpha = a), u * 0.003f, at) }
-                lights += Light(fire + Offset(0f, -u * 0.05f), u * 0.24f, 1f)
+                val toRight = useAnchor(use.copy(t = 100f), placed, base, layout).x >= base.x
+                drawWalker(avatar, mood, worn, base, t, toRight)
             }
-        }
+            val hands = base + Offset(s * 0.28f, -s * 0.42f)
+            if (t >= 0.25f) {
+                if (log) drawRoundRect(Wood, hands + Offset(-u * 0.018f, -u * 0.005f), Size(u * 0.036f, u * 0.01f), CornerRadius(u * 0.004f))
+                else drawLine(BarkDark, hands, hands + Offset(-u * 0.05f, -u * 0.07f), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
+            }
+        } else if (use.thing == "fishing_rod") fishing(use.copy(t = t - Uses.FETCH), avatar, mood, worn, base, s, u, w, h)
+        else woodToFire(use.copy(t = t - Uses.FETCH), avatar, mood, worn, base, s, u, fire, lights)
         "wildflowers" -> {
             shadowAt(base, s * 0.45f)
             actor(avatar, mood, worn, base, s, look = -0.8f, bounce = sin(t * 1.5f) * 0.4f)
@@ -350,34 +415,6 @@ fun DrawScope.drawUse(
                 val a = t * (3f + k) + k * 2.1f
                 butterfly(glow + Offset(kotlin.math.cos(a) * u * 0.03f, sin(a) * u * 0.022f), u * 0.6f, t * 22f + k, Color(0xFFE8DCC4))
             }
-        }
-        "fishing_rod" -> {
-            shadowAt(base, s * 0.45f)
-            actor(avatar, mood, worn, base, s, look = -1f)
-            val hand = base + Offset(-s * 0.3f, -s * 0.45f)
-            val tip = hand + Offset(-u * 0.09f, -u * 0.09f)
-            drawLine(BarkDark, hand, tip, strokeWidth = u * 0.004f, cap = StrokeCap.Round)
-            // The cast: the float flies out in an arc, lands with a splash, then bobs.
-            val target = Offset(w * 0.2f, h * 0.8f)
-            val castK = (t / 0.9f).coerceIn(0f, 1f)
-            val float = if (castK < 1f) Offset(tip.x + (target.x - tip.x) * castK, tip.y + (target.y - tip.y) * castK - sin(castK * PI.toFloat()) * u * 0.08f)
-                else target + Offset(0f, sin(t * 3f) * u * 0.003f)
-            drawLine(Color.White.copy(alpha = 0.7f), tip, float, strokeWidth = u * 0.0012f)
-            drawCircle(Color(0xFFD64541), u * 0.005f, float)
-            if (castK >= 1f) {
-                drawOval(Color.White.copy(alpha = 0.3f), Offset(float.x - u * 0.015f, float.y + u * 0.002f), Size(u * 0.03f, u * 0.006f))
-                for (r in 0 until 2) {
-                    val k = ((t - 0.9f) / 1.2f - r * 0.3f).coerceIn(0f, 1f)
-                    if (k in 0.01f..0.99f) drawOval(Color.White.copy(alpha = 0.6f * (1 - k)), Offset(target.x - u * 0.05f * k, target.y - u * 0.008f * k), Size(u * 0.1f * k, u * 0.016f * k), style = Stroke(u * 0.002f))
-                }
-            }
-            // A fish jumps, then it's caught.
-            if (t in 4f..5.2f) {
-                val k = (t - 4f) / 1.2f
-                val at = float + Offset(-u * 0.04f + k * u * 0.06f, -sin(k * PI.toFloat()) * u * 0.07f)
-                fish(at, u, k * 180f - 90f)
-                droplets(float + Offset(-u * 0.03f, 0f), u, k)
-            } else if (t > 5.2f) fish(hand + Offset(-u * 0.01f, u * 0.01f), u, 80f)
         }
         "telescope" -> {
             shadowAt(base, s * 0.45f)
@@ -679,13 +716,14 @@ fun rememberIdleLife(placed: Map<Int, String>, rest: Int?, enabled: Boolean, onR
     androidx.compose.runtime.LaunchedEffect(Unit) {
         val rnd = java.util.Random()
         while (true) {
-            kotlinx.coroutines.delay(6_000L + rnd.nextInt(9_000))
+            kotlinx.coroutines.delay(3_000L + rnd.nextInt(5_000))
             if (!on) continue
             val choices = placedNow.filter { (spot, thing) -> spot != restNow && spot in SpotPositions && thing !in IDLE_SKIP }.entries.toList()
-            // Nothing to use: a stretch or a cheer where they stand (spot -2: nothing earned, no acorns fly).
-            val (spot, thing, walk) = if (choices.isEmpty()) Triple(-2, if (rnd.nextBoolean()) "act_stretch" else "act_cheer", 0f)
+            // Now and then (or with nothing to use) something where they stand: a stretch, a cheer, a hum
+            // (spot -2: nothing earned, no acorns fly). Otherwise over to something.
+            val (spot, thing, walk) = if (choices.isEmpty() || rnd.nextInt(10) < 3) Triple(-2, listOf("act_stretch", "act_cheer", "act_hearts")[rnd.nextInt(3)], 0f)
                 else choices[rnd.nextInt(choices.size)].let { Triple(it.key, it.value, Uses.WALK) }
-            val length = walk + minOf(Uses.seconds(thing), 7f)
+            val length = walk + minOf(Uses.seconds(thing), if (spot < 0) 3.5f else 8.5f)
             val start = androidx.compose.runtime.withFrameNanos { it }
             var t = 0f
             while (on && t < length) {

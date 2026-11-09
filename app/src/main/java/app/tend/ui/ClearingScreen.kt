@@ -31,8 +31,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.layout.layout
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -55,8 +53,6 @@ import app.tend.core.SpotKind
 import app.tend.core.Things
 import kotlinx.coroutines.launch
 
-/** The camp's shape, the same on the home page and here, so moving between them is seamless. */
-const val CAMP_RATIO = 1.8f
 
 /**
  * The clearing page: the camp, acorns to spend, what today earned and what to save for. Tap
@@ -113,8 +109,8 @@ fun ClearingScreen(
     /** Friends who cheered you since the camp last showed it; shown once, then [onCheersShown]. */
     cheers: List<String> = emptyList(),
     onCheersShown: () -> Unit = {},
-    /** Today's minutes left, shown small by the acorns; null hides it. */
-    minutesLeft: Int? = null,
+    /** Today's minutes: left, available and still to earn, shown in the header as on home; null hides them. */
+    minutes: Triple<Int, Int, Int>? = null,
 ) {
     val scroll = rememberScrollState()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -131,10 +127,11 @@ fun ClearingScreen(
         IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, "Back", onBack)
         Spacer(Modifier.width(Space.m))
         Column(Modifier.weight(1f)) {
-            Text("Tap to use, hold to move", style = MaterialTheme.typography.bodyMedium)
+            Text("Tap to use, hold to move", style = MaterialTheme.typography.bodyMedium, maxLines = 1)
             Text("${avatar.displayName}'s camp", style = MaterialTheme.typography.headlineMedium, maxLines = 1)
         }
-        IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Share, "Share", onShare)
+        // Today's minutes, as on home.
+        minutes?.let { (left, available, toEarn) -> MinutesSummary(left, available, toEarn) }
     }
 
     // What friends did: toilet paper unrolls when tapped; a visitor's duck is fished out.
@@ -156,7 +153,6 @@ fun ClearingScreen(
     // The companion's place before the move, and a clock for walking over to the new one.
     var restFrom by remember { mutableStateOf<Map<Int, Offset>?>(null) }
     val restClock = remember { androidx.compose.animation.core.Animatable(100f) }
-    var fingerInView by remember { mutableStateOf(-1f) } // px from the left of what's on screen, while dragging
     // An animal just greeted: a little card pops up on the camp for a moment.
     var greeted by remember { mutableStateOf<app.tend.core.Visitor?>(null) }
     androidx.compose.runtime.LaunchedEffect(greeted) { if (greeted != null) { kotlinx.coroutines.delay(2800); greeted = null } }
@@ -193,14 +189,8 @@ fun ClearingScreen(
         scope.launch { a.animateTo(1f, androidx.compose.animation.core.tween(800)); bursts.removeAll { it.second === a } }
     }
     // The camp pans left and right; after buying something it slides to show it popping up.
-    val pan = rememberScrollState()
-    var sceneWidthPx by remember { mutableIntStateOf(0) }
-    fun showSpot(spot: Int) = scope.launch {
-        scroll.animateScrollTo(0)
-        val x = (if (spot in SpotPositions) spotPos(spot, localNow).x else 0.5f) * sceneWidthPx
-        val viewport = sceneWidthPx - pan.maxValue
-        pan.animateScrollTo((x - viewport / 2f).toInt().coerceIn(0, pan.maxValue))
-    }
+    // After buying something: up to the camp to watch it pop in.
+    fun showSpot(@Suppress("UNUSED_PARAMETER") spot: Int) = scope.launch { scroll.animateScrollTo(0) }
     // Once in bed, they stay there: next time it doesn't walk again.
     androidx.compose.runtime.LaunchedEffect(nightClock > Uses.WALK + 2f) {
         val bed = bedOf(placed)
@@ -226,9 +216,29 @@ fun ClearingScreen(
         cheerT = -1f
         cheerCard = null
     }
+    // Tapping the companion: a little reaction where they stand (a cheer, hearts, a stretch) and a line.
+    val companionAt = remember { floatArrayOf(-1f, -1f) }
+    var pokeAct by remember { mutableStateOf<String?>(null) }
+    var pokeT by remember { androidx.compose.runtime.mutableFloatStateOf(-1f) }
+    fun poke() {
+        if (pokeAct != null) return
+        val i = kotlin.random.Random.nextInt(4)
+        pokeAct = listOf("act_cheer", "act_hearts", "act_stretch", "act_cheer")[i]
+        caught = listOf("${avatar.displayName} giggles. That tickles!", "${avatar.displayName} blushes a little.", "${avatar.displayName} stretches and smiles at you.", "${avatar.displayName} does a happy little dance.")[i]
+        tick(firm = true)
+        scope.launch {
+            val start = androidx.compose.runtime.withFrameNanos { it }
+            while (true) {
+                pokeT = (androidx.compose.runtime.withFrameNanos { it } - start) / 1e9f
+                if (pokeT > 2.6f) break
+            }
+            pokeT = -1f
+            pokeAct = null
+        }
+    }
     // Camp life: clouds and weather move, and the companion gets on with things when left alone.
     val ambient = rememberAmbientClock()
-    val idle = rememberIdleLife(placed, rest, enabled = using == null && drag == null && settling == null && greeted == null && !night) { onRest(it) }
+    val idle = rememberIdleLife(placed, rest, enabled = using == null && drag == null && settling == null && greeted == null && pokeAct == null && !night) { onRest(it) }
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { Sounds.stop() } }
 
     // The camp, big and edge to edge: wider than the screen, so it pans left and right.
@@ -239,27 +249,20 @@ fun ClearingScreen(
             layout(c.maxWidth, p.height) { p.place(-extra, 0) }
         },
     ) {
-        // Bigger than on home, but not so much that the edges go missing: about 70% of the camp at once.
-        val sceneHeight = maxWidth * 0.78f
-        // Starts in the middle of the camp, then glides over to a visitor waiting at the edge.
-        var centered by rememberSaveable { mutableStateOf(false) }
-        androidx.compose.runtime.LaunchedEffect(pan.maxValue) {
-            if (centered || pan.maxValue <= 0) return@LaunchedEffect
-            pan.scrollTo(pan.maxValue / 2)
-            centered = true
-            visitorNow?.let { v ->
-                val view = sceneWidthPx - pan.maxValue
-                val target = (v.x * sceneWidthPx - view / 2f).toInt().coerceIn(0, pan.maxValue)
-                if (kotlin.math.abs(target - pan.value) > view * 0.1f) { kotlinx.coroutines.delay(500); pan.animateScrollTo(target, androidx.compose.animation.core.tween(900)) }
-            }
-        }
-        Box(Modifier.fillMaxWidth().height(sceneHeight).campEntrance().horizontalScroll(pan)) {
+        // The whole camp, framed like on home: nothing cut off at the sides.
+        val sceneHeight = maxWidth / 1.6f
+        Box(Modifier.fillMaxWidth().height(sceneHeight).campEntrance()) {
             Canvas(
-                Modifier.width(sceneHeight * CAMP_RATIO).height(sceneHeight).onSizeChanged { sceneWidthPx = it.width }.pointerInput(Unit) {
+                Modifier.fillMaxSize().pointerInput(Unit) {
                     // Long presses belong to moving things: a tap only counts when it's quick.
                     detectTapGestures(onLongPress = {}) { tap ->
                         val fx = tap.x / size.width
                         val fy = tap.y / size.height
+                        // The companion themselves (standing about, not mid-walk): a reaction.
+                        val (cx, cy) = companionAt[0] to companionAt[1]
+                        if (cx >= 0f && using == null && idle.value == null && !night &&
+                            kotlin.math.abs(cx - fx) * size.width < size.height * 0.08f && fy in (cy - 0.17f)..(cy + 0.02f)
+                        ) { poke(); return@detectTapGestures }
                         val duck = DuckSpots.take(ducksNow.size).indexOfFirst { kotlin.math.abs(it.x - fx) * size.width < size.height * 0.08f && kotlin.math.abs(it.y - fy) < 0.09f }
                         if (duck >= 0) {
                             val n = ducksNow[duck]
@@ -300,7 +303,6 @@ fun ClearingScreen(
                     fun drop() {
                         val (spot, at) = drag ?: return
                         drag = null
-                        fingerInView = -1f
                         local = localNow + (spot to at)
                         onPlace(spot, at)
                         settling = spot
@@ -332,7 +334,6 @@ fun ClearingScreen(
                             grab = from - f
                             drag = hit to from
                             settling = null
-                            fingerInView = at.x - pan.value
                             // The companion waits where they are until it's put down.
                             if (restFrom == null) restFrom = localNow
                             scope.launch { restClock.snapTo(0f) }
@@ -343,7 +344,6 @@ fun ClearingScreen(
                         onDrag = { change, _ ->
                             val (spot, _) = drag ?: return@detectDragGesturesAfterLongPress
                             change.consume()
-                            fingerInView = change.position.x - pan.value
                             val f = Offset(change.position.x / size.width, change.position.y / size.height) + grab
                             val (x, y) = app.tend.core.Clearing.keepOnMeadow(kind, f.x, f.y, size.width / size.height.toFloat())
                             drag = spot to Offset(x, y)
@@ -354,7 +354,8 @@ fun ClearingScreen(
                 },
             ) {
                 // Cheered: hearts where they stand (spot -2: no acorns fly, nothing was earned).
-                val use = cheerT.takeIf { it >= 0f }?.let { InUse(-2, "act_hearts", it) }
+                val use = pokeAct?.takeIf { pokeT >= 0f }?.let { InUse(-2, it, pokeT) }
+                    ?: cheerT.takeIf { it >= 0f }?.let { InUse(-2, "act_hearts", it) }
                     ?: using?.takeIf { useStart >= 0 }?.let { (spot, thing) -> InUse(spot, thing, (frame - useStart) / 1e9f, walk) } ?: idle.value
                 drawClearing(
                     avatar, placed, mood, worn = worn, night = night, paper = paperLeft, ducks = ducks.size, bridge = bridge,
@@ -365,47 +366,16 @@ fun ClearingScreen(
                     dust = dustAt?.let { it to dust.value },
                     restFrom = restFrom, restClock = restClock.value,
                     ambient = ambient.value, guests = guests,
+                    onCompanion = { companionAt[0] = it.x; companionAt[1] = it.y },
                 )
             }
-            // Near the screen's edge while dragging: the camp slides along, and the thing with it.
-            val edge = with(androidx.compose.ui.platform.LocalDensity.current) { 56.dp.toPx() }
-            // Only while the finger is near an edge, so holding still costs nothing.
-            val nearEdge by remember { androidx.compose.runtime.derivedStateOf {
-                val view = sceneWidthPx - pan.maxValue
-                drag != null && fingerInView >= 0f && (fingerInView < edge || fingerInView > view - edge)
-            } }
-            androidx.compose.runtime.LaunchedEffect(nearEdge) {
-                while (nearEdge) {
-                    androidx.compose.runtime.withFrameNanos { }
-                    val view = sceneWidthPx - pan.maxValue
-                    val x = fingerInView
-                    val v = if (x < edge) -(edge - x) / edge * 14f else (x - (view - edge)) / edge * 14f
-                    val moved = pan.scrollBy(v)
-                    val d = drag ?: break
-                    if (moved != 0f && sceneWidthPx > 0) {
-                        val f = d.second + Offset(moved / sceneWidthPx, 0f)
-                        val kindNow = placedNow[d.first]?.let(app.tend.core.Things::byId)?.kind ?: app.tend.core.SpotKind.SMALL
-                        val (nx, ny) = app.tend.core.Clearing.keepOnMeadow(kindNow, f.x, f.y, CAMP_RATIO)
-                        drag = d.first to Offset(nx, ny)
-                    } else if (moved == 0f) break // at the end of the camp
-                }
-            }
         }
-        // Top right: today's minutes left, and the acorns.
-        Row(Modifier.align(Alignment.TopEnd).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            minutesLeft?.let { m ->
-                Row(
-                    Modifier.clip(RoundedCornerShape(50)).background(Color(0xE6FFFFFF)).padding(horizontal = 10.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.Bottom,
-                ) {
-                    Text("${m.coerceAtLeast(0)}", style = MaterialTheme.typography.titleMedium, color = if (m > 0) Brand.Moss else Brand.Coral)
-                    Spacer(Modifier.width(3.dp))
-                    Text("min", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Color(0xFF6B756F), modifier = Modifier.padding(bottom = 2.dp))
-                }
-                Spacer(Modifier.width(6.dp))
-            }
-            AcornBadge(acorns)
-        }
+        // On the camp: sharing it (top left) and the acorns (top right).
+        Box(
+            Modifier.align(Alignment.TopStart).padding(12.dp).size(36.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xE6FFFFFF)).tappable(onClick = onShare),
+            contentAlignment = Alignment.Center,
+        ) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Share, "Share", tint = Brand.Moss, modifier = Modifier.size(18.dp)) }
+        AcornBadge(acorns, Modifier.align(Alignment.TopEnd).padding(12.dp))
         val shown = remember { mutableStateOf<app.tend.core.Visitor?>(null) }
         if (greeted != null) shown.value = greeted
         androidx.compose.animation.AnimatedVisibility(

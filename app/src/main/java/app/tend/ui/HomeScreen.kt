@@ -165,19 +165,7 @@ fun HomeScreen(
                 Text(greeting(), style = MaterialTheme.typography.headlineMedium)
             }
             // Today's minutes, next to the greeting: what's left, a small bar, what's still to earn.
-            Column(Modifier.padding(end = 12.dp).width(96.dp).tappable { explain = "minutes" }, horizontalAlignment = Alignment.End) {
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(if (remaining > 0) "$remaining" else "0", style = MaterialTheme.typography.headlineMedium, color = if (remaining > 0) Brand.Moss else Brand.Coral)
-                    Spacer(Modifier.width(4.dp))
-                    Text("min left", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Ink, modifier = Modifier.padding(bottom = 4.dp))
-                }
-                val available = (cfg.freeMinutes + day.earnedMinutes).coerceAtLeast(1)
-                val left by animateFloatAsState((remaining.toFloat() / available).coerceIn(0f, 1f), tween(700), label = "left")
-                Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(50)).background(Brand.Card)) {
-                    Box(Modifier.fillMaxWidth(left).height(5.dp).clip(RoundedCornerShape(50)).background(if (remaining > 0) Brand.Mint else Brand.Coral))
-                }
-                Text("+${Budget.earnableFrom(cfg, day, tasks)} to earn", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted)
-            }
+            MinutesSummary(remaining, (cfg.freeMinutes + day.earnedMinutes).coerceAtLeast(1), Budget.earnableFrom(cfg, day, tasks), Modifier.padding(end = 12.dp)) { explain = "minutes" }
             IconButtonSoft(Icons.Filled.Settings, "Settings", onOpenSettings)
         }
 
@@ -783,3 +771,19 @@ private fun FocusTimerContent(
     SecondaryButton("Stop for now", onCancel, modifier = Modifier.padding(horizontal = Space.xxl))
 }
 
+
+/** Today's minutes in a header: what's left, a small bar of it, and what's still to earn. Home and the camp. */
+@Composable
+fun MinutesSummary(remaining: Int, available: Int, toEarn: Int, modifier: Modifier = Modifier, onClick: () -> Unit = {}) =
+    Column(modifier.width(96.dp).tappable(onClick = onClick), horizontalAlignment = Alignment.End) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(if (remaining > 0) "$remaining" else "0", style = MaterialTheme.typography.headlineMedium, color = if (remaining > 0) Brand.Moss else Brand.Coral)
+            Spacer(Modifier.width(4.dp))
+            Text("min left", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Ink, modifier = Modifier.padding(bottom = 4.dp))
+        }
+        val left by animateFloatAsState((remaining.toFloat() / available.coerceAtLeast(1)).coerceIn(0f, 1f), tween(700), label = "left")
+        Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(50)).background(Brand.Card)) {
+            Box(Modifier.fillMaxWidth(left).height(5.dp).clip(RoundedCornerShape(50)).background(if (remaining > 0) Brand.Mint else Brand.Coral))
+        }
+        Text("+$toEarn to earn", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted)
+    }

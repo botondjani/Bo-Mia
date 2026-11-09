@@ -169,6 +169,8 @@ fun DrawScope.drawClearing(
     restClock: Float = 100f,
     /** Friends phone-free right now: their companions sit across the fire (companion, name). */
     guests: List<Pair<Avatar, String>> = emptyList(),
+    /** Told where the companion stands (scene fractions, feet), each time it's drawn: for tapping them. */
+    onCompanion: ((Offset) -> Unit)? = null,
 ) {
     applySeason(season)
     val w = size.width
@@ -292,6 +294,7 @@ fun DrawScope.drawClearing(
         else -> target
     }
     var companionDrawn = false
+    onCompanion?.invoke(Offset(anchor.x / w, anchor.y / h))
     val cs = u * 0.17f * depthScale(anchor.y / h)
     fun drawActor(glows: MutableList<Light>) {
         if (act != null && walking) { drawWalker(avatar, mood, worn, anchor, act.t, target!!.x >= restAt.x); return }
@@ -302,7 +305,11 @@ fun DrawScope.drawClearing(
             it.nativeCanvas.save()
             it.nativeCanvas.translate(anchor.x - cs / 2, anchor.y - cs * 0.95f)
             // At night with no shelter: asleep where they stand.
-            CharacterPainter.draw(it.nativeCanvas, avatar, if (night) Mood.SLEEPING else mood, cs, accessories = worn)
+            // Standing about: breathing, and a blink every few seconds.
+            val pose = if (night) CharacterPainter.Pose() else CharacterPainter.Pose(
+                blink = if (ambient % 4.3f < 0.14f) 1f else 0f, breathe = kotlin.math.sin(ambient * 2.2f) * 0.6f,
+            )
+            CharacterPainter.draw(it.nativeCanvas, avatar, if (night) Mood.SLEEPING else mood, cs, pose, accessories = worn)
             it.nativeCanvas.restore()
         }
         // In the rain, standing about: under a little umbrella.
