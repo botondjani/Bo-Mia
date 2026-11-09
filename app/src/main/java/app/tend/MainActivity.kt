@@ -377,7 +377,7 @@ class MainActivity : ComponentActivity() {
             when (step) {
                 app.tend.core.Step.ACTIVITY -> { screen = Screen.HOME; activitiesFocus++ }
                 app.tend.core.Step.PLACE -> screen = Screen.CLEARING
-                app.tend.core.Step.USE -> screen = Screen.CLEARING
+                app.tend.core.Step.USE, app.tend.core.Step.MOVE -> screen = Screen.CLEARING
                 app.tend.core.Step.NOT_NOW -> {
                     // Open a paused app: the pause comes up, and "Not now" is right there.
                     val launch = store.blockedPackages.firstNotNullOfOrNull { packageManager.getLaunchIntentForPackage(it) }
@@ -785,6 +785,12 @@ class MainActivity : ComponentActivity() {
                 focusActivities = activitiesFocus,
                 sleeping = now < store.sleepUntil,
                 onWakeUp = { store.wakeUp(); refresh++ },
+                // Until something has been moved: how (on the camp, small).
+                campTip = remember(refresh) {
+                    "Tip: you can move things around".takeIf {
+                        store.layout.isEmpty() && store.placed.values.any { id -> app.tend.core.Things.byId(id)?.let(app.tend.core.Clearing::movable) == true }
+                    }
+                },
                 camp = {
                     val night = app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour)
                     val mood = app.tend.core.Moods.atNight(app.tend.core.Moods.of(store.config, store.today()), night)
@@ -916,6 +922,7 @@ class MainActivity : ComponentActivity() {
         val done = buildSet {
             if (store.placed.isNotEmpty()) add(app.tend.core.Step.PLACE)
             if (store.usedThings.isNotEmpty()) add(app.tend.core.Step.USE)
+            if (store.layout.isNotEmpty()) add(app.tend.core.Step.MOVE)
             if (days.any { it.tasksDone > 0 }) add(app.tend.core.Step.ACTIVITY)
             if (book.isNotEmpty()) add(app.tend.core.Step.GREET)
             if (store.usedThings.size >= 3) add(app.tend.core.Step.THREE_THINGS)

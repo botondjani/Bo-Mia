@@ -10,6 +10,7 @@ enum class Step(val title: String, val how: String, val acorns: Int, val round: 
     ACTIVITY("Do one activity", "Start one under Instead of scrolling", 15, 0),
     PLACE("Get something for your camp", "Camp → Shop", 10, 0),
     USE("Watch your companion use it", "Tap a thing in the camp", 10, 0),
+    MOVE("Move something in your camp", "Camp → hold a thing, then drag it", 10, 0),
     NOT_NOW("Say \"Not now\" once", "When a paused app opens", 10, 0),
     WIDGET("Swap the tend icon for Bo", "Add the 1×1 widget; it opens tend too", 10, 0),
     FRIEND("Invite a friend", "Camp → Friends → Invite", 15, 0),

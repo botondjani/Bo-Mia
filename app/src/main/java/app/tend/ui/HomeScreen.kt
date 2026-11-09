@@ -108,6 +108,8 @@ fun HomeScreen(
     onOpenClearing: () -> Unit,
     /** The camp scene for the top of the page (drawn by the caller, which knows what's in it). */
     camp: @Composable () -> Unit = {},
+    /** A small tip on the camp (how to move things), until it's been tried. */
+    campTip: String? = null,
     steps: List<app.tend.core.StepState> = emptyList(),
     onStep: (app.tend.core.Step) -> Unit = {},
     /** Bumped when 'Do one activity' is tapped: the list comes into view with a glow. */
@@ -180,6 +182,13 @@ fun HomeScreen(
             }.aspectRatio(1.6f).campEntrance().tappable(onClick = onOpenClearing),
         ) {
             camp()
+            campTip?.let {
+                Text(
+                    it, style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp), color = Brand.Moss,
+                    modifier = Modifier.align(Alignment.BottomStart).padding(start = 16.dp, bottom = 20.dp)
+                        .clip(RoundedCornerShape(50)).background(Color(0xE6FFFFFF)).padding(horizontal = 12.dp, vertical = 5.dp),
+                )
+            }
             // What the companion says: one small bubble, so the camp shows.
             Text(
                 voice?.let(app.tend.core.Voice::home) ?: Moods.line(cfg, day, tasks, welcomeBack, canClose = permissions.overlay),

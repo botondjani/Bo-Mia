@@ -282,9 +282,11 @@ fun ClearingScreen(
     // Camp life: clouds and weather move, and the companion gets on with things when left alone.
     val ambient = rememberAmbientClock()
     // Until something has been moved: which small thing hints that things can be picked up.
-    val hintSpot = if (layout.isNotEmpty() || night) null else placed.entries.firstOrNull { (spot, id) ->
-        spot in SpotPositions && app.tend.core.Things.byId(id)?.let { app.tend.core.Clearing.movable(it) && it.kind == app.tend.core.SpotKind.SMALL } == true
-    }?.key
+    // Something light and easy to carry, ideally (not the firewood, which belongs by the fire).
+    val hintSpot = if (layout.isNotEmpty() || night) null else placed.entries.filter { (spot, id) ->
+        spot in SpotPositions && id != "woodpile" &&
+            app.tend.core.Things.byId(id)?.let { app.tend.core.Clearing.movable(it) && it.kind == app.tend.core.SpotKind.SMALL } == true
+    }.minByOrNull { (_, id) -> listOf("lantern", "wildflowers", "guitar", "telescope").indexOf(id).let { if (it < 0) 9 else it } }?.key
     val idle = rememberIdleLife(placed, rest, enabled = using == null && drag == null && settling == null && !carrying && carries.isEmpty() && greeted == null && pokeAct == null && !night, layout = local) { onRest(it) }
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { Sounds.stop() } }
 
@@ -490,7 +492,7 @@ fun ClearingScreen(
     FirstStepsCard(steps, onClaim = { onClaimStep(it); Sounds.chime(context) }, onGo = { step ->
         when (step) {
             app.tend.core.Step.PLACE, app.tend.core.Step.TREES, app.tend.core.Step.BETTER_FIRE, app.tend.core.Step.SHELTER, app.tend.core.Step.ON_THE_RIVER -> tab = 0
-            app.tend.core.Step.USE, app.tend.core.Step.GREET, app.tend.core.Step.THREE_THINGS -> scope.launch { scroll.animateScrollTo(0) }
+            app.tend.core.Step.USE, app.tend.core.Step.MOVE, app.tend.core.Step.GREET, app.tend.core.Step.THREE_THINGS -> scope.launch { scroll.animateScrollTo(0) }
             app.tend.core.Step.FRIEND, app.tend.core.Step.TOGETHER -> tab = 1
             app.tend.core.Step.FIVE_ANIMALS, app.tend.core.Step.RARE -> tab = 2
             else -> onStep(step)
