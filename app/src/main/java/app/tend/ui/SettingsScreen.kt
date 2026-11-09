@@ -15,6 +15,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.Column
@@ -118,28 +119,33 @@ fun SettingsScreen(
     PlusCard(plus, trialDaysLeft, plusPaid, onTestTrial) { onPlus(PlusFrom.SETTINGS) }
     Text("COMPANION", style = MaterialTheme.typography.labelSmall)
     CompanionPicker(avatar, onAvatar, compact = true)
+    // The apps, each with its own limit, in one list; the full picker opens below it.
     Text("APPS TO PAUSE", style = MaterialTheme.typography.labelSmall)
-    AppPicker(catalog, blocked, onToggleApp)
-    if (blocked.isNotEmpty()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("A LIMIT FOR EACH APP", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+    AppsCard(catalog, blocked, onToggleApp, appLimits, appSecondsToday, strict, plus, onAppLimit) { onPlus(PlusFrom.APP_LIMITS) }
+    // Minutes: the day's budget, strict mode and a break, together.
+    Text("MINUTES", style = MaterialTheme.typography.labelSmall)
+    Card {
+        BudgetSteppers(cfg, onConfig)
+        Divider()
+        if (plus) StrictRow(strict, strictEndsAt, onStrict)
+        else Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tappable { onPlus(PlusFrom.STRICT) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Strict mode", style = MaterialTheme.typography.bodyLarge)
+                Text("No shortcuts, for the days you need it", style = MaterialTheme.typography.bodyMedium)
+            }
             PlusMark()
         }
-        if (plus) AppLimitsCard(catalog, blocked, appLimits, appSecondsToday, strict, onAppLimit)
-        else LockedCard("Its own minutes a day for each app, on top of your budget.") { onPlus(PlusFrom.APP_LIMITS) }
+        Divider()
+        BreakRows(pausedUntil, strict, onPause)
     }
     Text("INSTEAD OF SCROLLING", style = MaterialTheme.typography.labelSmall)
     ActivitySummary(tasks, onToggleTask)
-    Text("DAILY BUDGET", style = MaterialTheme.typography.labelSmall)
-    BudgetPicker(cfg, onConfig)
-    BreakCard(pausedUntil, strict, onPause)
-    if (plus) StrictCard(strict, strictEndsAt, onStrict)
-    else LockedCard("Strict mode: no shortcuts, for the days you need it.") { onPlus(PlusFrom.STRICT) }
 
     // Everything about the evening in one place: when it starts, the pause, the recap, the lock.
     val bedtime = lockSchedules.firstOrNull { it.label == app.tend.core.LockSchedule.BEDTIME.label }
     val work = lockSchedules.firstOrNull { it.label == app.tend.core.LockSchedule.WORK.label }
-    Text("EVENING", style = MaterialTheme.typography.labelSmall)
+    // Notes and the evening in one place.
+    Text("NOTES & EVENING", style = MaterialTheme.typography.labelSmall)
     Card {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -151,9 +157,7 @@ fun SettingsScreen(
         SwitchRow("Sleepy pauses", "The pause waits 15 s and ${avatar.displayName} gets sleepy", eveningPause, onEveningPause)
         SwitchRow("Evening recap", "A note when the evening starts", reminderEnabled, onReminder)
         bedtime?.let { LockRow(it, "Bedtime lock", onLockSchedule) }
-    }
-    Text("DURING THE DAY", style = MaterialTheme.typography.labelSmall)
-    Card {
+        Divider()
         SwitchRow("Morning plan", "8:30: today's minutes and what's worth the most", notesMorning) { onNotes("morning", it) }
         SwitchRow("Gentle nudges", "When 10 minutes are left", notesNudges) { onNotes("nudges", it) }
         SwitchRow("${avatar.displayName} peeks in", "After 10 minutes in a row in a paused app, from the edge of the screen", peekOn, onPeek)
@@ -283,7 +287,7 @@ fun PermissionsScreen(avatar: Avatar, perms: PermissionActions, onDone: () -> Un
 
 /** A holiday, a sick day: every limit off for a while, and those days don't count against you. */
 @Composable
-private fun BreakCard(pausedUntil: Long, strict: Boolean, onPause: (Int) -> Unit) = Card {
+private fun BreakRows(pausedUntil: Long, strict: Boolean, onPause: (Int) -> Unit) {
     if (pausedUntil > System.currentTimeMillis()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -321,17 +325,18 @@ fun breakEnd(until: Long): String {
 
 /** Picked apps, each with its own daily limit (or none): tap one to set it. */
 @Composable
-private fun AppLimitsCard(
-    catalog: AppCatalog, blocked: Set<String>, limits: Map<String, Int>, secondsToday: Map<String, Long>, strict: Boolean,
-    onAppLimit: (String, Int?) -> Unit,
+private fun AppsCard(
+    catalog: AppCatalog, blocked: Set<String>, onToggleApp: (String) -> Unit, limits: Map<String, Int>, secondsToday: Map<String, Long>, strict: Boolean,
+    plus: Boolean, onAppLimit: (String, Int?) -> Unit, onPlus: () -> Unit,
 ) = Card {
     var editing by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf<String?>(null) }
-    Text("On top of your daily minutes: when an app's own minutes are used, it stays closed until tomorrow.", style = MaterialTheme.typography.bodyMedium)
+    var picking by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(blocked.isEmpty()) }
+    if (blocked.isNotEmpty()) Text("Tap one to give it its own minutes a day.", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
     blocked.sortedBy { catalog.label(it).lowercase() }.forEach { pkg ->
         val limit = limits[pkg]
         val used = ((secondsToday[pkg] ?: 0L) / 60).toInt()
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tappable { editing = pkg }.padding(vertical = 6.dp),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tappable { if (plus) editing = pkg else onPlus() }.padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val icon = remember(pkg) { catalog.icon(pkg) }
@@ -345,11 +350,20 @@ private fun AppLimitsCard(
                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = if (used >= limit) Brand.Coral else Brand.Muted,
                 )
             }
-            Text(
-                limit?.let { "$it min" } ?: "No limit", style = MaterialTheme.typography.labelLarge, color = if (limit != null) Color.White else Brand.Moss,
-                modifier = Modifier.clip(RoundedCornerShape(50)).background(if (limit != null) Brand.Moss else Brand.Sage).padding(horizontal = 12.dp, vertical = 6.dp),
+            if (!plus) PlusMark()
+            else Text(
+                limit?.let { "$it min" } ?: "No limit", style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), color = if (limit != null) Color.White else Brand.Moss,
+                modifier = Modifier.clip(RoundedCornerShape(50)).background(if (limit != null) Brand.Moss else Brand.Sage).padding(horizontal = 10.dp, vertical = 4.dp),
             )
         }
+    }
+    // Adding or taking off apps: the full picker, folded away until wanted.
+    Text(
+        if (picking) "Done" else "Add or remove apps", style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+        modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable { picking = !picking }.padding(vertical = 6.dp),
+    )
+    androidx.compose.animation.AnimatedVisibility(picking) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { AppPicker(catalog, blocked, onToggleApp) }
     }
     editing?.let { pkg ->
         val now = limits[pkg]
@@ -386,8 +400,7 @@ private fun AppLimitsCard(
 
 /** No shortcuts, and loosening waits until tomorrow: for the days you don't trust yourself. */
 @Composable
-private fun StrictCard(strict: Boolean, endsAt: Long, onStrict: (Boolean) -> Unit) = Card {
-    Row { Spacer(Modifier.weight(1f)); PlusMark() }
+private fun StrictRow(strict: Boolean, endsAt: Long, onStrict: (Boolean) -> Unit) {
     SwitchRow(
         "Strict mode",
         when {
@@ -424,12 +437,6 @@ private fun PlusCard(plus: Boolean, daysLeft: Int?, paid: Boolean, onTestTrial: 
     }
 }
 
-/** A Plus feature, locked: what it does, and a tap to see Plus. */
+/** A thin line between groups inside one card. */
 @Composable
-private fun LockedCard(text: String, onOpen: () -> Unit) = Card(Modifier.tappable(onClick = onOpen)) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-        Spacer(Modifier.width(8.dp))
-        PlusMark()
-    }
-}
+private fun Divider() = Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp).background(Brand.Sage))

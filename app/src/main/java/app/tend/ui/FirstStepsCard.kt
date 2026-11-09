@@ -74,8 +74,8 @@ fun FirstStepsCard(steps: List<StepState>, onClaim: (Step) -> Unit, onGo: (Step)
 }
 
 /**
- * On the home page, one slim line: the next challenge (tap: go do it), or acorns waiting to be
- * claimed in the camp (tap: open it).
+ * On the home page, the round at a glance: how many are done (a ring), what's next or waiting to be
+ * claimed, and how much is still there to earn. Tap: go do the next one, or claim in the camp.
  */
 @Composable
 fun FirstStepsStrip(steps: List<StepState>, onOpen: () -> Unit, onGo: (Step) -> Unit = {}) {
@@ -83,18 +83,31 @@ fun FirstStepsStrip(steps: List<StepState>, onOpen: () -> Unit, onGo: (Step) -> 
     if (round.isEmpty()) return
     val waiting = round.filter { it.claimable }.sumOf { it.step.acorns }
     val next = round.firstOrNull { !it.done }?.step
+    val done = round.count { it.done }
+    val toEarn = round.filter { !it.done }.sumOf { it.step.acorns }
     Row(
         Modifier.fillMaxWidth().surface(radius = 18.dp).tappable { if (waiting > 0 || next == null) onOpen() else onGo(next) }
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(30.dp).clip(CircleShape).background(Brand.Sage), contentAlignment = Alignment.Center) {
-            Text("${round.count { it.claimed }}/${round.size}", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Brand.Moss)
+        // The round's progress: a ring filling up, done over all.
+        Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
+            val k = done / round.size.toFloat()
+            Canvas(Modifier.size(38.dp)) {
+                val w = 3.5.dp.toPx()
+                drawArc(Brand.Sage, 0f, 360f, false, Offset(w / 2, w / 2), androidx.compose.ui.geometry.Size(size.width - w, size.height - w), style = androidx.compose.ui.graphics.drawscope.Stroke(w))
+                if (k > 0f) drawArc(Brand.Moss, -90f, 360f * k, false, Offset(w / 2, w / 2), androidx.compose.ui.geometry.Size(size.width - w, size.height - w), style = androidx.compose.ui.graphics.drawscope.Stroke(w, cap = StrokeCap.Round))
+            }
+            Text("$done/${round.size}", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Brand.Moss)
         }
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text("CHALLENGE", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Brand.Muted)
-            Text(if (waiting > 0) "$waiting acorns to claim in the camp" else next?.title ?: "", style = MaterialTheme.typography.titleSmall, maxLines = 1)
+            Text("CHALLENGES · ROUND ${app.tend.core.FirstSteps.roundOf(steps)}", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Brand.Muted)
+            Text(if (waiting > 0) "$waiting acorns ready to claim" else next?.title ?: "All done!", style = MaterialTheme.typography.titleSmall, maxLines = 1)
+            Text(
+                if (toEarn > 0) "$toEarn more to earn this round" else "Claim them in the camp",
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, maxLines = 1,
+            )
         }
         Text("+${if (waiting > 0) waiting else next?.acorns ?: 0}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
         Spacer(Modifier.width(4.dp))

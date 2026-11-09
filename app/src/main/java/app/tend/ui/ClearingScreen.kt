@@ -113,6 +113,8 @@ fun ClearingScreen(
     /** Friends who cheered you since the camp last showed it; shown once, then [onCheersShown]. */
     cheers: List<String> = emptyList(),
     onCheersShown: () -> Unit = {},
+    /** Today's minutes left, shown small by the acorns; null hides it. */
+    minutesLeft: Int? = null,
 ) {
     val scroll = rememberScrollState()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -389,7 +391,21 @@ fun ClearingScreen(
                 }
             }
         }
-        AcornBadge(acorns, Modifier.align(Alignment.TopEnd).padding(12.dp))
+        // Top right: today's minutes left, and the acorns.
+        Row(Modifier.align(Alignment.TopEnd).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            minutesLeft?.let { m ->
+                Row(
+                    Modifier.clip(RoundedCornerShape(50)).background(Color(0xE6FFFFFF)).padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.Bottom,
+                ) {
+                    Text("${m.coerceAtLeast(0)}", style = MaterialTheme.typography.titleMedium, color = if (m > 0) Brand.Moss else Brand.Coral)
+                    Spacer(Modifier.width(3.dp))
+                    Text("min", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Color(0xFF6B756F), modifier = Modifier.padding(bottom = 2.dp))
+                }
+                Spacer(Modifier.width(6.dp))
+            }
+            AcornBadge(acorns)
+        }
         val shown = remember { mutableStateOf<app.tend.core.Visitor?>(null) }
         if (greeted != null) shown.value = greeted
         androidx.compose.animation.AnimatedVisibility(

@@ -508,7 +508,11 @@ private fun AppIcon(catalog: AppCatalog, pkg: String, size: Dp, modifier: Modifi
 
 /** Free and maximum minutes in one card, each a compact stepper. */
 @Composable
-fun BudgetPicker(cfg: BudgetConfig, onConfig: (BudgetConfig) -> Unit) = Card {
+fun BudgetPicker(cfg: BudgetConfig, onConfig: (BudgetConfig) -> Unit) = Card { BudgetSteppers(cfg, onConfig) }
+
+/** The two steppers on their own, for a card that holds more. */
+@Composable
+fun BudgetSteppers(cfg: BudgetConfig, onConfig: (BudgetConfig) -> Unit) {
     Stepper("Free every day", "No effort needed", listOf(15, 30, 45, 60), cfg.freeMinutes) {
         onConfig(cfg.copy(freeMinutes = it, totalMinutes = maxOf(cfg.totalMinutes, it)))
     }
