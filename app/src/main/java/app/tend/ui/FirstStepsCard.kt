@@ -116,35 +116,6 @@ fun FirstStepsStrip(steps: List<StepState>, onOpen: () -> Unit, onGo: (Step) -> 
 }
 
 /**
- * Bo's quest for today, under the challenges: what it is, how, and its acorns; once done, a tap
- * claims them (and it says so for the rest of the day).
- */
-@Composable
-fun QuestCard(quest: app.tend.core.Quest, done: Boolean, claimed: Boolean, name: String, onClaim: () -> Unit) = Row(
-    Modifier.fillMaxWidth().surface(radius = 18.dp).then(if (done && !claimed) Modifier.tappable(onClick = onClaim) else Modifier)
-        .padding(horizontal = 14.dp, vertical = 10.dp),
-    verticalAlignment = Alignment.CenterVertically,
-) {
-    TendIcons.Badge("star", 38.dp)
-    Spacer(Modifier.width(10.dp))
-    Column(Modifier.weight(1f)) {
-        Text("${name.uppercase()}'S QUEST TODAY", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Brand.Muted)
-        Text(quest.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, color = if (claimed) Brand.Muted else Brand.Ink)
-        Text(
-            when { claimed -> "Done. A new one tomorrow."; done -> "Done! Tap to claim."; else -> quest.how },
-            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, maxLines = 1,
-        )
-    }
-    if (done && !claimed) Text(
-        "+${quest.acorns}", style = MaterialTheme.typography.labelLarge, color = Color.White,
-        modifier = Modifier.clip(RoundedCornerShape(50)).background(Brand.Moss).padding(horizontal = 12.dp, vertical = 6.dp),
-    ) else {
-        Text(if (claimed) "\u2713" else "+${quest.acorns}", style = MaterialTheme.typography.labelLarge, color = if (claimed) Brand.Moss else Brand.Muted)
-        if (!claimed) { Spacer(Modifier.width(4.dp)); AcornIcon(16.dp) }
-    }
-}
-
-/**
  * The week, told on Sunday evening and Monday: minutes got back, days with something done, and
  * the scrolls let go; shared as a card (the camp, the numbers, the way to tend), or put away.
  */

@@ -222,10 +222,6 @@ fun HomeScreen(
             }
         }
 
-        FirstStepsStrip(steps, onOpenClearing, onStep)
-        quest?.let { QuestCard(it, questDone, questClaimed, avatar.displayName, onClaimQuest) }
-        weekStory?.let { (back, days, letGo) -> WeekStoryCard(back, days, letGo, onShareWeek, onWeekStoryDone) }
-        if (level != null && !(firstDays && level.level == 1 && level.into == 0)) ProgressStrip(level, skills, challenge)
         if (levelUp != null) LevelUpDialog(avatar, levelUp, onLevelUpSeen)
 
         if (onShareCrash != null) Notice("alert", "tend crashed last time", "Sorry! Tap to share the crash report.", onShareCrash)
@@ -249,10 +245,7 @@ fun HomeScreen(
         if (pausedUntil > System.currentTimeMillis()) Notice("sun", "On a break until ${breakEnd(pausedUntil)}", "No pauses, locks or counting. Tap to come back.", onResume)
         // After "Good night": the paused apps rest until morning, with a way back.
         else if (sleeping) Notice("moon", "Good night: your apps rest until 7:00", if (strict) "Strict mode: they wake at 7:00" else "Up again? Tap to wake them", onWakeUp)
-        else if (isEvening) {
-            val seen = app.tend.data.TendStore(context).recapSeenOn == day.date.toString()
-            Notice("moon", if (seen) "Tonight's recap" else "Tonight's recap is ready", if (seen) "See it again" else "See what today gave back", onOpenRecap)
-        }
+
         when {
             !permissions.usageAccess -> Notice("alert", "Limited mode", "${avatar.displayName} can't see screen time. Tap to turn it on.", onFixPermissions)
             !permissions.overlay -> Notice(
@@ -326,6 +319,16 @@ fun HomeScreen(
                 Spacer(Modifier.width(12.dp))
                 Text("Everything done today. ${avatar.displayName} is proud of you.", style = MaterialTheme.typography.titleMedium)
             }
+        }
+        // The extras, after what matters: challenges, Bo's quest and the level, as three small tiles.
+        GoalTiles(
+            steps, onOpenClearing, onStep, quest, questDone, questClaimed, onClaimQuest,
+            level?.takeIf { !(firstDays && it.level == 1 && it.into == 0) }, challenge, onOpenInsights,
+        )
+        weekStory?.let { (back, days, letGo) -> WeekStoryCard(back, days, letGo, onShareWeek, onWeekStoryDone) }
+        if (isEvening && !sleeping && pausedUntil <= System.currentTimeMillis()) {
+            val seen = app.tend.data.TendStore(context).recapSeenOn == day.date.toString()
+            Notice("moon", if (seen) "Tonight's recap" else "Tonight's recap is ready", if (seen) "See it again" else "See what today gave back", onOpenRecap)
         }
         // "Done today" right under the activities.
         if (done.isEmpty() && active.isNotEmpty()) {
@@ -489,48 +492,68 @@ private fun NextSteps(
  * Level and skills in one slim card, with this week's goal under them. Every activity is XP
  * for Body, Mind or Rest; a reached weekly goal adds a bonus.
  */
+/**
+ * Three small tiles side by side, the same height: the challenges (the round's ring and what's
+ * next), Bo's quest (claim it right here once done), and the level with the weekly goal.
+ */
 @Composable
-private fun ProgressStrip(level: app.tend.core.Level, skills: Map<app.tend.core.Skill, app.tend.core.Level>, challenge: app.tend.core.Challenge?) = Column(
-    Modifier.fillMaxWidth().surface(radius = 22.dp).padding(horizontal = 14.dp, vertical = 12.dp),
-    verticalArrangement = Arrangement.spacedBy(10.dp),
+private fun GoalTiles(
+    steps: List<app.tend.core.StepState>, onOpenClearing: () -> Unit, onStep: (app.tend.core.Step) -> Unit,
+    quest: app.tend.core.Quest?, questDone: Boolean, questClaimed: Boolean, onClaimQuest: () -> Unit,
+    level: app.tend.core.Level?, challenge: app.tend.core.Challenge?, onOpenInsights: () -> Unit,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        // Level badge: a ring that fills toward the next level.
-        Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-                val stroke = 4.dp.toPx()
-                drawArc(Brand.Mint.copy(alpha = 0.35f), 0f, 360f, false, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
-                drawArc(Brand.Moss, -90f, 360f * level.fraction, false, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round))
-            }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("LV", style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = Brand.Muted)
-                Text("${level.level}", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
-            }
+    val round = app.tend.core.FirstSteps.current(steps)
+    if (round.isEmpty() && quest == null && level == null) return
+    @Composable
+    fun Tile(modifier: Modifier, filled: Boolean = false, onClick: () -> Unit, content: @Composable () -> Unit) = Column(
+        modifier.fillMaxHeight().clip(RoundedCornerShape(18.dp)).background(if (filled) Brand.Moss else Brand.Card).tappable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) { content() }
+    @Composable
+    fun Ring(k: Float, label: String, color: Color = Brand.Moss) = Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
+        androidx.compose.foundation.Canvas(Modifier.size(34.dp)) {
+            val w = 3.dp.toPx()
+            drawArc(Brand.Sage, 0f, 360f, false, androidx.compose.ui.geometry.Offset(w / 2, w / 2), androidx.compose.ui.geometry.Size(size.width - w, size.height - w), style = androidx.compose.ui.graphics.drawscope.Stroke(w))
+            if (k > 0f) drawArc(color, -90f, 360f * k, false, androidx.compose.ui.geometry.Offset(w / 2, w / 2), androidx.compose.ui.geometry.Size(size.width - w, size.height - w), style = androidx.compose.ui.graphics.drawscope.Stroke(w, cap = androidx.compose.ui.graphics.StrokeCap.Round))
         }
-        Spacer(Modifier.width(12.dp))
-        app.tend.core.Skill.entries.forEach { skill ->
-            val l = skills[skill] ?: app.tend.core.Level(1, 0, 40)
-            Column(Modifier.weight(1f).padding(end = 8.dp)) {
-                Text("${skill.label} ${l.level}", style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), maxLines = 1)
-                Box(Modifier.padding(top = 4.dp).fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)).background(Brand.Sage)) {
-                    Box(Modifier.fillMaxWidth(l.fraction.coerceIn(0.04f, 1f)).height(6.dp).clip(RoundedCornerShape(50)).background(Brand.Moss))
-                }
-            }
-        }
+        Text(label, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, letterSpacing = 0.sp), color = Brand.Moss)
     }
-    if (challenge != null) Row(verticalAlignment = Alignment.CenterVertically) {
-        TendIcons.Badge(if (challenge.done) "sparkle" else "sun", 32.dp)
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
-            Text("WEEKLY GOAL", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Brand.Muted)
-            Text(challenge.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    val small = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp)
+    Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (round.isNotEmpty()) {
+            val waiting = round.filter { it.claimable }.sumOf { it.step.acorns }
+            val next = round.firstOrNull { !it.done }?.step
+            val done = round.count { it.done }
+            Tile(Modifier.weight(1f), onClick = { if (waiting > 0 || next == null) onOpenClearing() else onStep(next) }) {
+                Ring(done / round.size.toFloat(), "$done/${round.size}")
+                Text("Challenges", style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), maxLines = 1)
+                Text(if (waiting > 0) "$waiting to claim" else next?.let { "Next: +${it.acorns}" } ?: "All done", style = small, color = Brand.Muted, maxLines = 1)
+            }
         }
-        Text(
-            if (challenge.done) "Done · +${app.tend.core.Progress.XP_PER_CHALLENGE} XP" else "${challenge.progress.coerceAtMost(challenge.target)} / ${challenge.target}",
-            style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
-        )
+        quest?.let { q ->
+            val claimable = questDone && !questClaimed
+            Tile(Modifier.weight(1f), filled = claimable, onClick = { if (claimable) onClaimQuest() }) {
+                Box(Modifier.size(34.dp).clip(CircleShape).background(if (claimable) Color.White.copy(alpha = 0.2f) else Brand.Sage), contentAlignment = Alignment.Center) {
+                    Text(if (questClaimed) "\u2713" else "\u2605", style = MaterialTheme.typography.titleMedium, color = if (claimable) Color.White else Brand.Moss)
+                }
+                Text(q.title, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp, lineHeight = 16.sp), color = if (claimable) Color.White else Brand.Ink, maxLines = 2)
+                Text(
+                    when { questClaimed -> "Done today"; claimable -> "Tap: +${q.acorns} acorns"; else -> "Quest · +${q.acorns}" },
+                    style = small, color = if (claimable) Color.White.copy(alpha = 0.85f) else Brand.Muted, maxLines = 1,
+                )
+            }
+        }
+        level?.let { l ->
+            Tile(Modifier.weight(1f), onClick = onOpenInsights) {
+                Ring(l.fraction, "LV ${l.level}")
+                Text("Level ${l.level}", style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), maxLines = 1)
+                Text(challenge?.let { if (it.done) "Week's goal done" else "${it.progress.coerceAtMost(it.target)}/${it.target} this week" } ?: "${l.into}/${l.needed} XP", style = small, color = Brand.Muted, maxLines = 1)
+            }
+        }
     }
 }
+
 
 @Composable
 private fun LevelUpDialog(avatar: Avatar, level: Int, onDone: () -> Unit) = androidx.compose.ui.window.Dialog(onDismissRequest = onDone) {
