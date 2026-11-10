@@ -177,8 +177,6 @@ fun DrawScope.drawClearing(
     gifts: Int = 0,
     /** Milestones reached: what they've added to the camp for good. */
     unlocked: Set<app.tend.core.Milestone> = emptySet(),
-    /** Things waiting their turn to be used (spots, in order): a number over each. */
-    queued: List<Int> = emptyList(),
 ) {
     applySeason(season)
     val w = size.width
@@ -569,20 +567,6 @@ fun DrawScope.drawClearing(
         val sx = if (lift >= 0f) 1f + 0.06f * lift else 1f - 0.14f * lift
         val sy = if (lift >= 0f) 1f + 0.06f * lift else 1f + 0.18f * lift
         thingAt(thing, p, spotScale(id, layout), id, sx, sy, lift = u * 0.05f * up)
-    }
-
-    // Waiting their turn: 1, 2, 3 over the things tapped while the companion was busy.
-    queued.forEachIndexed { i, spot ->
-        if (placed[spot] == null) return@forEachIndexed
-        val p = at(spot) + Offset(0f, -u * 0.11f * spotScale(spot, layout))
-        drawCircle(Color.White, u * 0.022f, p)
-        drawCircle(Brand.Moss, u * 0.022f, p, style = Stroke(u * 0.003f))
-        drawIntoCanvas {
-            val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                color = 0xFF316849.toInt(); textSize = u * 0.028f; textAlign = android.graphics.Paint.Align.CENTER; isFakeBoldText = true
-            }
-            it.nativeCanvas.drawText("${i + 1}", p.x, p.y + u * 0.01f, paint)
-        }
     }
 
     // Today's visitor, waiting to be greeted.

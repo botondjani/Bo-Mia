@@ -197,7 +197,7 @@ fun ClearingScreen(
     var frame by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
     var strumAt by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
     val context = androidx.compose.ui.platform.LocalContext.current
-    // Things tapped while busy wait their turn (a few at most), shown with a number over each.
+    // Things tapped while busy wait their turn (a few at most), without a fuss: one after another.
     val queue = remember { androidx.compose.runtime.snapshots.SnapshotStateList<Int>() }
     // Woken in the night for something: when it's done, back to bed (the walk there starts again).
     var backToBed by remember { androidx.compose.runtime.mutableIntStateOf(0) }
@@ -438,11 +438,8 @@ fun ClearingScreen(
                             when {
                                 using?.second == thing && thing == "guitar" -> { strumAt = frame; useStart = frame - ((walk + 1f) * 1e9f).toLong(); Sounds.strum(context) }
                                 using?.first == hit -> {}
-                                // Busy: it waits its turn (three at most).
-                                using != null -> if (hit !in queue && queue.size < 3) {
-                                    queue += hit
-                                    caught = "Next: the ${Things.byId(thing)?.name?.lowercase() ?: thing}" + if (queue.size > 1) " (${queue.size} waiting)" else ""
-                                }
+                                // Busy: it waits its turn, quietly (three at most).
+                                using != null -> if (hit !in queue && queue.size < 3) queue += hit
                                 // Walk over first, unless already there; the sound starts on arrival.
                                 else -> startUse(hit, thing)
                             }
@@ -544,7 +541,6 @@ fun ClearingScreen(
                     ambient = ambient.value, guests = guests,
                     onCompanion = { companionAt[0] = it.x; companionAt[1] = it.y },
                     gifts = gifts.size,
-                    queued = queue.toList(),
                     unlocked = unlocked,
                 )
             }
@@ -591,8 +587,7 @@ fun ClearingScreen(
     Text(
         when {
             drag != null && caught != null -> caught!!
-            using != null -> Uses.line(using!!.second, avatar.displayName) + queue.mapNotNull { placed[it]?.let(Things::byId)?.name?.lowercase() }
-                .takeIf { it.isNotEmpty() }?.let { " Next: the ${it.joinToString(", then the ")}." }.orEmpty()
+            using != null -> Uses.line(using!!.second, avatar.displayName)
             gifts.isNotEmpty() -> "A present from ${gifts.distinct().joinToString(" and ")}! Tap it to open."
             paper -> "Someone toilet-papered your oak! Tap it to unroll."
             visitor != null -> "${visitor.aName.replaceFirstChar { it.uppercase() }} came to the camp. Tap it to say hello."
