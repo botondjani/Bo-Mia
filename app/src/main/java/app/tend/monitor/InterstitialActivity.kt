@@ -75,6 +75,8 @@ class InterstitialActivity : ComponentActivity() {
         val appLimit: Int? = null,
         /** Minutes left of this app's own limit today, when it has one. */
         val appLeft: Int? = null,
+        /** An activity runs on its timer: every app waits. */
+        val focus: Boolean = false,
     )
 
     /** How this pause ended: open, not_now, instead or earn. Logged once; it's what the test measures. */
@@ -104,6 +106,20 @@ class InterstitialActivity : ComponentActivity() {
         val pkg = intent.getStringExtra(EXTRA_PKG) ?: return finish()
         pkgName = pkg
         val label = runCatching { packageManager.getApplicationInfo(pkg, 0).loadLabel(packageManager).toString() }.getOrDefault(pkg)
+        // An activity on its timer: every app waits; a screen of its own (not a pause: nothing is counted).
+        if (intent.getBooleanExtra(EXTRA_FOCUS, false)) {
+            decided = true
+            onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) { override fun handleOnBackPressed() = backToIt() })
+            val worn = store.accessories().first
+            setContent {
+                TendTheme {
+                    androidx.compose.runtime.CompositionLocalProvider(app.tend.ui.LocalAccessories provides worn) {
+                        PopupSheet(onDismiss = ::backToIt, centered = true) { Focus(pkg, label) }
+                    }
+                }
+            }
+            return
+        }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() = notNow()
         })
@@ -156,7 +172,7 @@ class InterstitialActivity : ComponentActivity() {
         val worn = app.tend.ui.LocalAccessories.current
         val ambient = app.tend.ui.rememberAmbientClock()
         val unlocked = androidx.compose.runtime.remember { app.tend.core.Milestone.reached(store.totals()) }
-        val mood = if (v.locked || v.evening || v.scheduled != null) Mood.TIRED else Mood.SCROLLING
+        val mood = when { v.focus -> Mood.HAPPY; v.locked || v.evening || v.scheduled != null -> Mood.TIRED; else -> Mood.SCROLLING }
         androidx.compose.foundation.Canvas(
             Modifier.fillMaxWidth().aspectRatio(2.1f).clip(RoundedCornerShape(22.dp)),
         ) {
@@ -176,6 +192,7 @@ class InterstitialActivity : ComponentActivity() {
             Column {
                 Text(
                     when {
+                        v.focus -> "${v.label} · ${store.focusTask.title} in progress"
                         v.scheduled != null -> "${v.label} · ${v.scheduled.label.lowercase()}"
                         v.appLimit != null -> "${v.label} · its ${v.appLimit} min are used"
                         v.locked -> "${v.label} · out of minutes"
@@ -187,6 +204,7 @@ class InterstitialActivity : ComponentActivity() {
                 )
                 Text(
                     app.tend.ui.brandTend(when {
+                        v.focus -> "Not now: you're in the middle of something good."
                         v.scheduled != null -> "Closed until ${"%d:00".format(v.scheduled.to)}. That's the deal we made."
                         v.appLimit != null -> "That's all for ${v.label} today."
                         v.locked -> "Today's budget is used up."
@@ -353,6 +371,39 @@ class InterstitialActivity : ComponentActivity() {
 
     private fun notNow() { decide("not_now"); goHome() }
 
+    /** During an activity: back to it (tend's own screen shows the time left). */
+    private fun backToIt() {
+        startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+        finish()
+    }
+
+    /**
+     * An activity runs on its timer, and another app was opened: it waits too, like all of them.
+     * Back to it, or (held for a moment) end the activity and open the app after all.
+     */
+    @Composable
+    private fun Focus(pkg: String, label: String) {
+        val task = store.focusTask
+        var left by androidx.compose.runtime.remember { mutableIntStateOf(((TaskSync.focusSecondsLeft(store) ?: 0L) + 59).toInt() / 60) }
+        LaunchedEffect(Unit) { while (true) { delay(5_000); left = (((TaskSync.focusSecondsLeft(store) ?: 0L) + 59) / 60).toInt(); if (left <= 0) backToIt() } }
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Header(View(label, locked = false, opensToday = 0, delaySeconds = 0, remaining = 0, evening = false, focus = true))
+            Text(
+                "${task.title} with ${store.avatar.displayName}: $left min to go. Every app rests until then, not only the paused ones. Calls and the clock stay open.",
+                style = MaterialTheme.typography.bodyLarge,
+            )
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp)) {
+            PrimaryButton("Back to it", ::backToIt)
+            app.tend.ui.HoldToConfirm("Hold to end it and open $label", seconds = 3f) {
+                app.tend.data.Stats.log(this@InterstitialActivity, "focus_left")
+                TaskSync.stopTimer(this@InterstitialActivity)
+                packageManager.getLaunchIntentForPackage(pkg)?.let { startActivity(it) }
+                finish()
+            }
+        }
+    }
+
     /**
      * Instead of the app: a friend phone-free at the fire right now (join them), or the next
      * activity, by name and what it brings (to tend, with the activities in view).
@@ -388,6 +439,7 @@ class InterstitialActivity : ComponentActivity() {
         private const val EXTRA_PKG = "pkg"
         private const val SYNC_TIMEOUT_MS = 3000L
         private const val EXTRA_TIME_UP = "time_up"
+        private const val EXTRA_FOCUS = "focus"
 
         /** Short label on the chip to the answer that's logged. */
         private val LOOKING_FOR = listOf(
@@ -397,9 +449,10 @@ class InterstitialActivity : ComponentActivity() {
             "Habit" to "Out of habit",
         )
 
-        fun intent(context: Context, pkg: String, timeUp: Boolean = false) = Intent(context, InterstitialActivity::class.java)
+        fun intent(context: Context, pkg: String, timeUp: Boolean = false, focus: Boolean = false) = Intent(context, InterstitialActivity::class.java)
             .putExtra(EXTRA_PKG, pkg)
             .putExtra(EXTRA_TIME_UP, timeUp)
+            .putExtra(EXTRA_FOCUS, focus)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
     }
 }

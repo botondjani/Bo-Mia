@@ -55,6 +55,16 @@ class MonitorService : Service() {
         packageManager.queryIntentActivities(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://example.com")), 0)
             .map { it.activityInfo.packageName }.toSet() + HELPER_PACKAGES
     }
+    /**
+     * What stays open while an activity runs on its timer (everything else waits): calls, the clock,
+     * settings, the keyboard and the system's own screens.
+     */
+    private val essentials by lazy {
+        val dialer = runCatching { getSystemService(android.telecom.TelecomManager::class.java).defaultDialerPackage }.getOrNull()
+        val clock = packageManager.queryIntentActivities(Intent(android.provider.AlarmClock.ACTION_SHOW_ALARMS), 0).map { it.activityInfo.packageName }
+        val keyboard = runCatching { android.provider.Settings.Secure.getString(contentResolver, android.provider.Settings.Secure.DEFAULT_INPUT_METHOD)?.substringBefore('/') }.getOrNull()
+        HELPER_PACKAGES + listOfNotNull(dialer, keyboard) + clock + setOf("com.android.settings", "com.android.emergency", "com.google.android.dialer", "com.android.server.telecom")
+    }
     /** Last background Health Connect read. */
     private var lastSync = 0L
     private var lastInbox = 0L
@@ -190,6 +200,16 @@ class MonitorService : Service() {
             if (new in homes) endSession(now, askWorthIt = true) else awaySince = now
         } else if (awaySince > 0 && new in homes) {
             endSession(now, askWorthIt = true) // from the helper screen straight home
+        }
+        // An activity on its timer (reading, phone-free, a workout): every app waits until it's done, not only the paused ones.
+        if (store.onboarded && !store.isPaused && (app.tend.health.TaskSync.focusSecondsLeft(store) ?: 0L) > 0L && new !in homes && new !in essentials) {
+            if (sessionPkg != null) endSession(now, askWorthIt = false)
+            if (!android.provider.Settings.canDrawOverlays(this)) return
+            peek.hide()
+            interceptedPkg = new
+            interceptedAt = now
+            startActivity(InterstitialActivity.intent(this, new, focus = true))
+            return
         }
         if (store.onboarded && new in store.blockedPackages && !store.isPaused) {
             if (sessionPkg != null) endSession(now, askWorthIt = false) // another paused app: the pause takes over

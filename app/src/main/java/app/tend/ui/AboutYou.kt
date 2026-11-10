@@ -1,6 +1,7 @@
 package app.tend.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -60,7 +61,7 @@ internal fun TownPicker(place: WeatherService.Place?, onPlace: (WeatherService.P
     var searching by rememberSaveable { mutableStateOf(place == null) }
     if (place != null && !searching) {
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Brand.Card).padding(horizontal = 14.dp, vertical = 10.dp),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Brand.Sage).border(1.dp, Brand.Mint, RoundedCornerShape(16.dp)).padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
@@ -87,7 +88,7 @@ internal fun TownPicker(place: WeatherService.Place?, onPlace: (WeatherService.P
         shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(),
     )
     when {
-        results.isNotEmpty() -> Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Brand.Card)) {
+        results.isNotEmpty() -> Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Brand.Sage).border(1.dp, Brand.Mint, RoundedCornerShape(16.dp))) {
             results.forEach { p ->
                 Text(
                     p.label, style = MaterialTheme.typography.bodyLarge, maxLines = 1,
@@ -114,7 +115,9 @@ private fun Chips(options: List<Pair<String, String>>, chosen: String?, onPick: 
                 Text(
                     label, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), textAlign = TextAlign.Center,
                     color = if (on) Color.White else Brand.Moss,
-                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(if (on) Brand.Moss else Brand.Card)
+                    // Picked: filled; the others a clear light green with an edge (not white on the white card).
+                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(if (on) Brand.Moss else Brand.Sage)
+                        .border(1.dp, if (on) Brand.Moss else Brand.Mint, RoundedCornerShape(14.dp))
                         .tappable { onPick(if (on) null else value) }.padding(vertical = 10.dp),
                 )
             }

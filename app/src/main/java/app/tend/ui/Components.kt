@@ -1,5 +1,6 @@
 package app.tend.ui
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import kotlinx.coroutines.launch
 import androidx.compose.ui.draw.drawBehind
@@ -168,7 +169,8 @@ fun HoldToConfirm(label: String, modifier: Modifier = Modifier, seconds: Float =
     val view = androidx.compose.ui.platform.LocalView.current
     val done = androidx.compose.runtime.remember { booleanArrayOf(false) }
     androidx.compose.foundation.layout.Box(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(50)).background(Brand.Sage)
+        modifier.fillMaxWidth().clip(RoundedCornerShape(50)).background(Brand.Card)
+            .border(1.5.dp, Brand.Mint, RoundedCornerShape(50))
             .pointerInput(Unit) {
                 detectTapGestures(onPress = {
                     val fill = scope.launch {

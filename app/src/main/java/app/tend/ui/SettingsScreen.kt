@@ -41,9 +41,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 
 /** Settings after onboarding: the same pickers, on one page. */
@@ -190,9 +188,12 @@ fun SettingsScreen(
                 SwitchRow(kind.title, kind.about, on) { on = it; Sounds.set(ctx, kind, it) }
             }
         }
-        "town" -> Card { aboutYou() }
-        "account" -> AccountCard(onAccountChanged, onRestored)
+        // The account, your town and you, and the rest: one part.
         else -> {
+            AccountCard(onAccountChanged, onRestored)
+            Text("YOUR TOWN & YOU", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
+            Card { aboutYou() }
+            Text("MORE", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
             var confirmReset by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
             Card {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -273,9 +274,7 @@ fun SettingsScreen(
             "activities" to "${tasks.size} picked",
             "evening" to "From %d:00".format(eveningFrom) + if (lockSchedules.any { it.on }) " · a lock on" else "",
             "sounds" to when (soundsOff.size) { 0 -> "All on"; Sounds.Kind.entries.size -> "Off"; else -> soundsOff.joinToString(", ") { it.title } + " off" },
-            "town" to (townName ?: "Not set"),
-            "account" to "Sign in, backup",
-            "more" to "Theme, widget, privacy",
+            "account" to "Sign in, backup · " + (townName?.let { "weather from $it" } ?: "your town") + " · theme",
         )
         SETTINGS_PAGES.forEach { (key, title, icon) ->
             val open = page == key
@@ -367,9 +366,7 @@ private val SETTINGS_PAGES = listOf(
     Triple("activities", "Instead of scrolling", androidx.compose.material.icons.Icons.Filled.Favorite),
     Triple("evening", "Evening & notes", androidx.compose.material.icons.Icons.Filled.Notifications),
     Triple("sounds", "Sounds", androidx.compose.material.icons.Icons.Filled.PlayArrow),
-    Triple("town", "Your town & you", androidx.compose.material.icons.Icons.Filled.Place),
-    Triple("account", "Account", androidx.compose.material.icons.Icons.Filled.AccountCircle),
-    Triple("more", "More", androidx.compose.material.icons.Icons.Filled.Info),
+    Triple("account", "Account & more", androidx.compose.material.icons.Icons.Filled.AccountCircle),
 )
 
 /** One row of the settings menu: an icon, the title, how it's set now, and an arrow (down while open). */
