@@ -355,6 +355,11 @@ fun HomeScreen(
                 Text("Everything done today. ${avatar.displayName} is proud of you.", style = MaterialTheme.typography.titleMedium)
             }
         }
+        // Or no activity at all: just a timer, and every app waits the same.
+        if (focusSecondsLeft == null) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Or just a timer", style = MaterialTheme.typography.bodyMedium, color = Brand.Muted, modifier = Modifier.weight(1f))
+            listOf(25, 50, 90).forEach { m -> ChipButton("$m min", { onStartFocus(Tasks.timer(m)) }, filled = false) }
+        }
         // The extras, after what matters: challenges, Bo's quest and the level, as three small tiles.
         GoalTiles(
             steps, onOpenClearing, onStep, quest, questDone, questClaimed, onClaimQuest,
@@ -807,6 +812,7 @@ private fun FocusTimerContent(
         when {
             hello -> "HERE WE GO!"
             task.id == Tasks.MOVE.id -> "WORKOUT, PHONE OFF"
+            task.id == Tasks.TIMER_ID -> "FOCUS TIME"
             phoneFree -> "PHONE-FREE TIME"
             task.id == Tasks.LEARN.id -> "LEARNING TOGETHER"
             else -> "READING TOGETHER"
@@ -859,9 +865,13 @@ private fun FocusTimerContent(
             style = MaterialTheme.typography.bodyMedium,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
-        val left = (app.tend.core.PhoneFree.graceSeconds(task) - screenOnSeconds).coerceAtLeast(0)
-        Pill("Screen time allowed: %d:%02d left".format(left / 60, left % 60), if (left < 60) Brand.Coral.copy(alpha = 0.2f) else Brand.Sage)
-    } else Text(
+        val left = (app.tend.core.PhoneFree.GRACE_SECONDS - screenOnSeconds).coerceAtLeast(0)
+        Pill("Other apps allowed: %d:%02d left".format(left / 60, left % 60), if (left < 60) Brand.Coral.copy(alpha = 0.2f) else Brand.Sage)
+    } else if (task.id == Tasks.TIMER_ID) Text(
+        "Every app waits until the timer ends. ${avatar.displayName} keeps time with you.",
+        style = MaterialTheme.typography.bodyMedium,
+        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+    ) else Text(
         "${avatar.displayName} is ${if (task.id == Tasks.LEARN.id) "learning" else "reading"} with you. +${task.rewardMinutes} min when the timer ends. " +
             "You can leave tend; opening a paused app ends the session.",
         style = MaterialTheme.typography.bodyMedium,

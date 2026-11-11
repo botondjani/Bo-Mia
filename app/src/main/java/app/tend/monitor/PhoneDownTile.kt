@@ -12,15 +12,15 @@ import app.tend.health.TaskSync
 
 /**
  * "Phone down" in the quick settings: one tap starts the next timed or phone-free activity (the
- * phone goes down, tend counts it), without opening anything first. While one runs, it shows the
- * minutes left and opens tend.
+ * phone goes down, tend counts it), or else a plain 25-minute timer, without opening anything
+ * first. While one runs, it shows the minutes left and opens tend.
  */
 class PhoneDownTile : TileService() {
     override fun onStartListening() = update()
 
     override fun onClick() {
         val store = TendStore(this)
-        if (store.focusStartedAt <= 0) next(store)?.let { TaskSync.startTimer(this, it) }
+        if (store.focusStartedAt <= 0) TaskSync.startTimer(this, next(store) ?: app.tend.core.Tasks.timer(25))
         update()
         open()
     }
@@ -38,7 +38,7 @@ class PhoneDownTile : TileService() {
         tile.label = "Phone down"
         if (Build.VERSION.SDK_INT >= 29) tile.subtitle = when {
             left != null -> "${(left + 59) / 60} min left"
-            else -> next(store)?.let { "${it.title} · ${it.target} min" } ?: "Open tend"
+            else -> (next(store) ?: app.tend.core.Tasks.timer(25)).let { "${it.title} · ${it.target} min" }
         }
         tile.updateTile()
     }

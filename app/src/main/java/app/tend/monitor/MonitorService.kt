@@ -55,16 +55,8 @@ class MonitorService : Service() {
         packageManager.queryIntentActivities(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://example.com")), 0)
             .map { it.activityInfo.packageName }.toSet() + HELPER_PACKAGES
     }
-    /**
-     * What stays open while an activity runs on its timer (everything else waits): calls, the clock,
-     * settings, the keyboard and the system's own screens.
-     */
-    private val essentials by lazy {
-        val dialer = runCatching { getSystemService(android.telecom.TelecomManager::class.java).defaultDialerPackage }.getOrNull()
-        val clock = packageManager.queryIntentActivities(Intent(android.provider.AlarmClock.ACTION_SHOW_ALARMS), 0).map { it.activityInfo.packageName }
-        val keyboard = runCatching { android.provider.Settings.Secure.getString(contentResolver, android.provider.Settings.Secure.DEFAULT_INPUT_METHOD)?.substringBefore('/') }.getOrNull()
-        HELPER_PACKAGES + listOfNotNull(dialer, keyboard) + clock + setOf("com.android.settings", "com.android.emergency", "com.google.android.dialer", "com.android.server.telecom")
-    }
+    /** What stays open while an activity runs on its timer (everything else waits). */
+    private val essentials by lazy { FocusApps.essentials(this) }
     /** Last background Health Connect read. */
     private var lastSync = 0L
     private var lastInbox = 0L
@@ -202,7 +194,7 @@ class MonitorService : Service() {
             endSession(now, askWorthIt = true) // from the helper screen straight home
         }
         // An activity on its timer (reading, phone-free, a workout): every app waits until it's done, not only the paused ones.
-        if (store.onboarded && !store.isPaused && (app.tend.health.TaskSync.focusSecondsLeft(store) ?: 0L) > 0L && new !in homes && new !in essentials) {
+        if (store.onboarded && !store.isPaused && (app.tend.health.TaskSync.focusSecondsLeft(store) ?: 0L) > 0L && new !in homes && new !in essentials && new !in FocusApps.extra(store.focusTask)) {
             if (sessionPkg != null) endSession(now, askWorthIt = false)
             if (!android.provider.Settings.canDrawOverlays(this)) return
             peek.hide()
@@ -398,11 +390,7 @@ class MonitorService : Service() {
         private const val PLUS_CHANNEL = "plus"
         private const val AWAY_CONFIRM_MS = 8_000L
         private const val HELPER_MAX_MS = 10 * 60_000L
-        private val HELPER_PACKAGES = setOf(
-            "android", "com.android.systemui", "com.android.intentresolver", "com.android.permissioncontroller",
-            "com.google.android.permissioncontroller", "com.google.android.gms", "com.android.packageinstaller",
-            "com.google.android.packageinstaller", "com.google.android.documentsui", "com.android.documentsui",
-        )
+        private val HELPER_PACKAGES = FocusApps.HELPER_PACKAGES
         private const val DONE_CHANNEL = "done"
         const val WORTH_IT_MIN_SECONDS = 5 * 60
         const val WORTH_IT_PER_DAY = 2

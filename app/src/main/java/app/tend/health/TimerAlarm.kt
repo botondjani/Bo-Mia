@@ -36,6 +36,7 @@ object TimerAlarm {
         val (title, text) = when {
             result == TaskSync.TimerResult.BROKEN ->
                 "The phone came back a little early" to "No worries. ${task.title} is there whenever you want another go."
+            task.id == app.tend.core.Tasks.TIMER_ID -> "Focus time done" to "${task.target} minutes, all yours. $name kept time."
             app.tend.core.PhoneFree.runsPhoneFree(task) -> "${task.title} done, phone-free" to "+${task.rewardMinutes} min. $name is proud of you."
             else -> "${task.title} done" to "+${task.rewardMinutes} min. $name enjoyed that."
         }.let { (t, body) ->
@@ -52,6 +53,29 @@ object TimerAlarm {
                 .setContentTitle(title).setContentText(text).setContentIntent(open).setAutoCancel(true).build(),
         )
     }
+
+    private const val RUNNING_CHANNEL = "timer_running"
+    private const val RUNNING_ID = 8
+
+    /** While a timer runs: a quiet notification that counts down to [end]. */
+    fun showRunning(context: Context, task: app.tend.core.TaskDef, end: Long) {
+        if (!RecapReminder.canNotify(context)) return
+        val nm = context.getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(NotificationChannel(RUNNING_CHANNEL, "Running timer", NotificationManager.IMPORTANCE_LOW))
+        val open = PendingIntent.getActivity(context, 7, Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+        nm.notify(
+            RUNNING_ID,
+            Notification.Builder(context, RUNNING_CHANNEL).setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(task.title).setContentText("Every app waits until it's done.")
+                .setWhen(end).setShowWhen(true).setUsesChronometer(true).setChronometerCountDown(true)
+                .setOngoing(true).setOnlyAlertOnce(true).setContentIntent(open)
+                // Gone by itself at the end, even if the alarm comes a little late.
+                .setTimeoutAfter((end - System.currentTimeMillis()).coerceAtLeast(1_000L))
+                .build(),
+        )
+    }
+
+    fun hideRunning(context: Context) = context.getSystemService(NotificationManager::class.java).cancel(RUNNING_ID)
 }
 
 class TimerReceiver : BroadcastReceiver() {

@@ -10,12 +10,20 @@ class NewGoalsTest {
     private val day = DayState(LocalDate.of(2026, 10, 31))
     private val min = 60_000L
 
-    @Test fun `screen-on time adds up the on stretches`() {
-        // on from start, off at 2 min, on 10..11 min, off at 11, still off at 30 min
-        val t = listOf(2 * min to false, 10 * min to true, 11 * min to false)
-        assertEquals(3 * min, PhoneFree.screenOnMillis(0, 30 * min, t))
-        // never locked: all of it counts
-        assertEquals(30 * min, PhoneFree.screenOnMillis(0, 30 * min, emptyList()))
+    @Test fun `only time in other apps counts, not a screen that is just on`() {
+        val open = setOf("app.tend", "launcher", "com.strava")
+        val fg = PhoneFree.Kind.FOREGROUND; val bg = PhoneFree.Kind.BACKGROUND; val off = PhoneFree.Kind.SCREEN_OFF
+        val t = listOf(
+            PhoneFree.Event(1 * min, off),                    // locked
+            PhoneFree.Event(5 * min, fg, "launcher"),         // screen on, home screen: nothing
+            PhoneFree.Event(6 * min, fg, "com.strava"),       // the tracker: nothing
+            PhoneFree.Event(7 * min, bg, "com.strava"),
+            PhoneFree.Event(7 * min, fg, "insta"),            // 2 min of scrolling
+            PhoneFree.Event(9 * min, off),
+            PhoneFree.Event(20 * min, fg, "insta"),           // still open at the end: 5 min more
+        )
+        assertEquals(7 * min, PhoneFree.appUseMillis(0, 25 * min, t, open))
+        assertEquals(0L, PhoneFree.appUseMillis(0, 25 * min, emptyList(), open))
     }
 
     @Test fun `phone-free session is done, running or broken`() {
@@ -82,14 +90,15 @@ class FallbackTrackingTest {
         org.junit.Assert.assertEquals(0L, PhoneFree.longestOffMillis(0, 5 * h, emptyList()))
     }
 
-    @org.junit.Test fun workoutWithoutTrackerIsStrictlyPhoneOff() {
+    @org.junit.Test fun workoutWithoutTrackerIsPhoneFree() {
         org.junit.Assert.assertTrue(PhoneFree.runsPhoneFree(Tasks.MOVE))
         org.junit.Assert.assertFalse(PhoneFree.runsPhoneFree(Tasks.READ))
         val start = 0L; val end = 30 * 60_000L
-        org.junit.Assert.assertEquals(PhoneFree.Outcome.DONE, PhoneFree.outcome(Tasks.MOVE, start, end, 50_000))
-        org.junit.Assert.assertEquals(PhoneFree.Outcome.BROKEN, PhoneFree.outcome(Tasks.MOVE, start, end, 90_000))
-        // Friends & family keeps its 3 minutes.
-        org.junit.Assert.assertEquals(PhoneFree.Outcome.DONE, PhoneFree.outcome(Tasks.FRIENDS, start, end, 90_000))
+        // A workout gets the same 3 minutes as the rest, and its trackers don't count at all.
+        org.junit.Assert.assertEquals(PhoneFree.Outcome.DONE, PhoneFree.outcome(Tasks.MOVE, start, end, 150_000))
+        org.junit.Assert.assertEquals(PhoneFree.Outcome.BROKEN, PhoneFree.outcome(Tasks.MOVE, start, end, 200_000))
+        org.junit.Assert.assertTrue("com.strava" in app.tend.monitor.FocusApps.extra(Tasks.MOVE))
+        org.junit.Assert.assertTrue(app.tend.monitor.FocusApps.extra(Tasks.READ).isEmpty())
     }
 }
 

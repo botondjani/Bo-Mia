@@ -69,9 +69,11 @@ object TaskSync {
         val store = TendStore(context)
         if (store.focusStartedAt > 0) return
         store.timerBroken = ""
+        if (task.id == Tasks.TIMER_ID) store.focusTimerMinutes = task.target
         store.focusTaskId = task.id
         store.focusStartedAt = System.currentTimeMillis()
         TimerAlarm.schedule(context, store.focusStartedAt + task.target * 60_000L + 2_000L)
+        TimerAlarm.showRunning(context, task, store.focusStartedAt + task.target * 60_000L)
         // Friends see it: your companion sits at their campfire until then.
         val ctx = context.applicationContext
         val until = store.focusStartedAt + task.target * 60_000L
@@ -81,15 +83,16 @@ object TaskSync {
     fun stopTimer(context: Context) {
         TendStore(context).focusStartedAt = 0
         TimerAlarm.cancel(context)
+        TimerAlarm.hideRunning(context)
         val ctx = context.applicationContext
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { runCatching { app.tend.data.Friends.setFocus(ctx, null, null) } }
     }
 
-    /** Screen-on seconds since the running phone-free session started (0 when it can't be measured). */
+    /** Seconds spent in other apps since the running phone-free session started (0 when it can't be measured). */
     fun screenOnSeconds(context: Context): Long {
         val store = TendStore(context)
         val start = store.focusStartedAt.takeIf { it > 0 } ?: return 0
-        return screenOnMillis(context, start, System.currentTimeMillis()) / 1000
+        return appUseMillis(context, store.focusTask, start, System.currentTimeMillis()) / 1000
     }
 
     /** Credits a timer that has run its course; ends a phone-free one the phone interrupted. */
@@ -99,7 +102,7 @@ object TaskSync {
         val task = store.focusTask
         val now = System.currentTimeMillis()
         val outcome = when {
-            PhoneFree.runsPhoneFree(task) -> PhoneFree.outcome(task, start, now, screenOnMillis(context, start, now))
+            PhoneFree.runsPhoneFree(task) -> PhoneFree.outcome(task, start, now, appUseMillis(context, task, start, now))
             now - start >= task.target * 60_000L -> PhoneFree.Outcome.DONE
             else -> PhoneFree.Outcome.RUNNING
         }
@@ -107,7 +110,7 @@ object TaskSync {
             PhoneFree.Outcome.RUNNING -> null
             PhoneFree.Outcome.DONE -> {
                 stopTimer(context)
-                store.credit(task.id, task.rewardMinutes, manual = false)
+                if (task.id != Tasks.TIMER_ID) store.credit(task.id, task.rewardMinutes, manual = false)
                 // Phone-free at the same time as a friend: a little extra, for both (each side gives its own).
                 val together = app.tend.data.Friends.overlapping(context, start, now)
                 if (together.isNotEmpty()) {
@@ -151,6 +154,22 @@ object TaskSync {
         return transitions
     }
 
-    private fun screenOnMillis(context: Context, start: Long, now: Long): Long =
-        screenTransitions(context, start, now)?.let { PhoneFree.screenOnMillis(start, now, it) } ?: 0
+    /** Time in other apps (not tend, the home screen, calls, the clock or a workout tracker) during [task]. */
+    private fun appUseMillis(context: Context, task: TaskDef, start: Long, now: Long): Long {
+        val usm = context.getSystemService(android.app.usage.UsageStatsManager::class.java)
+        val events = runCatching { usm.queryEvents(start, now) }.getOrNull() ?: return 0
+        val e = android.app.usage.UsageEvents.Event()
+        val list = mutableListOf<PhoneFree.Event>()
+        while (events.hasNextEvent()) {
+            events.getNextEvent(e)
+            @Suppress("DEPRECATION")
+            when (e.eventType) {
+                android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND -> list += PhoneFree.Event(e.timeStamp, PhoneFree.Kind.FOREGROUND, e.packageName)
+                android.app.usage.UsageEvents.Event.MOVE_TO_BACKGROUND -> list += PhoneFree.Event(e.timeStamp, PhoneFree.Kind.BACKGROUND, e.packageName)
+                android.app.usage.UsageEvents.Event.SCREEN_NON_INTERACTIVE, android.app.usage.UsageEvents.Event.KEYGUARD_SHOWN ->
+                    list += PhoneFree.Event(e.timeStamp, PhoneFree.Kind.SCREEN_OFF)
+            }
+        }
+        return PhoneFree.appUseMillis(start, now, list, app.tend.monitor.FocusApps.open(context, task))
+    }
 }

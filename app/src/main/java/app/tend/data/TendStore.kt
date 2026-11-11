@@ -517,8 +517,13 @@ class TendStore(private val context: Context) {
         get() = prefs.getString("focus_task", Tasks.READ.id)!!
         set(v) = edit { putString("focus_task", v) }
 
+    /** Length of a plain timer ([Tasks.timer]) while one runs. */
+    var focusTimerMinutes: Int
+        get() = prefs.getInt("focus_timer_min", 25)
+        set(v) = edit { putInt("focus_timer_min", v) }
+
     val focusTask: TaskDef
-        get() = selectedTasks.firstOrNull { it.id == focusTaskId } ?: Tasks.presets.firstOrNull { it.id == focusTaskId } ?: Tasks.READ
+        get() = if (focusTaskId == Tasks.TIMER_ID) Tasks.timer(focusTimerMinutes) else selectedTasks.firstOrNull { it.id == focusTaskId } ?: Tasks.presets.firstOrNull { it.id == focusTaskId } ?: Tasks.READ
 
     /** Days closed since install. */
     val daysTended: Int get() { today(); return prefs.getInt("days_tended", 0) }

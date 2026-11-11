@@ -42,6 +42,11 @@ object Tasks {
     val COOK = TaskDef("cook", "Cook something good", "Phone-free · 20 min", 10, Verification.PHONE_FREE, 20, "cook")
 
     /** What onboarding suggests. Nothing is pre-selected. */
+    const val TIMER_ID = "timer"
+
+    /** Just a timer, no activity: no minutes, but every app waits until it ends, the same as on an activity's timer. */
+    fun timer(minutes: Int) = TaskDef(TIMER_ID, "Focus time", "Timer · $minutes min", 0, Verification.FOCUS_TIMER, minutes, "sparkle")
+
     val presets = listOf(MOVE, OUTSIDE, SLEEP, READ, LEARN, FRIENDS, HOBBY, CHORES, COOK)
 
     /** What users who onboarded before activities were selectable keep. */
