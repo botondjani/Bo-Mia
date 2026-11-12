@@ -21,13 +21,13 @@ object Moods {
         if (night && (mood == Mood.HAPPY || mood == Mood.OUTSIDE)) Mood.SLEEPY else mood
 
     /** A two-word status for the widget: "Bo is happy". */
-    fun status(name: String, mood: Mood): String = "$name is " + when (mood) {
-        Mood.HAPPY -> "happy"
-        Mood.TIRED -> "sleepy"
-        Mood.SCROLLING -> "scrolling"
-        Mood.OUTSIDE -> "glowing"
-        Mood.SLEEPING -> "asleep"
-        Mood.SLEEPY -> "sleepy"
+    fun status(name: String, mood: Mood): String = when (mood) {
+        Mood.HAPPY -> tr("$name is happy", "$name jókedvű")
+        Mood.TIRED -> tr("$name is sleepy", "$name fáradt")
+        Mood.SCROLLING -> tr("$name is scrolling", "$name görget")
+        Mood.OUTSIDE -> tr("$name is glowing", "$name ragyog")
+        Mood.SLEEPING -> tr("$name is asleep", "$name alszik")
+        Mood.SLEEPY -> tr("$name is sleepy", "$name álmos")
     }
 
     /**
@@ -37,28 +37,28 @@ object Moods {
     fun line(cfg: BudgetConfig, day: DayState, selected: List<TaskDef>, welcomeBack: Boolean = false, canClose: Boolean = true): String {
         val done = selected.filter { it.id in day.completedTasks }
         val next = Tasks.next(day, selected)
-        if (selected.isEmpty()) return "Pick a few things you'd rather do, and we'll do them together."
+        if (selected.isEmpty()) return tr("Pick a few things you'd rather do, and we'll do them together.", "Válassz pár dolgot, amit szívesebben csinálnál, és megcsináljuk együtt.")
         // Out of minutes: say plainly what that means and the way back.
-        if (Budget.isLocked(cfg, day) && !welcomeBack && canClose) return next?.let { "Out of minutes: your apps are closed. ${it.title} opens them again (+${it.rewardMinutes} min)." }
-            ?: "Out of minutes: your apps are closed until tomorrow."
+        if (Budget.isLocked(cfg, day) && !welcomeBack && canClose) return next?.let { tr("Out of minutes: your apps are closed. ${it.title} opens them again (+${it.rewardMinutes} min).", "Elfogytak a percek: az appjaid zárva vannak. Ezzel újra kinyílnak: ${it.title} (+${it.rewardMinutes} perc).") }
+            ?: tr("Out of minutes: your apps are closed until tomorrow.", "Elfogytak a percek: az appjaid holnapig zárva vannak.")
         if (done.isEmpty()) return when {
             // Back after a few days: no catching up, just one small thing.
-            welcomeBack -> "Welcome back! I missed you. Let's start small today: ${next!!.title.lowercase()}?"
-            next == Tasks.OUTSIDE -> "We haven't been outside in a while. Quick walk?"
-            else -> "What shall we do today? ${next!!.title} sounds nice."
+            welcomeBack -> tr("Welcome back! I missed you. Let's start small today: ${next!!.title.lowercase()}?", "Jó újra látni! Hiányoztál. Kezdjük ma valami kicsivel: ${next!!.title.lowercase()}?")
+            next == Tasks.OUTSIDE -> tr("We haven't been outside in a while. Quick walk?", "Rég voltunk a szabadban. Egy gyors séta?")
+            else -> tr("What shall we do today? ${next!!.title} sounds nice.", "Mit csináljunk ma? Ez jól hangzik: ${next!!.title.lowercase()}.")
         }
         val praise = when {
-            next == null -> "Everything's done. Proud of us."
-            done.size == 1 -> "Nice start!"
-            done.size == 2 -> "Look at us!"
-            else -> "You're doing great!"
+            next == null -> tr("Everything's done. Proud of us.", "Minden megvan. Büszke vagyok ránk.")
+            done.size == 1 -> tr("Nice start!", "Szép kezdés!")
+            done.size == 2 -> tr("Look at us!", "Nézd, milyen ügyesek vagyunk!")
+            else -> tr("You're doing great!", "Nagyon jól megy!")
         }
-        return "Today we already ${joinAnd(done.map(Tasks::pastTense))}. $praise"
+        return tr("Today we already ${joinAnd(done.map(Tasks::pastTense))}. $praise", "Ma már ${joinAnd(done.map(Tasks::pastTense))}. $praise")
     }
 
     private fun joinAnd(parts: List<String>) = when (parts.size) {
         1 -> parts[0]
-        2 -> "${parts[0]} and ${parts[1]}"
-        else -> parts.dropLast(1).joinToString(", ") + " and " + parts.last()
+        2 -> tr("${parts[0]} and ${parts[1]}", "${parts[0]} és ${parts[1]}")
+        else -> parts.dropLast(1).joinToString(", ") + tr(" and ", " és ") + parts.last()
     }
 }

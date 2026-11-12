@@ -1,5 +1,7 @@
 package app.tend.reminder
 
+import app.tend.core.tr
+
 import android.Manifest
 import android.app.AlarmManager
 import android.app.Notification
@@ -53,13 +55,13 @@ object RecapReminder {
         val recap = Recap.of(store.config, store.today(), store.worthItToday(), store.normalMinutes)
         val name = store.avatar.displayName
         val text = when {
-            recap.gotBackMinutes > 0 && recap.tonightAcorns > 0 -> "You got back ${recap.gotBackMinutes} min today: +${recap.tonightAcorns} acorns for the camp at midnight."
-            recap.gotBackMinutes > 0 -> "You got back ${recap.gotBackMinutes} min today. $name is by the fire."
-            else -> "Today used it all, and that's okay. $name saved you a seat by the fire."
+            recap.gotBackMinutes > 0 && recap.tonightAcorns > 0 -> tr("You got back ${recap.gotBackMinutes} min today: +${recap.tonightAcorns} acorns for the camp at midnight.", "Ma ${recap.gotBackMinutes} percet nyertél vissza: éjfélkor +${recap.tonightAcorns} makk jár érte a tábornak.")
+            recap.gotBackMinutes > 0 -> tr("You got back ${recap.gotBackMinutes} min today. $name is by the fire.", "Ma ${recap.gotBackMinutes} percet nyertél vissza. $name a tűznél ül.")
+            else -> tr("Today used it all, and that's okay. $name saved you a seat by the fire.", "A mai nap mindet elvitte, és ez rendben van. $name foglalt neked helyet a tűznél.")
         }
 
         val nm = context.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Evening recap", NotificationManager.IMPORTANCE_DEFAULT))
+        nm.createNotificationChannel(NotificationChannel(CHANNEL, tr("Evening recap", "Esti összefoglaló"), NotificationManager.IMPORTANCE_DEFAULT))
         val open = PendingIntent.getActivity(
             context, 1,
             Intent(context, MainActivity::class.java).putExtra(EXTRA_OPEN, OPEN_RECAP)
@@ -71,7 +73,7 @@ object RecapReminder {
             2,
             Notification.Builder(context, CHANNEL)
                 .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle("Tonight's recap is ready")
+                .setContentTitle(tr("Tonight's recap is ready", "Kész a ma esti összefoglaló"))
                 .setContentText(text)
                 .setStyle(Notification.BigTextStyle().bigText(text))
                 .setContentIntent(open)

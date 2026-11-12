@@ -1,5 +1,7 @@
 package app.tend.reminder
 
+import app.tend.core.tr
+
 import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
@@ -38,12 +40,12 @@ object WeeklyLetter {
         val week = Patterns.week(LocalDate.now(), store.daySummaries(), store.answers())
         val h = week.gotBackMinutes / 60
         val m = week.gotBackMinutes % 60
-        val gotBack = if (h > 0) "$h h $m min" else "$m min"
-        val title = "Your week with ${store.avatar.displayName}"
+        val gotBack = if (h > 0) tr("$h h $m min", "$h ó $m p") else tr("$m min", "$m perc")
+        val title = tr("Your week with ${store.avatar.displayName}", "A heted, ${store.avatar.displayName} társaságában")
         val body = buildString {
-            append("You got back $gotBack")
+            append(tr("You got back $gotBack", "Ennyi időt nyertél vissza: $gotBack"))
             append(".")
-            if (week.pauses > 0) append(" You let the scroll go ${week.letGo} of ${week.pauses} times.")
+            if (week.pauses > 0) append(tr(" You let the scroll go ${week.letGo} of ${week.pauses} times.", " A görgetést ${week.pauses} alkalomból ennyiszer engedted el: ${week.letGo}."))
         }
         return title to body
     }
@@ -54,7 +56,7 @@ object WeeklyLetter {
         val (title, body) = text(store)
         store.countNote()
         val nm = context.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Weekly letter", NotificationManager.IMPORTANCE_DEFAULT))
+        nm.createNotificationChannel(NotificationChannel(CHANNEL, tr("Weekly letter", "Heti levél"), NotificationManager.IMPORTANCE_DEFAULT))
         val open = PendingIntent.getActivity(
             context, 7,
             Intent(context, MainActivity::class.java).putExtra(RecapReminder.EXTRA_OPEN, OPEN_CLEARING)

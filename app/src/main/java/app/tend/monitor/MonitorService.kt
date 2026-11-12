@@ -1,5 +1,7 @@
 package app.tend.monitor
 
+import app.tend.core.tr
+
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import android.app.Notification
@@ -216,8 +218,8 @@ class MonitorService : Service() {
                 sessionEnds = app.tend.core.TimeBox.endsAt(now, pass)
                 // Opened for a few minutes: the time left counts down in the notifications.
                 if (sessionEnds != Long.MAX_VALUE) {
-                    val label = runCatching { packageManager.getApplicationInfo(new, 0).loadLabel(packageManager).toString() }.getOrDefault("This app")
-                    app.tend.health.TimerAlarm.showRunning(this, "$label, for $pass min", "${store.avatar.displayName} checks in when the time is up.", sessionEnds)
+                    val label = runCatching { packageManager.getApplicationInfo(new, 0).loadLabel(packageManager).toString() }.getOrDefault(tr("This app", "Ez az app"))
+                    app.tend.health.TimerAlarm.showRunning(this, tr("$label, for $pass min", "$label, $pass percre"), tr("${store.avatar.displayName} checks in when the time is up.", "${store.avatar.displayName} szól, ha letelt az idő."), sessionEnds)
                 }
                 // Carrying on after a short break (another "15 more", a quick look elsewhere): the same stretch.
                 if (now - lastLeft > STREAK_GAP_MS || streakStart == 0L) { streakStart = now; nextPeekAt = now + Peek.EVERY_MS }
@@ -240,7 +242,7 @@ class MonitorService : Service() {
         if (!store.peekOn || !android.provider.Settings.canDrawOverlays(this)) return
         if (now - sessionStart < 90_000L || sessionEnds - now < 60_000L) return
         val minutes = ((now - streakStart) / 60_000L).toInt()
-        val label = runCatching { packageManager.getApplicationInfo(pkg, 0).loadLabel(packageManager).toString() }.getOrDefault("this app")
+        val label = runCatching { packageManager.getApplicationInfo(pkg, 0).loadLabel(packageManager).toString() }.getOrDefault(tr("this app", "ez az app"))
         app.tend.data.Stats.log(this, "peek", mapOf("minutes" to minutes))
         peek.show(
             store.avatar, store.accessories().first, minutes, label,
@@ -265,8 +267,8 @@ class MonitorService : Service() {
         nm.notify(
             32, // 31 is the friends' note
             Notification.Builder(this, PLUS_CHANNEL).setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle("$days more day${if (days == 1) "" else "s"} of tend Plus")
-                .setContentText(if (won >= 60) "You've won back ${app.tend.core.InsightsOf.hours(won)} so far. Your time stays yours either way." else "Your weeks, each app's limit and strict mode are yours until then.")
+                .setContentTitle(tr("$days more day${if (days == 1) "" else "s"} of tend Plus", "Még $days nap tend Plus"))
+                .setContentText(if (won >= 60) tr("You've won back ${app.tend.core.InsightsOf.hours(won)} so far. Your time stays yours either way.", "Eddig ennyi időt nyertél vissza: ${app.tend.core.InsightsOf.hours(won)}. Az időd így is, úgy is a tiéd marad.") else tr("Your weeks, each app's limit and strict mode are yours until then.", "Addig a tiéd a heteid, az appok saját limitje és a szigorú mód."))
                 .setContentIntent(open).setAutoCancel(true).build(),
         )
         app.tend.data.Stats.log(this, "trial_note")
@@ -293,16 +295,16 @@ class MonitorService : Service() {
         val label = runCatching { packageManager.getApplicationInfo(pkg, 0).loadLabel(packageManager).toString() }.getOrDefault(pkg)
         val cfg = store.config
         val day = store.today()
-        val text = if (app.tend.core.Budget.isLocked(cfg, day)) "Out of minutes for today. ${store.avatar.displayName} is here if you want to earn some."
-            else "${app.tend.core.Budget.remainingMinutes(cfg, day)} min left today. Worth it right now?"
+        val text = if (app.tend.core.Budget.isLocked(cfg, day)) tr("Out of minutes for today. ${store.avatar.displayName} is here if you want to earn some.", "Mára elfogytak a percek. ${store.avatar.displayName} itt van, ha szereznél párat.")
+            else tr("${app.tend.core.Budget.remainingMinutes(cfg, day)} min left today. Worth it right now?", "Ma még ${app.tend.core.Budget.remainingMinutes(cfg, day)} perced van. Megéri most?")
         val nm = getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(NUDGE_CHANNEL, "Pause nudges", NotificationManager.IMPORTANCE_HIGH))
+        nm.createNotificationChannel(NotificationChannel(NUDGE_CHANNEL, tr("Pause nudges", "Szünet-emlékeztetők"), NotificationManager.IMPORTANCE_HIGH))
         val open = PendingIntent.getActivity(this, 3, InterstitialActivity.intent(this, pkg), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         nm.notify(
             3,
             Notification.Builder(this, NUDGE_CHANNEL)
                 .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle("Opening $label")
+                .setContentTitle(tr("Opening $label", "Megnyitod: $label"))
                 .setContentText(text)
                 .setContentIntent(open)
                 .setAutoCancel(true)
@@ -330,14 +332,14 @@ class MonitorService : Service() {
         if (done.tasks.isEmpty() || !app.tend.reminder.RecapReminder.canNotify(this)) return
         val name = store.avatar.displayName
         val fresh = store.takeNewAccessories()
-        val text = "+${done.minutes} min. $name is proud of you." + fresh.joinToString("") { " And $name got a ${it.title.lowercase()}!" }
+        val text = tr("+${done.minutes} min. $name is proud of you.", "+${done.minutes} perc. $name büszke rád.") + fresh.joinToString("") { tr(" And $name got a ${it.title.lowercase()}!", " És $name új holmit kapott: ${it.title.lowercase()}!") }
         val nm = getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(DONE_CHANNEL, "Activities done", NotificationManager.IMPORTANCE_DEFAULT))
+        nm.createNotificationChannel(NotificationChannel(DONE_CHANNEL, tr("Activities done", "Elvégzett tevékenységek"), NotificationManager.IMPORTANCE_DEFAULT))
         val open = PendingIntent.getActivity(this, 9, Intent(this, app.tend.MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_IMMUTABLE)
         nm.notify(
             13,
             Notification.Builder(this, DONE_CHANNEL).setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle(done.tasks.joinToString(" and ") { it.title } + " done!")
+                .setContentTitle(done.tasks.joinToString(tr(" and ", " és ")) { it.title } + tr(" done!", " – megvan!"))
                 .setContentText(text).setStyle(Notification.BigTextStyle().bigText(text))
                 .setContentIntent(open).setAutoCancel(true).build(),
         )
@@ -372,11 +374,11 @@ class MonitorService : Service() {
 
     private fun startInForeground() {
         val nm = getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Companion", NotificationManager.IMPORTANCE_MIN))
+        nm.createNotificationChannel(NotificationChannel(CHANNEL, tr("Companion", "Társ"), NotificationManager.IMPORTANCE_MIN))
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val n = Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("${store.avatar.displayName} is keeping you company")
+            .setContentTitle(tr("${store.avatar.displayName} is keeping you company", "${store.avatar.displayName} veled van"))
             .setContentIntent(open)
             .setOngoing(true)
             .build()

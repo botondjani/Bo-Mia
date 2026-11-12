@@ -8,11 +8,11 @@ data class Totals(val days: Int, val activities: Int, val hoursBack: Int)
  * with you: a flag, lights along the path, a garden, a hut up the mountain, shooting stars.
  */
 enum class Milestone(val title: String, val adds: String, val need: Int, private val unit: String) {
-    FLAG("A week at the camp", "a flag over the camp", 7, "days"),
-    PATH_LIGHTS("25 activities", "lamps along the river path", 25, "activities"),
-    GARDEN("10 hours back", "a vegetable garden", 10, "hours back"),
-    HUT("A month at the camp", "a hut up the mountain", 30, "days"),
-    SHOOTING_STARS("100 activities", "shooting stars at night", 100, "activities"),
+    FLAG(tr("A week at the camp", "Egy hét a táborban"), tr("a flag over the camp", "zászló a tábor fölött"), 7, "days"),
+    PATH_LIGHTS(tr("25 activities", "25 tevékenység"), tr("lamps along the river path", "lámpák a folyóparti ösvényen"), 25, "activities"),
+    GARDEN(tr("10 hours back", "10 visszanyert óra"), tr("a vegetable garden", "veteményeskert"), 10, "hours back"),
+    HUT(tr("A month at the camp", "Egy hónap a táborban"), tr("a hut up the mountain", "kunyhó fent a hegyen"), 30, "days"),
+    SHOOTING_STARS(tr("100 activities", "100 tevékenység"), tr("shooting stars at night", "hullócsillagok éjszaka"), 100, "activities"),
     ;
 
     /** Where you are toward it, out of [need]. */
@@ -25,7 +25,10 @@ enum class Milestone(val title: String, val adds: String, val need: Int, private
     fun reached(t: Totals) = progress(t) >= need
 
     /** "4 of 7 days" */
-    fun label(t: Totals) = "${progress(t)} of $need $unit"
+    fun label(t: Totals) = tr(
+        "${progress(t)} of $need $unit",
+        "${progress(t)} / $need ${when (unit) { "days" -> "nap"; "activities" -> "tevékenység"; else -> "visszanyert óra" }}",
+    )
 
     companion object {
         fun reached(t: Totals): Set<Milestone> = entries.filter { it.reached(t) }.toSet()

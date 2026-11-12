@@ -1,5 +1,7 @@
 package app.tend.ui
 
+import app.tend.core.tr
+
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import kotlinx.coroutines.launch
@@ -189,6 +191,6 @@ fun HoldToConfirm(label: String, modifier: Modifier = Modifier, seconds: Float =
             .padding(vertical = 13.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(if (progress.value > 0f && progress.value < 1f) "Keep holding…" else label, style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+        Text(if (progress.value > 0f && progress.value < 1f) tr("Keep holding…", "Tartsd még…") else label, style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
     }
 }

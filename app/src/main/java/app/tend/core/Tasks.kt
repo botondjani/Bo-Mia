@@ -2,7 +2,7 @@ package app.tend.core
 
 /** How a task is verified: measured, timed, phone-free, or checked off by hand (capped daily). */
 enum class Verification(val label: String) {
-    AUTOMATIC("automatic"), FOCUS_TIMER("timer"), PHONE_FREE("phone-free"), CHECK_OFF("check off");
+    AUTOMATIC(tr("automatic", "automatikus")), FOCUS_TIMER(tr("timer", "időzítő")), PHONE_FREE(tr("phone-free", "telefonmentes")), CHECK_OFF(tr("check off", "pipálható"));
 
     /** Started with a button and runs for [TaskDef.target] minutes. */
     val timed get() = this == FOCUS_TIMER || this == PHONE_FREE
@@ -31,21 +31,21 @@ object Tasks {
     const val CUSTOM_REWARD = 10
     private const val CUSTOM_PREFIX = "custom:"
 
-    val MOVE = TaskDef("move", "Workout or run", "Automatic · 30 min of exercise", 30, Verification.AUTOMATIC, 30, "workout")
-    val OUTSIDE = TaskDef("outside", "Walk outside", "Automatic · 4,000 steps", 20, Verification.AUTOMATIC, 4000, "outside")
-    val READ = TaskDef("read", "Read", "Focus timer · 20 min", 15, Verification.FOCUS_TIMER, 20, "read")
-    val LEARN = TaskDef("learn", "Learn something", "Focus timer · 30 min", 20, Verification.FOCUS_TIMER, 30, "learn")
-    val SLEEP = TaskDef("sleep", "Sleep well", "Automatic · 7 h of sleep", 20, Verification.AUTOMATIC, 420, "moon")
-    val FRIENDS = TaskDef("friends", "Friends & family", "Phone-free · 30 min together", 15, Verification.PHONE_FREE, 30, "friends")
-    val HOBBY = TaskDef("hobby", "Hobby", "Phone-free · 30 min", 15, Verification.PHONE_FREE, 30, "hobby")
-    val CHORES = TaskDef("chores", "Tidy up", "Phone-free · 20 min", 10, Verification.PHONE_FREE, 20, "chores")
-    val COOK = TaskDef("cook", "Cook something good", "Phone-free · 20 min", 10, Verification.PHONE_FREE, 20, "cook")
+    val MOVE = TaskDef("move", tr("Workout or run", "Edzés vagy futás"), tr("Automatic · 30 min of exercise", "Automatikus · 30 perc mozgás"), 30, Verification.AUTOMATIC, 30, "workout")
+    val OUTSIDE = TaskDef("outside", tr("Walk outside", "Séta a szabadban"), tr("Automatic · 4,000 steps", "Automatikus · 4000 lépés"), 20, Verification.AUTOMATIC, 4000, "outside")
+    val READ = TaskDef("read", tr("Read", "Olvasás"), tr("Focus timer · 20 min", "Fókuszidőzítő · 20 perc"), 15, Verification.FOCUS_TIMER, 20, "read")
+    val LEARN = TaskDef("learn", tr("Learn something", "Tanulás"), tr("Focus timer · 30 min", "Fókuszidőzítő · 30 perc"), 20, Verification.FOCUS_TIMER, 30, "learn")
+    val SLEEP = TaskDef("sleep", tr("Sleep well", "Jó alvás"), tr("Automatic · 7 h of sleep", "Automatikus · 7 óra alvás"), 20, Verification.AUTOMATIC, 420, "moon")
+    val FRIENDS = TaskDef("friends", tr("Friends & family", "Barátok és család"), tr("Phone-free · 30 min together", "Telefonmentes · 30 perc együtt"), 15, Verification.PHONE_FREE, 30, "friends")
+    val HOBBY = TaskDef("hobby", tr("Hobby", "Hobbi"), tr("Phone-free · 30 min", "Telefonmentes · 30 perc"), 15, Verification.PHONE_FREE, 30, "hobby")
+    val CHORES = TaskDef("chores", tr("Tidy up", "Rendrakás"), tr("Phone-free · 20 min", "Telefonmentes · 20 perc"), 10, Verification.PHONE_FREE, 20, "chores")
+    val COOK = TaskDef("cook", tr("Cook something good", "Főzés"), tr("Phone-free · 20 min", "Telefonmentes · 20 perc"), 10, Verification.PHONE_FREE, 20, "cook")
 
     /** What onboarding suggests. Nothing is pre-selected. */
     const val TIMER_ID = "timer"
 
     /** Just a timer, no activity: no minutes, but every app waits until it ends, the same as on an activity's timer. */
-    fun timer(minutes: Int) = TaskDef(TIMER_ID, "Focus time", "Timer · $minutes min", 0, Verification.FOCUS_TIMER, minutes, "sparkle")
+    fun timer(minutes: Int) = TaskDef(TIMER_ID, tr("Focus time", "Fókuszidő"), tr("Timer · $minutes min", "Időzítő · $minutes perc"), 0, Verification.FOCUS_TIMER, minutes, "sparkle")
 
     val presets = listOf(MOVE, OUTSIDE, SLEEP, READ, LEARN, FRIENDS, HOBBY, CHORES, COOK)
 
@@ -56,15 +56,15 @@ object Tasks {
     fun custom(name: String, icon: String, minutes: Int = 0): TaskDef {
         val clean = name.replace(Regex("[|\\n,]"), " ").replace(Regex("\\s+"), " ").trim().take(40)
         val slug = clean.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-').ifEmpty { "own" + (clean.hashCode() and 0xffff) }
-        return if (minutes > 0) TaskDef(CUSTOM_PREFIX + slug, clean, "Phone-free · $minutes min", maxOf(CUSTOM_REWARD, minutes / 2), Verification.PHONE_FREE, minutes, icon)
-        else TaskDef(CUSTOM_PREFIX + slug, clean, "Check off · your own", CUSTOM_REWARD, Verification.CHECK_OFF, 0, icon)
+        return if (minutes > 0) TaskDef(CUSTOM_PREFIX + slug, clean, tr("Phone-free · $minutes min", "Telefonmentes · $minutes perc"), maxOf(CUSTOM_REWARD, minutes / 2), Verification.PHONE_FREE, minutes, icon)
+        else TaskDef(CUSTOM_PREFIX + slug, clean, tr("Check off · your own", "Pipálható · saját"), CUSTOM_REWARD, Verification.CHECK_OFF, 0, icon)
     }
 
     /** One-tap ideas for your own activities: name, icon, minutes (0 = tick off). */
     val ownIdeas = listOf(
-        Triple("Meditate", "sparkle", 10), Triple("Journal", "pen", 0), Triple("Play music", "music", 30),
-        Triple("Walk the dog", "paw", 0), Triple("Stretch", "sun", 0), Triple("Bike ride", "bike", 30),
-        Triple("Garden", "sprout", 0), Triple("Call someone", "heart", 0),
+        Triple(tr("Meditate", "Meditáció"), "sparkle", 10), Triple(tr("Journal", "Naplóírás"), "pen", 0), Triple(tr("Play music", "Zenélés"), "music", 30),
+        Triple(tr("Walk the dog", "Kutyasétáltatás"), "paw", 0), Triple(tr("Stretch", "Nyújtás"), "sun", 0), Triple(tr("Bike ride", "Biciklizés"), "bike", 30),
+        Triple(tr("Garden", "Kertészkedés"), "sprout", 0), Triple(tr("Call someone", "Felhívok valakit"), "heart", 0),
     )
 
     /**
@@ -127,16 +127,16 @@ object Tasks {
     }
 
     fun pastTense(task: TaskDef): String = when (task.id) {
-        MOVE.id -> "moved"
-        OUTSIDE.id -> "went outside"
-        SLEEP.id -> "slept well"
-        READ.id -> "read"
-        LEARN.id -> "learned something"
-        FRIENDS.id -> "made time for our people"
-        HOBBY.id -> "played with a hobby"
-        CHORES.id -> "tidied up"
-        COOK.id -> "cooked something good"
-        else -> "did ${task.title.lowercase()}"
+        MOVE.id -> tr("moved", "mozogtunk")
+        OUTSIDE.id -> tr("went outside", "kint voltunk a szabadban")
+        SLEEP.id -> tr("slept well", "jól aludtunk")
+        READ.id -> tr("read", "olvastunk")
+        LEARN.id -> tr("learned something", "tanultunk valamit")
+        FRIENDS.id -> tr("made time for our people", "időt szántunk a szeretteinkre")
+        HOBBY.id -> tr("played with a hobby", "hobbiztunk")
+        CHORES.id -> tr("tidied up", "rendet raktunk")
+        COOK.id -> tr("cooked something good", "főztünk valami finomat")
+        else -> tr("did ${task.title.lowercase()}", "megvolt ez is: ${task.title.lowercase()}")
     }
 
     /** Measured progress towards an automatic task's target, or null for other tasks. */

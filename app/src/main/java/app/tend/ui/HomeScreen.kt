@@ -1,5 +1,7 @@
 package app.tend.ui
 
+import app.tend.core.tr
+
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -186,7 +188,7 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(Space.m),
     ) {
         TodayHeader(day.date, Triple(remaining, (cfg.freeMinutes + day.earnedMinutes).coerceAtLeast(1), Budget.earnableFrom(cfg, day, tasks)), { explain = "minutes" }) {
-            IconButtonSoft(Icons.Filled.Settings, "Settings", onOpenSettings)
+            IconButtonSoft(Icons.Filled.Settings, tr("Settings", "Beállítások"), onOpenSettings)
         }
 
         // Hero: the camp, with the companion living in it; what they say, today's minutes, and the
@@ -238,7 +240,7 @@ fun HomeScreen(
                     .tappable(onClick = onOpenClearing).padding(start = 14.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("${avatar.displayName}'s camp", style = MaterialTheme.typography.labelLarge, color = Color.White)
+                Text(tr("${avatar.displayName}'s camp", "${avatar.displayName} tábora"), style = MaterialTheme.typography.labelLarge, color = Color.White)
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.White, modifier = Modifier.size(20.dp))
             }
         }
@@ -248,64 +250,64 @@ fun HomeScreen(
         // The evening: tonight's recap, right under the camp.
         if (isEvening && !sleeping && pausedUntil <= System.currentTimeMillis()) {
             val seen = app.tend.data.TendStore(context).recapSeenOn == day.date.toString()
-            Notice("moon", if (seen) "Tonight's recap" else "Tonight's recap is ready", if (seen) "See it again" else "See what today gave back", onOpenRecap)
+            Notice("moon", if (seen) tr("Tonight's recap", "A ma esti összefoglaló") else tr("Tonight's recap is ready", "Kész a ma esti összefoglaló"), if (seen) tr("See it again", "Megnézem újra") else tr("See what today gave back", "Nézd meg, mit adott vissza a mai nap"), onOpenRecap)
         }
         if (levelUp != null) LevelUpDialog(avatar, levelUp, onLevelUpSeen)
 
-        if (onShareCrash != null) Notice("alert", "tend crashed last time", "Sorry! Tap to share the crash report.", onShareCrash)
+        if (onShareCrash != null) Notice("alert", tr("tend crashed last time", "A tend legutóbb összeomlott"), tr("Sorry! Tap to share the crash report.", "Bocsánat! Koppints, és megoszthatod a hibajelentést."), onShareCrash)
         if (brokenTimer != null) Notice(
-            brokenTimer.icon, "The phone came back a little early",
-            "${brokenTimer.title} needs ${brokenTimer.target} phone-free minutes. Tap to try again later.", onDismissBroken,
+            brokenTimer.icon, tr("The phone came back a little early", "A telefon kicsit korán került elő"),
+            tr("${brokenTimer.title} needs ${brokenTimer.target} phone-free minutes. Tap to try again later.", "Ehhez ${brokenTimer.target} telefonmentes perc kell: ${brokenTimer.title.lowercase()}. Koppints, és később újra megpróbálhatod."), onDismissBroken,
         )
         // A friend at the fire: join them (unless a timer of your own is already going).
         if (focusSecondsLeft == null) atFire.firstOrNull()?.let { f ->
             val until = java.time.Instant.ofEpochMilli(f.until).atZone(java.time.ZoneId.systemDefault()).toLocalTime()
             Notice(
-                "friends", "${f.name}${if (atFire.size > 1) " and ${atFire.size - 1} more" else ""} at your campfire",
-                "Phone-free until ${"%d:%02d".format(until.hour, until.minute)}. Put yours down too: +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each", { onJoin(f) },
+                "friends", tr("${f.name}${if (atFire.size > 1) " and ${atFire.size - 1} more" else ""} at your campfire", "${f.name}${if (atFire.size > 1) " és még ${atFire.size - 1} barátod" else ""} a tábortüzednél ül"),
+                tr("Phone-free until ${"%d:%02d".format(until.hour, until.minute)}. Put yours down too: +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each", "${"%d:%02d".format(until.hour, until.minute)}-ig telefon nélkül. Tedd le te is: fejenként +${app.tend.core.Acorns.TOGETHER_FIRE} makk"), { onJoin(f) },
             )
         }
         // A friend calling to the fire (nobody's there yet): one tap puts your phone down too.
         if (focusSecondsLeft == null && atFire.isEmpty() && fireCall != null) Notice(
-            "friends", "$fireCall calls you to the campfire",
-            "Put your phones down together: +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each", onAnswerCall,
+            "friends", tr("$fireCall calls you to the campfire", "$fireCall a tábortűzhöz hív"),
+            tr("Put your phones down together: +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each", "Tegyétek le együtt a telefont: fejenként +${app.tend.core.Acorns.TOGETHER_FIRE} makk"), onAnswerCall,
         )
         // The trial's last days: said once a day on home, never in the way.
         if (plusDaysLeft != null && plusDaysLeft <= 3) Notice(
-            "sparkle", if (plusDaysLeft <= 1) "Last day of tend Plus" else "$plusDaysLeft more day${if (plusDaysLeft == 1) "" else "s"} of tend Plus",
-            "See what stays free and what Plus keeps", onPlus,
+            "sparkle", if (plusDaysLeft <= 1) tr("Last day of tend Plus", "A tend Plus utolsó napja") else tr("$plusDaysLeft more day${if (plusDaysLeft == 1) "" else "s"} of tend Plus", "Még $plusDaysLeft nap tend Plus"),
+            tr("See what stays free and what Plus keeps", "Nézd meg, mi marad ingyen, és mit tart meg a Plus"), onPlus,
         )
-        if (pausedUntil > System.currentTimeMillis()) Notice("sun", "On a break until ${breakEnd(pausedUntil)}", "No pauses, locks or counting. Tap to come back.", onResume)
+        if (pausedUntil > System.currentTimeMillis()) Notice("sun", tr("On a break until ${breakEnd(pausedUntil)}", "Szünet eddig: ${breakEnd(pausedUntil)}"), tr("No pauses, locks or counting. Tap to come back.", "Nincs szünet-képernyő, zárás, számolás. Koppints, ha visszajönnél."), onResume)
         // After "Good night": the paused apps rest until morning, with a way back.
         else if (sleeping) {
             // Waking them takes a moment's thought: a dialog, and a button held for a few seconds.
             var waking by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
-            Notice("moon", "Good night: your apps rest until 7:00", if (strict) "Strict mode: they wake at 7:00" else "Need them? Tap", { if (!strict) waking = true })
+            Notice("moon", tr("Good night: your apps rest until 7:00", "Jó éjt: az appjaid 7:00-ig pihennek"), if (strict) tr("Strict mode: they wake at 7:00", "Szigorú mód: 7:00-kor ébrednek") else tr("Need them? Tap", "Kellenek? Koppints"), { if (!strict) waking = true })
             if (waking) androidx.compose.material3.AlertDialog(
                 onDismissRequest = { waking = false },
                 icon = { CharacterView(avatar, app.tend.core.Mood.SLEEPING, 72.dp, lightweight = true) },
-                title = { Text("Wake the apps?") },
+                title = { Text(tr("Wake the apps?", "Felébreszted az appokat?")) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        Text("You said good night, and ${avatar.displayName} is asleep. The apps rest until 7:00. Do you really need them now?")
-                        HoldToConfirm("Hold to wake the apps", seconds = 7f) { waking = false; onWakeUp() }
+                        Text(tr("You said good night, and ${avatar.displayName} is asleep. The apps rest until 7:00. Do you really need them now?", "Jó éjt kívántál, és ${avatar.displayName} már alszik. Az appok 7:00-ig pihennek. Tényleg most kellenek?"))
+                        HoldToConfirm(tr("Hold to wake the apps", "Tartsd nyomva az ébresztéshez"), seconds = 7f) { waking = false; onWakeUp() }
                     }
                 },
-                confirmButton = { androidx.compose.material3.TextButton(onClick = { waking = false }) { Text("Let them rest") } },
+                confirmButton = { androidx.compose.material3.TextButton(onClick = { waking = false }) { Text(tr("Let them rest", "Hadd pihenjenek")) } },
                 containerColor = Brand.Card,
             )
         }
 
         when {
-            !permissions.usageAccess -> Notice("alert", "Limited mode", "${avatar.displayName} can't see screen time. Tap to turn it on.", onFixPermissions)
+            !permissions.usageAccess -> Notice("alert", tr("Limited mode", "Korlátozott mód"), tr("${avatar.displayName} can't see screen time. Tap to turn it on.", "${avatar.displayName} nem látja a képernyőidőt. Koppints, és bekapcsolhatod."), onFixPermissions)
             !permissions.overlay -> Notice(
-                "alert", if (remaining <= 0) "Out of minutes, but your apps are open" else "No pause before scrolling",
-                if (remaining <= 0) "tend can only notify you, not close them. Tap to fix." else "Only a notification for now. Tap to fix.", onFixPermissions,
+                "alert", if (remaining <= 0) tr("Out of minutes, but your apps are open", "Elfogytak a percek, de az appjaid nyitva vannak") else tr("No pause before scrolling", "Nincs szünet görgetés előtt"),
+                if (remaining <= 0) tr("tend can only notify you, not close them. Tap to fix.", "A tend csak értesíteni tud, bezárni nem. Koppints, és megjavítjuk.") else tr("Only a notification for now. Tap to fix.", "Egyelőre csak értesítés jön. Koppints, és megjavítjuk."), onFixPermissions,
             )
         }
         val needsHealth = tasks.any { it.verification == Verification.AUTOMATIC } &&
             (health == HealthConnect.Status.NEEDS_PERMISSION || health == HealthConnect.Status.NEEDS_INSTALL)
-        if (monitorSlept && batteryRisk) Notice("alert", "${avatar.displayName} fell asleep in the background", "Your phone paused tend for a while. Tap to keep ${avatar.displayName} awake.", onKeepAwake)
+        if (monitorSlept && batteryRisk) Notice("alert", tr("${avatar.displayName} fell asleep in the background", "${avatar.displayName} elaludt a háttérben"), tr("Your phone paused tend for a while. Tap to keep ${avatar.displayName} awake.", "A telefonod egy időre leállította a tendet. Koppints, hogy ${avatar.displayName} ébren maradjon."), onKeepAwake)
         // In the first days the first steps ask for the widget; here only what can't wait.
         val importantOnly = nextStepsImportantOnly || firstDays
         val nextSteps = showNextSteps && (needsHealth || batteryRisk || (!importantOnly && (!widgetPlaced || notesOff)))
@@ -318,8 +320,8 @@ fun HomeScreen(
             onDismiss = onNextStepsDone,
         ) else if (needsHealth) {
             Notice(
-                "heart", if (health == HealthConnect.Status.NEEDS_INSTALL) "Get Health Connect" else "Connect Health Connect",
-                "Count walks and workouts automatically", onConnectHealth,
+                "heart", if (health == HealthConnect.Status.NEEDS_INSTALL) tr("Get Health Connect", "Health Connect telepítése") else tr("Connect Health Connect", "Health Connect összekötése"),
+                tr("Count walks and workouts automatically", "A séták és edzések maguktól beszámítanak"), onConnectHealth,
             )
         }
 
@@ -327,8 +329,8 @@ fun HomeScreen(
 
         val active = tasks.filter { it.id !in day.completedTasks }
         val done = tasks.filter { it.id in day.completedTasks }
-        SectionHeader("Instead of scrolling", "${done.size} of ${tasks.size} done")
-        if (tasks.isEmpty()) Notice("sparkle", "Pick what you'd rather do", "A few activities that give minutes back", onOpenSettings)
+        SectionHeader(tr("Instead of scrolling", "Görgetés helyett"), tr("${done.size} of ${tasks.size} done", "${done.size} / ${tasks.size} megvan"))
+        if (tasks.isEmpty()) Notice("sparkle", tr("Pick what you'd rather do", "Válaszd ki, mit csinálnál szívesebben"), tr("A few activities that give minutes back", "Pár tevékenység, ami perceket ad vissza"), onOpenSettings)
         if (active.isNotEmpty()) {
             // One at a time, swiped left and right; the next one peeks in from the side.
             val pager = androidx.compose.foundation.pager.rememberPagerState { active.size }
@@ -367,17 +369,17 @@ fun HomeScreen(
             Row(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 TendIcons.Badge("sparkle", 40.dp)
                 Spacer(Modifier.width(12.dp))
-                Text("Everything done today. ${avatar.displayName} is proud of you.", style = MaterialTheme.typography.titleMedium)
+                Text(tr("Everything done today. ${avatar.displayName} is proud of you.", "Mára minden megvan. ${avatar.displayName} büszke rád."), style = MaterialTheme.typography.titleMedium)
             }
         }
         // Or no activity at all: just a timer, and every app waits the same.
         if (focusSecondsLeft == null) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Or just a timer", style = MaterialTheme.typography.bodyMedium, color = Brand.Muted, modifier = Modifier.weight(1f))
-            listOf(25, 50, 90).forEach { m -> ChipButton("$m min", { onStartFocus(Tasks.timer(m)) }, filled = false) }
+            Text(tr("Or just a timer", "Vagy időzítő"), style = MaterialTheme.typography.bodyMedium, color = Brand.Muted, modifier = Modifier.weight(1f))
+            listOf(25, 50, 90).forEach { m -> ChipButton(tr("$m min", "$m perc"), { onStartFocus(Tasks.timer(m)) }, filled = false) }
         }
         // Friends today: what they did, and a cheer for it, one tap each.
         if (friendsToday.isNotEmpty()) Column(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("FRIENDS TODAY", style = MaterialTheme.typography.labelSmall)
+            Text(tr("FRIENDS TODAY", "A BARÁTAID MA"), style = MaterialTheme.typography.labelSmall)
             friendsToday.take(3).forEach { f ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Face(f.companion, 32)
@@ -388,7 +390,7 @@ fun HomeScreen(
                     )
                     val done = f.id in cheered
                     Text(
-                        if (done) "Cheered" else "\uD83D\uDC4F Cheer", style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
+                        if (done) tr("Cheered", "Megtapsolva") else tr("\uD83D\uDC4F Cheer", "👏 Taps"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
                         color = if (done) Brand.Muted else Color.White,
                         modifier = Modifier.clip(RoundedCornerShape(50)).background(if (done) Brand.Sage else Brand.Moss)
                             .then(if (done) Modifier else Modifier.tappable { onCheer(f) }).padding(horizontal = 10.dp, vertical = 6.dp),
@@ -405,7 +407,7 @@ fun HomeScreen(
         // "Done today" right under the activities.
         if (done.isEmpty() && active.isNotEmpty()) {
             // Before the first one: an empty, dashed spot that says where finished things go.
-            SectionHeader("Done today", "0 min")
+            SectionHeader(tr("Done today", "Ma megvan"), tr("0 min", "0 perc"))
             Row(
                 Modifier.fillMaxWidth().padding(bottom = Space.s).drawBehind {
                     drawRoundRect(
@@ -420,13 +422,13 @@ fun HomeScreen(
                 Box(Modifier.size(24.dp).clip(CircleShape).border(1.5.dp, Brand.Muted.copy(alpha = 0.5f), CircleShape))
                 Spacer(Modifier.width(10.dp))
                 Text(
-                    "Nothing yet. Your first one lands here.",
+                    tr("Nothing yet. Your first one lands here.", "Még semmi. Ide kerül az első."),
                     style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
             }
         }
         if (done.isNotEmpty()) {
-            SectionHeader("Done today", "+${done.sumOf { day.grants[it.id] ?: 0 }} min")
+            SectionHeader(tr("Done today", "Ma megvan"), tr("+${done.sumOf { day.grants[it.id] ?: 0 }} min", "+${done.sumOf { day.grants[it.id] ?: 0 }} perc"))
             // Thin rows; more than three scroll inside their own small box.
             Column(
                 Modifier.padding(bottom = Space.xl),
@@ -447,15 +449,15 @@ private fun StatsAsk(onStats: (Boolean) -> Unit) = Column(
     Modifier.fillMaxWidth().surface().padding(horizontal = 16.dp, vertical = 14.dp),
     verticalArrangement = Arrangement.spacedBy(6.dp),
 ) {
-    Text("Help make tend better?", style = MaterialTheme.typography.titleMedium)
-    Text("Share anonymous counts, like which screens get used. Never your apps, name or health data.", style = MaterialTheme.typography.bodyMedium)
+    Text(tr("Help make tend better?", "Segítesz jobbá tenni a tendet?"), style = MaterialTheme.typography.titleMedium)
+    Text(tr("Share anonymous counts, like which screens get used. Never your apps, name or health data.", "Névtelen számok megosztása, például hogy mely képernyőket használják. Az appjaid, a neved és az egészségadataid soha."), style = MaterialTheme.typography.bodyMedium)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
         Text(
-            "Sure", style = MaterialTheme.typography.labelLarge, color = Color.White, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            tr("Sure", "Persze"), style = MaterialTheme.typography.labelLarge, color = Color.White, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(Brand.Moss).tappable { onStats(true) }.padding(vertical = 10.dp),
         )
         Text(
-            "No thanks", style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            tr("No thanks", "Köszi, nem"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(Brand.Sage).tappable { onStats(false) }.padding(vertical = 10.dp),
         )
     }
@@ -468,7 +470,7 @@ private fun DoneRow(task: TaskDef, day: DayState, onUndo: (TaskDef) -> Unit) = R
     verticalAlignment = Alignment.CenterVertically,
 ) {
     Box(Modifier.size(24.dp).clip(CircleShape).background(Brand.Moss), contentAlignment = Alignment.Center) {
-        Icon(Icons.Filled.Check, "Done", tint = Color.White, modifier = Modifier.size(14.dp))
+        Icon(Icons.Filled.Check, tr("Done", "Kész"), tint = Color.White, modifier = Modifier.size(14.dp))
     }
     Spacer(Modifier.width(10.dp))
     Text(
@@ -477,7 +479,7 @@ private fun DoneRow(task: TaskDef, day: DayState, onUndo: (TaskDef) -> Unit) = R
     )
     day.grants[task.id]?.takeIf { it > 0 }?.let { Text("+$it", style = MaterialTheme.typography.labelLarge, color = Brand.Moss) }
     if (task.manual) Text(
-        "Undo", style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
+        tr("Undo", "Visszavonás"), style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
         modifier = Modifier.padding(start = 8.dp).clip(RoundedCornerShape(8.dp)).tappable { onUndo(task) }.padding(horizontal = 6.dp, vertical = 2.dp),
     )
 }
@@ -499,24 +501,24 @@ private fun NextSteps(
     val name = avatar.displayName
     val steps = listOfNotNull(
         // First, so the pause keeps working: one "Allow" in a system dialog.
-        if (battery) Step("sparkle", "Keep $name awake", "Keeps the pause working in the background.", "Allow", onBattery) else null,
+        if (battery) Step("sparkle", tr("Keep $name awake", "Maradjon ébren: $name"), tr("Keeps the pause working in the background.", "Így a szünet a háttérben is működik."), tr("Allow", "Engedélyezem"), onBattery) else null,
         health?.let {
             Step(
                 "heart", "Health Connect",
-                "Walks, workouts and sleep count by themselves.", if (it == HealthConnect.Status.NEEDS_INSTALL) "Install" else "Connect", onHealth,
+                tr("Walks, workouts and sleep count by themselves.", "A séták, az edzések és az alvás maguktól beszámítanak."), if (it == HealthConnect.Status.NEEDS_INSTALL) tr("Install", "Telepítés") else tr("Connect", "Összekötés"), onHealth,
             )
         },
-        if (widget) Step("sun", "Home screen widget", "$name at a glance, next to your apps.", "Add", onWidget) else null,
-        if (notes) Step("moon", "Calm evenings", "An evening recap, sleepy pauses at night and a Sunday letter.", "Turn on", onNotes) else null,
+        if (widget) Step("sun", tr("Home screen widget", "Widget a kezdőképernyőre"), tr("$name at a glance, next to your apps.", "$name egy pillantásra, az appjaid mellett."), tr("Add", "Hozzáadás"), onWidget) else null,
+        if (notes) Step("moon", tr("Calm evenings", "Nyugodt esték"), tr("An evening recap, sleepy pauses at night and a Sunday letter.", "Esti összefoglaló, álmos szünetek éjjel és egy vasárnapi levél."), tr("Turn on", "Bekapcsolom"), onNotes) else null,
     )
     val pager = androidx.compose.foundation.pager.rememberPagerState { steps.size }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
-            if (steps.size > 1) "NEXT STEPS · ${pager.currentPage + 1} OF ${steps.size}" else "NEXT STEP",
+            if (steps.size > 1) tr("NEXT STEPS · ${pager.currentPage + 1} OF ${steps.size}", "KÖVETKEZŐ LÉPÉSEK · ${pager.currentPage + 1} / ${steps.size}") else tr("NEXT STEP", "KÖVETKEZŐ LÉPÉS"),
             style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f),
         )
         Text(
-            "Not now", style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
+            tr("Not now", "Most nem"), style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
             modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onDismiss).padding(horizontal = 8.dp, vertical = 4.dp),
         )
     }
@@ -600,8 +602,8 @@ private fun GoalTiles(
             val done = round.count { it.done }
             Tile(Modifier.weight(1f), onClick = { if (waiting > 0 || next == null) onOpenClearing() else onStep(next) }) {
                 Ring(done / round.size.toFloat(), "$done/${round.size}")
-                Text("Challenges", style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), maxLines = 1)
-                Text(if (waiting > 0) "$waiting to claim" else next?.let { "Next: +${it.acorns}" } ?: "All done", style = small, color = Brand.Muted, maxLines = 1)
+                Text(tr("Challenges", "Kihívások"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), maxLines = 1)
+                Text(if (waiting > 0) tr("$waiting to claim", "$waiting makk vár") else next?.let { tr("Next: +${it.acorns}", "Következő: +${it.acorns}") } ?: tr("All done", "Mind megvan"), style = small, color = Brand.Muted, maxLines = 1)
             }
         }
         quest?.let { q ->
@@ -612,16 +614,16 @@ private fun GoalTiles(
                 }
                 Text(q.title, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp, lineHeight = 16.sp), color = if (claimable) Color.White else Brand.Ink, maxLines = 2)
                 Text(
-                    when { questClaimed -> "Done today"; claimable -> "Tap: +${q.acorns} acorns"; else -> "Quest · +${q.acorns}" },
+                    when { questClaimed -> tr("Done today", "Ma megvan"); claimable -> tr("Tap: +${q.acorns} acorns", "Koppints: +${q.acorns} makk"); else -> tr("Quest · +${q.acorns}", "Küldetés · +${q.acorns}") },
                     style = small, color = if (claimable) Color.White.copy(alpha = 0.85f) else Brand.Muted, maxLines = 1,
                 )
             }
         }
         level?.let { l ->
             Tile(Modifier.weight(1f), onClick = onOpenInsights) {
-                Ring(l.fraction, "LV ${l.level}")
-                Text("Level ${l.level}", style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), maxLines = 1)
-                Text(challenge?.let { if (it.done) "Week's goal done" else "${it.progress.coerceAtMost(it.target)}/${it.target} this week" } ?: "${l.into}/${l.needed} XP", style = small, color = Brand.Muted, maxLines = 1)
+                Ring(l.fraction, tr("LV ${l.level}", "${l.level}."))
+                Text(tr("Level ${l.level}", "${l.level}. szint"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), maxLines = 1)
+                Text(challenge?.let { if (it.done) tr("Week's goal done", "Megvan a heti cél") else tr("${it.progress.coerceAtMost(it.target)}/${it.target} this week", "${it.progress.coerceAtMost(it.target)}/${it.target} a héten") } ?: "${l.into}/${l.needed} XP", style = small, color = Brand.Muted, maxLines = 1)
             }
         }
     }
@@ -635,12 +637,12 @@ private fun LevelUpDialog(avatar: Avatar, level: Int, onDone: () -> Unit) = andr
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         BobbingCharacter(avatar, app.tend.core.Mood.OUTSIDE, 120.dp)
-        Text("Level $level!", style = MaterialTheme.typography.headlineMedium, color = Brand.Moss)
+        Text(tr("Level $level!", "$level. szint!"), style = MaterialTheme.typography.headlineMedium, color = Brand.Moss)
         Text(
-            "${avatar.displayName} levelled up. Every activity is XP for Body, Mind or Rest, and the weekly goal gives a bonus.",
+            tr("${avatar.displayName} levelled up. Every activity is XP for Body, Mind or Rest, and the weekly goal gives a bonus.", "${avatar.displayName} szintet lépett. Minden tevékenység XP a Testnek, az Elmének vagy a Pihenésnek, a heti cél pedig bónuszt ad."),
             style = MaterialTheme.typography.bodyMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
-        PrimaryButton("Nice", onDone)
+        PrimaryButton(tr("Nice", "Szuper"), onDone)
     }
 }
 
@@ -652,7 +654,7 @@ private fun LevelUpDialog(avatar: Avatar, level: Int, onDone: () -> Unit) = andr
 internal fun TodayHeader(date: java.time.LocalDate, minutes: Triple<Int, Int, Int>?, onMinutes: () -> Unit, button: @Composable () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).then(sharedCamp("header-text") ?: Modifier)) {
-            Text(date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.ENGLISH)), style = MaterialTheme.typography.bodyMedium)
+            Text(date.format(DateTimeFormatter.ofPattern(tr("EEEE, MMMM d", "MMMM d., EEEE"), app.tend.core.Lang.locale)), style = MaterialTheme.typography.bodyMedium)
             Text(greeting(), style = MaterialTheme.typography.headlineMedium)
         }
         // Today's minutes, next to the greeting: what's left, a small bar, what's still to earn.
@@ -664,9 +666,9 @@ internal fun TodayHeader(date: java.time.LocalDate, minutes: Triple<Int, Int, In
 }
 
 private fun greeting(): String = when (java.time.LocalTime.now().hour) {
-    in 5..11 -> "Good morning"
-    in 12..17 -> "Good afternoon"
-    else -> "Good evening"
+    in 5..11 -> tr("Good morning", "Jó reggelt")
+    in 12..17 -> tr("Good afternoon", "Szép napot")
+    else -> tr("Good evening", "Szép estét")
 }
 
 @Composable
@@ -695,7 +697,7 @@ internal fun TaskRow(
     val measured = !(workoutTimer && !exerciseTracked) && task.verification == Verification.AUTOMATIC && (health == HealthConnect.Status.READY || estimated)
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (done) Box(Modifier.size(44.dp).clip(CircleShape).background(Brand.Moss), contentAlignment = Alignment.Center) {
-            Icon(Icons.Filled.Check, "Done", tint = Color.White, modifier = Modifier.size(22.dp))
+            Icon(Icons.Filled.Check, tr("Done", "Kész"), tint = Color.White, modifier = Modifier.size(22.dp))
         } else TendIcons.Badge(task.icon)
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
@@ -705,14 +707,18 @@ internal fun TaskRow(
             )
             Text(
                 when {
-                    done -> day.grants[task.id]?.takeIf { it > 0 }?.let { "+$it min earned" } ?: "Done for today"
-                    workoutTimer && !(measured && progress != null) -> "+${task.rewardMinutes} min · ${task.target} min, phone off"
-                    task.verification != Verification.AUTOMATIC -> "+${task.rewardMinutes} min · ${task.subtitle.substringAfter("· ")}"
-                    estimated && progress != null -> "About " + progressLabel(task, progress).replace(" sleep last night", ", from your screen")
+                    done -> day.grants[task.id]?.takeIf { it > 0 }?.let { tr("+$it min earned", "+$it perc megszerezve") } ?: tr("Done for today", "Mára megvan")
+                    workoutTimer && !(measured && progress != null) -> tr("+${task.rewardMinutes} min · ${task.target} min, phone off", "+${task.rewardMinutes} perc · ${task.target} perc, telefon nélkül")
+                    task.verification != Verification.AUTOMATIC -> tr("+${task.rewardMinutes} min", "+${task.rewardMinutes} perc") + " · ${task.subtitle.substringAfter("· ")}"
+                    // Estimated from the screen at night: said so, in each language's own order.
+                    estimated && progress != null -> tr(
+                        "About " + progressLabel(task, progress).replace(" sleep last night", ", from your screen"),
+                        "Kb. " + progressLabel(task, progress).replace(" tegnap éjjel", ", a képernyőd alapján"),
+                    )
                     measured && progress != null -> progressLabel(task, progress)
-                    task.id == Tasks.SLEEP.id -> "+${task.rewardMinutes} min · from your tracker or your screen at night"
-                    health == HealthConnect.Status.UNSUPPORTED -> "Health Connect isn't available on this phone"
-                    else -> "+${task.rewardMinutes} min"
+                    task.id == Tasks.SLEEP.id -> tr("+${task.rewardMinutes} min · from your tracker or your screen at night", "+${task.rewardMinutes} perc · az órádból vagy az éjszakai képernyőhasználatból")
+                    health == HealthConnect.Status.UNSUPPORTED -> tr("Health Connect isn't available on this phone", "A Health Connect ezen a telefonon nem érhető el")
+                    else -> tr("+${task.rewardMinutes} min", "+${task.rewardMinutes} perc")
                 },
                 style = MaterialTheme.typography.bodyMedium,
             )
@@ -721,12 +727,12 @@ internal fun TaskRow(
             val needsHealth = auto && !measured && task.id != Tasks.SLEEP.id && !workoutTimer
             if (!done && !(task.id == Tasks.SLEEP.id && !measured)) Text(
                 when {
-                    workoutTimer && exerciseTracked && health == HealthConnect.Status.READY -> "Counted by Health Connect, or use the timer"
-                    workoutTimer || task.verification.timed -> "A timer: keep the phone down"
-                    task.manual -> "You tick it off"
-                    estimated -> "Estimated from your screen at night"
-                    needsHealth -> "Needs Health Connect to count"
-                    else -> "Counted by Health Connect, nothing to do"
+                    workoutTimer && exerciseTracked && health == HealthConnect.Status.READY -> tr("Counted by Health Connect, or use the timer", "A Health Connect számolja, vagy használd az időzítőt")
+                    workoutTimer || task.verification.timed -> tr("A timer: keep the phone down", "Időzítő: tedd le a telefont")
+                    task.manual -> tr("You tick it off", "Te pipálod ki")
+                    estimated -> tr("Estimated from your screen at night", "Az éjszakai képernyőhasználatból becsülve")
+                    needsHealth -> tr("Needs Health Connect to count", "Health Connect kell a számoláshoz")
+                    else -> tr("Counted by Health Connect, nothing to do", "A Health Connect számolja, nincs vele dolgod")
                 },
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, letterSpacing = 0.sp),
                 color = if (needsHealth) Brand.Coral else Brand.Muted, modifier = Modifier.padding(top = 2.dp),
@@ -734,13 +740,13 @@ internal fun TaskRow(
         }
         when {
             done && task.manual -> Text(
-                "Undo", style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
+                tr("Undo", "Visszavonás"), style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
                 modifier = Modifier.tappable { onUndo(task) }.padding(8.dp),
             )
             done -> Unit
             task.verification.timed || workoutTimer ->
-                ChipButton(focusSecondsLeft?.let { "%d:%02d".format(it / 60, it % 60) } ?: "Start", { onStartFocus(task) })
-            task.manual -> ChipButton("Done", { onCheckOff(task) })
+                ChipButton(focusSecondsLeft?.let { "%d:%02d".format(it / 60, it % 60) } ?: tr("Start", "Indítás"), { onStartFocus(task) })
+            task.manual -> ChipButton(tr("Done", "Kész"), { onCheckOff(task) })
             else -> Pill("+${task.rewardMinutes}")
         }
     }
@@ -778,9 +784,9 @@ private fun FloatingIcons(icon: String) {
 }
 
 private fun progressLabel(task: TaskDef, progress: Long): String = when (task.id) {
-    Tasks.OUTSIDE.id -> "%,d of %,d steps".format(Locale.ENGLISH, progress, task.target)
-    Tasks.SLEEP.id -> "%d h %02d of %d h sleep last night".format(Locale.ENGLISH, progress / 60, progress % 60, task.target / 60)
-    else -> "$progress of ${task.target} min of exercise"
+    Tasks.OUTSIDE.id -> tr("%,d of %,d steps", "%,d / %,d lépés").format(app.tend.core.Lang.locale, progress, task.target)
+    Tasks.SLEEP.id -> tr("%d h %02d of %d h sleep last night", "%d ó %02d p alvás a %d órából tegnap éjjel").format(app.tend.core.Lang.locale, progress / 60, progress % 60, task.target / 60)
+    else -> tr("$progress of ${task.target} min of exercise", "$progress / ${task.target} perc mozgás")
 }
 
 /** Short moment of joy when a task completes: the character goes outside, minutes are credited. */
@@ -793,13 +799,13 @@ fun Celebration(avatar: Avatar, tasks: List<TaskDef>, minutes: Int, onUndo: (() 
     ) {
         BobbingCharacter(avatar, app.tend.core.Mood.OUTSIDE, 140.dp)
         // The manual cap is an internal rule: past it, no minutes, but the moment still counts.
-        if (minutes > 0) Text("+$minutes min", style = MaterialTheme.typography.headlineLarge, color = Brand.Moss)
+        if (minutes > 0) Text(tr("+$minutes min", "+$minutes perc"), style = MaterialTheme.typography.headlineLarge, color = Brand.Moss)
         Row(horizontalArrangement = Arrangement.spacedBy(Space.s), verticalAlignment = Alignment.CenterVertically) {
             tasks.forEach { TendIcons.Badge(it.icon, 32.dp) }
             Text(tasks.joinToString(" · ") { it.title }, style = MaterialTheme.typography.titleMedium)
         }
         Text(
-            if (minutes > 0) "${avatar.displayName} loved that. Minutes are yours for today." else "${avatar.displayName} loved that.",
+            if (minutes > 0) tr("${avatar.displayName} loved that. Minutes are yours for today.", "${avatar.displayName} imádta. A percek ma a tieid.") else tr("${avatar.displayName} loved that.", "${avatar.displayName} imádta."),
             style = MaterialTheme.typography.bodyMedium,
         )
         // Done while a friend was phone-free too.
@@ -807,13 +813,13 @@ fun Celebration(avatar: Avatar, tasks: List<TaskDef>, minutes: Int, onUndo: (() 
             Modifier.clip(RoundedCornerShape(50)).background(Brand.Sage).padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Together with $together at the fire: +${app.tend.core.Acorns.TOGETHER_FIRE}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+            Text(tr("Together with $together at the fire: +${app.tend.core.Acorns.TOGETHER_FIRE}", "Együtt a tűznél: $together veled tartott, +${app.tend.core.Acorns.TOGETHER_FIRE}"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
             Spacer(Modifier.width(4.dp))
             AcornIcon(14.dp)
         }
-        PrimaryButton("Nice", onDismiss, modifier = Modifier.padding(top = 8.dp))
+        PrimaryButton(tr("Nice", "Szuper"), onDismiss, modifier = Modifier.padding(top = 8.dp))
         if (onUndo != null) Text(
-            "Oops, undo", style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
+            tr("Oops, undo", "Hoppá, visszavonom"), style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
             modifier = Modifier.tappable(onClick = onUndo).padding(8.dp),
         )
     }
@@ -847,12 +853,12 @@ private fun FocusTimerContent(
     val phoneFree = app.tend.core.PhoneFree.runsPhoneFree(task)
     Text(
         when {
-            hello -> "HERE WE GO!"
-            task.id == Tasks.MOVE.id -> "WORKOUT, PHONE OFF"
-            task.id == Tasks.TIMER_ID -> "FOCUS TIME"
-            phoneFree -> "PHONE-FREE TIME"
-            task.id == Tasks.LEARN.id -> "LEARNING TOGETHER"
-            else -> "READING TOGETHER"
+            hello -> tr("HERE WE GO!", "KEZDJÜK!")
+            task.id == Tasks.MOVE.id -> tr("WORKOUT, PHONE OFF", "EDZÉS, TELEFON NÉLKÜL")
+            task.id == Tasks.TIMER_ID -> tr("FOCUS TIME", "FÓKUSZIDŐ")
+            phoneFree -> tr("PHONE-FREE TIME", "TELEFONMENTES IDŐ")
+            task.id == Tasks.LEARN.id -> tr("LEARNING TOGETHER", "EGYÜTT TANULUNK")
+            else -> tr("READING TOGETHER", "EGYÜTT OLVASUNK")
         },
         style = MaterialTheme.typography.labelSmall,
     )
@@ -899,38 +905,39 @@ private fun FocusTimerContent(
     Text(task.title, style = MaterialTheme.typography.titleLarge)
     if (phoneFree) {
         Text(
-            "Lock your phone and put it away. ${avatar.displayName} keeps time and lets you know when it's done: +${task.rewardMinutes} min.",
+            tr("Lock your phone and put it away. ${avatar.displayName} keeps time and lets you know when it's done: +${task.rewardMinutes} min.", "Zárd le a telefonod, és tedd félre. ${avatar.displayName} méri az időt, és szól, ha megvan: +${task.rewardMinutes} perc."),
             style = MaterialTheme.typography.bodyMedium,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
         val left = (app.tend.core.PhoneFree.GRACE_SECONDS - screenOnSeconds).coerceAtLeast(0)
-        Pill("Other apps allowed: %d:%02d left".format(left / 60, left % 60), if (left < 60) Brand.Coral.copy(alpha = 0.2f) else Brand.Sage)
+        Pill(tr("Other apps allowed: %d:%02d left", "Más appokra még: %d:%02d").format(left / 60, left % 60), if (left < 60) Brand.Coral.copy(alpha = 0.2f) else Brand.Sage)
     } else if (task.id == Tasks.TIMER_ID) Text(
-        "Every app waits until the timer ends. ${avatar.displayName} keeps time with you.",
+        tr("Every app waits until the timer ends. ${avatar.displayName} keeps time with you.", "Minden app megvárja, míg lejár az időzítő. ${avatar.displayName} veled méri az időt."),
         style = MaterialTheme.typography.bodyMedium,
         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
     ) else Text(
-        "${avatar.displayName} is ${if (task.id == Tasks.LEARN.id) "learning" else "reading"} with you. +${task.rewardMinutes} min when the timer ends. " +
-            "You can leave tend; opening a paused app ends the session.",
+        tr("${avatar.displayName} is ${if (task.id == Tasks.LEARN.id) "learning" else "reading"} with you. +${task.rewardMinutes} min when the timer ends. ", "${avatar.displayName} veled ${if (task.id == Tasks.LEARN.id) "tanul" else "olvas"}. +${task.rewardMinutes} perc, amikor lejár az időzítő. ") +
+            tr("You can leave tend; opening a paused app ends the session.", "Kiléphetsz a tendből; ha megnyitsz egy szüneteltetett appot, az véget vet neki."),
         style = MaterialTheme.typography.bodyMedium,
         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
     )
-    SecondaryButton("Stop for now", onCancel, modifier = Modifier.padding(horizontal = Space.xxl))
+    SecondaryButton(tr("Stop for now", "Most abbahagyom"), onCancel, modifier = Modifier.padding(horizontal = Space.xxl))
 }
 
 
 /** Today's minutes in a header: what's left, a small bar of it, and what's still to earn. Home and the camp. */
 @Composable
 fun MinutesSummary(remaining: Int, available: Int, toEarn: Int, modifier: Modifier = Modifier, onClick: () -> Unit = {}) =
-    Column(modifier.width(96.dp).tappable(onClick = onClick), horizontalAlignment = Alignment.End) {
+    // A little wider in Hungarian: "perc maradt" is longer than "min left".
+    Column(modifier.width(if (app.tend.core.Lang.hu) 118.dp else 96.dp).tappable(onClick = onClick), horizontalAlignment = Alignment.End) {
         Row(verticalAlignment = Alignment.Bottom) {
             Text(if (remaining > 0) "$remaining" else "0", style = MaterialTheme.typography.headlineMedium, color = if (remaining > 0) Brand.Moss else Brand.Coral)
             Spacer(Modifier.width(4.dp))
-            Text("min left", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Ink, modifier = Modifier.padding(bottom = 4.dp))
+            Text(tr("min left", "perc maradt"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Ink, modifier = Modifier.padding(bottom = 4.dp))
         }
         val left by animateFloatAsState((remaining.toFloat() / available.coerceAtLeast(1)).coerceIn(0f, 1f), tween(700), label = "left")
         Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(50)).background(Brand.Card)) {
             Box(Modifier.fillMaxWidth(left).height(5.dp).clip(RoundedCornerShape(50)).background(if (remaining > 0) Brand.Mint else Brand.Coral))
         }
-        Text("+$toEarn to earn", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted)
+        Text(tr("+$toEarn to earn", "+$toEarn szerezhető"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted)
     }

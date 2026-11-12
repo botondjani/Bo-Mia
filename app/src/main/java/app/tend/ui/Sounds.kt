@@ -1,5 +1,7 @@
 package app.tend.ui
 
+import app.tend.core.tr
+
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
@@ -16,9 +18,9 @@ import kotlin.math.sin
 object Sounds {
     /** The kinds of sound, each with its own switch. */
     enum class Kind(val key: String, val title: String, val about: String) {
-        MUSIC("sound_music", "Music", "The guitar, music box tunes"),
-        CAMP("sound_camp", "Camp sounds", "The fire, the river, the swing, the birds"),
-        LITTLE("sound_little", "Little sounds", "Acorns, chimes, things put down"),
+        MUSIC("sound_music", tr("Music", "Zene"), tr("The guitar, music box tunes", "A gitár és a zenedoboz dallamai")),
+        CAMP("sound_camp", tr("Camp sounds", "A tábor hangjai"), tr("The fire, the river, the swing, the birds", "A tűz, a folyó, a hinta, a madarak")),
+        LITTLE("sound_little", tr("Little sounds", "Apró hangok"), tr("Acorns, chimes, things put down", "Makkok, csilingelés, letett tárgyak")),
     }
     private const val RATE = 22050
     private val worker = Executors.newSingleThreadExecutor()
@@ -118,7 +120,7 @@ object Sounds {
                 track.write(pcm, 0, pcm.size)
                 track.play()
             }
-        }.onFailure { android.util.Log.w("Sounds", "Couldn't play $key", it) }
+        }.onFailure { android.util.Log.w(tr("Sounds", "Hangok"), "Couldn't play $key", it) }
     }
 
     // ---- Making the sounds ----

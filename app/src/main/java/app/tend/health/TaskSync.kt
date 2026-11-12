@@ -1,5 +1,7 @@
 package app.tend.health
 
+import app.tend.core.tr
+
 import android.content.Context
 import kotlinx.coroutines.launch
 import app.tend.core.Budget
@@ -115,7 +117,7 @@ object TaskSync {
                 val together = app.tend.data.Friends.overlapping(context, start, now)
                 if (together.isNotEmpty()) {
                     store.addAcorns(app.tend.core.Acorns.TOGETHER_FIRE, "together_fire")
-                    store.togetherWith = together.joinToString(" and ") { it.name }
+                    store.togetherWith = together.joinToString(tr(" and ", " és ")) { it.name }
                     app.tend.data.Stats.log(context, "fire_together", mapOf("friends" to together.size))
                 }
                 TimerResult.DONE

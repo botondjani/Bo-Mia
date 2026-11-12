@@ -1,5 +1,7 @@
 package app.tend
 
+import app.tend.core.tr
+
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 
@@ -189,7 +191,7 @@ class MainActivity : ComponentActivity() {
         val body = "\n\n—\ntend ${BuildConfig.VERSION_NAME} · ${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}"
         open(
             Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:")).putExtra(Intent.EXTRA_EMAIL, arrayOf(mail))
-                .putExtra(Intent.EXTRA_SUBJECT, "tend feedback").putExtra(Intent.EXTRA_TEXT, body),
+                .putExtra(Intent.EXTRA_SUBJECT, tr("tend feedback", "tend visszajelzés")).putExtra(Intent.EXTRA_TEXT, body),
         )
     }
 
@@ -228,7 +230,7 @@ class MainActivity : ComponentActivity() {
         store.monitorSlept = false
         if (BuildConfig.PLAY) {
             // Play build: the system list, where the user picks tend and "Don't optimise".
-            hint("Find tend and choose \"Don't optimise\"")
+            hint(tr("Find tend and choose \"Don't optimise\"", "Keresd meg a tendet, és válaszd: „Ne optimalizálja”"))
             open(highlightTend(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)))
         } else {
             @android.annotation.SuppressLint("BatteryLife") // side-loaded build; the pause depends on it
@@ -391,13 +393,13 @@ class MainActivity : ComponentActivity() {
                     // Open a paused app: the pause comes up, and "Not now" is right there.
                     val launch = store.blockedPackages.firstNotNullOfOrNull { packageManager.getLaunchIntentForPackage(it) }
                     if (launch != null && permissions().allGranted) startActivity(launch)
-                    else Toast.makeText(this, "Open one of your paused apps, then tap \"Not now\".", Toast.LENGTH_LONG).show()
+                    else Toast.makeText(this, tr("Open one of your paused apps, then tap \"Not now\".", "Nyisd meg az egyik szüneteltetett appodat, aztán koppints a „Most nem” gombra."), Toast.LENGTH_LONG).show()
                 }
                 app.tend.core.Step.WIDGET -> if (!pinWidget()) screen = Screen.SETTINGS
                 app.tend.core.Step.FRIEND, app.tend.core.Step.TOGETHER -> { campInvite = step == app.tend.core.Step.FRIEND; screen = Screen.CLEARING }
                 app.tend.core.Step.THREE_DAYS, app.tend.core.Step.TEN_ACTIVITIES -> { screen = Screen.HOME; activitiesFocus++ }
                 app.tend.core.Step.EARLY_NIGHT -> if (app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour)) screen = Screen.RECAP
-                    else Toast.makeText(this, "In the evening, open the recap and tap Good night.", Toast.LENGTH_LONG).show()
+                    else Toast.makeText(this, tr("In the evening, open the recap and tap Good night.", "Este nyisd meg az összefoglalót, és koppints a Jó éjt gombra."), Toast.LENGTH_LONG).show()
                 else -> screen = Screen.CLEARING
             }
         }
@@ -418,7 +420,7 @@ class MainActivity : ComponentActivity() {
             synced++
             // A newly earned accessory gets a little moment.
             store.takeNewAccessories().firstOrNull()?.let {
-                Toast.makeText(this@MainActivity, "${store.avatar.displayName} got a ${it.title.lowercase()}!", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@MainActivity, tr("${store.avatar.displayName} got a ${it.title.lowercase()}!", "${store.avatar.displayName} új holmit kapott: ${it.title.lowercase()}!"), Toast.LENGTH_LONG).show()
             }
             shelf = store.accessories()
         }
@@ -508,7 +510,7 @@ class MainActivity : ComponentActivity() {
             val open = timed.filter { it.id !in store.today().completedTasks }
             val task = open.firstOrNull { it.id == f.task } ?: open.firstOrNull() ?: timed.firstOrNull { it.id == f.task } ?: timed.firstOrNull()
             if (task == null) {
-                android.widget.Toast.makeText(this, "Pick a phone-free activity first (like a hobby or reading), then join ${f.name}.", android.widget.Toast.LENGTH_LONG).show()
+                android.widget.Toast.makeText(this, tr("Pick a phone-free activity first (like a hobby or reading), then join ${f.name}.", "Előbb válassz egy telefonmentes tevékenységet (például hobbit vagy olvasást), aztán csatlakozhatsz: ${f.name} vár."), android.widget.Toast.LENGTH_LONG).show()
                 screen = Screen.SETTINGS
             } else if (store.focusStartedAt == 0L) {
                 app.tend.data.Stats.log(this, "fire_join")
@@ -520,7 +522,7 @@ class MainActivity : ComponentActivity() {
         // Answering a call to the fire: with them if they're there already, else starting it for both.
         val answerCall: () -> Unit = {
             val call = app.tend.data.Friends.fireCall(this)
-            join(atFire.firstOrNull { it.id == call?.from } ?: atFire.firstOrNull() ?: app.tend.data.Friends.AtFire(call?.from.orEmpty(), call?.name ?: "your friend", "BO", 0, 0, ""))
+            join(atFire.firstOrNull { it.id == call?.from } ?: atFire.firstOrNull() ?: app.tend.data.Friends.AtFire(call?.from.orEmpty(), call?.name ?: tr("your friend", "a barátod"), "BO", 0, 0, ""))
         }
         LaunchedEffect(joinFire, atFire) { if (joinFire) { joinFire = false; answerCall() } }
         val fireGuests = atFire.map { (runCatching { app.tend.core.Avatar.valueOf(it.companion) }.getOrDefault(app.tend.core.Avatar.BO)) to it.name }
@@ -612,7 +614,7 @@ class MainActivity : ComponentActivity() {
                 onAddWidget = ::pinWidget,
                 onAddTile = if (Build.VERSION.SDK_INT >= 33) ({
                     getSystemService(android.app.StatusBarManager::class.java).requestAddTileService(
-                        android.content.ComponentName(this, app.tend.monitor.PhoneDownTile::class.java), "Phone down",
+                        android.content.ComponentName(this, app.tend.monitor.PhoneDownTile::class.java), tr("Phone down", "Telefon le"),
                         android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_t_hourglass), mainExecutor,
                     ) { }
                 }) else null,
@@ -797,8 +799,8 @@ class MainActivity : ComponentActivity() {
                         startActivity(
                             Intent.createChooser(
                                 Intent(Intent.ACTION_SEND).setType("text/plain")
-                                    .putExtra(Intent.EXTRA_SUBJECT, "tend crash report").putExtra(Intent.EXTRA_TEXT, report),
-                                "Share crash report",
+                                    .putExtra(Intent.EXTRA_SUBJECT, tr("tend crash report", "tend hibajelentés")).putExtra(Intent.EXTRA_TEXT, report),
+                                tr("Share crash report", "Hibajelentés megosztása"),
                             ),
                         )
                         refresh++
@@ -1033,7 +1035,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun strictNo() =
-        android.widget.Toast.makeText(this, "Strict mode is on: things can only get tighter until it ends.", android.widget.Toast.LENGTH_LONG).show()
+        android.widget.Toast.makeText(this, tr("Strict mode is on: things can only get tighter until it ends.", "Szigorú mód van: amíg tart, csak szigorítani lehet."), android.widget.Toast.LENGTH_LONG).show()
 
     /** Where the user put things in the camp, for drawing it. */
     private fun campLayout() = store.layout.mapValues { androidx.compose.ui.geometry.Offset(it.value.first, it.value.second) }
@@ -1121,7 +1123,7 @@ class MainActivity : ComponentActivity() {
         usageAttempted = true
         launched = Launched.USAGE
         returnWhenGranted { permissions().usageAccess }
-        hint("Switch on usage access for tend")
+        hint(tr("Switch on usage access for tend", "Kapcsold be a használati hozzáférést a tendnek"))
         // Straight to tend's own switch where the phone supports it, else the list scrolled to tend.
         open(highlightTend(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:$packageName"))), highlightTend(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)))
     }
@@ -1130,7 +1132,7 @@ class MainActivity : ComponentActivity() {
         overlayAttempted = true
         launched = Launched.OVERLAY
         returnWhenGranted { Settings.canDrawOverlays(this) }
-        hint("Find tend in the list and switch it on")
+        hint(tr("Find tend in the list and switch it on", "Keresd meg a tendet a listában, és kapcsold be"))
         open(highlightTend(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))), highlightTend(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)))
     }
 
@@ -1142,10 +1144,10 @@ class MainActivity : ComponentActivity() {
         tripped = true
         launched = Launched.TRIP
         // Back as soon as Android has said no (or yes, on phones without the lock), where Android lets us.
-        returnWhenGranted("Done! Press back to return to tend") {
+        returnWhenGranted(tr("Done! Press back to return to tend", "Kész! A vissza gombbal térhetsz vissza a tendbe")) {
             restrictedMode() == AppOpsManager.MODE_IGNORED || permissions().let { it.overlay || it.usageAccess }
         }
-        hint("Tap tend's switch. Android will say it's restricted: tap OK")
+        hint(tr("Tap tend's switch. Android will say it's restricted: tap OK", "Koppints a tend kapcsolójára. Az Android azt írja majd, hogy korlátozott: nyomj OK-t"))
         // tend's own usage-access switch where the phone supports it, else the list scrolled to tend.
         open(
             highlightTend(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:$packageName"))),
@@ -1155,8 +1157,8 @@ class MainActivity : ComponentActivity() {
 
     private fun openUnlock() {
         launched = Launched.APP_INFO
-        returnWhenGranted("Unlocked! Press back to return to tend") { restrictedMode() == AppOpsManager.MODE_ALLOWED }
-        hint("Tap ⋮ in the top right, then \"Allow restricted settings\"")
+        returnWhenGranted(tr("Unlocked! Press back to return to tend", "Feloldva! A vissza gombbal térhetsz vissza a tendbe")) { restrictedMode() == AppOpsManager.MODE_ALLOWED }
+        hint(tr("Tap ⋮ in the top right, then \"Allow restricted settings\"", "Koppints jobb fent a ⋮ ikonra, aztán: „Korlátozott beállítások engedélyezése”"))
         open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
     }
 

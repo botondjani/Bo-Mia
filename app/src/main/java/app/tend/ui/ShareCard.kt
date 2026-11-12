@@ -1,5 +1,7 @@
 package app.tend.ui
 
+import app.tend.core.tr
+
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -80,20 +82,20 @@ object ShareCard {
 
         val name = w.avatar.displayName
         // A small label chip, then the headline: what the week gave back.
-        val label = "${name.uppercase()}'S CAMP · LEVEL ${w.level}"
+        val label = tr("${name.uppercase()}'S CAMP · LEVEL ${w.level}", "${name.uppercase()} TÁBORA · ${w.level}. SZINT")
         paint.typeface = nunitoBold; paint.textSize = 28f; paint.letterSpacing = 0.12f
         val lw = paint.measureText(label)
         paint.color = MINT_SOFT
         c.drawRoundRect(RectF(64f, 72f, 64f + lw + 44f, 124f), 26f, 26f, paint)
         text(label, 86f, 108f, 28f, MOSS, nunitoBold, 0.12f)
         if (w.gotBackMinutes > 0) {
-            text("I got back", 64f, 220f, 66f, INK, fredoka)
+            text(tr("I got back", "Ezen a héten"), 64f, 220f, 66f, INK, fredoka)
             text(duration(w.gotBackMinutes), 64f, 340f, 124f, MOSS, fredoka)
-            text("from scrolling this week.", 64f, 418f, 54f, INK, fredoka)
+            text(tr("from scrolling this week.", "nem ment el görgetésre."), 64f, 418f, 54f, INK, fredoka)
         } else {
-            text("We're building", 64f, 236f, 84f, INK, fredoka)
-            text("a camp.", 64f, 336f, 84f, MOSS, fredoka)
-            text("One small thing at a time.", 64f, 416f, 48f, INK, fredoka)
+            text(tr("We're building", "Tábort"), 64f, 236f, 84f, INK, fredoka)
+            text(tr("a camp.", "építünk."), 64f, 336f, 84f, MOSS, fredoka)
+            text(tr("One small thing at a time.", "Egyszerre csak egy apróság."), 64f, 416f, 48f, INK, fredoka)
         }
 
         // The clearing, as it is today, in a white frame that lifts off the page.
@@ -104,9 +106,9 @@ object ShareCard {
 
         // Three small facts, each its own little card.
         val facts = listOf(
-            "${w.placed.size}" to if (w.placed.size == 1) "thing at camp" else "things at camp",
-            "${w.activeDays}" to if (w.activeDays == 1) "active day" else "active days",
-            "${w.letGo}" to if (w.letGo == 1) "scroll let go" else "scrolls let go",
+            "${w.placed.size}" to if (w.placed.size == 1) tr("thing at camp", "tárgy a táborban") else tr("things at camp", "tárgy a táborban"),
+            "${w.activeDays}" to if (w.activeDays == 1) tr("active day", "aktív nap") else tr("active days", "aktív nap"),
+            "${w.letGo}" to if (w.letGo == 1) tr("scroll let go", "elengedett görgetés") else tr("scrolls let go", "elengedett görgetés"),
         )
         val pillW = (W - 104 - 2 * 20) / 3f
         // A first week with nothing yet: no row of zeros.
@@ -122,12 +124,12 @@ object ShareCard {
         card(RectF(52f, 1190f, 52f + faceSize + 16, 1190f + faceSize + 16), (faceSize + 16) / 2f)
         c.drawBitmap(app.tend.ui.CharacterPainter.bitmap(w.avatar, app.tend.core.Mood.HAPPY, faceSize, w.worn), 60f, 1196f, null)
         text("tend", 196f, 1262f, 62f, MOSS, fredoka)
-        text("A little pause before you scroll.", 196f, 1302f, 27f, MUTED, nunito)
+        text(tr("A little pause before you scroll.", "Egy kis szünet görgetés előtt."), 196f, 1302f, 27f, MUTED, nunito)
         val qr = 120
         val qx = W - 52f - 14 - qr; val qy = H - 44f - qr
         card(RectF(qx - 14, qy - 14, qx + qr + 14, qy + qr + 14), 24f)
         drawQr(c, playUrl(context), qx, qy, qr.toFloat(), paint)
-        text("Get it on", qx - 30, 1262f, 25f, MUTED, nunito, align = Paint.Align.RIGHT)
+        text(tr("Get it on", "Elérhető itt:"), qx - 30, 1262f, 25f, MUTED, nunito, align = Paint.Align.RIGHT)
         text("Google Play", qx - 30, 1296f, 27f, INK, nunitoBold, align = Paint.Align.RIGHT)
         return bmp
     }
@@ -138,13 +140,13 @@ object ShareCard {
         val file = File(dir, "tend-camp.png")
         file.outputStream().use { render(activity, w).compress(Bitmap.CompressFormat.PNG, 100, it) }
         val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.share", file)
-        val line = if (w.gotBackMinutes > 0) "I got back ${duration(w.gotBackMinutes)} from scrolling this week, and ${w.avatar.displayName}'s camp grew."
-            else "${w.avatar.displayName} and I are building a camp instead of scrolling."
+        val line = if (w.gotBackMinutes > 0) tr("I got back ${duration(w.gotBackMinutes)} from scrolling this week, and ${w.avatar.displayName}'s camp grew.", "Ezen a héten ${duration(w.gotBackMinutes)} nem ment el görgetésre, és közben nőtt a tábor, ahol ${w.avatar.displayName} él.")
+            else tr("${w.avatar.displayName} and I are building a camp instead of scrolling.", "Görgetés helyett tábort építünk: ${w.avatar.displayName} és én.")
         val send = Intent(Intent.ACTION_SEND).setType("image/png")
             .putExtra(Intent.EXTRA_STREAM, uri)
-            .putExtra(Intent.EXTRA_TEXT, "$line\n\ntend: a little pause before you scroll\n${playUrl(activity)}")
+            .putExtra(Intent.EXTRA_TEXT, tr("$line\n\ntend: a little pause before you scroll\n${playUrl(activity)}", "$line\n\ntend: egy kis szünet görgetés előtt\n${playUrl(activity)}"))
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        activity.startActivity(Intent.createChooser(send, "Share your camp"))
+        activity.startActivity(Intent.createChooser(send, tr("Share your camp", "Oszd meg a táborod")))
     }
 
     private fun drawQr(c: Canvas, url: String, x: Float, y: Float, size: Float, paint: Paint) {
@@ -166,5 +168,5 @@ object ShareCard {
         return if (android.os.Build.VERSION.SDK_INT >= 28) Typeface.create(base, weight, false) else Typeface.create(base, if (weight >= 600) Typeface.BOLD else Typeface.NORMAL)
     }
 
-    private fun duration(minutes: Int) = if (minutes >= 60) "${minutes / 60} h ${minutes % 60} min" else "$minutes min"
+    private fun duration(minutes: Int) = if (minutes >= 60) tr("${minutes / 60} h ${minutes % 60} min", "${minutes / 60} ó ${minutes % 60} p") else tr("$minutes min", "$minutes perc")
 }

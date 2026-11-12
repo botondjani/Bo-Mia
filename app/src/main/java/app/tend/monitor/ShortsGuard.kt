@@ -1,5 +1,7 @@
 package app.tend.monitor
 
+import app.tend.core.tr
+
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.graphics.PixelFormat
@@ -42,7 +44,7 @@ class ShortsGuard : AccessibilityService() {
         performGlobalAction(GLOBAL_ACTION_BACK)
         store.countShortsClosed()
         app.tend.data.Stats.log(this, "shorts_closed") // never which app
-        say(store, if (pkg == "com.google.android.youtube") "No Shorts today. The rest of YouTube is all yours." else "No Reels today. Your messages are still here.")
+        say(store, if (pkg == "com.google.android.youtube") tr("No Shorts today. The rest of YouTube is all yours.", "Ma nincs Shorts. A YouTube többi része a tiéd.") else tr("No Reels today. Your messages are still here.", "Ma nincs Reels. Az üzeneteid itt vannak."))
     }
 
     override fun onInterrupt() {}

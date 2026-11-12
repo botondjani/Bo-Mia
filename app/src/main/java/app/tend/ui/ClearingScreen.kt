@@ -1,5 +1,7 @@
 package app.tend.ui
 
+import app.tend.core.tr
+
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.animation.core.animateFloat
@@ -158,7 +160,7 @@ fun ClearingScreen(
 
     // The same header as home, settings and all (nothing moves going between them).
     TodayHeader(java.time.LocalDate.now(), minutes, {}) {
-        IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Settings, "Settings", onOpenSettings)
+        IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Settings, tr("Settings", "Beállítások"), onOpenSettings)
     }
 
     // What friends did: toilet paper unrolls when tapped; a visitor's duck is fished out.
@@ -277,7 +279,7 @@ fun ClearingScreen(
     androidx.compose.runtime.LaunchedEffect(cheers) {
         if (cheers.isEmpty()) return@LaunchedEffect
         kotlinx.coroutines.delay(600)
-        cheerCard = if (cheers.size == 1) "${cheers[0]} cheered you on" else "${cheers.dropLast(1).joinToString(", ")} and ${cheers.last()} cheered you on"
+        cheerCard = if (cheers.size == 1) tr("${cheers[0]} cheered you on", "${cheers[0]} megtapsolt") else tr("${cheers.dropLast(1).joinToString(", ")} and ${cheers.last()} cheered you on", "${cheers.dropLast(1).joinToString(", ")} és ${cheers.last()} megtapsolt")
         tick(firm = true); Sounds.chime(context)
         onCheersShown()
         // Hearts from the companion while the card shows; the card itself stays a few seconds.
@@ -298,7 +300,7 @@ fun ClearingScreen(
         if (pokeAct != null) return
         val i = kotlin.random.Random.nextInt(4)
         pokeAct = listOf("act_cheer", "act_hearts", "act_stretch", "act_cheer")[i]
-        caught = listOf("${avatar.displayName} giggles. That tickles!", "${avatar.displayName} blushes a little.", "${avatar.displayName} stretches and smiles at you.", "${avatar.displayName} does a happy little dance.")[i]
+        caught = listOf(tr("${avatar.displayName} giggles. That tickles!", "${avatar.displayName} kuncog. Ez csikiz!"), tr("${avatar.displayName} blushes a little.", "${avatar.displayName} kicsit elpirul."), tr("${avatar.displayName} stretches and smiles at you.", "${avatar.displayName} nyújtózik egyet, és rád mosolyog."), tr("${avatar.displayName} does a happy little dance.", "${avatar.displayName} örömében táncra perdül."))[i]
         tick(firm = true)
         scope.launch {
             val start = androidx.compose.runtime.withFrameNanos { it }
@@ -322,7 +324,7 @@ fun ClearingScreen(
     androidx.compose.runtime.LaunchedEffect(fresh) {
         val m = fresh.firstOrNull() ?: return@LaunchedEffect
         kotlinx.coroutines.delay(900)
-        caught = "New in your camp: ${m.adds}! (${m.title})"
+        caught = tr("New in your camp: ${m.adds}! (${m.title})", "Új a táborodban: ${m.adds}! (${m.title})")
         burst(MILESTONE_AT.getValue(m)); tick(firm = true); Sounds.chime(context)
         kotlinx.coroutines.delay(2500)
         onMilestonesSeen(setOf(m))
@@ -362,7 +364,7 @@ fun ClearingScreen(
             if (!landed) carries.remove(job)
             onRest(spot)
             carry.value = null
-            if (carries.isEmpty()) { carrying = false; if (caught?.endsWith("carry it over.") == true) caught = null }
+            if (carries.isEmpty()) { carrying = false; if (caught?.endsWith(tr("carry it over.", "átviszi.")) == true) caught = null }
         }
     }
     // Camp life: clouds and weather move, and the companion gets on with things when left alone.
@@ -402,14 +404,14 @@ fun ClearingScreen(
                         // Asleep in the shelter: tapping it lets them sleep (nothing to do there at night).
                         if (nightNow) bedOf(placedNow)?.let { bed ->
                             if (restNow == bed && spotAt(Offset(fx, fy), size.width / size.height.toFloat(), pinnedNow, placedNow) == bed) {
-                                caught = "Shh\u2026 ${avatar.displayName} is asleep in the ${Things.byId(placedNow.getValue(bed))?.name?.lowercase() ?: "tent"}."
+                                caught = tr("Shh\u2026 ${avatar.displayName} is asleep in the ${Things.byId(placedNow.getValue(bed))?.name?.lowercase() ?: "tent"}.", "Pszt… ${avatar.displayName} alszik, itt: ${Things.byId(placedNow.getValue(bed))?.name?.lowercase() ?: "sátor"}.")
                                 tick(); return@detectTapGestures
                             }
                         }
                         // A present from a friend: opened, its acorns fly out.
                         if (giftsNow.isNotEmpty() && kotlin.math.abs(GiftSpot.x - fx) * size.width < size.height * 0.07f && fy in (GiftSpot.y - 0.1f)..(GiftSpot.y + 0.03f)) {
                             val who = giftsNow.distinct()
-                            caught = "${who.joinToString(" and ")} sent you ${if (giftsNow.size == 1) "a present" else "presents"}: ${giftsNow.size * app.tend.data.Friends.GIFT_ACORNS} acorns!"
+                            caught = tr("${who.joinToString(" and ")} sent you ${if (giftsNow.size == 1) "a present" else "presents"}: ${giftsNow.size * app.tend.data.Friends.GIFT_ACORNS} acorns!", "${who.joinToString(" és ")} ${if (giftsNow.size == 1) "ajándékot küldött" else "ajándékokat küldött"}: ${giftsNow.size * app.tend.data.Friends.GIFT_ACORNS} makk!")
                             burst(Offset(GiftSpot.x, GiftSpot.y - 0.05f)); tick(firm = true); Sounds.acorns(context)
                             onOpenGifts()
                             return@detectTapGestures
@@ -418,7 +420,7 @@ fun ClearingScreen(
                         if (duck >= 0) {
                             val n = ducksNow[duck]
                             val total = onCatchDuck(n)
-                            caught = "${n.name}'s duck from their visit. You have $total."
+                            caught = tr("${n.name}'s duck from their visit. You have $total.", "${n.name} kacsája a látogatásából. Már $total van.")
                             burst(DuckSpots[duck]); tick()
                             Sounds.chime(context)
                             return@detectTapGestures
@@ -429,13 +431,13 @@ fun ClearingScreen(
                                 return@detectTapGestures
                             }
                         }
-                        if (paperNow && fx > PAPER_LEFT && fy < PAPER_BOTTOM) { onUnroll(); tick(); caught = "All clean again."; return@detectTapGestures }
+                        if (paperNow && fx > PAPER_LEFT && fy < PAPER_BOTTOM) { onUnroll(); tick(); caught = tr("All clean again.", "Megint minden tiszta."); return@detectTapGestures }
                         // The bridge leads to friends' camps along the river.
                         if (bridgeNow && fx in 0.06f..0.37f && fy in 0.48f..0.62f) { onOpenRiver(null); return@detectTapGestures } // the bridge or its signpost
                         // A thing in the camp: the companion uses it (the guitar: another strum).
                         val hit = spotAt(Offset(fx, fy), size.width / size.height.toFloat(), pinnedNow, placedNow)
                         val thing = hit?.let { placedNow[it] }
-                        if (thing != null && (carrying || carries.isNotEmpty())) { caught = "${avatar.displayName} is busy moving things. One moment!"; return@detectTapGestures }
+                        if (thing != null && (carrying || carries.isNotEmpty())) { caught = tr("${avatar.displayName} is busy moving things. One moment!", "${avatar.displayName} épp pakol. Egy pillanat!"); return@detectTapGestures }
                         if (thing != null) {
                             tick()
                             when {
@@ -469,7 +471,7 @@ fun ClearingScreen(
                         local = localNow + (spot to at)
                         onPlace(spot, at)
                         settling = spot
-                        caught = if (carried) "${avatar.displayName} will carry it over." else null
+                        caught = if (carried) tr("${avatar.displayName} will carry it over.", "${avatar.displayName} átviszi.") else null
                         tick(firm = true)
                         if (!carried) Sounds.place(context)
                         scope.launch { lift.animateTo(0f, androidx.compose.animation.core.spring(dampingRatio = 0.32f, stiffness = 520f)); if (drag == null) settling = null }
@@ -489,7 +491,7 @@ fun ClearingScreen(
                             val thing = placedNow[hit]?.let(app.tend.core.Things::byId) ?: return@detectDragGesturesAfterLongPress
                             if (!app.tend.core.Clearing.movable(thing)) {
                                 tick(firm = true)
-                                caught = "The ${thing.name.lowercase()} has its own place."
+                                caught = tr("The ${thing.name.lowercase()} has its own place.", "Ennek megvan a maga helye: ${thing.name.lowercase()}.")
                                 return@detectDragGesturesAfterLongPress
                             }
                             if (using != null) { using = null; queue.clear(); Sounds.stop() }
@@ -509,7 +511,7 @@ fun ClearingScreen(
                             scope.launch { restClock.snapTo(0f) }
                             scope.launch { lift.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.55f, stiffness = 380f)) }
                             tick(firm = true)
-                            caught = "Drag the ${thing.name.lowercase()} anywhere on the meadow."
+                            caught = tr("Drag the ${thing.name.lowercase()} anywhere on the meadow.", "Húzd bárhová a réten: ${thing.name.lowercase()}.")
                         },
                         onDrag = { change, _ ->
                             val (spot, _) = drag ?: return@detectDragGesturesAfterLongPress
@@ -552,11 +554,11 @@ fun ClearingScreen(
         Box(
             Modifier.align(Alignment.TopStart).padding(start = 28.dp, top = 12.dp).size(36.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xE6FFFFFF)).tappable(onClick = onBack),
             contentAlignment = Alignment.Center,
-        ) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, "Home", tint = Brand.Moss, modifier = Modifier.size(18.dp)) }
+        ) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, tr("Home", "Főoldal"), tint = Brand.Moss, modifier = Modifier.size(18.dp)) }
         AcornBadge(acorns, Modifier.align(Alignment.TopEnd).padding(12.dp))
         // Until something has been moved: how, right on the camp.
         if (hintSpot != null && drag == null && carries.isEmpty()) Text(
-            "Tip: hold a thing to move it", style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp), color = Brand.Moss,
+            tr("Tip: hold a thing to move it", "Tipp: tarts nyomva egy tárgyat, és arrébb teheted"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp), color = Brand.Moss,
             modifier = Modifier.align(Alignment.TopCenter).padding(top = 18.dp)
                 .clip(RoundedCornerShape(50)).background(Color(0xE6FFFFFF)).padding(horizontal = 12.dp, vertical = 5.dp),
         )
@@ -593,16 +595,16 @@ fun ClearingScreen(
         when {
             drag != null && caught != null -> caught!!
             using != null -> Uses.line(using!!.second, avatar.displayName)
-            gifts.isNotEmpty() -> "A present from ${gifts.distinct().joinToString(" and ")}! Tap it to open."
-            paper -> "Someone toilet-papered your oak! Tap it to unroll."
-            visitor != null -> "${visitor.aName.replaceFirstChar { it.uppercase() }} came to the camp. Tap it to say hello."
-            ducks.isNotEmpty() -> "A rubber duck: someone visited. Tap it to fish it out."
+            gifts.isNotEmpty() -> tr("A present from ${gifts.distinct().joinToString(" and ")}! Tap it to open.", "Ajándék érkezett: ${gifts.distinct().joinToString(" és ")} küldte! Koppints rá, és kibontod.")
+            paper -> tr("Someone toilet-papered your oak! Tap it to unroll.", "Valaki vécépapírral dobálta meg a tölgyfádat! Koppints rá, és letekered.")
+            visitor != null -> tr("${visitor.aName.replaceFirstChar { it.uppercase() }} came to the camp. Tap it to say hello.", "${visitor.aName.replaceFirstChar { it.uppercase() }} jött a táborba. Koppints rá, és köszönj neki.")
+            ducks.isNotEmpty() -> tr("A rubber duck: someone visited. Tap it to fish it out.", "Egy gumikacsa: valaki itt járt. Koppints rá, és kihalászod.")
             caught != null -> caught!!
-            hintSpot != null -> "Hold the ${app.tend.core.Things.byId(placed.getValue(hintSpot))?.name?.lowercase()} to pick it up, then drag it anywhere. ${avatar.displayName} carries it over."
-            bridge -> "Cross the bridge to visit your friends' camps."
+            hintSpot != null -> tr("Hold the ${app.tend.core.Things.byId(placed.getValue(hintSpot))?.name?.lowercase()} to pick it up, then drag it anywhere. ${avatar.displayName} carries it over.", "Tartsd nyomva, és húzd bárhová: ${app.tend.core.Things.byId(placed.getValue(hintSpot))?.name?.lowercase()}. ${avatar.displayName} majd átviszi.")
+            bridge -> tr("Cross the bridge to visit your friends' camps.", "Menj át a hídon, és látogasd meg a barátaid táborát.")
             // Once the camp is familiar, what the companion is up to; before that, how it works.
-            placed.isNotEmpty() -> if (placed.size >= 3) campLine else "Tap something: ${avatar.displayName} will use it. Hold it to move it."
-            else -> "Earn acorns by living; spend them in the shop below."
+            placed.isNotEmpty() -> if (placed.size >= 3) campLine else tr("Tap something: ${avatar.displayName} will use it. Hold it to move it.", "Koppints valamire: ${avatar.displayName} használni fogja. Tartsd nyomva, ha arrébb tennéd.")
+            else -> tr("Earn acorns by living; spend them in the shop below.", "A makkot élettel keresed; lent a boltban költheted el.")
         },
         style = MaterialTheme.typography.bodyMedium,
     )
@@ -617,7 +619,7 @@ fun ClearingScreen(
             Canvas(Modifier.size(40.dp)) { drawThingIcon(event.thing) }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text("${event.title.uppercase()} · ${if (left == 1) "LAST DAY" else "$left DAYS LEFT"}", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Brand.Coral)
+                Text(tr("${event.title.uppercase()} · ${if (left == 1) "LAST DAY" else "$left DAYS LEFT"}", "${event.title.uppercase()} · ${if (left == 1) "UTOLSÓ NAP" else "MÉG $left NAP"}"), style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Brand.Coral)
                 Text(event.line, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp), maxLines = 2)
             }
         }
@@ -625,17 +627,17 @@ fun ClearingScreen(
 
     // The shop, friends, and sharing the camp: a button each.
     Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
-        PillButton("Shop", androidx.compose.material.icons.Icons.Filled.ShoppingCart, Modifier.weight(1f)) { shopOpen = true }
-        PillButton("Friends", androidx.compose.material.icons.Icons.Filled.Person, Modifier.weight(1f)) { friendsOpen = true }
-        PillButton("Share", androidx.compose.material.icons.Icons.Filled.Share, Modifier.weight(1f), onShare)
+        PillButton(tr("Shop", "Bolt"), androidx.compose.material.icons.Icons.Filled.ShoppingCart, Modifier.weight(1f)) { shopOpen = true }
+        PillButton(tr("Friends", "Barátok"), androidx.compose.material.icons.Icons.Filled.Person, Modifier.weight(1f)) { friendsOpen = true }
+        PillButton(tr("Share", "Megosztás"), androidx.compose.material.icons.Icons.Filled.Share, Modifier.weight(1f), onShare)
     }
 
     // Set up before the town was asked: once, the real weather offered.
     if (askTown) Card {
-        Text("REAL WEATHER IN YOUR CAMP", style = MaterialTheme.typography.labelSmall)
-        Text("Set your town and the camp gets its rain, snow and sunshine.", style = MaterialTheme.typography.bodyMedium)
+        Text(tr("REAL WEATHER IN YOUR CAMP", "VALÓDI IDŐJÁRÁS A TÁBORBAN"), style = MaterialTheme.typography.labelSmall)
+        Text(tr("Set your town and the camp gets its rain, snow and sunshine.", "Add meg a városod, és a táborban is ott esik, havazik vagy süt a nap."), style = MaterialTheme.typography.bodyMedium)
         TownPicker(null, onTown)
-        Text("Not now", style = MaterialTheme.typography.labelLarge, color = Brand.Muted, modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onTownLater).padding(vertical = 6.dp))
+        Text(tr("Not now", "Most nem"), style = MaterialTheme.typography.labelLarge, color = Brand.Muted, modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onTownLater).padding(vertical = 6.dp))
     }
 
     // The challenges: a strip with the round's progress; tapped, the whole list unfolds (and folds back).
@@ -663,7 +665,7 @@ fun ClearingScreen(
         }
     })
     Text(
-        "Show less", style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
+        tr("Show less", "Kevesebb"), style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
         modifier = Modifier.align(Alignment.CenterHorizontally).clip(RoundedCornerShape(10.dp)).tappable { stepsOpen = false }.padding(horizontal = 12.dp, vertical = 6.dp),
     )
     }
@@ -717,7 +719,7 @@ private val MILESTONE_AT = mapOf(
 private fun MilestonesCard(t: app.tend.core.Totals) = Card {
     val reached = app.tend.core.Milestone.reached(t)
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("MILESTONES", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+        Text(tr("MILESTONES", "MÉRFÖLDKÖVEK"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
         Text("${reached.size} / ${app.tend.core.Milestone.entries.size}", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
     }
     app.tend.core.Milestone.entries.forEach { m ->
@@ -729,7 +731,7 @@ private fun MilestonesCard(t: app.tend.core.Totals) = Card {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(m.title, style = MaterialTheme.typography.bodyLarge, color = if (done) Brand.Ink else Brand.Ink)
-                Text(if (done) "Added ${m.adds}" else "${m.label(t)} · adds ${m.adds}", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+                Text(if (done) tr("Added ${m.adds}", "Megvan: ${m.adds}") else tr("${m.label(t)} · adds ${m.adds}", "${m.label(t)} · ezt hozza: ${m.adds}"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
                 if (!done) Box(Modifier.padding(top = 4.dp).fillMaxWidth().height(4.dp).clip(RoundedCornerShape(50)).background(Brand.Sage)) {
                     Box(Modifier.fillMaxWidth(m.progress(t) / m.need.toFloat()).height(4.dp).clip(RoundedCornerShape(50)).background(Brand.Mint))
                 }
@@ -768,9 +770,9 @@ private fun Shop(
     Card {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("SHOP", style = MaterialTheme.typography.labelSmall)
+                Text(tr("SHOP", "BOLT"), style = MaterialTheme.typography.labelSmall)
                 Text(
-                    if (earnedToday > 0) "+$earnedToday acorns today" else "Activities earn 10, a \"Not now\" 2.",
+                    if (earnedToday > 0) tr("+$earnedToday acorns today", "Ma +$earnedToday makk") else tr("Activities earn 10, a \"Not now\" 2.", "Egy tevékenység 10-et ér, egy „Most nem” 2-t."),
                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted,
                 )
             }
@@ -780,8 +782,8 @@ private fun Shop(
         app.tend.core.CampEvent.on(java.time.LocalDate.now())?.let { event ->
             val left = event.daysLeft(java.time.LocalDate.now())
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)) {
-                Text("${event.title.uppercase()} · ${if (left == 1) "LAST DAY" else "$left DAYS LEFT"}", style = MaterialTheme.typography.labelSmall, color = Brand.Coral, modifier = Modifier.weight(1f))
-                Text("Yours to keep ", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted)
+                Text(tr("${event.title.uppercase()} · ${if (left == 1) "LAST DAY" else "$left DAYS LEFT"}", "${event.title.uppercase()} · ${if (left == 1) "UTOLSÓ NAP" else "MÉG $left NAP"}"), style = MaterialTheme.typography.labelSmall, color = Brand.Coral, modifier = Modifier.weight(1f))
+                Text(tr("Yours to keep ", "Örökre a tiéd "), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted)
                 PlusMark()
             }
             Text(event.line, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
@@ -796,8 +798,8 @@ private fun Shop(
         // The season's own: sold only while it lasts.
         val season = app.tend.core.Season.of(java.time.LocalDate.now())
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)) {
-            Text("THIS ${season.title.uppercase()} ONLY", style = MaterialTheme.typography.labelSmall, color = Brand.Coral, modifier = Modifier.weight(1f))
-            Text("Yours to keep ", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted)
+            Text(tr("THIS ${season.title.uppercase()} ONLY", "CSAK EBBEN AZ ÉVSZAKBAN: ${season.title.uppercase()}"), style = MaterialTheme.typography.labelSmall, color = Brand.Coral, modifier = Modifier.weight(1f))
+            Text(tr("Yours to keep ", "Örökre a tiéd "), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted)
             PlusMark()
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
@@ -808,7 +810,7 @@ private fun Shop(
         }
         // Something to wear: this season's outfit, and any bought before (tap to put on or take off).
         val wardrobe = (outfits + app.tend.core.Accessory.outfitFor(season)).sortedBy { it.ordinal }
-        Text("FOR ${name.uppercase()} TO WEAR", style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
+        Text(tr("FOR ${name.uppercase()} TO WEAR", "${name.uppercase()} VISELHETI"), style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
         wardrobe.chunked(3).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
                 row.forEach { a ->
@@ -829,7 +831,7 @@ private fun Shop(
         val earlier = (app.tend.core.Season.entries.filter { it != season }.flatMap { Things.forSeason(it) } +
             app.tend.core.CampEvent.entries.filter { it != nowEvent }.flatMap { Things.forEvent(it) }).filter { it.id in placed.values }
         if (earlier.isNotEmpty()) {
-            Text("FROM OTHER SEASONS AND NIGHTS", style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
+            Text(tr("FROM OTHER SEASONS AND NIGHTS", "MÁS ÉVSZAKOKBÓL ÉS ESTÉKRŐL"), style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
             earlier.chunked(3).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
                     row.forEach { thing -> ShopTile(thing, owned = true, affordable = true, Modifier.weight(1f)) { open = thing } }
@@ -852,13 +854,13 @@ private fun Shop(
             onDismissRequest = { outfitOpen = null },
             icon = { androidx.compose.foundation.Image(remember(a) { CharacterPainter.accessoryIcon(a, 240).asImageBitmap() }, null, Modifier.size(84.dp)) },
             title = { Text(a.title) },
-            text = { Text("For ${name} to wear, now and every season after. You can take it off any time.") },
+            text = { Text(tr("For ${name} to wear, now and every season after. You can take it off any time.", "${name} viselheti, most és minden későbbi évszakban. Bármikor leveheted róla.")) },
             confirmButton = {
                 val price = app.tend.core.Accessory.OUTFIT_PRICE
-                if (acorns >= price) androidx.compose.material3.TextButton(onClick = { if (onBuyOutfit(a)) outfitOpen = null }) { Text("Get it for $price", color = Brand.Moss) }
-                else androidx.compose.material3.TextButton(onClick = { outfitOpen = null }) { Text("${price - acorns} more acorns to go", color = Brand.Muted) }
+                if (acorns >= price) androidx.compose.material3.TextButton(onClick = { if (onBuyOutfit(a)) outfitOpen = null }) { Text(tr("Get it for $price", "Megveszem $price makkért"), color = Brand.Moss) }
+                else androidx.compose.material3.TextButton(onClick = { outfitOpen = null }) { Text(tr("${price - acorns} more acorns to go", "Még ${price - acorns} makk kell hozzá"), color = Brand.Muted) }
             },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { outfitOpen = null }) { Text("Close") } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { outfitOpen = null }) { Text(tr("Close", "Bezárás")) } },
             containerColor = Brand.Card,
         )
     }
@@ -873,18 +875,18 @@ private fun Shop(
             text = {
                 Text(
                     Uses.line(t.id, name).substringBefore(". ").removeSuffix(".") + "." +
-                        (swapped?.let { " It takes the ${it.name.lowercase()}'s place; that one goes back for ${Clearing.sellValue(it)} acorns." } ?: "") +
-                        if (owned) " Selling gives ${Clearing.sellValue(t)} acorns back." else "",
+                        (swapped?.let { tr(" It takes the ${it.name.lowercase()}'s place; that one goes back for ${Clearing.sellValue(it)} acorns.", " Ennek a helyére kerül: ${it.name.lowercase()}; azért ${Clearing.sellValue(it)} makkot kapsz vissza.") } ?: "") +
+                        if (owned) tr(" Selling gives ${Clearing.sellValue(t)} acorns back.", " Ha eladod, ${Clearing.sellValue(t)} makkot kapsz vissza.") else "",
                 )
             },
             confirmButton = {
                 when {
-                    owned -> androidx.compose.material3.TextButton(onClick = { onSell(t.id); open = null }) { Text("Sell for ${Clearing.sellValue(t)}", color = Brand.Coral) }
-                    acorns >= cost -> androidx.compose.material3.TextButton(onClick = { if (onBuy(t.id)) open = null }) { Text("Get it for ${t.price}", color = Brand.Moss) }
-                    else -> androidx.compose.material3.TextButton(onClick = { open = null }) { Text("${cost - acorns} more acorns to go", color = Brand.Muted) }
+                    owned -> androidx.compose.material3.TextButton(onClick = { onSell(t.id); open = null }) { Text(tr("Sell for ${Clearing.sellValue(t)}", "Eladom ${Clearing.sellValue(t)} makkért"), color = Brand.Coral) }
+                    acorns >= cost -> androidx.compose.material3.TextButton(onClick = { if (onBuy(t.id)) open = null }) { Text(tr("Get it for ${t.price}", "Megveszem ${t.price} makkért"), color = Brand.Moss) }
+                    else -> androidx.compose.material3.TextButton(onClick = { open = null }) { Text(tr("${cost - acorns} more acorns to go", "Még ${cost - acorns} makk kell hozzá"), color = Brand.Muted) }
                 }
             },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { open = null }) { Text("Close") } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { open = null }) { Text(tr("Close", "Bezárás")) } },
             containerColor = Brand.Card,
         )
     }
@@ -901,7 +903,7 @@ internal fun ShopTile(thing: app.tend.core.Thing, owned: Boolean, affordable: Bo
     }
     Text(thing.name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     Row(Modifier.padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (owned) Text("In camp", style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = Brand.Moss)
+        if (owned) Text(tr("In camp", "A táborban"), style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = Brand.Moss)
         else {
             Text("${thing.price}", style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), color = if (affordable) Brand.Moss else Brand.Muted)
             Spacer(Modifier.width(3.dp))
@@ -953,13 +955,13 @@ fun AcornIcon(size: Dp) = Canvas(Modifier.size(size)) {
 }
 
 private fun kindTitle(kind: SpotKind) = when (kind) {
-    SpotKind.FIRE -> "The fire pit"
-    SpotKind.SEAT -> "By the fire"
-    SpotKind.SHELTER -> "A place to sleep"
-    SpotKind.TREES -> "In the trees"
-    SpotKind.WATER -> "On the river"
-    SpotKind.ABOVE -> "Between the trees"
-    SpotKind.SMALL -> "Around the camp"
+    SpotKind.FIRE -> tr("The fire pit", "A tűzrakóhely")
+    SpotKind.SEAT -> tr("By the fire", "A tűz mellé")
+    SpotKind.SHELTER -> tr("A place to sleep", "Egy hely az alváshoz")
+    SpotKind.TREES -> tr("In the trees", "A fák közé")
+    SpotKind.WATER -> tr("On the river", "A folyóra")
+    SpotKind.ABOVE -> tr("Between the trees", "A fák közé kifeszítve")
+    SpotKind.SMALL -> tr("Around the camp", "A tábor köré")
 }
 
 /** "A deer!": the animal, how rare it is, its acorns, and how full the guestbook is now. */
@@ -978,13 +980,13 @@ private fun GreetedCard(v: app.tend.core.Visitor, book: Map<app.tend.core.Visito
     val first = (book[v] ?: 0) <= 1
     Text(
         when (v.rarity) {
-            app.tend.core.Rarity.COMMON -> "You found ${v.aName}!"
-            else -> "You found ${if (v.rarity == app.tend.core.Rarity.RARE) "a rare" else "an uncommon"} ${v.title.lowercase()}!"
+            app.tend.core.Rarity.COMMON -> tr("You found ${v.aName}!", "Megtaláltad: ${v.aName}!")
+            else -> tr("You found ${if (v.rarity == app.tend.core.Rarity.RARE) "a rare" else "an uncommon"} ${v.title.lowercase()}!", "Találtál egy ${if (v.rarity == app.tend.core.Rarity.RARE) "ritka" else "ritkább"} állatot: ${v.title.lowercase()}!")
         },
         style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 6.dp),
     )
     Text(
-        (if (first) "New in your guestbook! " else "") + "${book.size} of ${app.tend.core.Visitor.entries.size} met",
+        (if (first) tr("New in your guestbook! ", "Új a vendégkönyvedben! ") else "") + tr("${book.size} of ${app.tend.core.Visitor.entries.size} met", "${book.size} / ${app.tend.core.Visitor.entries.size} állattal találkoztál"),
         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp), color = Brand.Muted, textAlign = TextAlign.Center,
     )
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(50)).background(Brand.Moss).padding(horizontal = 12.dp, vertical = 5.dp)) {
@@ -999,7 +1001,7 @@ private fun GreetedCard(v: app.tend.core.Visitor, book: Map<app.tend.core.Visito
 private fun Guestbook(book: Map<app.tend.core.Visitor, Int>) {
     Card {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("GUESTBOOK", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            Text(tr("GUESTBOOK", "VENDÉGKÖNYV"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
             Text("${book.size} / ${app.tend.core.Visitor.entries.size}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
         }
         app.tend.core.Visitor.entries.chunked(4).forEach { row ->
@@ -1016,7 +1018,7 @@ private fun Guestbook(book: Map<app.tend.core.Visitor, Int>) {
                 }
             }
         }
-        Text("Someone comes most days; tap them to say hello. Rare ones only after a good day.", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+        Text(tr("Someone comes most days; tap them to say hello. Rare ones only after a good day.", "A legtöbb nap jön valaki; koppints rá, és köszönj neki. A ritkák csak egy jó nap után jönnek."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
     }
 }
 
@@ -1031,8 +1033,8 @@ private fun OutfitTile(a: app.tend.core.Accessory, owned: Boolean, worn: Boolean
     Text(a.title, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     Row(Modifier.padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically) {
         when {
-            worn -> Text("Wearing", style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = Brand.Moss)
-            owned -> Text("Put on", style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = Brand.Muted)
+            worn -> Text(tr("Wearing", "Rajta van"), style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = Brand.Moss)
+            owned -> Text(tr("Put on", "Felveszi"), style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = Brand.Muted)
             else -> {
                 Text("${app.tend.core.Accessory.OUTFIT_PRICE}", style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), color = if (affordable) Brand.Moss else Brand.Muted)
                 Spacer(Modifier.width(3.dp))

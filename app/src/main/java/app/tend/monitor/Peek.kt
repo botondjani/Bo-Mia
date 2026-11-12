@@ -1,5 +1,7 @@
 package app.tend.monitor
 
+import app.tend.core.tr
+
 import android.content.Context
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
@@ -43,7 +45,7 @@ class Peek(private val context: Context) {
             layoutParams = LinearLayout.LayoutParams(dp(56f).toInt(), dp(56f).toInt())
         }
         val line = TextView(context).apply {
-            text = "$minutes min"
+            text = tr("$minutes min", "$minutes perc")
             setTextColor(INK)
             textSize = 15f
             typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -57,7 +59,7 @@ class Peek(private val context: Context) {
             setPadding(dp(6f).toInt(), dp(4f).toInt(), 0, dp(4f).toInt())
             addView(face)
             addView(line)
-            contentDescription = "${avatar.displayName}: $minutes minutes in $label. Tap for a break."
+            contentDescription = tr("${avatar.displayName}: $minutes minutes in $label. Tap for a break.", "${avatar.displayName}: $minutes perce megy ez: $label. Koppints egy szünetért.")
         }
         val frame = FrameLayout(context).apply {
             setPadding(dp(8f).toInt(), dp(8f).toInt(), 0, dp(8f).toInt())
@@ -96,9 +98,9 @@ class Peek(private val context: Context) {
         }
         card.addView(TextView(context).apply {
             text = when {
-                minutes >= 30 -> "$minutes minutes of $label. I could use a walk. You?"
-                minutes >= 20 -> "$minutes minutes already. I'm getting sleepy here."
-                else -> "Psst, $minutes minutes of $label. Still the plan?"
+                minutes >= 30 -> tr("$minutes minutes of $label. I could use a walk. You?", "$minutes perce megy ez: $label. Rám férne egy séta. Rád is?")
+                minutes >= 20 -> tr("$minutes minutes already. I'm getting sleepy here.", "Már $minutes perc. Kezdek elálmosodni.")
+                else -> tr("Psst, $minutes minutes of $label. Still the plan?", "Pszt, $minutes perce megy ez: $label. Még mindig ez a terv?")
             }
             setTextColor(INK); textSize = 15f
         })
@@ -116,8 +118,8 @@ class Peek(private val context: Context) {
         card.addView(LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, dp(12f).toInt(), 0, 0)
-            addView(button("Come with ${avatar.displayName}", true, onCome))
-            addView(button("A bit more", false, onMore))
+            addView(button(tr("Come with ${avatar.displayName}", "Gyere, ${avatar.displayName} vár"), true, onCome))
+            addView(button(tr("A bit more", "Még egy kicsit"), false, onMore))
         })
         frame.removeAllViews()
         frame.setPadding(0, dp(8f).toInt(), dp(12f).toInt(), dp(8f).toInt())

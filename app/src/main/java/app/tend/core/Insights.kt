@@ -51,16 +51,16 @@ object InsightsOf {
 
     /** "31 h 20 min", "45 min". */
     fun hours(minutes: Int): String = when {
-        minutes < 60 -> "$minutes min"
-        minutes % 60 == 0 -> "${minutes / 60} h"
-        else -> "${minutes / 60} h ${minutes % 60} min"
+        minutes < 60 -> tr("$minutes min", "$minutes perc")
+        minutes % 60 == 0 -> tr("${minutes / 60} h", "${minutes / 60} óra")
+        else -> tr("${minutes / 60} h ${minutes % 60} min", "${minutes / 60} ó ${minutes % 60} p")
     }
 
     /** What the time won back is worth, said plainly: walks, films or books. */
     fun likeWhat(minutes: Int): String? = when {
         minutes < 90 -> null
-        minutes < 8 * 60 -> "about ${minutes / 45} walks in the woods"
-        minutes < 30 * 60 -> "about ${minutes / 110} films"
-        else -> "about ${minutes / 360} books"
+        minutes < 8 * 60 -> tr("about ${minutes / 45} walks in the woods", "nagyjából ${minutes / 45} erdei séta")
+        minutes < 30 * 60 -> tr("about ${minutes / 110} films", "nagyjából ${minutes / 110} film")
+        else -> tr("about ${minutes / 360} books", "nagyjából ${minutes / 360} könyv")
     }
 }

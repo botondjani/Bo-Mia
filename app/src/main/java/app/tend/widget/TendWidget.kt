@@ -1,5 +1,7 @@
 package app.tend.widget
 
+import app.tend.core.tr
+
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -98,13 +100,14 @@ object Widgets {
                 R.id.status,
                 if (fresh != null) fresh.kind.received(fresh.name) + "!"
                 else if (remaining > 0) Moods.status(store.avatar.displayName, mood)
-                else next?.let { "${it.title} +${it.rewardMinutes}" } ?: "Fresh start tomorrow",
+                else next?.let { "${it.title} +${it.rewardMinutes}" } ?: tr("Fresh start tomorrow", "Holnap tiszta lappal"),
             )
             setOnClickPendingIntent(R.id.root, open)
             setInt(R.id.root, "setBackgroundResource", if (night) R.drawable.widget_bg_night else R.drawable.widget_bg)
             setTextColor(R.id.minutes, if (night) NIGHT_TEXT else DAY_TEXT)
             setTextColor(R.id.status, if (night) NIGHT_TEXT else DAY_TEXT)
             setTextColor(R.id.caption, if (night) NIGHT_MUTED else DAY_MUTED)
+            setTextViewText(R.id.caption, tr("min left", "perc maradt"))
         })
         if (face.isNotEmpty()) manager.updateAppWidget(face, RemoteViews(context.packageName, R.layout.widget_face).apply {
             // A friend did something: the companion lights up, and a badge says what.
@@ -117,7 +120,7 @@ object Widgets {
         if (garden.isNotEmpty()) manager.updateAppWidget(garden, RemoteViews(context.packageName, R.layout.widget_garden).apply {
             setImageViewBitmap(R.id.garden, clearingBitmap(store.avatar, placed, worn, 440, 440, night = night, paper = paper, ducks = ducks, bridge = store.bridgeBuilt, visitor = visitor,
                 layout = layout.mapValues { androidx.compose.ui.geometry.Offset(it.value.first, it.value.second) }, guests = guests))
-            val label = fresh?.let { "${it.name}: ${it.kind.short}" } ?: guests.firstOrNull()?.let { "${it.second} at your fire" } ?: visitor?.let { "${it.aName.replaceFirstChar { c -> c.uppercase() }} is here" }
+            val label = fresh?.let { "${it.name}: ${it.kind.short}" } ?: guests.firstOrNull()?.let { tr("${it.second} at your fire", "${it.second} a tüzednél ül") } ?: visitor?.let { tr("${it.aName.replaceFirstChar { c -> c.uppercase() }} is here", "${it.aName.replaceFirstChar { c -> c.uppercase() }} van itt") }
             setViewVisibility(R.id.note, if (label != null) android.view.View.VISIBLE else android.view.View.GONE)
             setTextViewText(R.id.note, label ?: "")
             setInt(R.id.note, "setBackgroundResource", if (night) R.drawable.widget_pill_night else R.drawable.widget_pill)
@@ -128,6 +131,7 @@ object Widgets {
             setInt(R.id.pill, "setBackgroundResource", if (night) R.drawable.widget_pill_night else R.drawable.widget_pill)
             setTextColor(R.id.minutes, if (night) NIGHT_TEXT else DAY_TEXT)
             setTextColor(R.id.pill_label, if (night) NIGHT_MUTED else DAY_MUTED)
+            setTextViewText(R.id.pill_label, tr("min", "perc"))
         })
     }
 

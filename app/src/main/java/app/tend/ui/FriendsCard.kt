@@ -1,5 +1,7 @@
 package app.tend.ui
 
+import app.tend.core.tr
+
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import android.content.Intent
@@ -87,7 +89,7 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
     /** Looks a code up and asks before adding; says so when it's unknown. */
     suspend fun lookUp(code: String) {
         val owner = Friends.owner(context, code)
-        if (owner != null) asking = code to owner else note = "That code isn't anyone's (or it's yours). Check it and try again."
+        if (owner != null) asking = code to owner else note = tr("That code isn't anyone's (or it's yours). Check it and try again.", "Ez a kód senkié (vagy a tiéd). Nézd meg, és próbáld újra.")
     }
 
     val notes = remember { Friends.notes(context).filter { System.currentTimeMillis() - it.at < 3 * 86_400_000L }.take(4) }
@@ -100,24 +102,24 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
 
     Card {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("FRIENDS", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            Text(tr("FRIENDS", "BARÁTOK"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
             friends?.takeIf { it.isNotEmpty() }?.let { Text("${it.size}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss) }
         }
         if (!signedIn) {
             Text(
-                if (Friends.pendingCode(context) != null) "Someone invited you. Log in to accept, and to see each other's camps."
-                else "Add friends to see each other's camps along the river. It needs an account (Settings → Account).",
+                if (Friends.pendingCode(context) != null) tr("Someone invited you. Log in to accept, and to see each other's camps.", "Valaki meghívott. Lépj be, hogy elfogadhasd, és lássátok egymás táborát.")
+                else tr("Add friends to see each other's camps along the river. It needs an account (Settings → Account).", "Vegyél fel barátokat, és lássátok egymás táborát a folyó mentén. Fiók kell hozzá (Beállítások → Fiók)."),
                 style = MaterialTheme.typography.bodyMedium,
             )
-            ChipButton("Log in", onOpenSettings)
+            ChipButton(tr("Log in", "Belépés"), onOpenSettings)
         } else {
             val list = friends.orEmpty()
             notes.forEach { n -> NoteRow(n) }
             app.tend.data.TendStore(context).ducksCaught.takeIf { it > 0 }?.let { n ->
-                Text("Rubber ducks from visits: $n", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+                Text(tr("Rubber ducks from visits: $n", "Gumikacsák a látogatásokból: $n"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
             }
             if (list.isEmpty()) Text(
-                if (offline) "Can't reach the server right now." else "No friends yet. Invite someone: when they accept, you'll see each other's camps.",
+                if (offline) tr("Can't reach the server right now.", "Most nem érjük el a szervert.") else tr("No friends yet. Invite someone: when they accept, you'll see each other's camps.", "Még nincs barátod. Hívj meg valakit: ha elfogadja, látjátok egymás táborát."),
                 style = MaterialTheme.typography.bodyMedium,
             )
             list.forEach { f ->
@@ -126,15 +128,15 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
                     onGift = {
                         // Ten of your acorns, to open in their camp (back to you if it doesn't go).
                         val store = app.tend.data.TendStore(context)
-                        if (store.acorns < Friends.GIFT_ACORNS) note = "A present is ${Friends.GIFT_ACORNS} acorns: earn a few more first."
+                        if (store.acorns < Friends.GIFT_ACORNS) note = tr("A present is ${Friends.GIFT_ACORNS} acorns: earn a few more first.", "Egy ajándék ${Friends.GIFT_ACORNS} makk: előbb gyűjts még egy keveset.")
                         else {
                             gifted = gifted + f.id
                             store.addAcorns(-Friends.GIFT_ACORNS, "spent")
                             scope.launch {
                                 if (!Friends.send(context, f.id, Friends.Kind.GIFT)) {
                                     store.addAcorns(Friends.GIFT_ACORNS, "spent"); gifted = gifted - f.id
-                                    note = "Couldn't send the present (one a day to each friend). Your acorns are back."
-                                } else { note = "A present is on its way to ${f.name}."; app.tend.data.Stats.log(context, "gift") }
+                                    note = tr("Couldn't send the present (one a day to each friend). Your acorns are back.", "Nem sikerült elküldeni az ajándékot (egy barátnak naponta egy mehet). A makkjaid visszakerültek.")
+                                } else { note = tr("A present is on its way to ${f.name}.", "Úton van az ajándék: ${f.name} kapja."); app.tend.data.Stats.log(context, "gift") }
                             }
                         }
                     },
@@ -142,21 +144,21 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
                     onCall = {
                         called = called + f.id
                         scope.launch {
-                            if (Friends.send(context, f.id, Friends.Kind.FIRE)) { note = "${f.name} hears the call. Start something phone-free and meet at the fire."; app.tend.data.Stats.log(context, "fire_call") }
-                            else { called = called - f.id; note = "Couldn't call ${f.name} right now (once an hour to each friend)." }
+                            if (Friends.send(context, f.id, Friends.Kind.FIRE)) { note = tr("${f.name} hears the call. Start something phone-free and meet at the fire.", "${f.name} hallja a hívást. Kezdj bele valami telefonmentesbe, és találkoztok a tűznél."); app.tend.data.Stats.log(context, "fire_call") }
+                            else { called = called - f.id; note = tr("Couldn't call ${f.name} right now (once an hour to each friend).", "Most nem sikerült hívni: ${f.name} (egy barátot óránként egyszer lehet).") }
                         }
                     },
                     onCheer = {
                         cheered = cheered + f.id
-                        scope.launch { if (!Friends.send(context, f.id, Friends.Kind.CHEER)) note = "Couldn't send the cheer. Try again in a moment." else app.tend.data.Stats.log(context, "cheer") }
+                        scope.launch { if (!Friends.send(context, f.id, Friends.Kind.CHEER)) note = tr("Couldn't send the cheer. Try again in a moment.", "Nem sikerült elküldeni a tapsot. Próbáld újra egy pillanat múlva.") else app.tend.data.Stats.log(context, "cheer") }
                     },
                 ) { removing = f }
             }
             if (list.isNotEmpty()) TogetherWeek(Friends.week(Friends.me(context), list), app.tend.data.TendStore(context).togetherDone.size, claimed)
             androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
-                if (list.isNotEmpty()) ChipButton("Along the river", { onOpenRiver(null) })
-                ChipButton("Invite a friend", { inviting = true }, filled = list.isEmpty())
-                ChipButton("Enter a code", { typing = true }, filled = false)
+                if (list.isNotEmpty()) ChipButton(tr("Along the river", "A folyó mentén"), { onOpenRiver(null) })
+                ChipButton(tr("Invite a friend", "Hívj meg egy barátot"), { inviting = true }, filled = list.isEmpty())
+                ChipButton(tr("Enter a code", "Kód megadása"), { typing = true }, filled = false)
             }
         }
         note?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Brand.Coral) }
@@ -168,27 +170,27 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { asking = null },
             icon = { Face(owner.companion, 72) },
-            title = { Text("Add ${owner.name} as a friend?") },
-            text = { Text("You'll see each other's camps, levels, weekly goals and what you did lately (like \"went for a walk\"). Nothing else: not your apps, minutes or health data.") },
+            title = { Text(tr("Add ${owner.name} as a friend?", "Felveszed barátnak: ${owner.name}?")) },
+            text = { Text(tr("You'll see each other's camps, levels, weekly goals and what you did lately (like \"went for a walk\"). Nothing else: not your apps, minutes or health data.", "Látjátok majd egymás táborát, szintjét, heti céljait, és hogy mit csináltatok mostanában (például „sétált egyet”). Mást nem: sem az appjaidat, sem a perceidet, sem az egészségadataidat.")) },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     asking = null
-                    scope.launch { if (Friends.accept(context, code)) { app.tend.data.TendStore(context).invited = true; reload() } else note = "Couldn't add them. Try again in a moment." }
-                }) { Text("Add", color = Brand.Moss) }
+                    scope.launch { if (Friends.accept(context, code)) { app.tend.data.TendStore(context).invited = true; reload() } else note = tr("Couldn't add them. Try again in a moment.", "Nem sikerült felvenni. Próbáld újra egy pillanat múlva.") }
+                }) { Text(tr("Add", "Hozzáadás"), color = Brand.Moss) }
             },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { asking = null }) { Text("Not now") } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { asking = null }) { Text(tr("Not now", "Most nem")) } },
             containerColor = Brand.Card,
         )
     }
     removing?.let { f ->
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { removing = null },
-            title = { Text("Remove ${f.name}?") },
-            text = { Text("You'll stop seeing each other's camps. They won't be told, and your invite code changes so an old link can't add you back.") },
+            title = { Text(tr("Remove ${f.name}?", "Eltávolítod: ${f.name}?")) },
+            text = { Text(tr("You'll stop seeing each other's camps. They won't be told, and your invite code changes so an old link can't add you back.", "Nem látjátok többé egymás táborát. Ő nem kap róla értesítést, a meghívókódod pedig megváltozik, hogy egy régi linkkel ne vehessen fel újra.")) },
             confirmButton = {
-                androidx.compose.material3.TextButton(onClick = { removing = null; scope.launch { Friends.remove(context, f.id); reload() } }) { Text("Remove", color = Brand.Coral) }
+                androidx.compose.material3.TextButton(onClick = { removing = null; scope.launch { Friends.remove(context, f.id); reload() } }) { Text(tr("Remove", "Eltávolítás"), color = Brand.Coral) }
             },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { removing = null }) { Text("Keep") } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { removing = null }) { Text(tr("Keep", "Mégsem")) } },
             containerColor = Brand.Card,
         )
     }
@@ -205,13 +207,13 @@ private fun FriendRow(f: Friends.Friend, cheered: Boolean, gifted: Boolean, onVi
         val at = f.lastDoneAt
         Text(
             if (done != null && at != null) "${app.tend.core.Tasks.doneShown(done).replaceFirstChar { it.uppercase() }} · ${android.text.format.DateUtils.getRelativeTimeSpanString(at, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS)}"
-            else "Level ${f.level} · ${f.placed.size} thing${if (f.placed.size == 1) "" else "s"} at camp",
+            else tr("Level ${f.level} · ${f.placed.size} thing${if (f.placed.size == 1) "" else "s"} at camp", "${f.level}. szint · ${f.placed.size} tárgy a táborban"),
             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, maxLines = 1,
         )
     }
     // Something done lately: one tap to cheer it (once a day).
     if (f.lastDone != null) Text(
-        if (cheered) "Cheered" else "\uD83D\uDC4F Cheer", style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
+        if (cheered) tr("Cheered", "Megtapsolva") else tr("\uD83D\uDC4F Cheer", "👏 Taps"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
         color = if (cheered) Brand.Muted else androidx.compose.ui.graphics.Color.White,
         modifier = Modifier.clip(RoundedCornerShape(50)).background(if (cheered) Brand.Sage else Brand.Moss)
             .then(if (cheered) Modifier else Modifier.tappable(onClick = onCheer)).padding(horizontal = 10.dp, vertical = 6.dp),
@@ -219,7 +221,7 @@ private fun FriendRow(f: Friends.Friend, cheered: Boolean, gifted: Boolean, onVi
     // Come to the fire: let's put the phones down together (once an hour).
     Spacer(Modifier.width(6.dp))
     Text(
-        if (called) "Called" else "\uD83D\uDD25 Call", style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
+        if (called) tr("Called", "Hívva") else tr("\uD83D\uDD25 Call", "🔥 Hívás"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
         color = if (called) Brand.Muted else Brand.Moss,
         modifier = Modifier.clip(RoundedCornerShape(50)).background(Brand.Sage)
             .then(if (called) Modifier else Modifier.tappable(onClick = onCall)).padding(horizontal = 10.dp, vertical = 6.dp),
@@ -228,13 +230,13 @@ private fun FriendRow(f: Friends.Friend, cheered: Boolean, gifted: Boolean, onVi
     Box {
         var more by remember { mutableStateOf(false) }
         Text("\u22EE", style = MaterialTheme.typography.titleMedium, color = Brand.Muted,
-            modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable { more = true }.semantics { contentDescription = "More" }.padding(horizontal = 8.dp, vertical = 6.dp))
+            modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable { more = true }.semantics { contentDescription = tr("More", "Egyebek") }.padding(horizontal = 8.dp, vertical = 6.dp))
         androidx.compose.material3.DropdownMenu(expanded = more, onDismissRequest = { more = false }, containerColor = Brand.Card) {
             androidx.compose.material3.DropdownMenuItem(
-                text = { Text(if (gifted) "Present sent today" else "Send a present (${Friends.GIFT_ACORNS} acorns)") },
+                text = { Text(if (gifted) tr("Present sent today", "Ma már küldtél ajándékot") else tr("Send a present (${Friends.GIFT_ACORNS} acorns)", "Ajándék küldése (${Friends.GIFT_ACORNS} makk)")) },
                 enabled = !gifted, onClick = { more = false; onGift() },
             )
-            androidx.compose.material3.DropdownMenuItem(text = { Text("Remove ${f.name}", color = Brand.Coral) }, onClick = { more = false; onRemove() })
+            androidx.compose.material3.DropdownMenuItem(text = { Text(tr("Remove ${f.name}", "Eltávolítás: ${f.name}"), color = Brand.Coral) }, onClick = { more = false; onRemove() })
         }
     }
 }
@@ -258,7 +260,7 @@ internal fun TogetherWeek(week: Friends.Week, weeksDone: Int, justClaimed: Boole
     verticalArrangement = Arrangement.spacedBy(8.dp),
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("TOGETHER THIS WEEK", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+        Text(tr("TOGETHER THIS WEEK", "EGYÜTT A HÉTEN"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
         Text("${week.total.coerceAtMost(week.target)} / ${week.target}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
     }
     Box(Modifier.fillMaxWidth().size(height = 8.dp, width = 0.dp).clip(RoundedCornerShape(4.dp)).background(Brand.Mint)) {
@@ -276,10 +278,10 @@ internal fun TogetherWeek(week: Friends.Week, weeksDone: Int, justClaimed: Boole
     val left = week.target - week.total
     Text(
         when {
-            justClaimed && weeksDone == 1 -> "Reached! A bridge now crosses your river. +${app.tend.core.Together.ACORNS} acorns."
-            week.done -> "Reached together. +${app.tend.core.Together.ACORNS} acorns for each of you."
-            weeksDone == 0 -> "$left more activities between you all, and a bridge crosses your river."
-            else -> "$left more activities between you all for +${app.tend.core.Together.ACORNS} acorns each."
+            justClaimed && weeksDone == 1 -> tr("Reached! A bridge now crosses your river. +${app.tend.core.Together.ACORNS} acorns.", "Megvan! Mostantól híd vezet át a folyódon. +${app.tend.core.Together.ACORNS} makk.")
+            week.done -> tr("Reached together. +${app.tend.core.Together.ACORNS} acorns for each of you.", "Együtt elértétek. Fejenként +${app.tend.core.Together.ACORNS} makk.")
+            weeksDone == 0 -> tr("$left more activities between you all, and a bridge crosses your river.", "Még $left közös tevékenység, és híd épül a folyódon.")
+            else -> tr("$left more activities between you all for +${app.tend.core.Together.ACORNS} acorns each.", "Még $left közös tevékenység, és fejenként +${app.tend.core.Together.ACORNS} makk jár.")
         },
         style = MaterialTheme.typography.bodyMedium, color = if (week.done) Brand.Moss else Brand.Muted,
     )
@@ -305,26 +307,26 @@ private fun InviteDialog(onDismiss: () -> Unit) {
     LaunchedEffect(Unit) { code = Friends.myInvite(context); failed = code == null }
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().surface(radius = 28.dp).padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Invite a friend", style = MaterialTheme.typography.titleLarge)
+            Text(tr("Invite a friend", "Hívj meg egy barátot"), style = MaterialTheme.typography.titleLarge)
             val c = code
             when {
                 c != null -> {
                     val qr = remember(c) { qrBitmap(Friends.inviteLink(c), 480).asImageBitmap() }
                     Box(Modifier.size(200.dp).clip(RoundedCornerShape(20.dp)).background(androidx.compose.ui.graphics.Color.White).padding(12.dp)) {
-                        Image(qr, "QR code for your invite", Modifier.fillMaxWidth())
+                        Image(qr, tr("QR code for your invite", "QR-kód a meghívódhoz"), Modifier.fillMaxWidth())
                     }
-                    Text("Scan it with their phone's camera, or send the link.", style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+                    Text(tr("Scan it with their phone's camera, or send the link.", "Olvassa be a telefonja kamerájával, vagy küldd el a linket."), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
                     Text(c.chunked(3).joinToString(" "), style = MaterialTheme.typography.headlineMedium.copy(letterSpacing = 4.sp), color = Brand.Moss)
-                    PrimaryButton("Send the link", {
+                    PrimaryButton(tr("Send the link", "Link küldése"), {
                         app.tend.data.TendStore(context).invited = true
-                        val text = "Let's tend our camps together! Open this on your phone: ${Friends.inviteLink(c)}\nOr in tend: Clearing → Friends → Enter a code: $c"
-                        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "Invite a friend"))
+                        val text = tr("Let's tend our camps together! Open this on your phone: ${Friends.inviteLink(c)}\nOr in tend: Clearing → Friends → Enter a code: $c", "Gondozzuk együtt a táborunkat a tendben! Nyisd meg ezt a telefonodon: ${Friends.inviteLink(c)}\nVagy a tendben: Tábor → Barátok → Kód megadása: $c")
+                        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), tr("Invite a friend", "Hívj meg egy barátot")))
                     })
                 }
-                failed -> Text("Can't reach the server right now. Try again in a moment.", style = MaterialTheme.typography.bodyMedium)
-                else -> Text("Getting your code…", style = MaterialTheme.typography.bodyMedium)
+                failed -> Text(tr("Can't reach the server right now. Try again in a moment.", "Most nem érjük el a szervert. Próbáld újra egy pillanat múlva."), style = MaterialTheme.typography.bodyMedium)
+                else -> Text(tr("Getting your code…", "Kérjük a kódod…"), style = MaterialTheme.typography.bodyMedium)
             }
-            SecondaryButton("Close", onDismiss)
+            SecondaryButton(tr("Close", "Bezárás"), onDismiss)
         }
     }
 }
@@ -335,14 +337,14 @@ private fun EnterCodeDialog(onDismiss: () -> Unit, onCode: (String) -> Unit) {
     val code = Friends.codeFrom(text)
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().surface(radius = 28.dp).padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Enter a friend's code", style = MaterialTheme.typography.titleLarge)
+            Text(tr("Enter a friend's code", "Add meg egy barátod kódját"), style = MaterialTheme.typography.titleLarge)
             OutlinedTextField(
-                text, { text = it.take(80) }, placeholder = { Text("ABC 234, or their link") }, singleLine = true,
+                text, { text = it.take(80) }, placeholder = { Text(tr("ABC 234, or their link", "ABC 234, vagy a linkje")) }, singleLine = true,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters), shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth(),
             )
-            PrimaryButton("Find", { code?.let(onCode) }, enabled = code != null)
-            SecondaryButton("Close", onDismiss)
+            PrimaryButton(tr("Find", "Keresés"), { code?.let(onCode) }, enabled = code != null)
+            SecondaryButton(tr("Close", "Bezárás"), onDismiss)
         }
     }
 }

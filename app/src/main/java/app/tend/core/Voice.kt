@@ -35,12 +35,12 @@ object Voice {
         val done = m.selected.filter { it.id in m.day.completedTasks }
         val next = Tasks.next(m.day, m.selected)
         // The few things that matter more than chat.
-        if (m.selected.isEmpty()) return "Pick a few things you'd rather do, and we'll do them together."
-        if (Budget.isLocked(m.cfg, m.day) && !m.welcomeBack && m.canClose) return next?.let { "Out of minutes: your apps are closed. ${it.title} opens them again (+${it.rewardMinutes} min)." }
-            ?: "Out of minutes: your apps are closed until tomorrow."
-        if (m.welcomeBack && done.isEmpty()) return "Welcome back! I missed you. Let's start small today: ${next!!.title.lowercase()}?"
-        m.atFire.firstOrNull()?.let { f -> return pick(m, "fire", listOf("$f is at our fire, phone down. Join them?", "Look who's by the fire: $f. Shall we sit with them?")) }
-        m.visitor?.let { v -> return pick(m, "visitor", listOf("${v.aName.replaceFirstChar { it.uppercase() }} is at the camp! Come say hello.", "Shh… ${v.aName} came by. Go and greet it?")) }
+        if (m.selected.isEmpty()) return tr("Pick a few things you'd rather do, and we'll do them together.", "Válassz pár dolgot, amit szívesebben csinálnál, és megcsináljuk együtt.")
+        if (Budget.isLocked(m.cfg, m.day) && !m.welcomeBack && m.canClose) return next?.let { tr("Out of minutes: your apps are closed. ${it.title} opens them again (+${it.rewardMinutes} min).", "Elfogytak a percek: az appjaid zárva vannak. Ezzel újra kinyílnak: ${it.title} (+${it.rewardMinutes} perc).") }
+            ?: tr("Out of minutes: your apps are closed until tomorrow.", "Elfogytak a percek: az appjaid holnapig zárva vannak.")
+        if (m.welcomeBack && done.isEmpty()) return tr("Welcome back! I missed you. Let's start small today: ${next!!.title.lowercase()}?", "Jó újra látni! Hiányoztál. Kezdjük ma valami kicsivel: ${next!!.title.lowercase()}?")
+        m.atFire.firstOrNull()?.let { f -> return pick(m, "fire", listOf(tr("$f is at our fire, phone down. Join them?", "$f a tüzünknél ül, letette a telefont. Csatlakozunk?"), tr("Look who's by the fire: $f. Shall we sit with them?", "Nézd, ki ül a tűznél: $f. Odaülünk mellé?"))) }
+        m.visitor?.let { v -> return pick(m, "visitor", listOf(tr("${v.aName.replaceFirstChar { it.uppercase() }} is at the camp! Come say hello.", "${v.aName.replaceFirstChar { it.uppercase() }} van a táborban! Gyere, köszönj neki."), tr("Shh… ${v.aName} came by. Go and greet it?", "Pszt… erre járt ${v.aName}. Köszönsz neki?"))) }
 
         val hour = m.now.hour
         val weekend = m.now.dayOfWeek == DayOfWeek.SATURDAY || m.now.dayOfWeek == DayOfWeek.SUNDAY
@@ -48,37 +48,37 @@ object Voice {
             val n = next!!
             val ideas = buildList {
                 // Remembering: yesterday, and a good run.
-                m.selected.firstOrNull { it.id in m.yesterday }?.let { y -> add("Yesterday we ${Tasks.pastTense(y)}. Again today?") }
-                if (m.streak >= 3) add("${m.streak} good days in a row! Let's keep the fire going.")
+                m.selected.firstOrNull { it.id in m.yesterday }?.let { y -> add(tr("Yesterday we ${Tasks.pastTense(y)}. Again today?", "Tegnap ${Tasks.pastTense(y)}. Ma is?")) }
+                if (m.streak >= 3) add(tr("${m.streak} good days in a row! Let's keep the fire going.", "${m.streak} jó nap egymás után! Tartsuk életben a tüzet."))
                 // The weather and the season.
                 when (m.weather) {
-                    Weather.RAIN -> add(m.selected.firstOrNull { it.id == Tasks.READ.id }?.let { "Rain on the tent. Perfect for a book, don't you think?" } ?: "It's raining. I've got the umbrella. ${n.title}?")
-                    Weather.SNOW -> add("It's snowing! I want to see our footprints. ${n.title}?")
-                    Weather.FOG -> if (hour < 11) add("Foggy morning, all soft. ${n.title}?")
-                    Weather.CLEAR -> if (m.season == Season.SUMMER && hour in 9..19) add("Sun's out. ${n.title} sounds like a plan.")
+                    Weather.RAIN -> add(m.selected.firstOrNull { it.id == Tasks.READ.id }?.let { tr("Rain on the tent. Perfect for a book, don't you think?", "Kopog az eső a sátron. Tökéletes idő egy könyvhöz, nem?") } ?: tr("It's raining. I've got the umbrella. ${n.title}?", "Esik. Nálam az esernyő. ${n.title}?"))
+                    Weather.SNOW -> add(tr("It's snowing! I want to see our footprints. ${n.title}?", "Havazik! Látni akarom a lábnyomainkat. ${n.title}?"))
+                    Weather.FOG -> if (hour < 11) add(tr("Foggy morning, all soft. ${n.title}?", "Ködös, puha reggel. ${n.title}?"))
+                    Weather.CLEAR -> if (m.season == Season.SUMMER && hour in 9..19) add(tr("Sun's out. ${n.title} sounds like a plan.", "Kisütött a nap. ${n.title}: jó tervnek hangzik."))
                     Weather.CLOUDY -> {}
                 }
-                if (m.season == Season.AUTUMN && m.weather != Weather.RAIN) add("The leaves are crunchy today. ${n.title}?")
-                if (m.season == Season.SPRING && m.weather == Weather.CLEAR) add("Everything's blooming. ${n.title}?")
+                if (m.season == Season.AUTUMN && m.weather != Weather.RAIN) add(tr("The leaves are crunchy today. ${n.title}?", "Ma ropognak a levelek. ${n.title}?"))
+                if (m.season == Season.SPRING && m.weather == Weather.CLEAR) add(tr("Everything's blooming. ${n.title}?", "Minden virágzik. ${n.title}?"))
                 // The time of day, and the weekend.
                 when {
-                    hour < 9 -> add("Morning! I'm up, the fire's lit. ${n.title} first?")
-                    hour >= 20 -> add("Late already. Something calm before bed?")
-                    weekend -> add("Weekend! No rush today. ${n.title}, whenever you like.")
-                    hour in 12..13 -> add("Lunch break? A little ${n.title.lowercase()} would fit right in.")
-                    else -> add("What shall we do today? ${n.title} sounds nice.")
+                    hour < 9 -> add(tr("Morning! I'm up, the fire's lit. ${n.title} first?", "Jó reggelt! Fent vagyok, ég a tűz. Kezdjük ezzel: ${n.title.lowercase()}?"))
+                    hour >= 20 -> add(tr("Late already. Something calm before bed?", "Már késő van. Valami nyugis lefekvés előtt?"))
+                    weekend -> add(tr("Weekend! No rush today. ${n.title}, whenever you like.", "Hétvége! Ma nem sietünk. ${n.title}, amikor jólesik."))
+                    hour in 12..13 -> add(tr("Lunch break? A little ${n.title.lowercase()} would fit right in.", "Ebédszünet? Épp beleférne: ${n.title.lowercase()}."))
+                    else -> add(tr("What shall we do today? ${n.title} sounds nice.", "Mit csináljunk ma? Ez jól hangzik: ${n.title.lowercase()}."))
                 }
             }
             // One quirk at most among the ideas: now and then, not every other time.
             return pick(m, "idea", ideas + pick(m, "quirk", quirks(m)))
         }
         val praise = when {
-            next == null -> listOf("Everything's done. Proud of us.", "All of it, done. I'm doing a little dance.", "That's the whole list. Feet up by the fire?")
-            done.size == 1 -> listOf("Nice start!", "That's one. The camp feels it.", "Good one. ${next.title} next, whenever.")
-            done.size == 2 -> listOf("Look at us!", "Two already. I'm so proud.", "We're on a roll.")
-            else -> listOf("You're doing great!", "What a day we're having.", "I'll tell the squirrels about this.")
+            next == null -> listOf(tr("Everything's done. Proud of us.", "Minden megvan. Büszke vagyok ránk."), tr("All of it, done. I'm doing a little dance.", "Mind megvan. Járok egy kis örömtáncot."), tr("That's the whole list. Feet up by the fire?", "Ennyi volt a lista. Lábat fel a tűz mellett?"))
+            done.size == 1 -> listOf(tr("Nice start!", "Szép kezdés!"), tr("That's one. The camp feels it.", "Ez egy. A tábor is érzi."), tr("Good one. ${next.title} next, whenever.", "Ez jó volt. Jöhet majd ez is, ha kedved lesz: ${next.title.lowercase()}."))
+            done.size == 2 -> listOf(tr("Look at us!", "Nézd, milyen ügyesek vagyunk!"), tr("Two already. I'm so proud.", "Már kettő. Nagyon büszke vagyok."), tr("We're on a roll.", "Lendületben vagyunk."))
+            else -> listOf(tr("You're doing great!", "Nagyon jól megy!"), tr("What a day we're having.", "Micsoda napunk van."), tr("I'll tell the squirrels about this.", "Ezt elmesélem a mókusoknak."))
         }
-        return "Today we already ${joinAnd(done.map(Tasks::pastTense))}. ${pick(m, "praise", praise)}"
+        return tr("Today we already ${joinAnd(done.map(Tasks::pastTense))}. ${pick(m, "praise", praise)}", "Ma már ${joinAnd(done.map(Tasks::pastTense))}. ${pick(m, "praise", praise)}")
     }
 
     /** Under the camp, once the camp is familiar: what the companion is up to, by weather and season. */
@@ -86,28 +86,28 @@ object Voice {
         val m = Moment(name, now, BudgetConfig(), DayState(now.toLocalDate()), emptyList(), weather = weather, season = season)
         val lines = buildList {
             when (weather) {
-                Weather.RAIN -> add("$name listens to the rain on the tent. Tap something to do together.")
-                Weather.SNOW -> add("$name is trying to catch snowflakes. Tap something to do together.")
-                Weather.FOG -> add("$name can't see the far trees this morning. Cosy. Tap something.")
+                Weather.RAIN -> add(tr("$name listens to the rain on the tent. Tap something to do together.", "$name az esőt hallgatja a sátron. Koppints valamire, és csináljátok együtt."))
+                Weather.SNOW -> add(tr("$name is trying to catch snowflakes. Tap something to do together.", "$name hópelyheket próbál elkapni. Koppints valamire, és csináljátok együtt."))
+                Weather.FOG -> add(tr("$name can't see the far trees this morning. Cosy. Tap something.", "$name ma reggel nem látja a távoli fákat. Hangulatos. Koppints valamire."))
                 else -> {}
             }
             when (season) {
-                Season.AUTUMN -> add("$name kicks through the leaves. Tap something to do together.")
-                Season.WINTER -> add("$name keeps the fire going. Tap something to do together.")
-                Season.SPRING -> add("$name found the first flowers. Tap something to do together.")
-                Season.SUMMER -> add("$name hums by the river. Tap something to do together.")
+                Season.AUTUMN -> add(tr("$name kicks through the leaves. Tap something to do together.", "$name a leveleket rugdossa. Koppints valamire, és csináljátok együtt."))
+                Season.WINTER -> add(tr("$name keeps the fire going. Tap something to do together.", "$name őrzi a tüzet. Koppints valamire, és csináljátok együtt."))
+                Season.SPRING -> add(tr("$name found the first flowers. Tap something to do together.", "$name megtalálta az első virágokat. Koppints valamire, és csináljátok együtt."))
+                Season.SUMMER -> add(tr("$name hums by the river. Tap something to do together.", "$name dúdol a folyóparton. Koppints valamire, és csináljátok együtt."))
             }
-            add("Tap something: $name will use it. Hold it to move it.")
+            add(tr("Tap something: $name will use it. Hold it to move it.", "Koppints valamire: $name használni fogja. Tartsd nyomva, ha arrébb tennéd."))
         }
         return pick(m, "camp", lines)
     }
 
     /** Little things the companion says now and then, just because. */
     private fun quirks(m: Moment): List<String> = listOf(
-        "I counted the acorns. Then I lost count. Then I ate one.",
-        "I named a cloud after you. It's a good cloud.",
-        "Did you know squirrels forget most of their acorns? Same.",
-        if (m.now.dayOfWeek == DayOfWeek.MONDAY) "Mondays are better by the fire. ${Tasks.next(m.day, m.selected)?.title ?: "Sit with me"}?" else "I practised my campfire song. Want to hear it later?",
+        tr("I counted the acorns. Then I lost count. Then I ate one.", "Megszámoltam a makkokat. Aztán elvétettem. Aztán megettem egyet."),
+        tr("I named a cloud after you. It's a good cloud.", "Elneveztem rólad egy felhőt. Jó kis felhő."),
+        tr("Did you know squirrels forget most of their acorns? Same.", "Tudtad, hogy a mókusok a makkjaik nagy részét elfelejtik? Én is."),
+        if (m.now.dayOfWeek == DayOfWeek.MONDAY) tr("Mondays are better by the fire. ${Tasks.next(m.day, m.selected)?.title ?: "Sit with me"}?", "Hétfőn jobb a tűz mellett. ${Tasks.next(m.day, m.selected)?.title ?: "Ülj ide mellém"}?") else tr("I practised my campfire song. Want to hear it later?", "Gyakoroltam a tábortűzi dalomat. Meghallgatod később?"),
     )
 
     /**
@@ -122,8 +122,8 @@ object Voice {
 
     private fun joinAnd(parts: List<String>) = when (parts.size) {
         1 -> parts[0]
-        2 -> "${parts[0]} and ${parts[1]}"
-        else -> parts.dropLast(1).joinToString(", ") + " and " + parts.last()
+        2 -> tr("${parts[0]} and ${parts[1]}", "${parts[0]} és ${parts[1]}")
+        else -> parts.dropLast(1).joinToString(", ") + tr(" and ", " és ") + parts.last()
     }
 
     /** Days in a row with something done, counting back from yesterday. */

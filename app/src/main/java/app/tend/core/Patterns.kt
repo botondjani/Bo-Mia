@@ -19,7 +19,7 @@ data class DaySummary(
 )
 
 enum class DayPart(val label: String) {
-    MORNING("Morning"), AFTERNOON("Afternoon"), EVENING("Evening"), LATE("Late night");
+    MORNING(tr("Morning", "Reggel")), AFTERNOON(tr("Afternoon", "Délután")), EVENING(tr("Evening", "Este")), LATE(tr("Late night", "Késő éjjel"));
 
     companion object {
         fun of(hour: Int) = when (hour) {
@@ -88,11 +88,11 @@ object Patterns {
         val worst = enough.maxByOrNull { it.value.notShare }
         if (worst != null && worst.value.notShare >= 0.5f) {
             val (part, s) = worst
-            return "${part.label} scrolls felt worth it least: ${s.not} of ${s.total} were \"not really\"."
+            return tr("${part.label} scrolls felt worth it least: ${s.not} of ${s.total} were \"not really\".", "${part.label}: ekkor érte meg legkevésbé a görgetés, ${s.total} alkalomból ${s.not} „nem igazán” volt.")
         }
         val best = enough.minByOrNull { it.value.notShare }
         if (best != null && best.value.notShare <= 0.25f) {
-            return "${best.key.label} scrolls mostly felt worth it. Nice balance."
+            return tr("${best.key.label} scrolls mostly felt worth it. Nice balance.", "${best.key.label}: ekkor többnyire megérte a görgetés. Szép egyensúly.")
         }
         return null
     }

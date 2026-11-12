@@ -1,5 +1,7 @@
 package app.tend.ui
 
+import app.tend.core.tr
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -146,40 +148,40 @@ fun Onboarding(
         ) { s ->
             when (s) {
                 // One page to say hello: what tend does, in two lines, and who keeps you company.
-                Step.WELCOME -> StepPage(cta = "Continue with ${avatar.displayName}", onCta = next) {
+                Step.WELCOME -> StepPage(cta = tr("Continue with ${avatar.displayName}", "Tovább, ${avatar.displayName} jön velem"), onCta = next) {
                     LanguagePicker()
                     Title(
-                        "Hi! I'm ${avatar.displayName}.",
-                        "When you open an app you picked, I pop up for a breath first. Walks, workouts and books win your minutes back, and acorns for our camp by the river, where friends can join us at the fire.",
+                        tr("Hi! I'm ${avatar.displayName}.", "Szia! ${avatar.displayName} vagyok."),
+                        tr("When you open an app you picked, I pop up for a breath first. Walks, workouts and books win your minutes back, and acorns for our camp by the river, where friends can join us at the fire.", "Amikor megnyitsz egy appot, amit kiválasztottál, előbb felbukkanok egy lélegzetvételnyi szünetre. A séták, az edzések és a könyvek visszahozzák a perceidet, és makkot is adnak a folyóparti táborunkra, ahol a barátaid is odaülhetnek a tűzhöz."),
                     )
-                    Text("WHO KEEPS YOU COMPANY?", style = MaterialTheme.typography.labelSmall)
+                    Text(tr("WHO KEEPS YOU COMPANY?", "KI TARTSON VELED?"), style = MaterialTheme.typography.labelSmall)
                     CompanionPicker(avatar, onAvatar)
-                    Text("Same heart, different hair. You can switch any time.", style = MaterialTheme.typography.bodyMedium, color = Brand.Muted)
+                    Text(tr("Same heart, different hair. You can switch any time.", "Ugyanaz a szív, más frizura. Bármikor válthatsz."), style = MaterialTheme.typography.bodyMedium, color = Brand.Muted)
                 }
 
-                Step.USAGE -> StepPage(cta = "Continue", ctaEnabled = perms.permissions.usageAccess, onCta = next) {
+                Step.USAGE -> StepPage(cta = tr("Continue", "Tovább"), ctaEnabled = perms.permissions.usageAccess, onCta = next) {
                     Title(
-                        "Which apps take your time?",
-                        "Allow usage access and ${avatar.displayName} will suggest the apps you use most, with minutes a day. It's read on your phone and never leaves it.",
+                        tr("Which apps take your time?", "Mely appok viszik el az idődet?"),
+                        tr("Allow usage access and ${avatar.displayName} will suggest the apps you use most, with minutes a day. It's read on your phone and never leaves it.", "Engedélyezd a használati hozzáférést, és ${avatar.displayName} megmutatja a legtöbbet használt appjaidat, napi percekkel. Mindezt a telefonod olvassa ki, és ott is marad."),
                     )
                     if (perms.lock != PermissionLock.NONE && !perms.permissions.usageAccess) UnlockCard(perms)
                     PermissionCard(
-                        number = if (perms.lock != PermissionLock.NONE) 2 else 1, title = "Usage access", why = "Minutes a day for each app, from the last two weeks.",
+                        number = if (perms.lock != PermissionLock.NONE) 2 else 1, title = tr("Usage access", "Használati hozzáférés"), why = tr("Minutes a day for each app, from the last two weeks.", "Napi percek appokra bontva, az elmúlt két hétből."),
                         granted = perms.permissions.usageAccess, active = !perms.permissions.usageAccess, blocked = perms.usageBlocked,
                         onAllow = perms.requestUsage, onAppInfo = perms.openAppInfo,
                     )
-                    if (!perms.permissions.usageAccess) LinkText("Skip, I'll pick the apps myself", next)
+                    if (!perms.permissions.usageAccess) LinkText(tr("Skip, I'll pick the apps myself", "Kihagyom, magam választom ki az appokat"), next)
                 }
 
                 Step.APPS -> StepPage(
-                    cta = if (blocked.isEmpty()) "Pick at least one" else "Continue with ${blocked.size} app${if (blocked.size == 1) "" else "s"}",
+                    cta = if (blocked.isEmpty()) tr("Pick at least one", "Válassz legalább egyet") else tr("Continue with ${blocked.size} app${if (blocked.size == 1) "" else "s"}", "Tovább ${blocked.size} appal"),
                     ctaEnabled = blocked.isNotEmpty(),
                     onCta = next,
                 ) {
                     Title(
-                        "Which apps pull you in?",
-                        if (catalog.dailyMinutes.isNotEmpty()) "Picked for you: social apps and everything you use ${AppCatalog.HEAVY_MINUTES}+ minutes a day. Tap to change."
-                        else "We picked the usual suspects. Tap to change.",
+                        tr("Which apps pull you in?", "Mely appok szippantanak be?"),
+                        if (catalog.dailyMinutes.isNotEmpty()) tr("Picked for you: social apps and everything you use ${AppCatalog.HEAVY_MINUTES}+ minutes a day. Tap to change.", "Ezeket választottuk neked: a közösségi appok és minden, amit napi ${AppCatalog.HEAVY_MINUTES}+ percet használsz. Koppintással változtathatsz.")
+                        else tr("We picked the usual suspects. Tap to change.", "A szokásos gyanúsítottakat választottuk. Koppintással változtathatsz."),
                     )
                     AppPicker(catalog, blocked, onToggleApp)
                 }
@@ -187,41 +189,41 @@ fun Onboarding(
                 Step.ACTIVITIES -> {
                     LaunchedEffect(Unit) { onDefaultTasks(false) }
                     StepPage(
-                        cta = if (tasks.isEmpty()) "Pick at least one" else "Continue with ${tasks.size}",
+                        cta = if (tasks.isEmpty()) tr("Pick at least one", "Válassz legalább egyet") else tr("Continue with ${tasks.size}", "Tovább ${tasks.size} tevékenységgel"),
                         ctaEnabled = tasks.isNotEmpty(),
                         onCta = next,
                     ) {
-                        Title("What would you rather do?", "We picked three to start. Tap to change them, or add your own. Each one gives screen time back.")
-                        LinkText("Skip, use the defaults", { onDefaultTasks(true); next() })
+                        Title(tr("What would you rather do?", "Mit csinálnál szívesebben?"), tr("We picked three to start. Tap to change them, or add your own. Each one gives screen time back.", "Kezdésnek kiválasztottunk hármat. Koppintással cserélheted őket, vagy adj hozzá sajátot. Mindegyik képernyőidőt ad vissza."))
+                        LinkText(tr("Skip, use the defaults", "Kihagyom, jók az alapok"), { onDefaultTasks(true); next() })
                         ActivityPicker(tasks, onToggleTask)
                     }
                 }
 
-                Step.ABOUT -> StepPage(cta = "Continue", onCta = next) {
-                    Title("A little about you", "All optional. Your town gives the camp its own weather: rain there, rain here.")
+                Step.ABOUT -> StepPage(cta = tr("Continue", "Tovább"), onCta = next) {
+                    Title(tr("A little about you", "Egy kicsit rólad"), tr("All optional. Your town gives the camp its own weather: rain there, rain here.", "Semmi sem kötelező. A városodtól a tábor saját időjárást kap: ha ott esik, itt is."))
                     about()
                 }
 
                 Step.PAUSE -> StepPage(
-                    cta = if (perms.permissions.allGranted) "Continue" else "A few taps to go",
+                    cta = if (perms.permissions.allGranted) tr("Continue", "Tovább") else tr("A few taps to go", "Még pár koppintás"),
                     ctaEnabled = perms.permissions.allGranted,
                     onCta = next,
                 ) {
                     var askSkip by rememberSaveable { mutableStateOf(false) }
                     if (askSkip) LimitedModeDialog(perms.permissions, onConfirm = { askSkip = false; next() }, onDismiss = { askSkip = false })
-                    val first = blocked.firstOrNull()?.let(catalog::label) ?: "an app"
+                    val first = blocked.firstOrNull()?.let(catalog::label) ?: tr("an app", "egy app")
                     Title(
-                        "Let ${avatar.displayName} notice",
-                        "${if (perms.permissions.usageAccess) "One more switch" else "Two quick switches"} so ${avatar.displayName} can see when you open $first, give you a breath, and peek in after a long scroll. Nothing leaves your phone.",
+                        tr("Let ${avatar.displayName} notice", "Hadd figyeljen ${avatar.displayName}"),
+                        tr("${if (perms.permissions.usageAccess) "One more switch" else "Two quick switches"} so ${avatar.displayName} can see when you open $first, give you a breath, and peek in after a long scroll. Nothing leaves your phone.", "${if (perms.permissions.usageAccess) "Még egy kapcsoló" else "Két gyors kapcsoló"}, hogy ${avatar.displayName} észrevegye, amikor megnyitod ezt: $first, adjon egy lélegzetvételnyi szünetet, és benézzen egy hosszú görgetés után. Semmi nem hagyja el a telefonod."),
                     )
                     PermissionSteps(perms)
-                    if (!perms.permissions.allGranted) LinkText("Continue without", { askSkip = true })
+                    if (!perms.permissions.allGranted) LinkText(tr("Continue without", "Folytatom nélküle"), { askSkip = true })
                 }
 
-                Step.ACCOUNT -> StepPage(cta = if (signedIn) "Continue" else "Skip for now", onCta = next) {
+                Step.ACCOUNT -> StepPage(cta = if (signedIn) tr("Continue", "Tovább") else tr("Skip for now", "Most kihagyom"), onCta = next) {
                     Title(
-                        "Keep your camp safe",
-                        "With an account your camp is backed up, and friends can join in: visits, cheers, and sitting at each other's campfire. Optional: tend works fully without one.",
+                        tr("Keep your camp safe", "Tartsd biztonságban a táborod"),
+                        tr("With an account your camp is backed up, and friends can join in: visits, cheers, and sitting at each other's campfire. Optional: tend works fully without one.", "Fiókkal a táborodról mentés készül, és a barátaid is csatlakozhatnak: látogatás, taps, közös ülés egymás tábortüzénél. Nem kötelező: a tend enélkül is teljes."),
                     )
                     account(next)
                 }
@@ -240,13 +242,13 @@ fun Onboarding(
                         while (true) androidx.compose.runtime.withFrameNanos { frame = it; if (roastStart == 0L) roastStart = it }
                     }
                     val pulse by rememberInfiniteTransition(label = "hint").animateFloat(0f, 1f, infiniteRepeatable(tween(1100), RepeatMode.Restart), label = "pulse")
-                    StepPage(cta = if (!lit) "Get the campfire first" else "Start", ctaEnabled = lit, onCta = onFinish) {
+                    StepPage(cta = if (!lit) tr("Get the campfire first", "Előbb szerezd meg a tábortüzet") else tr("Start", "Indítás"), ctaEnabled = lit, onCta = onFinish) {
                         Title(
-                            "Your camp",
+                            tr("Your camp", "A táborod"),
                             when {
-                                !lit -> "This is where ${avatar.displayName} will live. It's empty for now: start with a campfire."
-                                !roasting -> "Lovely. Now tap the fire."
-                                else -> "${avatar.displayName} uses everything you get, even when you're away. Activities and \"Not now\" earn acorns for more; hold a thing to move it anywhere."
+                                !lit -> tr("This is where ${avatar.displayName} will live. It's empty for now: start with a campfire.", "Itt fog élni ${avatar.displayName}. Egyelőre üres: kezdd egy tábortűzzel.")
+                                !roasting -> tr("Lovely. Now tap the fire.", "Szép. Most koppints a tűzre.")
+                                else -> tr("${avatar.displayName} uses everything you get, even when you're away. Activities and \"Not now\" earn acorns for more; hold a thing to move it anywhere.", "${avatar.displayName} mindent használ, amit szerzel, akkor is, ha nem vagy itt. A tevékenységek és a „Most nem” makkot hoznak újabb dolgokra; ha nyomva tartasz egy tárgyat, bárhová áttehetted.")
                             },
                         )
                         val appear = rememberAppear(placed)
@@ -276,16 +278,16 @@ fun Onboarding(
                             AcornBadge(acorns, Modifier.align(Alignment.TopEnd).padding(10.dp))
                         }
                         if (!lit) {
-                            Text("THE SHOP", style = MaterialTheme.typography.labelSmall)
+                            Text(tr("THE SHOP", "A BOLT"), style = MaterialTheme.typography.labelSmall)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 ShopTile(fire, owned = false, affordable = acorns >= fire.price, Modifier.weight(1f), background = Brand.Card) { onBuy(fire.id) }
                                 Text(
-                                    "You have $acorns acorns. The campfire is ${fire.price}: tap it to get it.",
+                                    tr("You have $acorns acorns. The campfire is ${fire.price}: tap it to get it.", "$acorns makkod van. A tábortűz ${fire.price}: koppints rá, és a tiéd."),
                                     style = MaterialTheme.typography.bodyMedium, color = Brand.Muted, modifier = Modifier.weight(2f).align(Alignment.CenterVertically),
                                 )
                             }
                         } else Text(
-                            "$acorns acorns left. Every activity adds 10; a \"Not now\" adds 2.",
+                            tr("$acorns acorns left. Every activity adds 10; a \"Not now\" adds 2.", "$acorns makkod maradt. Minden tevékenység 10-et ad, egy „Most nem” 2-t."),
                             style = MaterialTheme.typography.bodyMedium, color = Brand.Muted,
                         )
                         // Once the fire's going: the welcome gift, said plainly, with when it ends.
@@ -295,10 +297,10 @@ fun Onboarding(
                         ) {
                             Column(Modifier.weight(1f)) {
                                 val onSale = app.tend.data.TendStore.PLUS_ON_SALE
-                                Text(if (onSale) "A welcome gift: 14 days of tend Plus" else "A welcome gift: tend Plus, on us", style = MaterialTheme.typography.titleSmall)
+                                Text(if (onSale) tr("A welcome gift: 14 days of tend Plus", "Üdvözlő ajándék: 14 nap tend Plus") else tr("A welcome gift: tend Plus, on us", "Üdvözlő ajándék: tend Plus, a vendégünk vagy"), style = MaterialTheme.typography.titleSmall)
                                 Text(
-                                    "Every week of your time, a limit for each app, strict mode, and the season's own things. " +
-                                        if (onSale) "Then it's your choice: Plus, or the free tend." else "All yours, free, while tend is new.",
+                                    tr("Every week of your time, a limit for each app, strict mode, and the season's own things. ", "A heteid részletesen, saját limit minden appnak, szigorú mód és az évszak saját tárgyai. ") +
+                                        if (onSale) tr("Then it's your choice: Plus, or the free tend.", "Utána te döntesz: Plus, vagy az ingyenes tend.") else tr("All yours, free, while tend is new.", "Mind a tiéd, ingyen, amíg a tend új."),
                                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp), color = Brand.Muted,
                                 )
                             }
@@ -315,7 +317,7 @@ fun Onboarding(
 @Composable
 private fun Progress(step: Int, total: Int, onBack: () -> Unit) =
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, "Back", onBack)
+        IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, tr("Back", "Vissza"), onBack)
         Spacer(Modifier.width(Space.m))
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             for (i in 1 until total) {
@@ -368,14 +370,14 @@ fun BobbingCharacter(avatar: Avatar, mood: Mood, size: Dp) {
 
 /** English or Magyar, each in its own words; picking the other one starts the app again in it. */
 @Composable
-fun LanguagePicker(modifier: Modifier = Modifier) {
+fun LanguagePicker(modifier: Modifier = Modifier, plain: Color = Brand.Card) {
     val context = androidx.compose.ui.platform.LocalContext.current
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         listOf("en" to "English", "hu" to "Magyar").forEach { (code, label) ->
             val on = code == app.tend.core.Lang.code
             Text(
                 label, style = MaterialTheme.typography.labelLarge, color = if (on) Color.White else Brand.Moss, textAlign = TextAlign.Center,
-                modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(if (on) Brand.Moss else Brand.Card)
+                modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(if (on) Brand.Moss else plain)
                     .clickable { app.tend.TendApp.setLanguage(context, code) }.padding(vertical = 10.dp),
             )
         }
@@ -420,9 +422,9 @@ fun AppPicker(catalog: AppCatalog, blocked: Set<String>, onToggle: (String) -> U
     var query by rememberSaveable { mutableStateOf("") }
 
     if (catalog.suggested.isNotEmpty()) {
-        if (catalog.dailyMinutes.isNotEmpty()) Text("Your most used apps and social media, most used first.", style = MaterialTheme.typography.bodyMedium)
+        if (catalog.dailyMinutes.isNotEmpty()) Text(tr("Your most used apps and social media, most used first.", "A legtöbbet használt appjaid és a közösségi média, a legtöbbet használt elöl."), style = MaterialTheme.typography.bodyMedium)
     } else {
-        Text("None of the usual suspects are installed. Search below.", style = MaterialTheme.typography.bodyMedium)
+        Text(tr("None of the usual suspects are installed. Search below.", "A szokásos gyanúsítottak közül egy sincs telepítve. Keress lent."), style = MaterialTheme.typography.bodyMedium)
     }
     // Picked from the full list: they join the big tiles, next to the others.
     val extra = catalog.others.filter { it.pkg in blocked }
@@ -438,21 +440,21 @@ fun AppPicker(catalog: AppCatalog, blocked: Set<String>, onToggle: (String) -> U
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text("Pick all I use a lot", style = MaterialTheme.typography.titleSmall, color = Brand.Moss)
+            Text(tr("Pick all I use a lot", "Mindet, amit sokat használok"), style = MaterialTheme.typography.titleSmall, color = Brand.Moss)
             Text(
-                "${toAdd.size} more app${if (toAdd.size == 1) "" else "s"} you use ${AppCatalog.HEAVY_MINUTES}+ minutes a day",
+                tr("${toAdd.size} more app${if (toAdd.size == 1) "" else "s"} you use ${AppCatalog.HEAVY_MINUTES}+ minutes a day", "Még ${toAdd.size} app, amit napi ${AppCatalog.HEAVY_MINUTES}+ percet használsz"),
                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted,
             )
         }
         androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Add, null, tint = Brand.Moss)
     }
 
-    SecondaryButton(if (showOthers) "Hide other apps" else "Add another app", { showOthers = !showOthers })
+    SecondaryButton(if (showOthers) tr("Hide other apps", "Többi app elrejtése") else tr("Add another app", "Másik app hozzáadása"), { showOthers = !showOthers })
     AnimatedVisibility(showOthers) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             OutlinedTextField(
                 value = query, onValueChange = { query = it },
-                placeholder = { Text("Search apps") }, singleLine = true,
+                placeholder = { Text(tr("Search apps", "Keresés az appok között")) }, singleLine = true,
                 shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(),
             )
             val matches = remember(query) {
@@ -497,7 +499,7 @@ private fun AppTile(catalog: AppCatalog, app: InstalledApp, selected: Boolean, o
     )
     catalog.dailyMinutes[app.pkg]?.let { min ->
         Text(
-            if (min >= 60) "${min / 60} h ${min % 60} min a day" else "$min min a day",
+            if (min >= 60) tr("${min / 60} h ${min % 60} min a day", "napi ${min / 60} ó ${min % 60} p") else tr("$min min a day", "napi $min perc"),
             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted, maxLines = 1, textAlign = TextAlign.Center,
         )
     }
@@ -539,14 +541,14 @@ fun BudgetPicker(cfg: BudgetConfig, onConfig: (BudgetConfig) -> Unit) = Card { B
 /** The two steppers on their own, for a card that holds more. */
 @Composable
 fun BudgetSteppers(cfg: BudgetConfig, onConfig: (BudgetConfig) -> Unit) {
-    Stepper("Free every day", "No effort needed", listOf(15, 30, 45, 60), cfg.freeMinutes) {
+    Stepper(tr("Free every day", "Minden nap jár"), tr("No effort needed", "Semmit nem kell tenned érte"), listOf(15, 30, 45, 60), cfg.freeMinutes) {
         onConfig(cfg.copy(freeMinutes = it, totalMinutes = maxOf(cfg.totalMinutes, it)))
     }
     Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp).background(Brand.Sage))
-    Stepper("Max per day", "With earned minutes", listOf(90, 120, 180, 240), cfg.totalMinutes) {
+    Stepper(tr("Max per day", "Napi maximum"), tr("With earned minutes", "A megszerzett percekkel együtt"), listOf(90, 120, 180, 240), cfg.totalMinutes) {
         onConfig(cfg.copy(totalMinutes = it, freeMinutes = minOf(cfg.freeMinutes, it)))
     }
-    Text("At 0 the picked apps stay closed until you earn more with an activity. Every day starts fresh.", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+    Text(tr("At 0 the picked apps stay closed until you earn more with an activity. Every day starts fresh.", "Nullánál a kiválasztott appok zárva maradnak, amíg egy tevékenységgel nem szerzel többet. Minden nap tiszta lappal indul."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
 }
 
 @Composable
@@ -559,7 +561,7 @@ private fun Stepper(title: String, hint: String, options: List<Int>, value: Int,
         val i = options.indexOf(value).let { if (it < 0) options.indexOfFirst { o -> o >= value }.coerceAtLeast(0) else it }
         StepButton("−", i > 0) { onPick(options[i - 1]) }
         Text(
-            "$value min", style = MaterialTheme.typography.titleMedium, color = Brand.Moss, textAlign = TextAlign.Center,
+            tr("$value min", "$value perc"), style = MaterialTheme.typography.titleMedium, color = Brand.Moss, textAlign = TextAlign.Center,
             modifier = Modifier.width(70.dp),
         )
         StepButton("+", i < options.lastIndex) { onPick(options[i + 1]) }
@@ -580,17 +582,17 @@ fun PermissionSteps(perms: PermissionActions) {
     val n = if (unlock) 1 else 0
     // Overlay first: once it's granted, tend can bring itself back to the front after each switch.
     PermissionCard(
-        number = n + 1, title = "Display over other apps", why = "So the little pause can appear when you open a picked app.",
+        number = n + 1, title = tr("Display over other apps", "Megjelenítés más appok fölött"), why = tr("So the little pause can appear when you open a picked app.", "Hogy a rövid szünet megjelenhessen, amikor megnyitsz egy kiválasztott appot."),
         granted = p.overlay, active = !unlock && !p.overlay, blocked = perms.overlayBlocked,
         onAllow = perms.requestOverlay, onAppInfo = perms.openAppInfo,
     )
     PermissionCard(
-        number = n + 2, title = "Usage access", why = "So screen time is measured on your phone, not guessed.",
+        number = n + 2, title = tr("Usage access", "Használati hozzáférés"), why = tr("So screen time is measured on your phone, not guessed.", "Hogy a képernyőidőt a telefonod mérje, ne csak becsüljük."),
         granted = p.usageAccess, active = !unlock && p.overlay && !p.usageAccess, blocked = perms.usageBlocked,
         onAllow = perms.requestUsage, onAppInfo = perms.openAppInfo,
     )
     if (!p.allGranted) Text(
-        "After each step tend brings you back here and shows what's next.",
+        tr("After each step tend brings you back here and shows what's next.", "Minden lépés után a tend visszahoz ide, és megmutatja, mi jön."),
         style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
     )
 }
@@ -612,15 +614,15 @@ private fun UnlockCard(perms: PermissionActions) = Column(
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text("Unlock tend's switches", style = MaterialTheme.typography.titleMedium)
-            Text("Once. Android locks them for apps from outside the Play Store.", style = MaterialTheme.typography.bodyMedium)
+            Text(tr("Unlock tend's switches", "Oldd fel a tend kapcsolóit"), style = MaterialTheme.typography.titleMedium)
+            Text(tr("Once. Android locks them for apps from outside the Play Store.", "Egyszer kell. Az Android zárolja őket a Play Áruházon kívülről telepített appoknál."), style = MaterialTheme.typography.bodyMedium)
         }
     }
-    UnlockMove(1, "Tap tend's switch. Android says it's restricted: tap OK and come back", done = tripped, active = !tripped)
-    UnlockMove(2, "In App info: ⋮ top right → Allow restricted settings → confirm, then come back", done = false, active = tripped)
-    if (tripped) PrimaryButton("Open App info", perms.unlockAppInfo)
-    else PrimaryButton("Start", perms.startUnlock)
-    LinkText("Already unlocked? Skip", perms.skipUnlock)
+    UnlockMove(1, tr("Tap tend's switch. Android says it's restricted: tap OK and come back", "Koppints a tend kapcsolójára. Az Android azt írja, hogy korlátozott: nyomj OK-t, és gyere vissza"), done = tripped, active = !tripped)
+    UnlockMove(2, tr("In App info: ⋮ top right → Allow restricted settings → confirm, then come back", "Az Alkalmazásinfóban: ⋮ jobb fent → Korlátozott beállítások engedélyezése → megerősítés, aztán gyere vissza"), done = false, active = tripped)
+    if (tripped) PrimaryButton(tr("Open App info", "Alkalmazásinfó megnyitása"), perms.unlockAppInfo)
+    else PrimaryButton(tr("Start", "Indítás"), perms.startUnlock)
+    LinkText(tr("Already unlocked? Skip", "Már feloldottad? Kihagyom"), perms.skipUnlock)
 }
 
 @Composable
@@ -668,8 +670,8 @@ private fun PermissionCard(
     }
     if (active) {
         if (blocked) RestrictedHelp(onAppInfo)
-        PrimaryButton(if (blocked) "Try again" else "Allow", onAllow)
-        if (!blocked) Text("Find tend and switch it on. We'll bring you right back.", style = MaterialTheme.typography.bodyMedium)
+        PrimaryButton(if (blocked) tr("Try again", "Újra") else tr("Allow", "Engedélyezem"), onAllow)
+        if (!blocked) Text(tr("Find tend and switch it on. We'll bring you right back.", "Keresd meg a tendet, és kapcsold be. Rögtön visszahozunk."), style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -682,13 +684,13 @@ private fun RestrictedHelp(onAppInfo: () -> Unit) = Column(
     Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Brand.Sunny.copy(alpha = 0.35f)).padding(14.dp),
     verticalArrangement = Arrangement.spacedBy(6.dp),
 ) {
-    Text("Android said no? That's expected.", style = MaterialTheme.typography.titleMedium)
+    Text(tr("Android said no? That's expected.", "Az Android nemet mondott? Ez várható."), style = MaterialTheme.typography.titleMedium)
     Text(
-        "Phones block this switch for apps not installed from the Play Store. A one-time fix:",
+        tr("Phones block this switch for apps not installed from the Play Store. A one-time fix:", "A telefonok letiltják ezt a kapcsolót a Play Áruházon kívülről telepített appoknál. Egyszer kell megoldani:"),
         style = MaterialTheme.typography.bodyMedium, color = Brand.Ink,
     )
-    Text("1. Open app info\n2. Tap ⋮ in the top right corner\n3. Choose \"Allow restricted settings\"\n4. Come back and tap Try again", style = MaterialTheme.typography.bodyLarge)
-    TextButton(onClick = onAppInfo) { Text("Open app info →") }
+    Text(tr("1. Open app info\n2. Tap ⋮ in the top right corner\n3. Choose \"Allow restricted settings\"\n4. Come back and tap Try again", "1. Nyisd meg az alkalmazásinfót\n2. Koppints jobb fent a ⋮ ikonra\n3. Válaszd: „Korlátozott beállítások engedélyezése”\n4. Gyere vissza, és koppints az Újra gombra"), style = MaterialTheme.typography.bodyLarge)
+    TextButton(onClick = onAppInfo) { Text(tr("Open app info →", "Alkalmazásinfó megnyitása →")) }
 }
 
 /**
@@ -710,16 +712,16 @@ fun WidgetButton(avatar: Avatar, onAddWidget: () -> Boolean) {
     ) {
         androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, tint = Brand.Moss)
         Spacer(Modifier.width(Space.s))
-        Text("${avatar.displayName} is on your home screen", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
+        Text(tr("${avatar.displayName} is on your home screen", "${avatar.displayName} kint van a kezdőképernyődön"), style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
     }
     if (isPlaced) Text(
-        "Tapping ${avatar.displayName} opens tend, so the tend icon can go: ${avatar.displayName} takes its place.",
+        tr("Tapping ${avatar.displayName} opens tend, so the tend icon can go: ${avatar.displayName} takes its place.", "Ha rákoppintasz, megnyílik a tend, úgyhogy a tend ikon mehet: ${avatar.displayName} átveszi a helyét."),
         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
     ) else {
-        SecondaryButton("Put ${avatar.displayName} on your home screen", { if (!onAddWidget()) guide = true })
+        SecondaryButton(tr("Put ${avatar.displayName} on your home screen", "Tedd ki a kezdőképernyődre: ${avatar.displayName}"), { if (!onAddWidget()) guide = true })
         // The bigger ones (with minutes, the camp) are in the phone's own widget list.
         Text(
-            "Other sizes in your phone's widget list", style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+            tr("Other sizes in your phone's widget list", "Más méretek a telefonod widgetlistájában"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
             textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { guide = true }.padding(vertical = 8.dp),
         )
     }
@@ -750,13 +752,13 @@ fun WidgetGuideDialog(avatar: Avatar, onDone: () -> Unit) {
             Modifier.fillMaxWidth().surface(radius = 28.dp).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(Space.m),
         ) {
-            Text("Put ${avatar.displayName} on your home screen", style = MaterialTheme.typography.titleLarge)
-            Text("The 1×1 one is just ${avatar.displayName}: put it where the tend icon is, and you see how they're doing each time you look. There's also one with your minutes, and the camp.", style = MaterialTheme.typography.bodyMedium)
+            Text(tr("Put ${avatar.displayName} on your home screen", "Tedd ki a kezdőképernyődre: ${avatar.displayName}"), style = MaterialTheme.typography.titleLarge)
+            Text(tr("The 1×1 one is just ${avatar.displayName}: put it where the tend icon is, and you see how they're doing each time you look. There's also one with your minutes, and the camp.", "Az 1×1-es csak ${avatar.displayName} maga: tedd a tend ikon helyére, és valahányszor odanézel, látod, hogy van. Van olyan is, ami a perceidet mutatja, és olyan is, ami a tábort."), style = MaterialTheme.typography.bodyMedium)
             listOf(
-                "Long-press an empty spot on your home screen",
-                "Tap \"Widgets\" and find tend",
-                "Drag the one you like onto the screen",
-                "Swap it in for the tend icon: tapping ${avatar.displayName} opens tend",
+                tr("Long-press an empty spot on your home screen", "Nyomj hosszan egy üres helyre a kezdőképernyőn"),
+                tr("Tap \"Widgets\" and find tend", "Koppints a „Widgetek” gombra, és keresd meg a tendet"),
+                tr("Drag the one you like onto the screen", "Húzd a képernyőre azt, amelyik tetszik"),
+                tr("Swap it in for the tend icon: tapping ${avatar.displayName} opens tend", "Cseréld le vele a tend ikont: ha rákoppintasz, megnyílik a tend"),
             ).forEachIndexed { i, step ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(28.dp).clip(CircleShape).background(Brand.Mint.copy(alpha = 0.3f)), contentAlignment = Alignment.Center) {
@@ -766,14 +768,14 @@ fun WidgetGuideDialog(avatar: Avatar, onDone: () -> Unit) {
                     Text(step, style = MaterialTheme.typography.bodyLarge)
                 }
             }
-            PrimaryButton("Go to home screen", {
+            PrimaryButton(tr("Go to home screen", "Ugrás a kezdőképernyőre"), {
                 onDone()
                 context.startActivity(
                     android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(android.content.Intent.CATEGORY_HOME)
                         .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
                 )
             })
-            SecondaryButton("Later", onDone)
+            SecondaryButton(tr("Later", "Később"), onDone)
         }
     }
 }
@@ -792,17 +794,17 @@ fun LimitedModeDialog(p: Permissions, onConfirm: () -> Unit, onDismiss: () -> Un
             Modifier.fillMaxWidth().surface(radius = 28.dp).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(Space.m),
         ) {
-            Text("Continue in limited mode?", style = MaterialTheme.typography.titleLarge)
+            Text(tr("Continue in limited mode?", "Folytatod korlátozott módban?"), style = MaterialTheme.typography.titleLarge)
             if (!p.usageAccess) Text(
-                "Without usage access, tend can't see screen time or app opens. Activities, the reading timer and the camp still work.",
+                tr("Without usage access, tend can't see screen time or app opens. Activities, the reading timer and the camp still work.", "Használati hozzáférés nélkül a tend nem látja a képernyőidőt és az appmegnyitásokat. A tevékenységek, az olvasásidőzítő és a tábor így is működnek."),
                 style = MaterialTheme.typography.bodyLarge,
             )
             if (p.usageAccess && !p.overlay) Text(
-                "Without \"display over other apps\", there's no pause before scrolling. tend still counts your minutes and sends a gentle notification instead.",
+                tr("Without \"display over other apps\", there's no pause before scrolling. tend still counts your minutes and sends a gentle notification instead.", "A „megjelenítés más appok fölött” engedély nélkül nincs szünet görgetés előtt. A tend így is számolja a perceidet, és helyette egy halk értesítést küld."),
                 style = MaterialTheme.typography.bodyLarge,
             )
-            Text("You can turn the switches on any time from the home screen.", style = MaterialTheme.typography.bodyMedium)
-            PrimaryButton("Continue anyway", onConfirm)
-            SecondaryButton("Set it up now", onDismiss)
+            Text(tr("You can turn the switches on any time from the home screen.", "A kapcsolókat a főoldalról bármikor bekapcsolhatod."), style = MaterialTheme.typography.bodyMedium)
+            PrimaryButton(tr("Continue anyway", "Folytatom így"), onConfirm)
+            SecondaryButton(tr("Set it up now", "Beállítom most"), onDismiss)
         }
     }

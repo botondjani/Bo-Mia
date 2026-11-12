@@ -1,5 +1,7 @@
 package app.tend.ui
 
+import app.tend.core.tr
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -60,13 +62,13 @@ fun ActivityPicker(selected: List<TaskDef>, onToggle: (TaskDef) -> Unit) {
         TendIcons.Badge("pen", 34.dp)
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text("Add your own", style = MaterialTheme.typography.titleSmall)
-            Text("Anything better than scrolling: walking the dog, guitar, a call home", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+            Text(tr("Add your own", "Adj hozzá sajátot"), style = MaterialTheme.typography.titleSmall)
+            Text(tr("Anything better than scrolling: walking the dog, guitar, a call home", "Bármi, ami jobb a görgetésnél: kutyasétáltatás, gitár, egy telefon haza"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
         }
         Text("+", style = MaterialTheme.typography.headlineMedium, color = Brand.Moss, modifier = Modifier.padding(start = 8.dp))
     }
 
-    Text("SUGGESTIONS", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
+    Text(tr("SUGGESTIONS", "ÖTLETEK"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
     // Two equal columns; tiles in a row share one height, whatever wraps.
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Tasks.presets.chunked(2).forEach { row ->
@@ -80,14 +82,14 @@ fun ActivityPicker(selected: List<TaskDef>, onToggle: (TaskDef) -> Unit) {
         }
     }
 
-    Text("YOUR OWN", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
+    Text(tr("YOUR OWN", "SAJÁT"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
     selected.filter { Tasks.isCustom(it) }.forEach { task -> OwnRow(task) { onToggle(task) } }
     val ideas = Tasks.ownIdeas.filter { (name) -> selected.none { it.title.equals(name, ignoreCase = true) } }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         ideas.forEach { (name, icon, minutes) ->
             IdeaChip(name, icon, enabled = !full) { onToggle(Tasks.custom(name, icon, minutes)) }
         }
-        IdeaChip("Write your own", "pen", enabled = !full, filled = true) { writing = true }
+        IdeaChip(tr("Write your own", "Írj sajátot"), "pen", enabled = !full, filled = true) { writing = true }
     }
     if (writing) OwnActivityDialog(onDismiss = { writing = false }) { onToggle(it); writing = false }
 }
@@ -105,7 +107,7 @@ private fun PresetTile(task: TaskDef, picked: TaskDef?, enabled: Boolean, modifi
     Column(Modifier.weight(1f)) {
         Text(task.title, style = MaterialTheme.typography.labelLarge, maxLines = 3)
         Text(
-            picked?.let { "+${it.rewardMinutes} min" } ?: task.verification.label,
+            picked?.let { tr("+${it.rewardMinutes} min", "+${it.rewardMinutes} perc") } ?: task.verification.label,
             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = if (picked != null) Brand.Moss else Brand.Muted,
         )
     }
@@ -122,12 +124,12 @@ private fun OwnRow(task: TaskDef, onRemove: () -> Unit) = Row(
     Column(Modifier.weight(1f)) {
         Text(task.title, style = MaterialTheme.typography.labelLarge)
         Text(
-            (if (task.manual) "Tick off" else "${task.target} min, phone away") + " · +${task.rewardMinutes} min",
+            (if (task.manual) tr("Tick off", "Pipálható") else tr("${task.target} min, phone away", "${task.target} perc, telefon nélkül")) + tr(" · +${task.rewardMinutes} min", " · +${task.rewardMinutes} perc"),
             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Moss,
         )
     }
     Text(
-        "Remove", style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
+        tr("Remove", "Eltávolítás"), style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
         modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onRemove).padding(horizontal = 8.dp, vertical = 6.dp),
     )
 }
@@ -154,11 +156,11 @@ fun ActivitySummary(selected: List<TaskDef>, onToggle: (TaskDef) -> Unit) {
     var editing by rememberSaveable { mutableStateOf(false) }
     if (editing) {
         ActivityPicker(selected, onToggle)
-        PrimaryButton("Done", { editing = false }, enabled = selected.isNotEmpty())
+        PrimaryButton(tr("Done", "Kész"), { editing = false }, enabled = selected.isNotEmpty())
         return
     }
     Card {
-        if (selected.isEmpty()) Text("Nothing picked yet.", style = MaterialTheme.typography.bodyLarge)
+        if (selected.isEmpty()) Text(tr("Nothing picked yet.", "Még nincs kiválasztva semmi."), style = MaterialTheme.typography.bodyLarge)
         selected.forEach { task ->
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
                 TendIcons.Badge(task.icon, 32.dp)
@@ -168,8 +170,8 @@ fun ActivitySummary(selected: List<TaskDef>, onToggle: (TaskDef) -> Unit) {
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
-            Text("${selected.size} of ${Tasks.MAX_SELECTED} picked", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            ChipButton("Change", { editing = true })
+            Text(tr("${selected.size} of ${Tasks.MAX_SELECTED} picked", "${selected.size} / ${Tasks.MAX_SELECTED} kiválasztva"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            ChipButton(tr("Change", "Módosítás"), { editing = true })
         }
     }
 }
@@ -180,13 +182,13 @@ private fun PickCounter(count: Int) = Column(
     Modifier.fillMaxWidth().surface(radius = 20.dp).padding(horizontal = 16.dp, vertical = 12.dp),
     verticalArrangement = Arrangement.spacedBy(6.dp),
 ) {
-    Text("$count of ${Tasks.MAX_SELECTED} picked", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
+    Text(tr("$count of ${Tasks.MAX_SELECTED} picked", "$count / ${Tasks.MAX_SELECTED} kiválasztva"), style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
     Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(Brand.Mint.copy(alpha = 0.25f))) {
         Box(Modifier.fillMaxWidth(count / Tasks.MAX_SELECTED.toFloat()).height(6.dp).clip(CircleShape).background(Brand.Moss))
     }
     Text(
-        if (count >= Tasks.MAX_SELECTED) "That's the max. Tap one to swap it out."
-        else "Your daily extra minutes are shared between them: bigger efforts earn more. Change any time in settings.",
+        if (count >= Tasks.MAX_SELECTED) tr("That's the max. Tap one to swap it out.", "Ennyi fér bele. Koppints egyre, ha cserélnéd.")
+        else tr("Your daily extra minutes are shared between them: bigger efforts earn more. Change any time in settings.", "A napi pluszperceid megoszlanak köztük: a nagyobb erőfeszítés többet ér. A beállításokban bármikor változtathatsz."),
         style = MaterialTheme.typography.bodyMedium,
     )
 }
@@ -201,10 +203,10 @@ private fun OwnActivityDialog(onDismiss: () -> Unit, onAdd: (TaskDef) -> Unit) {
             Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Brand.Card).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Your own activity", style = MaterialTheme.typography.titleLarge)
+            Text(tr("Your own activity", "Saját tevékenység"), style = MaterialTheme.typography.titleLarge)
             OutlinedTextField(
                 value = name, onValueChange = { name = it.take(40) },
-                placeholder = { Text("e.g. Play guitar") }, singleLine = true,
+                placeholder = { Text(tr("e.g. Play guitar", "pl. Gitározás")) }, singleLine = true,
                 shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(),
             )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -218,9 +220,9 @@ private fun OwnActivityDialog(onDismiss: () -> Unit, onAdd: (TaskDef) -> Unit) {
                     ) { TendIcons.Glyph(key, 22.dp) }
                 }
             }
-            Text("HOW IT COUNTS", style = MaterialTheme.typography.labelSmall)
+            Text(tr("HOW IT COUNTS", "HOGYAN SZÁMÍT"), style = MaterialTheme.typography.labelSmall)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf(0 to "Tick off", 10 to "10 min", 20 to "20 min", 30 to "30 min").forEach { (m, label) ->
+                listOf(0 to tr("Tick off", "Pipálható"), 10 to tr("10 min", "10 perc"), 20 to tr("20 min", "20 perc"), 30 to tr("30 min", "30 perc")).forEach { (m, label) ->
                     val on = m == minutes
                     Text(
                         label, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center, maxLines = 1,
@@ -231,11 +233,11 @@ private fun OwnActivityDialog(onDismiss: () -> Unit, onAdd: (TaskDef) -> Unit) {
                 }
             }
             Text(
-                if (minutes == 0) "Tick it off when it's done." else "A $minutes-minute timer with the phone put away.",
+                if (minutes == 0) tr("Tick it off when it's done.", "Kipipálod, ha megvan.") else tr("A $minutes-minute timer with the phone put away.", "$minutes perces időzítő, a telefont félretéve."),
                 style = MaterialTheme.typography.bodyMedium,
             )
-            PrimaryButton("Add", { onAdd(Tasks.custom(name, icon, minutes)) }, enabled = name.isNotBlank())
-            TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Cancel") }
+            PrimaryButton(tr("Add", "Hozzáadás"), { onAdd(Tasks.custom(name, icon, minutes)) }, enabled = name.isNotBlank())
+            TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text(tr("Cancel", "Mégse")) }
         }
     }
 }

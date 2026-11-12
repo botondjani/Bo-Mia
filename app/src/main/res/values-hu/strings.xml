@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shorts_guard_description">A tend bezárja a Reelst és a Shortsot az Instagramban, a YouTube-on és a Facebookon, ha ezt bekapcsolod, így ezeknek az appoknak a többi része nyitva marad. Csak azt figyeli, hogy a képernyőn a rövidvideó-lejátszó van-e; a képernyő tartalmát nem olvassa, nem tárolja és nem küldi el.</string>
+    <string name="widget_min_left">perc maradt</string>
+    <string name="widget_min">perc</string>
+    <string name="widget_description">A társad, a hátralévő percek és a következő tevékenység</string>
+    <string name="widget_face_description">A társad, a mai hangulatában</string>
+    <string name="widget_garden_description">A folyóparti táborod és a mai hátralévő percek</string>
+</resources>

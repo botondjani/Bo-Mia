@@ -8,10 +8,10 @@ import java.time.MonthDay
  * kept): pumpkin night, St. Martin's lantern night, Advent, Midsummer.
  */
 enum class CampEvent(val title: String, val thing: String, private val from: MonthDay, private val to: MonthDay, val line: String) {
-    PUMPKINS("Pumpkin night", "jack_o_lantern", MonthDay.of(10, 27), MonthDay.of(11, 1), "Carved pumpkins glow on the meadow."),
-    LANTERNS("Lantern night", "paper_lanterns", MonthDay.of(11, 9), MonthDay.of(11, 12), "St. Martin's: lanterns for the walk at dusk."),
-    ADVENT("Advent", "xmas_tree", MonthDay.of(12, 1), MonthDay.of(12, 26), "A little fir tree for the camp, lit up at night."),
-    MIDSUMMER("Midsummer", "flower_arch", MonthDay.of(6, 19), MonthDay.of(6, 24), "The longest days: a garland of flowers."),
+    PUMPKINS(tr("Pumpkin night", "Töklámpás-este"), "jack_o_lantern", MonthDay.of(10, 27), MonthDay.of(11, 1), tr("Carved pumpkins glow on the meadow.", "Faragott tökök világítanak a réten.")),
+    LANTERNS(tr("Lantern night", "Lampionos este"), "paper_lanterns", MonthDay.of(11, 9), MonthDay.of(11, 12), tr("St. Martin's: lanterns for the walk at dusk.", "Márton-nap: lampionok az alkonyi sétához.")),
+    ADVENT(tr("Advent", "Advent"), "xmas_tree", MonthDay.of(12, 1), MonthDay.of(12, 26), tr("A little fir tree for the camp, lit up at night.", "Kis fenyőfa a táborba, este kivilágítva.")),
+    MIDSUMMER(tr("Midsummer", "Szent Iván-éj"), "flower_arch", MonthDay.of(6, 19), MonthDay.of(6, 24), tr("The longest days: a garland of flowers.", "A leghosszabb napok: egy füzér virág.")),
     ;
 
     fun on(date: LocalDate): Boolean = MonthDay.from(date).let { !it.isBefore(from) && !it.isAfter(to) }

@@ -13,7 +13,7 @@ data class Spot(val id: Int, val kind: SpotKind)
 
 /** The camp's seasons (as the months go, north of the equator): the look changes, and each brings its own things. */
 enum class Season(val title: String) {
-    SPRING("Spring"), SUMMER("Summer"), AUTUMN("Autumn"), WINTER("Winter");
+    SPRING(tr("Spring", "Tavasz")), SUMMER(tr("Summer", "Nyár")), AUTUMN(tr("Autumn", "Ősz")), WINTER(tr("Winter", "Tél"));
 
     companion object {
         fun of(date: java.time.LocalDate): Season = when (date.monthValue) { 3, 4, 5 -> SPRING; 6, 7, 8 -> SUMMER; 9, 10, 11 -> AUTUMN; else -> WINTER }
@@ -29,54 +29,54 @@ data class Thing(val id: String, val name: String, val price: Int, val kind: Spo
 object Things {
     val all: List<Thing> = listOf(
         // Small things around the camp: always something to buy today, and each one gets used.
-        Thing("wildflowers", "Wildflowers", 10, SpotKind.SMALL),
-        Thing("lantern", "Lantern", 15, SpotKind.SMALL),
-        Thing("woodpile", "Firewood", 15, SpotKind.SMALL),
-        Thing("guitar", "Guitar", 30, SpotKind.SMALL),
-        Thing("fishing_rod", "Fishing rod", 40, SpotKind.SMALL),
-        Thing("telescope", "Telescope", 80, SpotKind.SMALL),
+        Thing("wildflowers", tr("Wildflowers", "Vadvirágok"), 10, SpotKind.SMALL),
+        Thing("lantern", tr("Lantern", "Lámpás"), 15, SpotKind.SMALL),
+        Thing("woodpile", tr("Firewood", "Tűzifa"), 15, SpotKind.SMALL),
+        Thing("guitar", tr("Guitar", "Gitár"), 30, SpotKind.SMALL),
+        Thing("fishing_rod", tr("Fishing rod", "Horgászbot"), 40, SpotKind.SMALL),
+        Thing("telescope", tr("Telescope", "Távcső"), 80, SpotKind.SMALL),
         // The fire pit: each one cooks something else.
-        Thing("campfire", "Campfire", 40, SpotKind.FIRE),
-        Thing("kettle", "Fire and kettle", 120, SpotKind.FIRE),
-        Thing("pizza_oven", "Pizza oven", 250, SpotKind.FIRE),
+        Thing("campfire", tr("Campfire", "Tábortűz"), 40, SpotKind.FIRE),
+        Thing("kettle", tr("Fire and kettle", "Tűz teáskannával"), 120, SpotKind.FIRE),
+        Thing("pizza_oven", tr("Pizza oven", "Pizzakemence"), 250, SpotKind.FIRE),
         // Seats by the fire.
-        Thing("log_bench", "Log bench", 50, SpotKind.SEAT),
-        Thing("picnic_table", "Picnic table", 90, SpotKind.SEAT),
-        Thing("rocking_chair", "Rocking chair", 120, SpotKind.SEAT),
+        Thing("log_bench", tr("Log bench", "Rönkpad"), 50, SpotKind.SEAT),
+        Thing("picnic_table", tr("Picnic table", "Piknikasztal"), 90, SpotKind.SEAT),
+        Thing("rocking_chair", tr("Rocking chair", "Hintaszék"), 120, SpotKind.SEAT),
         // Shelters at the back, for the night.
-        Thing("tent", "Tent", 150, SpotKind.SHELTER),
-        Thing("bell_tent", "Canvas tent", 300, SpotKind.SHELTER),
-        Thing("cabin", "Cabin", 700, SpotKind.SHELTER),
+        Thing("tent", tr("Tent", "Sátor"), 150, SpotKind.SHELTER),
+        Thing("bell_tent", tr("Canvas tent", "Vászonsátor"), 300, SpotKind.SHELTER),
+        Thing("cabin", tr("Cabin", "Faház"), 700, SpotKind.SHELTER),
         // In the trees.
-        Thing("swing", "Swing", 70, SpotKind.TREES, spot = 6),
-        Thing("hammock", "Hammock", 90, SpotKind.TREES, spot = 5),
-        Thing("treehouse", "Treehouse", 300, SpotKind.TREES, spot = 6),
+        Thing("swing", tr("Swing", "Hinta"), 70, SpotKind.TREES, spot = 6),
+        Thing("hammock", tr("Hammock", "Függőágy"), 90, SpotKind.TREES, spot = 5),
+        Thing("treehouse", tr("Treehouse", "Lombház"), 300, SpotKind.TREES, spot = 6),
         // On the river.
-        Thing("raft", "Raft", 150, SpotKind.WATER, spot = 7),
-        Thing("canoe", "Canoe", 200, SpotKind.WATER, spot = 7),
-        Thing("dock", "Dock", 400, SpotKind.WATER, spot = 8),
+        Thing("raft", tr("Raft", "Tutaj"), 150, SpotKind.WATER, spot = 7),
+        Thing("canoe", tr("Canoe", "Kenu"), 200, SpotKind.WATER, spot = 7),
+        Thing("dock", tr("Dock", "Stég"), 400, SpotKind.WATER, spot = 8),
         // Strung between the trees over the camp.
-        Thing("wind_chimes", "Wind chimes", 40, SpotKind.ABOVE),
-        Thing("bird_feeder", "Bird feeder", 50, SpotKind.ABOVE),
-        Thing("string_lights", "String lights", 60, SpotKind.ABOVE),
+        Thing("wind_chimes", tr("Wind chimes", "Szélcsengő"), 40, SpotKind.ABOVE),
+        Thing("bird_feeder", tr("Bird feeder", "Madáretető"), 50, SpotKind.ABOVE),
+        Thing("string_lights", tr("String lights", "Fényfüzér"), 60, SpotKind.ABOVE),
         // Each season brings three of its own, sold only while it lasts.
-        Thing("tulips", "Tulips", 20, SpotKind.SMALL, season = Season.SPRING),
-        Thing("watering_can", "Watering can", 25, SpotKind.SMALL, season = Season.SPRING),
-        Thing("birdhouse", "Birdhouse", 45, SpotKind.SMALL, season = Season.SPRING),
-        Thing("beach_ball", "Beach ball", 15, SpotKind.SMALL, season = Season.SUMMER),
-        Thing("watermelon", "Watermelon", 20, SpotKind.SMALL, season = Season.SUMMER),
-        Thing("deck_chair", "Deck chair", 50, SpotKind.SMALL, season = Season.SUMMER),
-        Thing("leaf_pile", "Leaf pile", 20, SpotKind.SMALL, season = Season.AUTUMN),
-        Thing("pumpkins", "Pumpkins", 30, SpotKind.SMALL, season = Season.AUTUMN),
-        Thing("scarecrow", "Scarecrow", 60, SpotKind.SMALL, season = Season.AUTUMN),
-        Thing("gift_boxes", "Presents", 25, SpotKind.SMALL, season = Season.WINTER),
-        Thing("sled", "Sled", 30, SpotKind.SMALL, season = Season.WINTER),
-        Thing("snowman", "Snowman", 40, SpotKind.SMALL, season = Season.WINTER),
+        Thing("tulips", tr("Tulips", "Tulipánok"), 20, SpotKind.SMALL, season = Season.SPRING),
+        Thing("watering_can", tr("Watering can", "Locsolókanna"), 25, SpotKind.SMALL, season = Season.SPRING),
+        Thing("birdhouse", tr("Birdhouse", "Madárodú"), 45, SpotKind.SMALL, season = Season.SPRING),
+        Thing("beach_ball", tr("Beach ball", "Strandlabda"), 15, SpotKind.SMALL, season = Season.SUMMER),
+        Thing("watermelon", tr("Watermelon", "Görögdinnye"), 20, SpotKind.SMALL, season = Season.SUMMER),
+        Thing("deck_chair", tr("Deck chair", "Nyugágy"), 50, SpotKind.SMALL, season = Season.SUMMER),
+        Thing("leaf_pile", tr("Leaf pile", "Levélkupac"), 20, SpotKind.SMALL, season = Season.AUTUMN),
+        Thing("pumpkins", tr("Pumpkins", "Tökök"), 30, SpotKind.SMALL, season = Season.AUTUMN),
+        Thing("scarecrow", tr("Scarecrow", "Madárijesztő"), 60, SpotKind.SMALL, season = Season.AUTUMN),
+        Thing("gift_boxes", tr("Presents", "Ajándékok"), 25, SpotKind.SMALL, season = Season.WINTER),
+        Thing("sled", tr("Sled", "Szánkó"), 30, SpotKind.SMALL, season = Season.WINTER),
+        Thing("snowman", tr("Snowman", "Hóember"), 40, SpotKind.SMALL, season = Season.WINTER),
         // A few days a year: each event's own, sold only then.
-        Thing("jack_o_lantern", "Jack-o'-lantern", 40, SpotKind.SMALL, event = CampEvent.PUMPKINS),
-        Thing("paper_lanterns", "Paper lanterns", 40, SpotKind.SMALL, event = CampEvent.LANTERNS),
-        Thing("xmas_tree", "Little fir tree", 60, SpotKind.SMALL, event = CampEvent.ADVENT),
-        Thing("flower_arch", "Flower garland", 50, SpotKind.SMALL, event = CampEvent.MIDSUMMER),
+        Thing("jack_o_lantern", tr("Jack-o'-lantern", "Töklámpás"), 40, SpotKind.SMALL, event = CampEvent.PUMPKINS),
+        Thing("paper_lanterns", tr("Paper lanterns", "Papírlampionok"), 40, SpotKind.SMALL, event = CampEvent.LANTERNS),
+        Thing("xmas_tree", tr("Little fir tree", "Kis fenyőfa"), 60, SpotKind.SMALL, event = CampEvent.ADVENT),
+        Thing("flower_arch", tr("Flower garland", "Virágfüzér"), 50, SpotKind.SMALL, event = CampEvent.MIDSUMMER),
     )
 
     /** Things no longer sold, with what they cost: whoever had one gets it back in acorns. */

@@ -1,5 +1,7 @@
 package app.tend.ui
 
+import app.tend.core.tr
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -78,74 +80,74 @@ fun AccountCard(onChanged: () -> Unit, onRestored: () -> Unit = {}, onSignedIn: 
             Text(u.name.ifBlank { u.email }, style = MaterialTheme.typography.titleMedium)
             Text(u.email, style = MaterialTheme.typography.bodyMedium)
             Text(
-                if (lastBackup > 0) "Backed up ${android.text.format.DateUtils.getRelativeTimeSpanString(lastBackup, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS)}; it saves itself twice a day."
-                else "Not backed up yet.",
+                if (lastBackup > 0) tr("Backed up ${android.text.format.DateUtils.getRelativeTimeSpanString(lastBackup, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS)}; it saves itself twice a day.", "Mentve: ${android.text.format.DateUtils.getRelativeTimeSpanString(lastBackup, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS)}; naponta kétszer magától is ment.")
+                else tr("Not backed up yet.", "Még nincs mentés."),
                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted,
             )
             androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-                ChipButton(if (busy) "Saving…" else "Back up now", {
+                ChipButton(if (busy) tr("Saving…", "Mentés…") else tr("Back up now", "Mentés most"), {
                     busy = true; message = null
                     scope.launch {
                         if (app.tend.data.Backup.upload(context)) lastBackup = app.tend.data.Backup.lastBackupAt(context)
-                        else message = "Couldn't back up. Check the connection and try again."
+                        else message = tr("Couldn't back up. Check the connection and try again.", "Nem sikerült menteni. Nézd meg a kapcsolatot, és próbáld újra.")
                         busy = false
                     }
                 }, filled = false)
-                ChipButton("Sign out", { scope.launch { Account.signOut(context); user = null; onChanged() } }, filled = false)
-                ChipButton("Delete account", { confirmDelete = true }, filled = false)
+                ChipButton(tr("Sign out", "Kijelentkezés"), { scope.launch { Account.signOut(context); user = null; onChanged() } }, filled = false)
+                ChipButton(tr("Delete account", "Fiók törlése"), { confirmDelete = true }, filled = false)
             }
         } else {
-            Text("Back up your camp, and visit your friends' camps. Optional: tend works fully without it.", style = MaterialTheme.typography.bodyMedium)
+            Text(tr("Back up your camp, and visit your friends' camps. Optional: tend works fully without it.", "Mentsd el a táborod, és látogasd meg a barátaidét. Nem kötelező: a tend enélkül is teljes."), style = MaterialTheme.typography.bodyMedium)
             if (!useEmail) {
-                PrimaryButton(if (busy) "Opening Google…" else "Continue with Google", {
+                PrimaryButton(if (busy) tr("Opening Google…", "Google megnyitása…") else tr("Continue with Google", "Folytatás Google-lel"), {
                     (context as? android.app.Activity)?.let { a -> run { Account.signInWithGoogle(a) } }
                 }, enabled = !busy, modifier = Modifier.padding(top = 6.dp))
                 Text(
-                    "Log in with e-mail instead", style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = TextAlign.Center,
+                    tr("Log in with e-mail instead", "Inkább e-maillel lépek be"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tappable { useEmail = true; message = null }.padding(vertical = 8.dp),
                 )
             } else {
                 OutlinedTextField(
-                    email, { email = it; codeSent = false }, placeholder = { Text("you@example.com") }, singleLine = true,
+                    email, { email = it; codeSent = false }, placeholder = { Text(tr("you@example.com", "te@pelda.hu")) }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 if (codeSent) OutlinedTextField(
-                    code, { code = it.filter(Char::isDigit).take(6) }, placeholder = { Text("6-digit code") }, singleLine = true,
+                    code, { code = it.filter(Char::isDigit).take(6) }, placeholder = { Text(tr("6-digit code", "6 jegyű kód")) }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                if (!codeSent) PrimaryButton(if (busy) "Sending…" else "Send me a code", {
-                    run { Account.sendEmailCode(email).also { if (it == Account.Result.Ok) { codeSent = true; message = "Check your inbox for a 6-digit code." } } }
+                if (!codeSent) PrimaryButton(if (busy) tr("Sending…", "Küldés…") else tr("Send me a code", "Kérek egy kódot"), {
+                    run { Account.sendEmailCode(email).also { if (it == Account.Result.Ok) { codeSent = true; message = tr("Check your inbox for a 6-digit code.", "Nézd meg a postaládád: küldtünk egy 6 jegyű kódot.") } } }
                 }, enabled = !busy && "@" in email && "." in email.substringAfter('@'))
-                else PrimaryButton(if (busy) "Logging in…" else "Log in", { run { Account.verifyEmailCode(context, email, code) } }, enabled = !busy && code.length == 6)
+                else PrimaryButton(if (busy) tr("Logging in…", "Belépés…") else tr("Log in", "Belépés"), { run { Account.verifyEmailCode(context, email, code) } }, enabled = !busy && code.length == 6)
                 Text(
-                    "Use Google instead", style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = TextAlign.Center,
+                    tr("Use Google instead", "Inkább Google-lel"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tappable { useEmail = false; codeSent = false; message = null }.padding(vertical = 8.dp),
                 )
             }
         }
-        message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = if (it.startsWith("Check")) Brand.Moss else Brand.Coral) }
+        message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = if (it == tr("Check your inbox for a 6-digit code.", "Nézd meg a postaládád: küldtünk egy 6 jegyű kódot.")) Brand.Moss else Brand.Coral) }
     }
 
     found?.let { saved ->
         val date = runCatching { java.time.OffsetDateTime.parse(saved.updatedAt).toLocalDate().toString() }.getOrDefault("")
         androidx.compose.material3.AlertDialog(
             onDismissRequest = {},
-            title = { Text("Restore your camp?") },
-            text = { Text("There's a backup from $date. Restoring replaces what's on this phone with it. Keeping this phone's data replaces the backup instead.") },
+            title = { Text(tr("Restore your camp?", "Visszaállítod a táborod?")) },
+            text = { Text(tr("There's a backup from $date. Restoring replaces what's on this phone with it. Keeping this phone's data replaces the backup instead.", "Van egy mentés ekkorról: $date. A visszaállítás lecseréli vele azt, ami ezen a telefonon van. Ha a telefon adatait tartod meg, az írja felül a mentést.")) },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     found = null
                     app.tend.data.Backup.restore(context, saved.data)
                     onRestored()
-                }) { Text("Restore", color = Brand.Moss) }
+                }) { Text(tr("Restore", "Visszaállítás"), color = Brand.Moss) }
             },
             dismissButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     found = null
                     scope.launch { if (app.tend.data.Backup.upload(context)) lastBackup = app.tend.data.Backup.lastBackupAt(context); onSignedIn() }
-                }) { Text("Keep this phone's") }
+                }) { Text(tr("Keep this phone's", "A telefoné marad")) }
             },
             containerColor = Brand.Card,
         )
@@ -153,14 +155,14 @@ fun AccountCard(onChanged: () -> Unit, onRestored: () -> Unit = {}, onSignedIn: 
 
     if (confirmDelete) androidx.compose.material3.AlertDialog(
         onDismissRequest = { confirmDelete = false },
-        title = { Text("Delete your account?") },
-        text = { Text("This deletes your account and its backup on our server. What's on this phone stays.") },
+        title = { Text(tr("Delete your account?", "Törlöd a fiókod?")) },
+        text = { Text(tr("This deletes your account and its backup on our server. What's on this phone stays.", "Ez törli a fiókod és a mentését a szerverünkről. Ami ezen a telefonon van, megmarad.")) },
         confirmButton = {
             androidx.compose.material3.TextButton(onClick = { confirmDelete = false; run { Account.deleteAccount(context).also { if (it == Account.Result.Ok) user = null } } }) {
-                Text("Delete", color = Brand.Coral)
+                Text(tr("Delete", "Törlés"), color = Brand.Coral)
             }
         },
-        dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmDelete = false }) { Text("Keep") } },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmDelete = false }) { Text(tr("Keep", "Mégsem")) } },
         containerColor = Brand.Card,
     )
 }

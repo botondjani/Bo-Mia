@@ -1,5 +1,7 @@
 package app.tend.ui
 
+import app.tend.core.tr
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.background
@@ -51,14 +53,14 @@ internal fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory
     var all by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     Card {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("${avatar.displayName.uppercase()}'S THINGS", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            Text(tr("${avatar.displayName.uppercase()}'S THINGS", "${avatar.displayName.uppercase()} HOLMIJA"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
             Text(
-                "See all ${Accessory.habits.size}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+                tr("See all ${Accessory.habits.size}", "Mind a ${Accessory.habits.size}"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
                 modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable { all = true }.padding(horizontal = 8.dp, vertical = 4.dp),
             )
         }
         if (earned.isEmpty()) Text(
-            "Do any activity and ${avatar.displayName} gets a lucky leaf. More things come with a few good days.",
+            tr("Do any activity and ${avatar.displayName} gets a lucky leaf. More things come with a few good days.", "Csinálj meg bármilyen tevékenységet, és ${avatar.displayName} kap egy szerencselevelet. Pár jó nap után jön a többi."),
             style = MaterialTheme.typography.bodyMedium,
         ) else androidx.compose.foundation.layout.FlowRow(
             maxItemsInEachRow = 3,
@@ -75,8 +77,8 @@ internal fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory
             Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Brand.Card).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("${avatar.displayName}'s things", style = MaterialTheme.typography.titleLarge)
-            Text("Earned by doing, kept while the habit holds. Tap one to put it on or take it off. Faded ones wait on the shelf.", style = MaterialTheme.typography.bodyMedium)
+            Text(tr("${avatar.displayName}'s things", "${avatar.displayName} holmija"), style = MaterialTheme.typography.titleLarge)
+            Text(tr("Earned by doing, kept while the habit holds. Tap one to put it on or take it off. Faded ones wait on the shelf.", "Tettekkel szerzi, és megmarad, amíg a szokás tart. Koppintással adhatod rá vagy veheted le. Ami kikopott, a polcon vár."), style = MaterialTheme.typography.bodyMedium)
             androidx.compose.foundation.layout.FlowRow(
                 maxItemsInEachRow = 3,
                 horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -84,7 +86,7 @@ internal fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory
                 Accessory.habits.forEach { ThingTile(it, worn, onShelf, Modifier.weight(1f), earned, onToggle) }
                 repeat((3 - Accessory.habits.size % 3) % 3) { Spacer(Modifier.weight(1f)) }
             }
-            PrimaryButton("Close", { all = false })
+            PrimaryButton(tr("Close", "Bezárás"), { all = false })
         }
     }
 }
@@ -112,7 +114,7 @@ private fun ThingTile(a: Accessory, worn: Set<Accessory>, onShelf: Set<Accessory
             maxLines = 1, textAlign = TextAlign.Center, color = if (a in worn) Brand.Ink else Brand.Muted, modifier = Modifier.padding(top = 4.dp),
         )
         Text(
-            when (a) { in worn -> "Wearing it"; in earned -> "Tap to wear"; in onShelf -> "On the shelf"; else -> a.short },
+            when (a) { in worn -> tr("Wearing it", "Rajta van"); in earned -> tr("Tap to wear", "Koppints: felveszi"); in onShelf -> tr("On the shelf", "A polcon"); else -> a.short },
             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp), textAlign = TextAlign.Center,
         )
     }
@@ -131,14 +133,14 @@ fun RecapScreen(
     Modifier.fillMaxSize().background(Brand.Sage).padding(20.dp),
     verticalArrangement = Arrangement.spacedBy(12.dp),
 ) {
-    Text("TONIGHT'S RECAP", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
+    Text(tr("TONIGHT'S RECAP", "A MA ESTI ÖSSZEFOGLALÓ"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
     Text(
-        if (recap.gotBackMinutes > 0) "You got back ${duration(recap.gotBackMinutes)}" else "Today used it all",
+        if (recap.gotBackMinutes > 0) tr("You got back ${duration(recap.gotBackMinutes)}", "Ennyit nyertél vissza: ${duration(recap.gotBackMinutes)}") else tr("Today used it all", "A mai nap mindet elvitte"),
         style = MaterialTheme.typography.headlineLarge,
     )
     Text(
-        if (recap.tonightAcorns > 0) "Minutes you could have scrolled, and didn't. +${recap.tonightAcorns} acorns at midnight."
-        else "That happens. Tomorrow's a fresh start.",
+        if (recap.tonightAcorns > 0) tr("Minutes you could have scrolled, and didn't. +${recap.tonightAcorns} acorns at midnight.", "Percek, amiket elgörgethettél volna, de nem tetted. Éjfélkor +${recap.tonightAcorns} makk.")
+        else tr("That happens. Tomorrow's a fresh start.", "Előfordul. Holnap tiszta lappal indulunk."),
         style = MaterialTheme.typography.bodyLarge, color = Brand.Muted,
     )
 
@@ -149,33 +151,33 @@ fun RecapScreen(
     }
 
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Stat("%,d".format(recap.steps), "steps", Modifier.weight(1f))
-        Stat("${recap.exerciseMinutes} min", "exercise", Modifier.weight(1f))
-        Stat("${recap.readingMinutes} min", "reading", Modifier.weight(1f))
+        Stat("%,d".format(recap.steps), tr("steps", "lépés"), Modifier.weight(1f))
+        Stat(tr("${recap.exerciseMinutes} min", "${recap.exerciseMinutes} perc"), tr("exercise", "mozgás"), Modifier.weight(1f))
+        Stat(tr("${recap.readingMinutes} min", "${recap.readingMinutes} perc"), tr("reading", "olvasás"), Modifier.weight(1f))
     }
 
     if (recap.worthItAnswers > 0) Card {
-        Text("WORTH IT? TODAY", style = MaterialTheme.typography.labelSmall)
+        Text(tr("WORTH IT? TODAY", "MEGÉRTE? MA"), style = MaterialTheme.typography.labelSmall)
         Text(
-            if (recap.notWorthIt == 0) "Every scroll you rated felt worth it. Nice."
-            else "${recap.notWorthIt} of ${recap.worthItAnswers} scrolls didn't feel worth it." +
-                (recap.notWorthAfterHour?.let { " All of them after ${hour(it)}." } ?: ""),
+            if (recap.notWorthIt == 0) tr("Every scroll you rated felt worth it. Nice.", "Minden görgetés, amit értékeltél, megérte. Szép.")
+            else tr("${recap.notWorthIt} of ${recap.worthItAnswers} scrolls didn't feel worth it.", "${recap.worthItAnswers} görgetésből ${recap.notWorthIt} nem érte meg.") +
+                (recap.notWorthAfterHour?.let { tr(" All of them after ${hour(it)}.", " Mind ${hour(it)} után.") } ?: ""),
             style = MaterialTheme.typography.bodyLarge,
         )
     }
 
     if (reminderHour != null) Card {
-        Text("A nudge tomorrow evening?", style = MaterialTheme.typography.titleMedium)
-        Text("${avatar.displayName} can send one quiet note at ${hour(reminderHour)} when the recap is ready.", style = MaterialTheme.typography.bodyMedium)
+        Text(tr("A nudge tomorrow evening?", "Szóljunk holnap este?"), style = MaterialTheme.typography.titleMedium)
+        Text(tr("${avatar.displayName} can send one quiet note at ${hour(reminderHour)} when the recap is ready.", "${avatar.displayName} küld egy halk üzenetet ${hour(reminderHour)}-kor, amikor kész az összefoglaló."), style = MaterialTheme.typography.bodyMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
-            ChipButton("Yes, remind me", { onReminder(true) })
-            ChipButton("No thanks", { onReminder(false) }, filled = false)
+            ChipButton(tr("Yes, remind me", "Igen, szólj"), { onReminder(true) })
+            ChipButton(tr("No thanks", "Köszi, nem"), { onReminder(false) }, filled = false)
         }
     }
     Spacer(Modifier.weight(1f))
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 4.dp)) {
-        SecondaryButton("Share", onShare, modifier = Modifier.weight(0.4f))
-        PrimaryButton("Good night, ${avatar.displayName}", onGoodNight, modifier = Modifier.weight(0.6f))
+        SecondaryButton(tr("Share", "Megosztás"), onShare, modifier = Modifier.weight(0.4f))
+        PrimaryButton(tr("Good night, ${avatar.displayName}", "Jó éjt, ${avatar.displayName}"), onGoodNight, modifier = Modifier.weight(0.6f))
     }
 }
 
@@ -201,9 +203,9 @@ fun SleepScreen(avatar: Avatar, placed: Map<Int, String>, worn: Set<Accessory>, 
             val use = shelter?.let { InUse(it.id, placed.getValue(it.id), 2f + clock) }
             drawClearing(avatar, placed, Mood.SLEEPING, worn, night = true, use = use, layout = layout)
         }
-        Text("Good night", style = MaterialTheme.typography.headlineMedium, color = Color(0xFFF3EBC8))
+        Text(tr("Good night", "Jó éjt"), style = MaterialTheme.typography.headlineMedium, color = Color(0xFFF3EBC8))
         Text(
-            "Your paused apps rest until 7:00. Only \"Not now\" until then." + if (earned > 0) "\n+$earned acorns for an early night." else "",
+            tr("Your paused apps rest until 7:00. Only \"Not now\" until then.", "A szüneteltetett appjaid 7:00-ig pihennek. Addig csak „Most nem” van.") + if (earned > 0) tr("\n+$earned acorns for an early night.", "\n+$earned makk a korai lefekvésért.") else "",
             style = MaterialTheme.typography.bodyLarge, color = Color(0xFFF3EBC8).copy(alpha = 0.8f), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
     }
@@ -218,9 +220,9 @@ internal fun Stat(value: String, label: String, modifier: Modifier) = Column(
     Text(label, style = MaterialTheme.typography.bodyMedium)
 }
 
-private fun duration(minutes: Int) = if (minutes >= 60) "${minutes / 60} h ${minutes % 60} min" else "$minutes min"
+private fun duration(minutes: Int) = if (minutes >= 60) tr("${minutes / 60} h ${minutes % 60} min", "${minutes / 60} ó ${minutes % 60} p") else tr("$minutes min", "$minutes perc")
 
-private fun hour(h: Int) = when {
+private fun hour(h: Int) = if (app.tend.core.Lang.hu) "$h:00" else when {
     h == 0 -> "midnight"
     h < 12 -> "$h am"
     h == 12 -> "noon"

@@ -1,5 +1,7 @@
 package app.tend.health
 
+import app.tend.core.tr
+
 import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
@@ -35,17 +37,17 @@ object TimerAlarm {
         val name = store.avatar.displayName
         val (title, text) = when {
             result == TaskSync.TimerResult.BROKEN ->
-                "The phone came back a little early" to "No worries. ${task.title} is there whenever you want another go."
-            task.id == app.tend.core.Tasks.TIMER_ID -> "Focus time done" to "${task.target} minutes, all yours. $name kept time."
-            app.tend.core.PhoneFree.runsPhoneFree(task) -> "${task.title} done, phone-free" to "+${task.rewardMinutes} min. $name is proud of you."
-            else -> "${task.title} done" to "+${task.rewardMinutes} min. $name enjoyed that."
+                tr("The phone came back a little early", "A telefon kicsit korán került elő") to tr("No worries. ${task.title} is there whenever you want another go.", "Semmi baj. Bármikor újra nekifuthatsz: ${task.title.lowercase()}.")
+            task.id == app.tend.core.Tasks.TIMER_ID -> tr("Focus time done", "Letelt a fókuszidő") to tr("${task.target} minutes, all yours. $name kept time.", "${task.target} perc, csak a tiéd. $name mérte az időt.")
+            app.tend.core.PhoneFree.runsPhoneFree(task) -> tr("${task.title} done, phone-free", "Megvan, telefon nélkül: ${task.title.lowercase()}") to tr("+${task.rewardMinutes} min. $name is proud of you.", "+${task.rewardMinutes} perc. $name büszke rád.")
+            else -> tr("${task.title} done", "Megvan: ${task.title.lowercase()}") to tr("+${task.rewardMinutes} min. $name enjoyed that.", "+${task.rewardMinutes} perc. $name élvezte.")
         }.let { (t, body) ->
             // A new accessory is the best news of all: say it.
             val fresh = if (result == TaskSync.TimerResult.DONE) store.takeNewAccessories() else emptySet()
-            t to (body + fresh.joinToString("") { " And $name got a ${it.title.lowercase()}!" })
+            t to (body + fresh.joinToString("") { tr(" And $name got a ${it.title.lowercase()}!", " És $name új holmit kapott: ${it.title.lowercase()}!") })
         }
         val nm = context.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Timers", NotificationManager.IMPORTANCE_DEFAULT))
+        nm.createNotificationChannel(NotificationChannel(CHANNEL, tr("Timers", "Időzítők"), NotificationManager.IMPORTANCE_DEFAULT))
         val open = PendingIntent.getActivity(context, 6, Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         nm.notify(
             4,
@@ -58,13 +60,13 @@ object TimerAlarm {
     private const val RUNNING_ID = 8
 
     /** While an activity's timer runs: a quiet notification that counts down to [end]. */
-    fun showRunning(context: Context, task: app.tend.core.TaskDef, end: Long) = showRunning(context, task.title, "Every app waits until it's done.", end)
+    fun showRunning(context: Context, task: app.tend.core.TaskDef, end: Long) = showRunning(context, task.title, tr("Every app waits until it's done.", "Minden app megvárja, míg végzel."), end)
 
     /** While anything runs on a clock (an activity, or an app opened for a few minutes): the time left, counting down. */
     fun showRunning(context: Context, title: String, text: String, end: Long) {
         if (!RecapReminder.canNotify(context)) return
         val nm = context.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(RUNNING_CHANNEL, "Running timer", NotificationManager.IMPORTANCE_LOW))
+        nm.createNotificationChannel(NotificationChannel(RUNNING_CHANNEL, tr("Running timer", "Futó időzítő"), NotificationManager.IMPORTANCE_LOW))
         val open = PendingIntent.getActivity(context, 7, Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         nm.notify(
             RUNNING_ID,

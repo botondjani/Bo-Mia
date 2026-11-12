@@ -1,5 +1,7 @@
 package app.tend.data
 
+import app.tend.core.tr
+
 import android.app.Activity
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
@@ -52,13 +54,13 @@ object Account {
         } catch (e: androidx.credentials.exceptions.GetCredentialCancellationException) {
             return Result.Failed("")
         } catch (e: androidx.credentials.exceptions.NoCredentialException) {
-            return Result.Failed("No Google account on this phone. Add one in the phone's settings, or log in with e-mail.")
+            return Result.Failed(tr("No Google account on this phone. Add one in the phone's settings, or log in with e-mail.", "Ezen a telefonon nincs Google-fiók. Adj hozzá egyet a telefon beállításaiban, vagy lépj be e-maillel."))
         } catch (e: Exception) {
-            return Result.Failed("Google sign-in didn't work: ${e.message ?: e.javaClass.simpleName}")
+            return Result.Failed(tr("Google sign-in didn't work: ${e.message ?: e.javaClass.simpleName}", "A Google-belépés nem sikerült: ${e.message ?: e.javaClass.simpleName}"))
         }
         val google = runCatching {
             com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.createFrom(credential.data)
-        }.getOrNull() ?: return Result.Failed("Google sign-in didn't work. Try again, or log in with e-mail.")
+        }.getOrNull() ?: return Result.Failed(tr("Google sign-in didn't work. Try again, or log in with e-mail.", "A Google-belépés nem sikerült. Próbáld újra, vagy lépj be e-maillel."))
         val body = JSONObject().put("provider", "google").put("id_token", google.idToken).put("nonce", rawNonce).toString()
         val reply = withContext(Dispatchers.IO) { Supabase.post("/auth/v1/token?grant_type=id_token", body) }
         return keep(activity, reply, google.givenName ?: google.displayName)
@@ -70,7 +72,7 @@ object Account {
     suspend fun sendEmailCode(email: String): Result {
         val body = JSONObject().put("email", email.trim()).put("create_user", true).toString()
         val reply = withContext(Dispatchers.IO) { Supabase.post("/auth/v1/otp", body) }
-        return if (reply.ok) Result.Ok else Result.Failed(problem(reply, "Couldn't send the code."))
+        return if (reply.ok) Result.Ok else Result.Failed(problem(reply, tr("Couldn't send the code.", "Nem sikerült elküldeni a kódot.")))
     }
 
     suspend fun verifyEmailCode(c: Context, email: String, code: String): Result {
@@ -83,9 +85,9 @@ object Account {
 
     /** Saves the session from a token reply; the name comes from Google, else the e-mail. */
     private fun keep(c: Context, reply: Supabase.Reply, name: String?): Result {
-        if (!reply.ok) return Result.Failed(problem(reply, "Couldn't log in."))
+        if (!reply.ok) return Result.Failed(problem(reply, tr("Couldn't log in.", "Nem sikerült belépni.")))
         val j = reply.json()
-        val user = j.optJSONObject("user") ?: return Result.Failed("Couldn't log in.")
+        val user = j.optJSONObject("user") ?: return Result.Failed(tr("Couldn't log in.", "Nem sikerült belépni."))
         val email = user.optString("email")
         prefs(c).edit()
             .putString("access_token", j.optString("access_token"))
@@ -149,8 +151,8 @@ object Account {
 
     /** Deletes the account and everything on the server; the phone keeps its own data. */
     suspend fun deleteAccount(c: Context): Result {
-        val reply = rpc(c, "tend_delete_account") ?: return Result.Failed("Log in again to delete the account.")
-        if (!reply.ok) return Result.Failed(problem(reply, "Couldn't delete the account. Check the connection and try again."))
+        val reply = rpc(c, "tend_delete_account") ?: return Result.Failed(tr("Log in again to delete the account.", "A fiók törléséhez lépj be újra."))
+        if (!reply.ok) return Result.Failed(problem(reply, tr("Couldn't delete the account. Check the connection and try again.", "Nem sikerült törölni a fiókot. Nézd meg a kapcsolatot, és próbáld újra.")))
         clear(c)
         return Result.Ok
     }
@@ -159,8 +161,8 @@ object Account {
 
     /** The server's own message when it gives one, else [fallback]; offline gets its own line. */
     private fun problem(reply: Supabase.Reply, fallback: String): String = when {
-        reply.code == 0 -> "No connection. Try again when you're online."
-        reply.code == 429 -> "Too many tries. Wait a few minutes, then try again."
+        reply.code == 0 -> tr("No connection. Try again when you're online.", "Nincs kapcsolat. Próbáld újra, ha lesz net.")
+        reply.code == 429 -> tr("Too many tries. Wait a few minutes, then try again.", "Túl sok próbálkozás. Várj pár percet, aztán próbáld újra.")
         else -> reply.json().let { it.optString("msg").ifBlank { it.optString("error_description") }.ifBlank { it.optString("message") } }
             .takeIf { it.isNotBlank() }?.let { "$fallback ($it)" } ?: fallback
     }

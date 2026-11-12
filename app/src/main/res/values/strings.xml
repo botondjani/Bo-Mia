@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">tend</string>
+    <string name="app_name" translatable="false">tend</string>
     <string name="shorts_guard_description">tend closes Reels and Shorts in Instagram, YouTube and Facebook when you turn this on, so the rest of those apps stays open. It only checks whether the screen showing is a short-video player; nothing on screen is read, kept or sent.</string>
     <string name="widget_min_left">min left</string>
     <string name="widget_min">min</string>

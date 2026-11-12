@@ -1,5 +1,7 @@
 package app.tend.monitor
 
+import app.tend.core.tr
+
 import android.app.PendingIntent
 import android.content.Intent
 import android.os.Build
@@ -35,10 +37,10 @@ class PhoneDownTile : TileService() {
         val store = TendStore(this)
         val left = TaskSync.focusSecondsLeft(store)
         tile.state = if (left != null) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
-        tile.label = "Phone down"
+        tile.label = tr("Phone down", "Telefon le")
         if (Build.VERSION.SDK_INT >= 29) tile.subtitle = when {
-            left != null -> "${(left + 59) / 60} min left"
-            else -> (next(store) ?: app.tend.core.Tasks.timer(25)).let { "${it.title} · ${it.target} min" }
+            left != null -> tr("${(left + 59) / 60} min left", "még ${(left + 59) / 60} perc")
+            else -> (next(store) ?: app.tend.core.Tasks.timer(25)).let { tr("${it.title} · ${it.target} min", "${it.title} · ${it.target} perc") }
         }
         tile.updateTile()
     }

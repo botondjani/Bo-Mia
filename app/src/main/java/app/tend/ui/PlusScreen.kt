@@ -1,5 +1,7 @@
 package app.tend.ui
 
+import app.tend.core.tr
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -55,41 +57,41 @@ fun PlusScreen(
     BobbingCharacter(avatar, Mood.HAPPY, 120.dp)
     Text(
         when {
-            paid || included -> "You have tend Plus"
-            trialDaysLeft == null -> "Your Plus trial has ended"
+            paid || included -> tr("You have tend Plus", "Megvan a tend Plus")
+            trialDaysLeft == null -> tr("Your Plus trial has ended", "Lejárt a Plus próbaidőd")
             else -> "tend Plus"
         },
         style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center,
     )
     Text(
         when {
-            paid -> "Thank you for keeping ${avatar.displayName}'s camp going."
-            included -> "Everything below is yours, free, while tend is new."
-            wonBack != null && wonBack >= 60 -> "So far you've won back ${InsightsOf.hours(wonBack)}. Plus keeps everything that helped."
-            trialDaysLeft == null -> "Plus keeps everything that helped."
-            trialDaysLeft <= 1 -> "Your trial ends today. Everything below is yours until then."
-            else -> "You have everything below for $trialDaysLeft more day${if (trialDaysLeft == 1) "" else "s"}, free."
+            paid -> tr("Thank you for keeping ${avatar.displayName}'s camp going.", "Köszönjük, hogy életben tartod a tábort, ahol ${avatar.displayName} él.")
+            included -> tr("Everything below is yours, free, while tend is new.", "Minden a tiéd, ami lent van, ingyen, amíg a tend új.")
+            wonBack != null && wonBack >= 60 -> tr("So far you've won back ${InsightsOf.hours(wonBack)}. Plus keeps everything that helped.", "Eddig ennyi időt nyertél vissza: ${InsightsOf.hours(wonBack)}. A Plus megtart mindent, ami segített.")
+            trialDaysLeft == null -> tr("Plus keeps everything that helped.", "A Plus megtart mindent, ami segített.")
+            trialDaysLeft <= 1 -> tr("Your trial ends today. Everything below is yours until then.", "A próbaidőd ma jár le. Addig minden a tiéd, ami lent van.")
+            else -> tr("You have everything below for $trialDaysLeft more day${if (trialDaysLeft == 1) "" else "s"}, free.", "Még $trialDaysLeft napig minden a tiéd, ami lent van, ingyen.")
         },
         style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = Brand.Muted,
     )
     Card {
-        Feature("hourglass", "Your time, in full", "Every week, and each app before and now.")
-        Feature("alert", "A limit for each app", "Its own minutes a day, on top of your budget.")
-        Feature("moon", "Strict mode", "No shortcuts, for the days you need it.")
-        Feature("flower", "The season's own things", "Three new ones every season, yours to keep.")
+        Feature("hourglass", tr("Your time, in full", "Az időd, részletesen"), tr("Every week, and each app before and now.", "Minden hét, és minden app: akkor és most."))
+        Feature("alert", tr("A limit for each app", "Saját limit minden appnak"), tr("Its own minutes a day, on top of your budget.", "Saját napi percek, a kereteden felül."))
+        Feature("moon", tr("Strict mode", "Szigorú mód"), tr("No shortcuts, for the days you need it.", "Nincs kiskapu, azokra a napokra, amikor erre van szükség."))
+        Feature("flower", tr("The season's own things", "Az évszak saját tárgyai"), tr("Three new ones every season, yours to keep.", "Évszakonként három új, és örökre a tiéd."))
     }
     Text(
-        "Free stays free: the pause, your minutes, activities, the camp and friends.",
+        tr("Free stays free: the pause, your minutes, activities, the camp and friends.", "Ami ingyenes, az is marad: a szünet, a perceid, a tevékenységek, a tábor és a barátok."),
         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp), textAlign = TextAlign.Center, color = Brand.Muted,
     )
     if (!paid && !included) {
-        if (canBuy) PrimaryButton("Get Plus", onBuy, modifier = Modifier.fillMaxWidth())
+        if (canBuy) PrimaryButton(tr("Get Plus", "Kérem a Plust"), onBuy, modifier = Modifier.fillMaxWidth())
         else Box(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Brand.Card).padding(vertical = 14.dp, horizontal = 16.dp),
             contentAlignment = Alignment.Center,
-        ) { Text("Plus will be on Google Play soon", style = MaterialTheme.typography.labelLarge, color = Brand.Muted, textAlign = TextAlign.Center) }
+        ) { Text(tr("Plus will be on Google Play soon", "A Plus hamarosan elérhető a Google Playen"), style = MaterialTheme.typography.labelLarge, color = Brand.Muted, textAlign = TextAlign.Center) }
     }
-    SecondaryButton(if (paid || included || trialDaysLeft != null) "Back" else "Continue free", onClose, modifier = Modifier.fillMaxWidth())
+    SecondaryButton(if (paid || included || trialDaysLeft != null) tr("Back", "Vissza") else tr("Continue free", "Folytatom ingyen"), onClose, modifier = Modifier.fillMaxWidth())
 }
 
 @Composable

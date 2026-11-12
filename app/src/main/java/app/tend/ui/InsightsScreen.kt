@@ -1,5 +1,7 @@
 package app.tend.ui
 
+import app.tend.core.tr
+
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -60,26 +62,26 @@ fun InsightsScreen(insights: Insights, apps: List<AppTime>, plus: Boolean = true
     verticalArrangement = Arrangement.spacedBy(Space.m),
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, "Back", onBack)
+        IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, tr("Back", "Vissza"), onBack)
         Spacer(Modifier.width(Space.m))
         Column {
-            Text("What tend gave back", style = MaterialTheme.typography.bodyMedium)
-            Text("Your time", style = MaterialTheme.typography.headlineMedium)
+            Text(tr("What tend gave back", "Mit adott vissza a tend"), style = MaterialTheme.typography.bodyMedium)
+            Text(tr("Your time", "Az időd"), style = MaterialTheme.typography.headlineMedium)
         }
     }
 
     // The headline: time won back.
     Card {
-        Text("WON BACK", style = MaterialTheme.typography.labelSmall)
+        Text(tr("WON BACK", "VISSZANYERVE"), style = MaterialTheme.typography.labelSmall)
         if (insights.normal == null) {
-            Text("Soon", style = MaterialTheme.typography.headlineLarge, color = Brand.Moss)
-            Text("After your first week tend knows your normal, and counts every minute below it.", style = MaterialTheme.typography.bodyMedium)
+            Text(tr("Soon", "Hamarosan"), style = MaterialTheme.typography.headlineLarge, color = Brand.Moss)
+            Text(tr("After your first week tend knows your normal, and counts every minute below it.", "Az első heted után a tend ismeri a megszokott idődet, és minden percet számol, amivel alatta maradsz."), style = MaterialTheme.typography.bodyMedium)
         } else {
             Text(InsightsOf.hours(insights.wonBack), style = MaterialTheme.typography.headlineLarge.copy(fontSize = 40.sp), color = Brand.Moss)
             Text(
                 listOfNotNull(
-                    insights.since?.let { "since ${it.format(DateTimeFormatter.ofPattern("MMMM d", Locale.ENGLISH))}" },
-                    InsightsOf.likeWhat(insights.wonBack)?.let { "that's $it" },
+                    insights.since?.let { tr("since ${it.format(DateTimeFormatter.ofPattern("MMMM d", app.tend.core.Lang.locale))}", "${it.format(DateTimeFormatter.ofPattern("MMMM d.", app.tend.core.Lang.locale))} óta") },
+                    InsightsOf.likeWhat(insights.wonBack)?.let { tr("that's $it", "ez $it") },
                 ).joinToString(" · ").replaceFirstChar { it.uppercase() },
                 style = MaterialTheme.typography.bodyMedium,
             )
@@ -90,14 +92,14 @@ fun InsightsScreen(insights: Insights, apps: List<AppTime>, plus: Boolean = true
     val normal = insights.normal
     val last = insights.lastWeek
     if (normal != null && last != null) Card {
-        Text("A DAY IN THE PICKED APPS", style = MaterialTheme.typography.labelSmall)
+        Text(tr("A DAY IN THE PICKED APPS", "EGY NAP A KIVÁLASZTOTT APPOKBAN"), style = MaterialTheme.typography.labelSmall)
         Row(verticalAlignment = Alignment.Bottom) {
             Column(Modifier.weight(1f)) {
-                Text("Before tend", style = MaterialTheme.typography.bodyMedium)
+                Text(tr("Before tend", "A tend előtt"), style = MaterialTheme.typography.bodyMedium)
                 Text(InsightsOf.hours(normal), style = MaterialTheme.typography.titleLarge, color = Brand.Muted)
             }
             Column(Modifier.weight(1f)) {
-                Text("Last 7 days", style = MaterialTheme.typography.bodyMedium)
+                Text(tr("Last 7 days", "Az elmúlt 7 nap"), style = MaterialTheme.typography.bodyMedium)
                 Text(InsightsOf.hours(last), style = MaterialTheme.typography.titleLarge, color = Brand.Moss)
             }
             if (normal > 0) Change(normal, last)
@@ -107,27 +109,27 @@ fun InsightsScreen(insights: Insights, apps: List<AppTime>, plus: Boolean = true
     // Without Plus: the headline and before/now stay; the weeks and the apps wait behind one card.
     if (!plus) Card(Modifier.tappable(onClick = onPlus)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("EVERY WEEK, AND EACH APP", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            Text(tr("EVERY WEEK, AND EACH APP", "MINDEN HÉT, MINDEN APP"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
             PlusMark()
         }
-        Text("See how each week went, and how much less each app takes now.", style = MaterialTheme.typography.bodyMedium)
-        Text("See tend Plus →", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+        Text(tr("See how each week went, and how much less each app takes now.", "Nézd meg, hogy ment egy-egy hét, és mennyivel kevesebb időt visz el most egy-egy app."), style = MaterialTheme.typography.bodyMedium)
+        Text(tr("See tend Plus →", "Megnézem a tend Plust →"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
     }
 
     // The weeks: minutes a day, against the normal.
     if (plus && insights.weeks.any { it.second != null }) Card {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("MINUTES A DAY, BY WEEK", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            Text(tr("MINUTES A DAY, BY WEEK", "NAPI PERCEK, HETENTE"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
             PlusMark()
         }
         WeeksChart(insights)
-        Text("Tap a week to see it. The dashed line is your normal before tend.", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+        Text(tr("Tap a week to see it. The dashed line is your normal before tend.", "Koppints egy hétre a részletekért. A szaggatott vonal a tend előtti megszokott időd."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
     }
 
     // Each app, before and now.
     if (plus && apps.isNotEmpty()) Card {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("BY APP, MINUTES A DAY", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            Text(tr("BY APP, MINUTES A DAY", "APPONKÉNT, NAPI PERCEKBEN"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
             PlusMark()
         }
         apps.take(6).forEach { a ->
@@ -145,9 +147,9 @@ fun InsightsScreen(insights: Insights, apps: List<AppTime>, plus: Boolean = true
 
     // What was done instead.
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Tile("${insights.activities}", "activities done", Modifier.weight(1f))
-        Tile("${insights.activeDays}", "active days", Modifier.weight(1f))
-        Tile("${insights.notNows}", "times \"Not now\"", Modifier.weight(1f))
+        Tile("${insights.activities}", tr("activities done", "elvégzett tevékenység"), Modifier.weight(1f))
+        Tile("${insights.activeDays}", tr("active days", "aktív nap"), Modifier.weight(1f))
+        Tile("${insights.notNows}", tr("times \"Not now\"", "alkalommal „Most nem”"), Modifier.weight(1f))
     }
 }
 
@@ -210,13 +212,13 @@ private fun WeeksChart(insights: Insights) {
                 if (on) drawIntoCanvas {
                     text.color = ink.toArgb()
                     text.isFakeBoldText = true
-                    it.nativeCanvas.drawText("$avg min", cx, plotH - h - 6.dp.toPx(), text)
+                    it.nativeCanvas.drawText(tr("$avg min", "$avg perc"), cx, plotH - h - 6.dp.toPx(), text)
                 }
             }
             drawIntoCanvas {
                 text.color = (if (on) ink else muted).toArgb()
                 text.isFakeBoldText = false
-                it.nativeCanvas.drawText(start.format(DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)), cx, size.height - 3.dp.toPx(), text)
+                it.nativeCanvas.drawText(start.format(DateTimeFormatter.ofPattern(tr("MMM d", "MMM d."), app.tend.core.Lang.locale)), cx, size.height - 3.dp.toPx(), text)
             }
         }
         insights.normal?.let { n ->
@@ -225,7 +227,7 @@ private fun WeeksChart(insights: Insights) {
             drawIntoCanvas {
                 text.color = muted.toArgb()
                 text.textAlign = android.graphics.Paint.Align.RIGHT
-                it.nativeCanvas.drawText("before tend $n", size.width, y - 5.dp.toPx(), text)
+                it.nativeCanvas.drawText(tr("before tend $n", "a tend előtt $n"), size.width, y - 5.dp.toPx(), text)
                 text.textAlign = android.graphics.Paint.Align.CENTER
             }
         }

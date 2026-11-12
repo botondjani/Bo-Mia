@@ -1,5 +1,7 @@
 package app.tend.monitor
 
+import app.tend.core.tr
+
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -202,24 +204,24 @@ class InterstitialActivity : ComponentActivity() {
             Column {
                 Text(
                     when {
-                        v.focus -> "${v.label} · ${store.focusTask.title} in progress"
+                        v.focus -> tr("${v.label} · ${store.focusTask.title} in progress", "${v.label} · folyamatban: ${store.focusTask.title.lowercase()}")
                         v.scheduled != null -> "${v.label} · ${v.scheduled.label.lowercase()}"
-                        v.appLimit != null -> "${v.label} · its ${v.appLimit} min are used"
-                        v.locked -> "${v.label} · out of minutes"
-                        v.timeUp -> "${v.label} · time's up"
-                        v.evening -> "${v.label} · evening mode"
-                        else -> "${v.label} · ${ordinal(v.opensToday)} open today" + (v.appLeft?.let { " · $it min of its own left" } ?: "")
+                        v.appLimit != null -> tr("${v.label} · its ${v.appLimit} min are used", "${v.label} · a napi ${v.appLimit} perce elfogyott")
+                        v.locked -> tr("${v.label} · out of minutes", "${v.label} · elfogytak a percek")
+                        v.timeUp -> tr("${v.label} · time's up", "${v.label} · lejárt az idő")
+                        v.evening -> tr("${v.label} · evening mode", "${v.label} · esti mód")
+                        else -> tr("${v.label} · ${ordinal(v.opensToday)} open today", "${v.label} · ma ${v.opensToday}. megnyitás") + (v.appLeft?.let { tr(" · $it min of its own left", " · a sajátjából még $it perc") } ?: "")
                     },
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
                     app.tend.ui.brandTend(when {
-                        v.focus -> "Not now: you're in the middle of something good."
-                        v.scheduled != null -> "Closed until ${"%d:00".format(v.scheduled.to)}. That's the deal we made."
-                        v.appLimit != null -> "That's all for ${v.label} today."
-                        v.locked -> "Today's budget is used up."
-                        v.timeUp -> "Those were your minutes. Still worth it?"
-                        v.evening -> "It's late. We tend to regret the late-night scrolls the most."
+                        v.focus -> tr("Not now: you're in the middle of something good.", "Most nem: épp valami jó közepén tartasz.")
+                        v.scheduled != null -> tr("Closed until ${"%d:00".format(v.scheduled.to)}. That's the deal we made.", "${"%d:00".format(v.scheduled.to)}-ig zárva. Így beszéltük meg.")
+                        v.appLimit != null -> tr("That's all for ${v.label} today.", "Mára ennyi volt: ${v.label}.")
+                        v.locked -> tr("Today's budget is used up.", "A mai keret elfogyott.")
+                        v.timeUp -> tr("Those were your minutes. Still worth it?", "Ennyi volt a kért időd. Megéri még?")
+                        v.evening -> tr("It's late. We tend to regret the late-night scrolls the most.", "Késő van. A késő esti görgetést szoktuk a leginkább megbánni.")
                         else -> Taglines.forOpen(v.opensToday, store.avatar.displayName)
                     }),
                     style = MaterialTheme.typography.titleLarge,
@@ -236,7 +238,7 @@ class InterstitialActivity : ComponentActivity() {
 
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Header(v)
-        Text("WHAT ARE YOU LOOKING FOR?", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
+        Text(tr("WHAT ARE YOU LOOKING FOR?", "MIT KERESEL?"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
         // One row of four short labels, equal widths. The logged answer keeps the full wording.
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             LOOKING_FOR.forEach { (label, a) ->
@@ -257,7 +259,7 @@ class InterstitialActivity : ComponentActivity() {
         }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp)) {
         Text(
-            if (store.focusStartedAt > 0) "${v.remaining} min left today · opening ends your reading session" else "${v.remaining} min left today",
+            if (store.focusStartedAt > 0) tr("${v.remaining} min left today · opening ends your reading session", "Ma még ${v.remaining} perc · a megnyitás véget vet az olvasásnak") else tr("${v.remaining} min left today", "Ma még ${v.remaining} perced van"),
             style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
         )
         val openFor = { minutes: Int ->
@@ -288,18 +290,18 @@ class InterstitialActivity : ComponentActivity() {
     private fun OpenLinks(v: View, left: Int, openFor: (Int) -> Unit) {
         val quick = store.quickLooksLeft()
         Text(
-            "Open ${v.label} for",
+            tr("Open ${v.label} for", "${v.label} megnyitása ennyi időre:"),
             style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
         )
         Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             // 1 min: right away, no wait (five a day). Filled, so it reads as "this one works now".
             if (quick > 0) OpenChip(
-                "1 min", if (quick <= 2) "now · $quick left" else "now",
+                tr("1 min", "1 perc"), if (quick <= 2) tr("now · $quick left", "most · még $quick") else tr("now", "most"),
                 enabled = true, filled = true, modifier = Modifier.weight(1f).fillMaxHeight(),
             ) { store.useQuickLook(); openFor(1) }
             app.tend.core.TimeBox.CHOICES.forEach { minutes ->
                 OpenChip(
-                    "$minutes min", if (left > 0) "in $left s" else "open",
+                    tr("$minutes min", "$minutes perc"), if (left > 0) tr("in $left s", "$left mp múlva") else tr("open", "nyitható"),
                     enabled = left == 0, filled = false, modifier = Modifier.weight(1f).fillMaxHeight(),
                 ) { openFor(minutes) }
             }
@@ -325,8 +327,8 @@ class InterstitialActivity : ComponentActivity() {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Header(v)
             Text(
-                if (lock == app.tend.core.LockSchedule.GOOD_NIGHT) "You said good night: your apps rest until 7:00."
-                else "You can change ${lock.label.lowercase()} in tend's settings.",
+                if (lock == app.tend.core.LockSchedule.GOOD_NIGHT) tr("You said good night: your apps rest until 7:00.", "Jó éjt kívántál: az appjaid 7:00-ig pihennek.")
+                else tr("You can change ${lock.label.lowercase()} in tend's settings.", "Ezt a tend beállításaiban módosíthatod: ${lock.label.lowercase()}."),
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
@@ -335,7 +337,7 @@ class InterstitialActivity : ComponentActivity() {
             SecondaryButton(notNowLabel(), ::notNow)
             // Good night is a promise to yourself, not a cage: a way out when something really can't wait.
             // Held for a few seconds, not just tapped: it's undoing a promise.
-            if (lock == app.tend.core.LockSchedule.GOOD_NIGHT && !store.isStrict) app.tend.ui.HoldToConfirm("Hold if it can't wait", seconds = 7f) {
+            if (lock == app.tend.core.LockSchedule.GOOD_NIGHT && !store.isStrict) app.tend.ui.HoldToConfirm(tr("Hold if it can't wait", "Tartsd nyomva, ha nem várhat"), seconds = 7f) {
                 decide("woke")
                 store.wakeUp()
                 store.grantPass(pkgName, 5)
@@ -351,14 +353,14 @@ class InterstitialActivity : ComponentActivity() {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Header(v)
         Text(
-            if (v.appLimit != null) "You gave it ${v.appLimit} minutes a day. It opens again tomorrow; the other apps still have your minutes."
-            else next?.let { "${it.title} brings back ${it.rewardMinutes} min. Want to do it together?" }
-                ?: "That's all for today. Tomorrow's a fresh start.",
+            if (v.appLimit != null) tr("You gave it ${v.appLimit} minutes a day. It opens again tomorrow; the other apps still have your minutes.", "Napi ${v.appLimit} percet adtál neki. Holnap újra megnyílik; a többi appra még van perced.")
+            else next?.let { tr("${it.title} brings back ${it.rewardMinutes} min. Want to do it together?", "Ez ${it.rewardMinutes} percet hoz vissza: ${it.title.lowercase()}. Megcsináljuk együtt?") }
+                ?: tr("That's all for today. Tomorrow's a fresh start.", "Mára ennyi. Holnap tiszta lappal indulunk."),
             style = MaterialTheme.typography.bodyLarge,
         )
         }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp)) {
-        PrimaryButton(if (v.appLimit != null) "Do something with ${store.avatar.displayName} instead" else "Let's earn some", {
+        PrimaryButton(if (v.appLimit != null) tr("Do something with ${store.avatar.displayName} instead", "Csinálj inkább valami mást, ${store.avatar.displayName} veled tart") else tr("Let's earn some", "Szerezzünk perceket"), {
             decide(if (v.appLimit != null) "instead" else "earn")
             startActivity(Intent(this@InterstitialActivity, MainActivity::class.java).putExtra(app.tend.reminder.RecapReminder.EXTRA_OPEN, app.tend.reminder.RecapReminder.OPEN_ACTIVITIES)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
@@ -367,7 +369,7 @@ class InterstitialActivity : ComponentActivity() {
         SecondaryButton(notNowLabel(), ::notNow)
         // Once a day, when it really can't wait: five minutes now, paid in acorns.
         if (store.canBorrow) Text(
-            "I need 5 minutes now (${app.tend.core.Acorns.BORROW} acorns, once a day)",
+            tr("I need 5 minutes now (${app.tend.core.Acorns.BORROW} acorns, once a day)", "Most kell 5 perc (${app.tend.core.Acorns.BORROW} makk, naponta egyszer)"),
             style = MaterialTheme.typography.labelLarge, color = Brand.Muted, textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
                 if (!store.borrow(pkgName)) return@clickable
@@ -399,13 +401,13 @@ class InterstitialActivity : ComponentActivity() {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Header(View(label, locked = false, opensToday = 0, delaySeconds = 0, remaining = 0, evening = false, focus = true))
             Text(
-                "${task.title} with ${store.avatar.displayName}: $left min to go. Every app rests until then, not only the paused ones. Calls and the clock stay open.",
+                tr("${task.title} with ${store.avatar.displayName}: $left min to go. Every app rests until then, not only the paused ones. Calls and the clock stay open.", "${task.title} · ${store.avatar.displayName} veled tart: még $left perc. Addig minden app pihen, nem csak a szüneteltetettek. A hívások és az óra elérhetők."),
                 style = MaterialTheme.typography.bodyLarge,
             )
         }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp)) {
-            PrimaryButton("Back to it", ::backToIt)
-            app.tend.ui.HoldToConfirm("Hold to end it and open $label", seconds = 3f) {
+            PrimaryButton(tr("Back to it", "Vissza hozzá"), ::backToIt)
+            app.tend.ui.HoldToConfirm(tr("Hold to end it and open $label", "Tartsd nyomva, ha befejeznéd, és megnyitnád: $label"), seconds = 3f) {
                 app.tend.data.Stats.log(this@InterstitialActivity, "focus_left")
                 TaskSync.stopTimer(this@InterstitialActivity)
                 packageManager.getLaunchIntentForPackage(pkg)?.let { startActivity(it) }
@@ -424,13 +426,13 @@ class InterstitialActivity : ComponentActivity() {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
             finish()
         }
-        app.tend.data.Friends.atFire(this).firstOrNull()?.let { f -> return "Join ${f.name} at the fire" to { open(app.tend.data.Friends.OPEN_JOIN) } }
+        app.tend.data.Friends.atFire(this).firstOrNull()?.let { f -> return tr("Join ${f.name} at the fire", "Ülj le a tűzhöz: ${f.name} már ott van") to { open(app.tend.data.Friends.OPEN_JOIN) } }
         val next = Tasks.next(store.today(), store.selectedTasks) ?: return null
-        return "${next.title} with ${store.avatar.displayName} · +${next.rewardMinutes} min" to { open(app.tend.reminder.RecapReminder.OPEN_ACTIVITIES) }
+        return tr("${next.title} with ${store.avatar.displayName} · +${next.rewardMinutes} min", "${next.title} · ${store.avatar.displayName} veled tart · +${next.rewardMinutes} perc") to { open(app.tend.reminder.RecapReminder.OPEN_ACTIVITIES) }
     }
 
     /** "Not now", and what it earns while today's acorns for it last. */
-    private fun notNowLabel() = store.nextNotNowAcorns.let { if (it > 0) "Not now · +$it acorns" else "Not now" }
+    private fun notNowLabel() = store.nextNotNowAcorns.let { if (it > 0) tr("Not now · +$it acorns", "Most nem · +$it makk") else tr("Not now", "Most nem") }
 
     private fun goHome() {
         startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -453,10 +455,10 @@ class InterstitialActivity : ComponentActivity() {
 
         /** Short label on the chip to the answer that's logged. */
         private val LOOKING_FOR = listOf(
-            "Reply" to "Messages",
-            "Look up" to "Looking something up",
-            "Bored" to "Just bored",
-            "Habit" to "Out of habit",
+            tr("Reply", "Üzenet") to "Messages",
+            tr("Look up", "Keresek") to "Looking something up",
+            tr("Bored", "Unalom") to "Just bored",
+            tr("Habit", "Megszokás") to "Out of habit",
         )
 
         fun intent(context: Context, pkg: String, timeUp: Boolean = false, focus: Boolean = false) = Intent(context, InterstitialActivity::class.java)

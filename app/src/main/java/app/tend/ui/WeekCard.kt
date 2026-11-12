@@ -1,5 +1,7 @@
 package app.tend.ui
 
+import app.tend.core.tr
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -29,8 +31,8 @@ import kotlin.math.abs
 @Composable
 fun WeekCard(view: WeekView, onOpen: (() -> Unit)? = null) = Card(if (onOpen != null) Modifier.tappable(onClick = onOpen) else Modifier) {
     Row {
-        Text("YOUR WEEK", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
-        view.average?.let { Text("avg $it min a day", style = MaterialTheme.typography.labelLarge, color = Brand.Moss) }
+        Text(tr("YOUR WEEK", "A HETED"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+        view.average?.let { Text(tr("avg $it min a day", "átlag napi $it perc"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss) }
     }
     // A little headroom above the tallest bar or mark.
     val top = 1.15f * (view.days.filterNotNull().maxOfOrNull { maxOf(it.usedMinutes, it.usedMinutes + it.unusedMinutes) }?.coerceAtLeast(30) ?: 30)
@@ -64,7 +66,7 @@ fun WeekCard(view: WeekView, onOpen: (() -> Unit)? = null) = Card(if (onOpen != 
         view.days.indices.forEach { i ->
             val date = java.time.LocalDate.now().minusDays((6 - i).toLong())
             Text(
-                if (i == 6) "Today" else date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.ENGLISH),
+                if (i == 6) tr("Today", "Ma") else date.dayOfWeek.getDisplayName(TextStyle.SHORT, app.tend.core.Lang.locale),
                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 10.sp), color = Brand.Muted,
                 textAlign = TextAlign.Center, modifier = Modifier.weight(1f),
             )
@@ -76,12 +78,12 @@ fun WeekCard(view: WeekView, onOpen: (() -> Unit)? = null) = Card(if (onOpen != 
     Text(
         when {
             a == null -> ""
-            b == null -> "Dashes: each day's minutes. Red: a day they ran out."
-            abs(a - b) < 5 -> "About the same as the week before."
-            a < b -> "${b - a} min a day less than the week before."
-            else -> "${a - b} min a day more than the week before."
+            b == null -> tr("Dashes: each day's minutes. Red: a day they ran out.", "Vonalak: az egyes napok percei. Piros: aznap elfogytak.")
+            abs(a - b) < 5 -> tr("About the same as the week before.", "Nagyjából ugyanannyi, mint az előző héten.")
+            a < b -> tr("${b - a} min a day less than the week before.", "Napi ${b - a} perccel kevesebb, mint az előző héten.")
+            else -> tr("${a - b} min a day more than the week before.", "Napi ${a - b} perccel több, mint az előző héten.")
         },
         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted,
     )
-    if (onOpen != null) Text("See all your time →", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+    if (onOpen != null) Text(tr("See all your time →", "Az összes időd →"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
 }

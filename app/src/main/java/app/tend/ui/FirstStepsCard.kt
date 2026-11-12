@@ -1,5 +1,7 @@
 package app.tend.ui
 
+import app.tend.core.tr
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -39,7 +41,7 @@ fun FirstStepsCard(steps: List<StepState>, onClaim: (Step) -> Unit, onGo: (Step)
     Card {
         // Tapped (where it folds), the header folds it back into the strip.
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).then(if (onFold != null) Modifier.tappable(onClick = onFold) else Modifier), verticalAlignment = Alignment.CenterVertically) {
-            Text("CHALLENGES · ROUND ${app.tend.core.FirstSteps.roundOf(steps)} OF ${app.tend.core.FirstSteps.rounds}", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            Text(tr("CHALLENGES · ROUND ${app.tend.core.FirstSteps.roundOf(steps)} OF ${app.tend.core.FirstSteps.rounds}", "KIHÍVÁSOK · ${app.tend.core.FirstSteps.roundOf(steps)}. KÖR A ${app.tend.core.FirstSteps.rounds}-BŐL"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
             Text("${round.count { it.claimed }} / ${round.size}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
             if (onFold != null) Text(" \u2303", style = MaterialTheme.typography.labelLarge, color = Brand.Muted)
         }
@@ -87,7 +89,7 @@ fun ClaimableSteps(steps: List<StepState>, onClaim: (Step) -> Unit) {
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(s.step.title, style = MaterialTheme.typography.labelLarge, maxLines = 1)
-                Text("Done! Tap to claim", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted, maxLines = 1)
+                Text(tr("Done! Tap to claim", "Megvan! Koppints, és a tiéd"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted, maxLines = 1)
             }
             Row(Modifier.clip(RoundedCornerShape(50)).background(Brand.Moss).padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("+${s.step.acorns}", style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), color = Color.White)
@@ -127,10 +129,10 @@ fun FirstStepsStrip(steps: List<StepState>, onOpen: () -> Unit, onGo: (Step) -> 
         }
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text("CHALLENGES · ROUND ${app.tend.core.FirstSteps.roundOf(steps)}", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Brand.Muted)
-            Text(if (waiting > 0) "$waiting acorns ready to claim" else next?.title ?: "All done!", style = MaterialTheme.typography.titleSmall, maxLines = 1)
+            Text(tr("CHALLENGES · ROUND ${app.tend.core.FirstSteps.roundOf(steps)}", "KIHÍVÁSOK · ${app.tend.core.FirstSteps.roundOf(steps)}. KÖR"), style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Brand.Muted)
+            Text(if (waiting > 0) tr("$waiting acorns ready to claim", "$waiting makk vár rád") else next?.title ?: tr("All done!", "Mind megvan!"), style = MaterialTheme.typography.titleSmall, maxLines = 1)
             Text(
-                if (toEarn > 0) "$toEarn more to earn this round" else "Claim them in the camp",
+                if (toEarn > 0) tr("$toEarn more to earn this round", "Ebben a körben még $toEarn makk szerezhető") else tr("Claim them in the camp", "A táborban veheted át"),
                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, maxLines = 1,
             )
         }
@@ -150,21 +152,21 @@ fun WeekStoryCard(gotBackMinutes: Int, activeDays: Int, letGo: Int, onShare: () 
     verticalArrangement = Arrangement.spacedBy(6.dp),
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("YOUR WEEK", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.75f), modifier = Modifier.weight(1f))
+        Text(tr("YOUR WEEK", "A HETED"), style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.75f), modifier = Modifier.weight(1f))
         Text("\u2715", style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.75f), modifier = Modifier.clip(CircleShape).tappable(onClick = onDone).padding(6.dp))
     }
     val h = gotBackMinutes / 60
     val m = gotBackMinutes % 60
     Text(
-        if (gotBackMinutes <= 0) "A week at the camp" else (if (h > 0) "$h h ${if (m > 0) "$m min " else ""}" else "$m min ") + "back from scrolling",
+        if (gotBackMinutes <= 0) tr("A week at the camp", "Egy hét a táborban") else (if (h > 0) tr("$h h ${if (m > 0) "$m min " else ""}", "$h ó ${if (m > 0) "$m p " else ""}") else tr("$m min ", "$m perc ")) + tr("back from scrolling", "visszanyerve a görgetéstől"),
         style = MaterialTheme.typography.headlineSmall, color = Color.White,
     )
     Text(
-        "$activeDays day${if (activeDays == 1) "" else "s"} with something done" + if (letGo > 0) " · $letGo scroll${if (letGo == 1) "" else "s"} let go" else "",
+        tr("$activeDays day${if (activeDays == 1) "" else "s"} with something done", "$activeDays napon volt meg valami") + if (letGo > 0) tr(" · $letGo scroll${if (letGo == 1) "" else "s"} let go", " · $letGo elengedett görgetés") else "",
         style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f),
     )
     Text(
-        "Share your week", style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+        tr("Share your week", "Oszd meg a heted"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
         modifier = Modifier.padding(top = 6.dp).clip(RoundedCornerShape(50)).background(Color.White).tappable(onClick = onShare).padding(horizontal = 16.dp, vertical = 9.dp),
     )
 }

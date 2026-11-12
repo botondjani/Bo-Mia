@@ -1,5 +1,7 @@
 package app.tend.ui
 
+import app.tend.core.tr
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -31,8 +33,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /** Age ranges and genders to pick from: stored values to labels. */
-val AGE_BANDS = listOf("u18" to "Under 18", "18-24" to "18–24", "25-34" to "25–34", "35-44" to "35–44", "45+" to "45+")
-val GENDERS = listOf("woman" to "Woman", "man" to "Man", "other" to "Another", "none" to "Rather not say")
+val AGE_BANDS = listOf("u18" to tr("Under 18", "18 alatt"), "18-24" to "18–24", "25-34" to "25–34", "35-44" to "35–44", "45+" to "45+")
+val GENDERS = listOf("woman" to tr("Woman", "Nő"), "man" to tr("Man", "Férfi"), "other" to tr("Another", "Egyéb"), "none" to tr("Rather not say", "Inkább nem mondom meg"))
 
 /**
  * A little about you, all optional: your town (for the camp's weather; searched by name, never the
@@ -43,14 +45,14 @@ fun AboutYou(
     place: WeatherService.Place?, age: String?, gender: String?,
     onPlace: (WeatherService.Place?) -> Unit, onAge: (String?) -> Unit, onGender: (String?) -> Unit,
 ) = Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-    Text("YOUR TOWN", style = MaterialTheme.typography.labelSmall)
+    Text(tr("YOUR TOWN", "A VÁROSOD"), style = MaterialTheme.typography.labelSmall)
     TownPicker(place, onPlace)
-    Text("AGE", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 6.dp))
+    Text(tr("AGE", "KOROD"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 6.dp))
     Chips(AGE_BANDS, age, onAge)
-    Text("YOU ARE", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 6.dp))
+    Text(tr("YOU ARE", "NEMED"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 6.dp))
     Chips(GENDERS, gender, onGender)
     Text(
-        "Age and gender only help us see who tend helps, in anonymous counts (if you say yes to those). Friends never see them.",
+        tr("Age and gender only help us see who tend helps, in anonymous counts (if you say yes to those). Friends never see them.", "A kor és a nem csak abban segít, hogy lássuk, kiknek segít a tend, névtelen számokban (ha azokra igent mondasz). A barátaid sosem látják."),
         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted,
     )
 }
@@ -66,9 +68,9 @@ internal fun TownPicker(place: WeatherService.Place?, onPlace: (WeatherService.P
         ) {
             Column(Modifier.weight(1f)) {
                 Text(place.name, style = MaterialTheme.typography.titleSmall)
-                Text("The camp has its weather", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+                Text(tr("The camp has its weather", "A táborban az itteni idő van"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
             }
-            Text("Change", style = MaterialTheme.typography.labelLarge, color = Brand.Moss, modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable { searching = true }.padding(8.dp))
+            Text(tr("Change", "Módosítás"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss, modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable { searching = true }.padding(8.dp))
         }
         return
     }
@@ -84,7 +86,7 @@ internal fun TownPicker(place: WeatherService.Place?, onPlace: (WeatherService.P
     }
     OutlinedTextField(
         value = query, onValueChange = { query = it },
-        placeholder = { Text("Search your town") }, singleLine = true,
+        placeholder = { Text(tr("Search your town", "Keresd meg a városod")) }, singleLine = true,
         shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(),
     )
     when {
@@ -96,11 +98,11 @@ internal fun TownPicker(place: WeatherService.Place?, onPlace: (WeatherService.P
                 )
             }
         }
-        query.trim().length >= 2 && !looking -> Text("No town found (or no internet). Try another spelling.", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
-        else -> Text("For the weather in the camp. We never ask where your phone is.", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+        query.trim().length >= 2 && !looking -> Text(tr("No town found (or no internet). Try another spelling.", "Nem találtunk ilyen várost (vagy nincs net). Próbáld más írásmóddal."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+        else -> Text(tr("For the weather in the camp. We never ask where your phone is.", "A tábor időjárásához. Sosem kérdezzük, hol van a telefonod."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
     }
     if (place != null) Text(
-        "Keep ${place.name}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+        tr("Keep ${place.name}", "Maradjon ${place.name}"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
         modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable { searching = false; query = "" }.padding(vertical = 6.dp),
     )
 }

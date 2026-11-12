@@ -1,5 +1,7 @@
 package app.tend.ui
 
+import app.tend.core.tr
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -59,22 +61,22 @@ fun RiverScreen(
     var note by remember { mutableStateOf<Pair<String, String>?>(null) } // friend id to a short line under their camp
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     fun wave(f: Friends.Friend) {
-        if (Friends.Kind.WAVE in sent.used[f.id].orEmpty()) { note = f.id to "You waved today. Again tomorrow."; return }
+        if (Friends.Kind.WAVE in sent.used[f.id].orEmpty()) { note = f.id to tr("You waved today. Again tomorrow.", "Ma már integettél. Holnap megint lehet."); return }
         scope.launch {
             val ok = Friends.send(context, f.id, Friends.Kind.WAVE)
             if (ok) sent = Friends.Sent(sent.used + (f.id to (sent.used[f.id].orEmpty() + Friends.Kind.WAVE)), sent.paperUp)
-            note = f.id to if (ok) "${f.name} will see your wave." else "Couldn't wave. Try again in a moment."
+            note = f.id to if (ok) tr("${f.name} will see your wave.", "${f.name} látni fogja, hogy integettél.") else tr("Couldn't wave. Try again in a moment.", "Nem sikerült integetni. Próbáld újra egy pillanat múlva.")
         }
     }
     fun paper(f: Friends.Friend) {
         when {
-            f.id in sent.paperUp -> { note = f.id to "Your paper's still up. ${f.name} has to unroll it first."; return }
-            Friends.Kind.TP in sent.used[f.id].orEmpty() -> { note = f.id to "${f.name} already unrolled it. Again tomorrow."; return }
+            f.id in sent.paperUp -> { note = f.id to tr("Your paper's still up. ${f.name} has to unroll it first.", "A papírod még fent van. Előbb ${f.name} letekeri."); return }
+            Friends.Kind.TP in sent.used[f.id].orEmpty() -> { note = f.id to tr("${f.name} already unrolled it. Again tomorrow.", "${f.name} már letekerte. Holnap megint lehet."); return }
         }
         scope.launch {
             val ok = Friends.send(context, f.id, Friends.Kind.TP)
             if (ok) sent = Friends.Sent(sent.used + (f.id to (sent.used[f.id].orEmpty() + Friends.Kind.TP)), sent.paperUp + f.id)
-            note = f.id to if (ok) "Done. It stays up until ${f.name} unrolls it." else "Couldn't do it. Try again in a moment."
+            note = f.id to if (ok) tr("Done. It stays up until ${f.name} unrolls it.", "Kész. Fent marad, amíg ${f.name} le nem tekeri.") else tr("Couldn't do it. Try again in a moment.", "Nem sikerült. Próbáld újra egy pillanat múlva.")
         }
     }
     val state = rememberLazyListState()
@@ -100,28 +102,28 @@ fun RiverScreen(
     ) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, "Back", onBack)
+                IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, tr("Back", "Vissza"), onBack)
                 Spacer(Modifier.width(Space.m))
-                Text("Along the river", style = MaterialTheme.typography.headlineMedium, maxLines = 1)
+                Text(tr("Along the river", "A folyó mentén"), style = MaterialTheme.typography.headlineMedium, maxLines = 1)
             }
         }
-        item { Camp(me, "Your camp", worn, night, myPaper, myDucks) }
+        item { Camp(me, tr("Your camp", "A táborod"), worn, night, myPaper, myDucks) }
         items(list.orEmpty(), key = { it.id }) { f ->
             val done = sent.used[f.id].orEmpty()
             val up = f.id in sent.paperUp
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Camp(f, f.name, emptySet(), night, paper = up)
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ChipButton(if (Friends.Kind.WAVE in done) "Waved" else "Wave", { wave(f) }, filled = Friends.Kind.WAVE !in done)
-                    ChipButton(if (up) "Paper's up" else "Toilet-paper their oak", { paper(f) }, filled = false)
+                    ChipButton(if (Friends.Kind.WAVE in done) tr("Waved", "Integettél") else tr("Wave", "Integetek"), { wave(f) }, filled = Friends.Kind.WAVE !in done)
+                    ChipButton(if (up) tr("Paper's up", "Fent a papír") else tr("Toilet-paper their oak", "Vécépapírt a tölgyfájára"), { paper(f) }, filled = false)
                 }
                 note?.takeIf { it.first == f.id }?.let { Text(it.second, style = MaterialTheme.typography.bodyMedium, color = Brand.Muted) }
             }
         }
         if (list?.isEmpty() == true || offline) item {
             Text(
-                if (offline) "Can't reach the server right now, so your friends' camps aren't here."
-                else "Downstream it's still quiet. Invite a friend and their camp appears here.",
+                if (offline) tr("Can't reach the server right now, so your friends' camps aren't here.", "Most nem érjük el a szervert, ezért a barátaid tábora nem látszik.")
+                else tr("Downstream it's still quiet. Invite a friend and their camp appears here.", "Lejjebb a folyón még csend van. Hívj meg egy barátot, és itt lesz a tábora."),
                 style = MaterialTheme.typography.bodyMedium, color = Brand.Muted, modifier = Modifier.padding(horizontal = 4.dp),
             )
         }
@@ -140,6 +142,6 @@ private fun Camp(f: Friends.Friend, title: String, worn: Set<Accessory>, night: 
         Face(f.companion, 32)
         Spacer(Modifier.width(10.dp))
         Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, modifier = Modifier.weight(1f))
-        Text("Level ${f.level}", style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), color = Brand.Moss)
+        Text(tr("Level ${f.level}", "${f.level}. szint"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), color = Brand.Moss)
     }
 }

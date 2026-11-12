@@ -10,20 +10,20 @@ enum class Accessory(
     val outfit: Season? = null,
 ) {
     // Quick ones for the first days: any activity counts (an empty set means any).
-    LEAF("Lucky leaf", "Any activity, once", "1 activity", emptySet(), 1),
-    BOWTIE("Bow tie", "Activities on 2 days in a week", "2 active days", emptySet(), 2),
-    HEADBAND("Sweatband", "4 workout days in a week", "4 workout days", setOf("move"), 4),
-    GLASSES("Reading glasses", "4 days of reading or learning in a week", "4 reading days", setOf("read", "learn"), 4),
-    HAT("Sun hat", "4 days outside in a week", "4 days outside", setOf("outside"), 4),
-    FLOWER("Flower", "3 days with friends or a hobby in a week", "3 social days", setOf("friends", "hobby"), 3),
+    LEAF(tr("Lucky leaf", "Szerencselevél"), tr("Any activity, once", "Bármilyen tevékenység, egyszer"), tr("1 activity", "1 tevékenység"), emptySet(), 1),
+    BOWTIE(tr("Bow tie", "Csokornyakkendő"), tr("Activities on 2 days in a week", "Egy héten 2 napon tevékenység"), tr("2 active days", "2 aktív nap"), emptySet(), 2),
+    HEADBAND(tr("Sweatband", "Homlokpánt"), tr("4 workout days in a week", "Egy héten 4 edzős nap"), tr("4 workout days", "4 edzős nap"), setOf("move"), 4),
+    GLASSES(tr("Reading glasses", "Olvasószemüveg"), tr("4 days of reading or learning in a week", "Egy héten 4 nap olvasás vagy tanulás"), tr("4 reading days", "4 olvasós nap"), setOf("read", "learn"), 4),
+    HAT(tr("Sun hat", "Szalmakalap"), tr("4 days outside in a week", "Egy héten 4 nap a szabadban"), tr("4 days outside", "4 nap a szabadban"), setOf("outside"), 4),
+    FLOWER(tr("Flower", "Virág"), tr("3 days with friends or a hobby in a week", "Egy héten 3 nap barátokkal vagy hobbival"), tr("3 social days", "3 társas nap"), setOf("friends", "hobby"), 3),
     // One more for the automatic sleep goal.
-    NIGHTCAP("Nightcap", "2 good nights in a week", "2 good nights", setOf("sleep"), 2),
+    NIGHTCAP(tr("Nightcap", "Hálósapka"), tr("2 good nights in a week", "Egy héten 2 jó éjszaka"), tr("2 good nights", "2 jó éjszaka"), setOf("sleep"), 2),
 
     // The seasons' outfits.
-    FLOWER_CROWN("Flower crown", "This spring, in the shop", "spring", emptySet(), 0, Season.SPRING),
-    SUNGLASSES("Sunglasses", "This summer, in the shop", "summer", emptySet(), 0, Season.SUMMER),
-    SCARF("Knitted scarf", "This autumn, in the shop", "autumn", emptySet(), 0, Season.AUTUMN),
-    BOBBLE_HAT("Bobble hat", "This winter, in the shop", "winter", emptySet(), 0, Season.WINTER),
+    FLOWER_CROWN(tr("Flower crown", "Virágkoszorú"), tr("This spring, in the shop", "Idén tavasszal a boltban"), "spring", emptySet(), 0, Season.SPRING),
+    SUNGLASSES(tr("Sunglasses", "Napszemüveg"), tr("This summer, in the shop", "Idén nyáron a boltban"), "summer", emptySet(), 0, Season.SUMMER),
+    SCARF(tr("Knitted scarf", "Kötött sál"), tr("This autumn, in the shop", "Idén ősszel a boltban"), "autumn", emptySet(), 0, Season.AUTUMN),
+    BOBBLE_HAT(tr("Bobble hat", "Bojtos sapka"), tr("This winter, in the shop", "Idén télen a boltban"), "winter", emptySet(), 0, Season.WINTER),
     ;
 
     companion object {

@@ -1,5 +1,7 @@
 package app.tend.data
 
+import app.tend.core.tr
+
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
@@ -113,7 +115,7 @@ object Friends {
         val f = fresh.first()
         val minutes = ((f.until - System.currentTimeMillis()) / 60_000L).toInt()
         val nm = c.getSystemService(android.app.NotificationManager::class.java)
-        nm.createNotificationChannel(android.app.NotificationChannel(CHANNEL, "Friends", android.app.NotificationManager.IMPORTANCE_DEFAULT))
+        nm.createNotificationChannel(android.app.NotificationChannel(CHANNEL, tr("Friends", "Barátok"), android.app.NotificationManager.IMPORTANCE_DEFAULT))
         val open = android.app.PendingIntent.getActivity(
             c, 22, android.content.Intent(c, app.tend.MainActivity::class.java).putExtra(app.tend.reminder.RecapReminder.EXTRA_OPEN, OPEN_JOIN).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
             android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT,
@@ -121,8 +123,8 @@ object Friends {
         nm.notify(
             23,
             android.app.Notification.Builder(c, CHANNEL).setSmallIcon(app.tend.R.drawable.ic_notification)
-                .setContentTitle("${f.name} put the phone down")
-                .setContentText("Phone-free for $minutes more minutes, at your campfire. Join? +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each.")
+                .setContentTitle(tr("${f.name} put the phone down", "${f.name} letette a telefont"))
+                .setContentText(tr("Phone-free for $minutes more minutes, at your campfire. Join? +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each.", "Még $minutes percig telefon nélkül, a tábortüzednél. Csatlakozol? Fejenként +${app.tend.core.Acorns.TOGETHER_FIRE} makk."))
                 .setContentIntent(open).setAutoCancel(true).setTimeoutAfter(f.until - System.currentTimeMillis()).build(),
         )
         Stats.log(c, "fire_note")
@@ -161,7 +163,7 @@ object Friends {
             val o = a.getJSONObject(i)
             val placed = app.tend.core.Clearing.parse(o.optString("placed"))
             Friend(
-                o.optString("user_id"), o.optString("name").ifBlank { "A friend" }, o.optString("companion", "BO"),
+                o.optString("user_id"), o.optString("name").ifBlank { tr("A friend", "Egy barátod") }, o.optString("companion", "BO"),
                 o.optInt("level", 1), placed,
                 o.optString("week"), o.optInt("week_count"), o.optBoolean("bridge"),
                 app.tend.core.Clearing.parseLayout(o.optString("layout"), placed),
@@ -216,16 +218,16 @@ object Friends {
 
         /** How it reads for whoever got it: "Anna waved at you". */
         fun received(name: String) = when (this) {
-            WAVE -> "$name waved at you"
-            VISIT -> "$name visited your camp"
-            TP -> "$name toilet-papered your oak"
-            CHEER -> "$name cheered you on"
-            GIFT -> "$name sent you a present"
-            FIRE -> "$name calls you to the campfire"
+            WAVE -> tr("$name waved at you", "$name integetett neked")
+            VISIT -> tr("$name visited your camp", "$name meglátogatta a táborod")
+            TP -> tr("$name toilet-papered your oak", "$name vécépapírral dobálta meg a tölgyfádat")
+            CHEER -> tr("$name cheered you on", "$name megtapsolt")
+            GIFT -> tr("$name sent you a present", "$name ajándékot küldött")
+            FIRE -> tr("$name calls you to the campfire", "$name a tábortűzhöz hív")
         }
 
         /** For the widget's small label: "Anna: visited". */
-        val short: String get() = when (this) { WAVE -> "waved"; VISIT -> "visited"; TP -> "toilet paper!"; CHEER -> "cheered!"; GIFT -> "a present!"; FIRE -> "to the fire!" }
+        val short: String get() = when (this) { WAVE -> tr("waved", "integetett"); VISIT -> tr("visited", "itt járt"); TP -> tr("toilet paper!", "vécépapír!"); CHEER -> tr("cheered!", "megtapsolt!"); GIFT -> tr("a present!", "ajándék!"); FIRE -> tr("to the fire!", "a tűzhöz hív!") }
 
         /** For the 1x1 widget's badge. */
         val emoji: String get() = when (this) { WAVE -> "\uD83D\uDC4B"; VISIT -> "\uD83E\uDD86"; TP -> "\uD83E\uDDFB"; CHEER -> "\uD83D\uDC4F"; GIFT -> "\uD83C\uDF81"; FIRE -> "\uD83D\uDD25" }
@@ -346,16 +348,16 @@ object Friends {
     private fun notify(c: Context, fresh: List<Note>) {
         if (!app.tend.reminder.RecapReminder.canNotify(c)) return
         val nm = c.getSystemService(android.app.NotificationManager::class.java)
-        nm.createNotificationChannel(android.app.NotificationChannel(CHANNEL, "Friends", android.app.NotificationManager.IMPORTANCE_DEFAULT))
+        nm.createNotificationChannel(android.app.NotificationChannel(CHANNEL, tr("Friends", "Barátok"), android.app.NotificationManager.IMPORTANCE_DEFAULT))
         val first = fresh.firstOrNull { it.kind == Kind.FIRE } ?: fresh.first()
         val text = when (first.kind) {
-            Kind.TP -> "Tap the oak in your camp to unroll it."
-            Kind.VISIT -> "They left a rubber duck in your river."
-            Kind.WAVE -> "Wave back from your camp."
-            Kind.CHEER -> "For what you did today. Cheer them back from your camp."
-            Kind.GIFT -> "It's waiting in your camp. Tap it to open."
-            Kind.FIRE -> "Put your phones down together: +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each. Tap to join."
-        } + if (fresh.size > 1) " And ${fresh.size - 1} more from friends." else ""
+            Kind.TP -> tr("Tap the oak in your camp to unroll it.", "Koppints a tölgyfára a táborodban, és letekered.")
+            Kind.VISIT -> tr("They left a rubber duck in your river.", "Egy gumikacsát hagyott a folyódban.")
+            Kind.WAVE -> tr("Wave back from your camp.", "Integess vissza a táborodból.")
+            Kind.CHEER -> tr("For what you did today. Cheer them back from your camp.", "Azért, amit ma csináltál. Tapsold meg te is a táborodból.")
+            Kind.GIFT -> tr("It's waiting in your camp. Tap it to open.", "A táborodban vár. Koppints rá, és kibontod.")
+            Kind.FIRE -> tr("Put your phones down together: +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each. Tap to join.", "Tegyétek le együtt a telefont: fejenként +${app.tend.core.Acorns.TOGETHER_FIRE} makk. Koppints, és csatlakozol.")
+        } + if (fresh.size > 1) tr(" And ${fresh.size - 1} more from friends.", " És még ${fresh.size - 1} a barátaidtól.") else ""
         val open = android.app.PendingIntent.getActivity(
             // A call to the fire opens tend ready to join; the rest opens the camp, where it happened.
             c, if (first.kind == Kind.FIRE) 24 else 21,
@@ -376,7 +378,7 @@ object Friends {
             val o = a.getJSONObject(i)
             val kind = Kind.of(o.optString("kind")) ?: return@mapNotNull null
             val at = runCatching { java.time.OffsetDateTime.parse(o.optString("created_at")).toInstant().toEpochMilli() }.getOrDefault(0L)
-            Note(o.optLong("id"), o.optString("from_id"), o.optString("name").ifBlank { "A friend" }, o.optString("companion", "BO"), kind, at, o.optBoolean("cleared"))
+            Note(o.optLong("id"), o.optString("from_id"), o.optString("name").ifBlank { tr("A friend", "Egy barátod") }, o.optString("companion", "BO"), kind, at, o.optBoolean("cleared"))
         }
     }.getOrDefault(emptyList())
 

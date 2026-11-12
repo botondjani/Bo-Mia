@@ -8,20 +8,20 @@ import java.time.LocalDate
  * the guestbook, with a few acorns.
  */
 /** How often an animal comes, and what greeting it is worth. */
-enum class Rarity(val label: String, val acorns: Int) { COMMON("Common", 5), UNCOMMON("Uncommon", 10), RARE("Rare", 20) }
+enum class Rarity(val label: String, val acorns: Int) { COMMON(tr("Common", "Gyakori"), 5), UNCOMMON(tr("Uncommon", "Ritkább"), 10), RARE(tr("Rare", "Ritka"), 20) }
 
 enum class Visitor(val title: String, val rarity: Rarity, val x: Float, val y: Float) {
-    RABBIT("Rabbit", Rarity.COMMON, 0.6f, 0.885f),
-    SQUIRREL("Squirrel", Rarity.COMMON, 0.957f, 0.6f),
-    HEDGEHOG("Hedgehog", Rarity.COMMON, 0.73f, 0.905f),
-    DEER("Deer", Rarity.UNCOMMON, 0.365f, 0.675f),
-    FOX("Fox", Rarity.UNCOMMON, 0.735f, 0.745f),
-    BEAVER("Beaver", Rarity.UNCOMMON, 0.215f, 0.83f),
-    HERON("Heron", Rarity.RARE, 0.25f, 0.69f),
-    OWL("Owl", Rarity.RARE, 0.883f, 0.47f);
+    RABBIT(tr("Rabbit", "Nyúl"), Rarity.COMMON, 0.6f, 0.885f),
+    SQUIRREL(tr("Squirrel", "Mókus"), Rarity.COMMON, 0.957f, 0.6f),
+    HEDGEHOG(tr("Hedgehog", "Sün"), Rarity.COMMON, 0.73f, 0.905f),
+    DEER(tr("Deer", "Őz"), Rarity.UNCOMMON, 0.365f, 0.675f),
+    FOX(tr("Fox", "Róka"), Rarity.UNCOMMON, 0.735f, 0.745f),
+    BEAVER(tr("Beaver", "Hód"), Rarity.UNCOMMON, 0.215f, 0.83f),
+    HERON(tr("Heron", "Gém"), Rarity.RARE, 0.25f, 0.69f),
+    OWL(tr("Owl", "Bagoly"), Rarity.RARE, 0.883f, 0.47f);
 
     /** "a fox", "an owl". */
-    val aName: String get() = (if (title.first().lowercaseChar() in "aeiou") "an " else "a ") + title.lowercase()
+    val aName: String get() = if (Lang.hu) "egy ${title.lowercase()}" else (if (title.first().lowercaseChar() in "aeiou") "an " else "a ") + title.lowercase()
 
     val rare: Boolean get() = rarity == Rarity.RARE
 }

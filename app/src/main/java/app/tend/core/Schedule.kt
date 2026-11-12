@@ -20,10 +20,10 @@ data class LockSchedule(val on: Boolean, val from: Int, val to: Int, val weekday
     }
 
     companion object {
-        val BEDTIME = LockSchedule(false, 23, 7, false, "Bedtime")
-        val WORK = LockSchedule(false, 9, 17, true, "Work hours")
+        val BEDTIME = LockSchedule(false, 23, 7, false, tr("Bedtime", "Lefekvésidő"))
+        val WORK = LockSchedule(false, 9, 17, true, tr("Work hours", "Munkaidő"))
         /** After "Good night", until 7:00: the paused apps rest like at bedtime. */
-        val GOOD_NIGHT = LockSchedule(true, 0, 7, false, "Good night")
+        val GOOD_NIGHT = LockSchedule(true, 0, 7, false, tr("Good night", "Jó éjt"))
 
         /** The schedule locking right now, if any. */
         fun activeOf(schedules: List<LockSchedule>, t: LocalDateTime = LocalDateTime.now()) = schedules.firstOrNull { it.activeAt(t) }

@@ -7,7 +7,7 @@ import java.time.temporal.TemporalAdjusters
 
 /** Three skills that grow with the activities: what you do shows up as levels. */
 enum class Skill(val label: String) {
-    BODY("Body"), MIND("Mind"), REST("Rest");
+    BODY(tr("Body", "Test")), MIND(tr("Mind", "Elme")), REST(tr("Rest", "Pihenés"));
 
     companion object {
         fun of(taskId: String): Skill = when (taskId) {
@@ -59,12 +59,12 @@ object Progress {
         val week = days.filter { !it.date.isBefore(monday) && !it.date.isAfter(today) }
         fun daysWith(ids: Set<String>) = week.count { d -> d.done.any { it in ids } }
         val options = buildList {
-            if ("move" in picked) add(Challenge("3 workout days", "workout days", 3, daysWith(setOf("move")), ""))
-            if ("outside" in picked) add(Challenge("4 days outside", "days outside", 4, daysWith(setOf("outside")), ""))
-            if ("sleep" in picked) add(Challenge("5 good nights", "good nights", 5, daysWith(setOf("sleep")), ""))
-            if ("read" in picked || "learn" in picked) add(Challenge("4 days of reading or learning", "days", 4, daysWith(setOf("read", "learn")), ""))
-            add(Challenge("Something done on 5 days", "active days", 5, week.count { it.done.isNotEmpty() || it.tasksDone > 0 }, ""))
-            add(Challenge("10 activities this week", "activities", 10, week.sumOf { maxOf(it.done.size, it.tasksDone) }, ""))
+            if ("move" in picked) add(Challenge(tr("3 workout days", "3 edzős nap"), tr("workout days", "edzős nap"), 3, daysWith(setOf("move")), ""))
+            if ("outside" in picked) add(Challenge(tr("4 days outside", "4 nap a szabadban"), tr("days outside", "nap a szabadban"), 4, daysWith(setOf("outside")), ""))
+            if ("sleep" in picked) add(Challenge(tr("5 good nights", "5 jó éjszaka"), tr("good nights", "jó éjszaka"), 5, daysWith(setOf("sleep")), ""))
+            if ("read" in picked || "learn" in picked) add(Challenge(tr("4 days of reading or learning", "4 nap olvasás vagy tanulás"), "days", 4, daysWith(setOf("read", "learn")), ""))
+            add(Challenge(tr("Something done on 5 days", "5 napon valami megvan"), tr("active days", "aktív nap"), 5, week.count { it.done.isNotEmpty() || it.tasksDone > 0 }, ""))
+            add(Challenge(tr("10 activities this week", "10 tevékenység a héten"), "activities", 10, week.sumOf { maxOf(it.done.size, it.tasksDone) }, ""))
         }
         val key = weekKey(today)
         return options[Math.floorMod(key.hashCode(), options.size)].copy(weekKey = key)

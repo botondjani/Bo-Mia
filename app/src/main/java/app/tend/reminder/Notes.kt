@@ -1,5 +1,7 @@
 package app.tend.reminder
 
+import app.tend.core.tr
+
 import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
@@ -30,11 +32,11 @@ object Notes {
 
     enum class Kind(val channel: String, val channelName: String, val importance: Int, val notificationId: Int) {
         /** 8:30: today's minutes and the activities worth the most. Silent. */
-        MORNING("morning", "Morning plan", NotificationManager.IMPORTANCE_LOW, 10),
+        MORNING("morning", tr("Morning plan", "Reggeli terv"), NotificationManager.IMPORTANCE_LOW, 10),
         /** Once a day when 10 minutes are left. */
-        LOW_MINUTES("nudges", "Gentle nudges", NotificationManager.IMPORTANCE_DEFAULT, 11),
+        LOW_MINUTES("nudges", tr("Gentle nudges", "Finom emlékeztetők"), NotificationManager.IMPORTANCE_DEFAULT, 11),
         /** Instead of the morning note after two days without opening tend. */
-        MISSED("nudges", "Gentle nudges", NotificationManager.IMPORTANCE_DEFAULT, 12),
+        MISSED("nudges", tr("Gentle nudges", "Finom emlékeztetők"), NotificationManager.IMPORTANCE_DEFAULT, 12),
     }
 
     /** Called by every kind of note (also the recap and the Sunday letter) to keep the daily cap. */
@@ -83,9 +85,9 @@ object Notes {
         if (remaining !in 1..10 || store.noteSentOn(Kind.LOW_MINUTES.name) == LocalDate.now().toString()) return
         val next = Tasks.next(store.today(), store.selectedTasks)
         post(
-            context, Kind.LOW_MINUTES, "$remaining minutes left today",
-            next?.let { "${it.title} brings back +${it.rewardMinutes} min. ${store.avatar.displayName} is in." }
-                ?: "Make them count. ${store.avatar.displayName} is here.",
+            context, Kind.LOW_MINUTES, tr("$remaining minutes left today", "Ma még $remaining perced van"),
+            next?.let { tr("${it.title} brings back +${it.rewardMinutes} min. ${store.avatar.displayName} is in.", "Ez +${it.rewardMinutes} percet hoz vissza: ${it.title.lowercase()}. ${store.avatar.displayName} benne van.") }
+                ?: tr("Make them count. ${store.avatar.displayName} is here.", "Használd ki jól. ${store.avatar.displayName} itt van."),
         )
     }
 
@@ -95,14 +97,14 @@ object Notes {
         val name = store.avatar.displayName
         val away = System.currentTimeMillis() - store.lastOpenedAt > 2 * 24 * 3_600_000L && store.lastOpenedAt > 0
         if (away) {
-            post(context, Kind.MISSED, "$name misses you", "The camp is still here. One small thing today is enough.")
+            post(context, Kind.MISSED, tr("$name misses you", "Hiányzol: $name vár"), tr("The camp is still here. One small thing today is enough.", "A tábor megvan. Ma egyetlen apróság is elég."))
             return
         }
         val cfg = store.config
         val best = store.selectedTasks.sortedByDescending { it.rewardMinutes }.take(2)
-        val text = if (best.isEmpty()) "${cfg.freeMinutes} free minutes today. Pick something you'd rather do, and earn more."
-        else "${cfg.freeMinutes} free minutes today. " + best.joinToString(" and ") { "${it.title} (+${it.rewardMinutes})" } + " would add ${best.sumOf { it.rewardMinutes }}."
-        post(context, Kind.MORNING, "Good morning from $name", text)
+        val text = if (best.isEmpty()) tr("${cfg.freeMinutes} free minutes today. Pick something you'd rather do, and earn more.", "Ma ${cfg.freeMinutes} szabad perced van. Válassz valamit, amit szívesebben csinálnál, és szerezz többet.")
+        else tr("${cfg.freeMinutes} free minutes today. ", "Ma ${cfg.freeMinutes} szabad perced van. ") + best.joinToString(tr(" and ", " és ")) { "${it.title} (+${it.rewardMinutes})" } + tr(" would add ${best.sumOf { it.rewardMinutes }}.", " még ${best.sumOf { it.rewardMinutes }} percet adna.")
+        post(context, Kind.MORNING, tr("Good morning from $name", "Jó reggelt kíván $name"), text)
     }
 }
 

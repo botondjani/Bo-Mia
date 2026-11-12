@@ -1,5 +1,7 @@
 package app.tend.ui
 
+import app.tend.core.tr
+
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -37,45 +39,45 @@ data class InUse(val spot: Int, val thing: String, val t: Float, val walk: Float
 /** What the companion does with each thing: a line to show, and how long it lasts. */
 object Uses {
     fun line(thing: String, name: String): String = when (thing) {
-        "guitar" -> "$name plays the guitar. Tap again for another chord."
-        "campfire" -> "$name roasts a marshmallow."
-        "kettle" -> "$name makes a cup of tea."
-        "pizza_oven" -> "$name bakes a pizza."
-        "woodpile" -> "$name feeds the fire."
-        "wildflowers" -> "$name smells the flowers."
-        "lantern" -> "$name lights the lantern."
-        "fishing_rod" -> "$name goes fishing."
-        "telescope" -> "$name looks at the sky."
-        "log_bench" -> "$name sits by the fire and hums."
-        "picnic_table" -> "$name has a sandwich."
-        "tent", "bell_tent", "cabin" -> "$name takes a nap."
-        "swing" -> "$name swings."
-        "hammock" -> "$name naps in the hammock."
-        "treehouse" -> "$name waves from the treehouse."
-        "canoe" -> "$name paddles the canoe."
-        "dock" -> "$name dangles their feet off the dock."
-        "string_lights" -> "$name dances under the lights."
-        "rocking_chair" -> "$name rocks in the chair."
-        "raft" -> "$name drifts on the raft."
-        "wind_chimes" -> "$name listens to the chimes."
-        "bird_feeder" -> "$name watches the birds at the feeder."
-        "tulips" -> "$name smells the tulips."
-        "watering_can" -> "$name waters the flowers."
-        "birdhouse" -> "$name watches a little bird move in."
-        "beach_ball" -> "$name plays with the beach ball."
-        "watermelon" -> "$name has a slice of watermelon."
-        "deck_chair" -> "$name soaks up the sun."
-        "leaf_pile" -> "$name jumps into the leaves."
-        "pumpkins" -> "$name carves a smile into a pumpkin."
-        "scarecrow" -> "$name says hello to the scarecrow."
-        "gift_boxes" -> "$name peeks into a present."
-        "sled" -> "$name sits on the sled and dreams of hills."
-        "snowman" -> "$name gives the snowman a hug."
-        "jack_o_lantern" -> "$name peeks into the pumpkin. Spooky!"
-        "paper_lanterns" -> "$name hums a lantern song."
-        "xmas_tree" -> "$name straightens the star on the little tree."
-        "flower_arch" -> "$name tucks one more flower into the garland."
-        else -> "$name looks around."
+        "guitar" -> tr("$name plays the guitar. Tap again for another chord.", "$name gitározik. Koppints még egyszer egy újabb akkordért.")
+        "campfire" -> tr("$name roasts a marshmallow.", "$name mályvacukrot süt.")
+        "kettle" -> tr("$name makes a cup of tea.", "$name teát főz.")
+        "pizza_oven" -> tr("$name bakes a pizza.", "$name pizzát süt.")
+        "woodpile" -> tr("$name feeds the fire.", "$name megrakja a tüzet.")
+        "wildflowers" -> tr("$name smells the flowers.", "$name megszagolja a virágokat.")
+        "lantern" -> tr("$name lights the lantern.", "$name meggyújtja a lámpást.")
+        "fishing_rod" -> tr("$name goes fishing.", "$name horgászni megy.")
+        "telescope" -> tr("$name looks at the sky.", "$name az eget kémleli.")
+        "log_bench" -> tr("$name sits by the fire and hums.", "$name a tűz mellett ül és dúdol.")
+        "picnic_table" -> tr("$name has a sandwich.", "$name megeszik egy szendvicset.")
+        "tent", "bell_tent", "cabin" -> tr("$name takes a nap.", "$name szundít egyet.")
+        "swing" -> tr("$name swings.", "$name hintázik.")
+        "hammock" -> tr("$name naps in the hammock.", "$name a függőágyban szundít.")
+        "treehouse" -> tr("$name waves from the treehouse.", "$name integet a lombházból.")
+        "canoe" -> tr("$name paddles the canoe.", "$name kenuzik.")
+        "dock" -> tr("$name dangles their feet off the dock.", "$name a stégről lógatja a lábát.")
+        "string_lights" -> tr("$name dances under the lights.", "$name táncol a fények alatt.")
+        "rocking_chair" -> tr("$name rocks in the chair.", "$name ringatózik a hintaszékben.")
+        "raft" -> tr("$name drifts on the raft.", "$name sodródik a tutajon.")
+        "wind_chimes" -> tr("$name listens to the chimes.", "$name a szélcsengőt hallgatja.")
+        "bird_feeder" -> tr("$name watches the birds at the feeder.", "$name a madarakat nézi az etetőnél.")
+        "tulips" -> tr("$name smells the tulips.", "$name megszagolja a tulipánokat.")
+        "watering_can" -> tr("$name waters the flowers.", "$name meglocsolja a virágokat.")
+        "birdhouse" -> tr("$name watches a little bird move in.", "$name nézi, ahogy beköltözik egy kismadár.")
+        "beach_ball" -> tr("$name plays with the beach ball.", "$name a strandlabdával játszik.")
+        "watermelon" -> tr("$name has a slice of watermelon.", "$name megeszik egy szelet dinnyét.")
+        "deck_chair" -> tr("$name soaks up the sun.", "$name sütteti magát a napon.")
+        "leaf_pile" -> tr("$name jumps into the leaves.", "$name beleugrik a levelekbe.")
+        "pumpkins" -> tr("$name carves a smile into a pumpkin.", "$name mosolyt farag egy tökre.")
+        "scarecrow" -> tr("$name says hello to the scarecrow.", "$name köszön a madárijesztőnek.")
+        "gift_boxes" -> tr("$name peeks into a present.", "$name belekukkant egy ajándékba.")
+        "sled" -> tr("$name sits on the sled and dreams of hills.", "$name ül a szánkón, és dombokról álmodozik.")
+        "snowman" -> tr("$name gives the snowman a hug.", "$name megöleli a hóembert.")
+        "jack_o_lantern" -> tr("$name peeks into the pumpkin. Spooky!", "$name bekukkant a tökbe. Hú, de ijesztő!")
+        "paper_lanterns" -> tr("$name hums a lantern song.", "$name lampionos dalt dúdol.")
+        "xmas_tree" -> tr("$name straightens the star on the little tree.", "$name megigazítja a csillagot a kis fán.")
+        "flower_arch" -> tr("$name tucks one more flower into the garland.", "$name még egy virágot tűz a füzérbe.")
+        else -> tr("$name looks around.", "$name körülnéz.")
     }
 
     /** How the companion acts out an activity done in real life, in the camp. */
