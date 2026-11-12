@@ -124,10 +124,11 @@ class MonitorService : Service() {
         }
         getSharedPreferences("tend_monitor", MODE_PRIVATE).edit().putLong("heartbeat", now).apply()
 
-        val events = usm.queryEvents(lastQuery, now)
+        // Null when the system won't answer (usage access just taken away): nothing new, try again next time.
+        val events = runCatching { usm.queryEvents(lastQuery, now) }.getOrNull()
         val e = UsageEvents.Event()
         var latest: String? = null
-        while (events.hasNextEvent()) {
+        while (events?.hasNextEvent() == true) {
             events.getNextEvent(e)
             @Suppress("DEPRECATION")
             if (e.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) latest = e.packageName
@@ -159,12 +160,15 @@ class MonitorService : Service() {
             // Borrowed minutes: not counted, and the session's own end checks in again.
         } else if (fg != null && fg == sessionPkg) {
             val seconds = (now - lastTick) / 1000
-            store.update { it.copy(usedSeconds = it.usedSeconds + seconds) }
-            store.addAppSeconds(fg, seconds)
-            app.tend.reminder.Notes.checkLowMinutes(this)
+            // Once a whole second has passed, not on every poll: each write also redraws the widgets.
+            if (seconds > 0) {
+                store.update { it.copy(usedSeconds = it.usedSeconds + seconds) }
+                store.addAppSeconds(fg, seconds)
+                app.tend.reminder.Notes.checkLowMinutes(this)
+            }
             maybePeek(fg, now)
             // The day's minutes are used up, or this app's own limit is.
-            if (store.isLocked() || store.appLocked(fg)) {
+            if (seconds > 0 && (store.isLocked() || store.appLocked(fg))) {
                 endSession(now, askWorthIt = false)
                 intercept(fg, now)
             }
@@ -254,7 +258,7 @@ class MonitorService : Service() {
         nm.createNotificationChannel(NotificationChannel(PLUS_CHANNEL, "tend Plus", NotificationManager.IMPORTANCE_DEFAULT))
         val open = PendingIntent.getActivity(this, 31, Intent(this, app.tend.MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_IMMUTABLE)
         nm.notify(
-            31,
+            32, // 31 is the friends' note
             Notification.Builder(this, PLUS_CHANNEL).setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle("$days more day${if (days == 1) "" else "s"} of tend Plus")
                 .setContentText(if (won >= 60) "You've won back ${app.tend.core.InsightsOf.hours(won)} so far. Your time stays yours either way." else "Your weeks, each app's limit and strict mode are yours until then.")
@@ -314,7 +318,8 @@ class MonitorService : Service() {
     private suspend fun backgroundSync() {
         trialNote()
         // The town's weather for the widgets (at most hourly; nothing without a town).
-        if (runCatching { app.tend.data.WeatherService.refresh(this) }.getOrDefault(false)) app.tend.widget.Widgets.refresh(this)
+        val weather = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { app.tend.data.WeatherService.refresh(this@MonitorService) }.getOrDefault(false) }
+        if (weather) app.tend.widget.Widgets.refresh(this)
         if (!store.onboarded || store.selectedTasks.none { it.verification == app.tend.core.Verification.AUTOMATIC }) return
         val done = runCatching { app.tend.health.TaskSync.sync(this) }.getOrNull() ?: return
         if (done.tasks.isEmpty() || !app.tend.reminder.RecapReminder.canNotify(this)) return
@@ -396,7 +401,8 @@ class MonitorService : Service() {
         const val WORTH_IT_PER_DAY = 2
 
         fun start(context: Context) {
-            context.startForegroundService(Intent(context, MonitorService::class.java))
+            // Android can refuse a start from the background (no overlay permission yet, a battery saver): the next open starts it.
+            runCatching { context.startForegroundService(Intent(context, MonitorService::class.java)) }
         }
     }
 }
@@ -412,7 +418,9 @@ class BootReceiver : BroadcastReceiver() {
         val store = TendStore(context)
         // A timer that was running keeps its end alarm.
         if (store.focusStartedAt > 0) {
-            app.tend.health.TimerAlarm.schedule(context, store.focusStartedAt + store.focusTask.target * 60_000L + 2_000L)
+            val end = store.focusStartedAt + store.focusTask.target * 60_000L
+            app.tend.health.TimerAlarm.schedule(context, end + 2_000L)
+            if (end > System.currentTimeMillis()) app.tend.health.TimerAlarm.showRunning(context, store.focusTask, end)
         }
         // Only once setup is done: the apps are pre-selected from the first start, the pause isn't.
         if (store.onboarded && store.blockedPackages.isNotEmpty()) MonitorService.start(context)

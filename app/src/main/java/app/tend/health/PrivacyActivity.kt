@@ -49,7 +49,10 @@ class PrivacyActivity : ComponentActivity() {
                         "Health Connect, if you connect it: steps, exercise and sleep, to complete those activities and give minutes back. " +
                             "With background access, a finished walk counts without opening tend. tend only reads; it never writes or shares health data.",
                         "Notifications, if you allow them: the morning plan, a heads-up at 10 minutes left, the evening recap, the Sunday letter.",
-                        "Your installed apps: only to let you pick which ones to pause.",
+                        "Your installed apps: only to let you pick which ones to pause. The list and your pick stay on your phone.",
+                        "Accessibility service, only if you switch on \"Close only Reels & Shorts\": in Instagram, YouTube and Facebook it checks whether " +
+                            "the short-video player is showing, and goes back if it is. Nothing on your screen is read, kept or sent.",
+                        "Your town, if you type one: its name and rough coordinates go to Open-Meteo for the camp's weather. Never your phone's location.",
                         "Anonymous usage stats, only if you say yes: counts like \"a pause ended in Not now\" or \"a walk was done\", " +
                             "with a random id and the day since install. No names, app names or health data. Off any time in Settings.",
                         "An account, only if you log in (Google or an e-mail code): your name and e-mail, your companion and level, " +

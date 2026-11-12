@@ -42,7 +42,8 @@ Go for a walk, sleep well, read, learn, meet friends, cook, or add your own habi
 CARE FOR BO BY CARING FOR YOURSELF
 • Daily goals you pick: steps, workouts, sleep, reading, learning, friends, hobbies, tidying, cooking, or your own
 • Walks, workouts and sleep count by themselves with Health Connect (great with a smartwatch)
-• Focus timers and phone-free timers for everything else
+• Focus timers and phone-free timers for everything else: while one runs, every app waits
+• Or just a timer: 25, 50 or 90 minutes of focus, one tap
 • Level up Body, Mind and Rest: every activity is XP
 • A weekly challenge picked from your habits, with bonus XP
 • Bo earns little things for good habits: a lucky leaf, a sun hat, a nightcap
@@ -86,8 +87,10 @@ For a digital detox that sticks: less screen time, more of your life, and a smal
 | App activity → App interactions | Yes | Yes | Analytics (opt-in stats), App functionality (backup) | Stats: anonymous counts; backup: activities done per day, pauses, acorns, camp |
 | App activity → Other user-generated content | Yes | Yes (only with an account) | App functionality | The camp, settings and "Worth it?" answers in the backup |
 | App info and performance → Other | Yes | Yes | Analytics | App and Android version with the opt-in stats |
+| Location → Approximate location | Yes | Yes (only if a town is typed) | App functionality | The town's name and rounded coordinates go to Open-Meteo for the camp's weather; never the phone's location. Declared to be on the safe side |
+| Personal info → Other info | Yes | Yes | Analytics | Age range and gender, if given: with the opt-in stats (anonymous) and in the backup |
 
-- Not collected: location, health and fitness (steps, exercise, sleep stay on the phone), the list of installed or used apps, messages, contacts, photos, financial info.
+- Not collected: the phone's own location, health and fitness (steps, exercise, sleep stay on the phone), the list of installed or used apps (the backup leaves out which apps are paused and their minutes; the stats never name an app), messages, contacts, photos, financial info.
 - Data is processed ephemerally: No. Linked to the user's identity: account data and backup yes; opt-in stats no.
 - Everything else (minutes, Health Connect readings) stays on the device.
 
@@ -117,11 +120,35 @@ tend rewards healthy offline activities with screen-time minutes. It reads steps
 ```
 - Tip: if the review slows the launch, publish the first version without the Health Connect permissions (remove them from the manifest) and add them in an update.
 
+### Accessibility API declaration (`ShortsGuard`)
+- Is it an accessibility tool? **No** (`isAccessibilityTool` is not set).
+- What it's for:
+```
+Optional feature "Close only Reels & Shorts". When the user turns it on, tend's accessibility service checks, only in Instagram, YouTube and Facebook, whether the short-video player (Reels / Shorts) is on screen, by its view ids, and presses Back if it is. This lets people keep using messages, search and regular videos while avoiding the endless short-video feeds, which is what they asked tend to help with. The service reads no text or content from the screen, stores nothing and sends nothing. It is off by default; the app shows a disclosure and asks for consent before sending the user to Android's accessibility settings, and it can be turned off there or in the app at any time.
+```
+- Video (same as for the foreground service is fine, a second clip): Settings → Apps → "Close only Reels & Shorts" → the disclosure dialog → Android's switch → open YouTube Shorts → it goes back, Bo says so.
+- Fallback if the review objects: the feature is self-contained (`monitor/ShortsGuard.kt`, its `<service>` in the manifest, `ShortsGuardCard` in settings); it can be left out of the Play build without touching anything else.
+
+### Health apps declaration
+- Play Console → App content → Health apps: category **Activity and fitness** / **Sleep management** features used for habit rewards; no medical claims.
+
+### tend Plus (not sold yet)
+- The Play build has no purchases yet (`canBuy = false`): the listing says nothing about paid features, and the content rating answers "no purchases". When Play Billing is added: create the product in Play Console → Monetise, answer "in-app purchases: yes", and update this file.
+
 ### Sensitive permissions
 - **Usage access** (`PACKAGE_USAGE_STATS`): core function, detecting which app is opened and measuring screen time.
 - **Display over other apps** (`SYSTEM_ALERT_WINDOW`): core function, showing the pause screen over the app being opened.
 - **Exact alarms**: not used (only inexact alarms).
 - **Battery optimisation**: the Play build doesn't request the exemption directly; it opens the system list.
+
+## Before the first upload: checklist
+
+1. `versionCode` in `app/build.gradle.kts` (1 for the first upload, +1 for each one after).
+2. `keystore.properties` in place, then `./gradlew bundlePlayRelease`; back up the upload keystore somewhere safe (it can't be recreated).
+3. Publish `docs/` (GitHub Pages): privacy policy at `/privacy/`, terms at `/terms/`, invite page at `/i/`.
+4. Google Cloud → OAuth consent screen → **Publish app** (in "Testing" only the listed test users can sign in with Google). Add the Play **app signing** SHA-1 (Play Console → Setup → App signing) as an Android OAuth client, or Google sign-in fails for Play installs.
+5. Play Console forms, from the sections above: Data safety, Content rating, Target audience, Ads, App access, Foreground service, Accessibility API, Health Connect / Health apps.
+6. New screenshots if the look changed since `docs/play/screenshot-*.png` were made.
 
 ## Testing before production
 

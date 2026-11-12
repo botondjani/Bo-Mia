@@ -55,7 +55,7 @@ object Tasks {
     /** The user's own activity: ticked off by hand, or with [minutes] a phone-free timer. */
     fun custom(name: String, icon: String, minutes: Int = 0): TaskDef {
         val clean = name.replace(Regex("[|\\n,]"), " ").replace(Regex("\\s+"), " ").trim().take(40)
-        val slug = clean.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-').ifEmpty { "own" }
+        val slug = clean.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-').ifEmpty { "own" + (clean.hashCode() and 0xffff) }
         return if (minutes > 0) TaskDef(CUSTOM_PREFIX + slug, clean, "Phone-free · $minutes min", maxOf(CUSTOM_REWARD, minutes / 2), Verification.PHONE_FREE, minutes, icon)
         else TaskDef(CUSTOM_PREFIX + slug, clean, "Check off · your own", CUSTOM_REWARD, Verification.CHECK_OFF, 0, icon)
     }

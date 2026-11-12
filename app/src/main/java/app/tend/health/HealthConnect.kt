@@ -27,13 +27,16 @@ class HealthConnect(private val context: Context, private val selected: List<Tas
 
     private val client by lazy { HealthConnectClient.getOrCreate(context) }
 
-    suspend fun status(): Status = when (HealthConnectClient.getSdkStatus(context, PROVIDER)) {
-        HealthConnectClient.SDK_AVAILABLE ->
-            if (client.permissionController.getGrantedPermissions().containsAll(permissionsFor(selected))) Status.READY
-            else Status.NEEDS_PERMISSION
-        HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> Status.NEEDS_INSTALL
-        else -> Status.UNSUPPORTED
-    }
+    /** Never throws: Health Connect's own service can be updating or unreachable for a moment. */
+    suspend fun status(): Status = runCatching {
+        when (HealthConnectClient.getSdkStatus(context, PROVIDER)) {
+            HealthConnectClient.SDK_AVAILABLE ->
+                if (client.permissionController.getGrantedPermissions().containsAll(permissionsFor(selected))) Status.READY
+                else Status.NEEDS_PERMISSION
+            HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> Status.NEEDS_INSTALL
+            else -> Status.UNSUPPORTED
+        }
+    }.getOrElse { if (it is kotlinx.coroutines.CancellationException) throw it else Status.UNSUPPORTED }
 
     override suspend fun stepsToday(): Long? = readIf(STEPS) {
         client.aggregate(AggregateRequest(setOf(StepsRecord.COUNT_TOTAL), today()))[StepsRecord.COUNT_TOTAL] ?: 0
@@ -67,9 +70,11 @@ class HealthConnect(private val context: Context, private val selected: List<Tas
 
     private suspend fun <T> readIf(permission: String, read: suspend () -> T): T? {
         if (permission !in permissionsFor(selected)) return null
-        if (HealthConnectClient.getSdkStatus(context, PROVIDER) != HealthConnectClient.SDK_AVAILABLE) return null
-        if (permission !in client.permissionController.getGrantedPermissions()) return null
-        return runCatching { read() }.getOrNull()
+        return runCatching {
+            if (HealthConnectClient.getSdkStatus(context, PROVIDER) != HealthConnectClient.SDK_AVAILABLE) return null
+            if (permission !in client.permissionController.getGrantedPermissions()) return null
+            read()
+        }.getOrElse { if (it is kotlinx.coroutines.CancellationException) throw it else null }
     }
 
     private fun today() = TimeRangeFilter.between(LocalDate.now().atStartOfDay(), LocalDateTime.now())

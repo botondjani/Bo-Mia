@@ -3,6 +3,7 @@ package app.tend.data
 import android.app.Activity
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.security.MessageDigest
@@ -98,16 +99,21 @@ object Account {
     }
 
     /** A valid access token, refreshed when it has less than a minute left; null when signed out (or it can't refresh). */
-    suspend fun token(c: Context): String? = withContext(Dispatchers.IO) {
+    suspend fun token(c: Context): String? = withContext(Dispatchers.IO) { refreshing.withLock { freshToken(c) } }
+
+    /** One refresh at a time: a refresh token works once, and a second try with the old one would look like a dead session. */
+    private val refreshing = kotlinx.coroutines.sync.Mutex()
+
+    private fun freshToken(c: Context): String? = run {
         val p = prefs(c)
-        val access = p.getString("access_token", null) ?: return@withContext null
-        if (p.getLong("expires_at", 0) - System.currentTimeMillis() / 1000 > 60) return@withContext access
-        val refresh = p.getString("refresh_token", null) ?: return@withContext null
+        val access = p.getString("access_token", null) ?: return@run null
+        if (p.getLong("expires_at", 0) - System.currentTimeMillis() / 1000 > 60) return@run access
+        val refresh = p.getString("refresh_token", null) ?: return@run null
         val reply = Supabase.post("/auth/v1/token?grant_type=refresh_token", JSONObject().put("refresh_token", refresh).toString())
         if (!reply.ok) {
             // A refresh token that's no longer valid means the session is over; offline keeps it.
             if (reply.code in 400..499) clear(c)
-            return@withContext null
+            return@run null
         }
         val j = reply.json()
         p.edit()

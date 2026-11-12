@@ -10,17 +10,25 @@ import java.io.File
  * and the logs behind the history, levels and patterns. Not included: the background monitor's
  * moment-to-moment state, crash reports, the anonymous stats queue, the account itself, and no
  * health readings: today's steps, exercise and sleep stay on the phone (Health Connect fills them
- * again); only which activities were done is saved.
+ * again); only which activities were done is saved. And never which apps are on the phone or used:
+ * the paused apps, their limits and their minutes stay here too, and the answers go without the app.
  */
 object Backup {
     private const val VERSION = 1
     private val HEALTH_KEYS = setOf("day_steps", "day_exercise", "day_sleep")
+    /** Which apps are paused, limited or were just opened: this phone's own business. */
+    private val APP_KEYS = setOf("blocked", "app_limits", "app_sec", "app_sec_day", "pass_pkg", "borrow_pkg")
     private val FILES = listOf("history.csv", "answers.csv", "acorns.csv")
+
+    /** answers.csv lines are "time,kind,app,answer,seconds": the same without the app. */
+    private fun withoutApps(answers: String) = answers.lineSequence().joinToString("\n") { line ->
+        line.split(',').let { p -> if (p.size >= 4) (p.take(2) + "" + p.drop(3)).joinToString(",") else line }
+    }
 
     /** Everything to save, as one JSON object. */
     fun snapshot(c: Context): JSONObject {
         val prefs = JSONObject()
-        c.getSharedPreferences("tend", Context.MODE_PRIVATE).all.filterKeys { it !in HEALTH_KEYS }.forEach { (key, value) ->
+        c.getSharedPreferences("tend", Context.MODE_PRIVATE).all.filterKeys { it !in HEALTH_KEYS && it !in APP_KEYS }.forEach { (key, value) ->
             val entry = when (value) {
                 is String -> JSONObject().put("t", "s").put("v", value)
                 is Int -> JSONObject().put("t", "i").put("v", value)
@@ -33,15 +41,23 @@ object Backup {
             entry?.let { prefs.put(key, it) }
         }
         val files = JSONObject()
-        FILES.forEach { name -> File(c.filesDir, name).takeIf { it.exists() }?.let { files.put(name, it.readText()) } }
+        FILES.forEach { name -> File(c.filesDir, name).takeIf { it.exists() }?.let { files.put(name, if (name == "answers.csv") withoutApps(it.readText()) else it.readText()) } }
         return JSONObject().put("v", VERSION).put("prefs", prefs).put("files", files)
     }
 
     /** Replaces this phone's data with [data]. The caller restarts the app afterwards. */
     fun restore(c: Context, data: JSONObject) {
         val prefs = data.optJSONObject("prefs") ?: return
-        val editor = c.getSharedPreferences("tend", Context.MODE_PRIVATE).edit().clear()
+        val here = c.getSharedPreferences("tend", Context.MODE_PRIVATE)
+        // The apps picked on this phone stay as they are: a backup doesn't carry them.
+        val apps = here.all.filterKeys { it in APP_KEYS }
+        val editor = here.edit().clear()
+        apps.forEach { (key, value) ->
+            @Suppress("UNCHECKED_CAST")
+            when (value) { is String -> editor.putString(key, value); is Set<*> -> editor.putStringSet(key, value as Set<String>) }
+        }
         prefs.keys().forEach { key ->
+            if (key in APP_KEYS) return@forEach // from a backup made before these were left out
             val e = prefs.optJSONObject(key) ?: return@forEach
             when (e.optString("t")) {
                 "s" -> editor.putString(key, e.optString("v"))

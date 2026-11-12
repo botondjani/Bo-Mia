@@ -99,6 +99,16 @@ class InterstitialActivity : ComponentActivity() {
         }
     }
 
+    /** Another app opened while this pause is still up: the pause is for that one now. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.getStringExtra(EXTRA_PKG) == pkgName && intent.getBooleanExtra(EXTRA_FOCUS, false) == this.intent.getBooleanExtra(EXTRA_FOCUS, false)) return
+        decide("left")
+        // A fresh pause from the start (its own countdown), not this one with another name on it.
+        finish()
+        startActivity(intent)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

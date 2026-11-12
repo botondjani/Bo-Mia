@@ -41,7 +41,7 @@ class ShortsGuard : AccessibilityService() {
         lastBlock = now
         performGlobalAction(GLOBAL_ACTION_BACK)
         store.countShortsClosed()
-        app.tend.data.Stats.log(this, "shorts_closed", mapOf("app" to APP_NAMES[pkg].orEmpty()))
+        app.tend.data.Stats.log(this, "shorts_closed") // never which app
         say(store, if (pkg == "com.google.android.youtube") "No Shorts today. The rest of YouTube is all yours." else "No Reels today. Your messages are still here.")
     }
 
@@ -91,7 +91,6 @@ class ShortsGuard : AccessibilityService() {
             "com.google.android.youtube" to listOf("reel_recycler", "reel_player_page_container", "reel_watch_player"),
             "com.facebook.katana" to listOf("reels_viewer_container", "video_home_reels_container"),
         )
-        private val APP_NAMES = mapOf("com.instagram.android" to "instagram", "com.google.android.youtube" to "youtube", "com.facebook.katana" to "facebook")
 
         /** Whether the user has switched the service on in Android's accessibility settings. */
         fun enabled(c: Context): Boolean = c.getSystemService(AccessibilityManager::class.java)

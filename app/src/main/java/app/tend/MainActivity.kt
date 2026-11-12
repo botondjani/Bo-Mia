@@ -750,7 +750,8 @@ class MainActivity : ComponentActivity() {
             )
 
             p == "focus" -> FocusTimerScreen(
-                store.avatar, store.focusTask, TaskSync.focusSecondsLeft(store, now)!!,
+                // Still drawn for a moment while the page fades out after the timer stops: 0 then, never a crash.
+                store.avatar, store.focusTask, TaskSync.focusSecondsLeft(store, now) ?: 0L,
                 screenOnSeconds = remember(now / 5000) { TaskSync.screenOnSeconds(this@MainActivity) },
                 onCancel = { TaskSync.stopTimer(this@MainActivity); refresh++ },
             )
