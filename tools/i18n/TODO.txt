@@ -1,0 +1,20 @@
+MANUAL after bulk apply (tr = app.tend.core.tr, Lang.hu):
+- Patterns "Yes"/"Kind of"/"Not really" are stored data: translate only shown labels (WorthItActivity Triple label vs stored answer; Recap/insights display).
+- Tasks.pastTense: hu first person plural (mozogtunk, kint voltunk, jól aludtunk, olvastunk, tanultunk valamit, időt szántunk a szeretteinkre, hobbiztunk, rendet raktunk, főztünk valami finomat, else "megvolt ez is: ${title.lowercase()}"). doneLine stays English (sent to server); doneShown already done.
+- Milestones.label: units days/activities/hours back -> hu "X / N nap|tevékenység|visszanyert óra".
+- Visitor.aName: hu "egy ${title.lowercase()}".
+- Mood.status: "$name is "+word -> hu "$name boldog/álmos/görget/ragyog/alszik".
+- Insights.hours: "${h} h" -> hu "ó".
+- Verification labels (automatic/timer/phone-free/check off) if shown.
+- Dates: Locale.ENGLISH -> Lang.locale (HomeScreen header pattern hu "MMMM d., EEEE", WeekCard, Insights, Settings).
+- progressLabel formats (HomeScreen ~748).
+- Widget xml strings (min left / min) set from code or values-hu; shorts_guard_description values-hu; tile label.
+- LanguagePicker: unselected chip bg param (Card on Card in settings).
+- greeting() in HomeScreen.
+- Plurals with ${if (n == 1) "" else "s"} handled in hu literal.
+- apply script: skip literals already inside tr(...).
+- Supabase migration tend_fire_call NOT applied (needs user confirmation).
+- Friends.Kind.short: "waved","visited","cheered!" lowercase singles -> manual tr.
+- AccountCard: message color uses it.startsWith("Check") -> compare with the tr'd string.
+- LOOKING_FOR logged answers ("Messages","Looking something up","Just bored","Out of habit") stay English data; if shown in insights, map for display.
+- InterstitialActivity ordinal(): only used in en string now.

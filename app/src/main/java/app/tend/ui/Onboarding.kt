@@ -147,6 +147,7 @@ fun Onboarding(
             when (s) {
                 // One page to say hello: what tend does, in two lines, and who keeps you company.
                 Step.WELCOME -> StepPage(cta = "Continue with ${avatar.displayName}", onCta = next) {
+                    LanguagePicker()
                     Title(
                         "Hi! I'm ${avatar.displayName}.",
                         "When you open an app you picked, I pop up for a breath first. Walks, workouts and books win your minutes back, and acorns for our camp by the river, where friends can join us at the fire.",
@@ -363,6 +364,22 @@ fun BobbingCharacter(avatar: Avatar, mood: Mood, size: Dp) {
             transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
         },
     )
+}
+
+/** English or Magyar, each in its own words; picking the other one starts the app again in it. */
+@Composable
+fun LanguagePicker(modifier: Modifier = Modifier) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf("en" to "English", "hu" to "Magyar").forEach { (code, label) ->
+            val on = code == app.tend.core.Lang.code
+            Text(
+                label, style = MaterialTheme.typography.labelLarge, color = if (on) Color.White else Brand.Moss, textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(if (on) Brand.Moss else Brand.Card)
+                    .clickable { app.tend.TendApp.setLanguage(context, code) }.padding(vertical = 10.dp),
+            )
+        }
+    }
 }
 
 @Composable

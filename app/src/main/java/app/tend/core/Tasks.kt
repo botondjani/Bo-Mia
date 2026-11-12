@@ -108,6 +108,24 @@ object Tasks {
         else -> "did something of their own"
     }
 
+    /**
+     * A friend's [doneLine] as it's shown here: it travels in English (it's what older versions
+     * send too), and is said in this phone's language.
+     */
+    fun doneShown(line: String): String = when (line) {
+        "worked out" -> tr("worked out", "edzett")
+        "went for a walk" -> tr("went for a walk", "sétált egyet")
+        "slept well" -> tr("slept well", "jól aludt")
+        "read for a while" -> tr("read for a while", "olvasott egy kicsit")
+        "learned something" -> tr("learned something", "tanult valamit")
+        "made time for friends" -> tr("made time for friends", "időt szánt a barátaira")
+        "made time for a hobby" -> tr("made time for a hobby", "a hobbijával foglalkozott")
+        "tidied up" -> tr("tidied up", "rendet rakott")
+        "cooked something good" -> tr("cooked something good", "főzött valami finomat")
+        "did something of their own" -> tr("did something of their own", "a saját dolgával foglalkozott")
+        else -> line
+    }
+
     fun pastTense(task: TaskDef): String = when (task.id) {
         MOVE.id -> "moved"
         OUTSIDE.id -> "went outside"

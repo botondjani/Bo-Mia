@@ -212,6 +212,8 @@ class MainActivity : ComponentActivity() {
         stopService(Intent(this, MonitorService::class.java))
         app.tend.widget.Widgets.refresh(this, force = true)
         app.tend.ui.ThemeChoice.mode = null
+        // A backup made in the other language: the whole app starts again in it.
+        if (getSharedPreferences("tend", MODE_PRIVATE).getString("lang", null).let { it != null && it != app.tend.core.Lang.code }) return TendApp.restart(this)
         startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
         finish()
     }
@@ -479,9 +481,18 @@ class MainActivity : ComponentActivity() {
 
         // The shared campfire: who's phone-free now (heard every minute while tend is open), and joining them.
         var atFire by remember { mutableStateOf(app.tend.data.Friends.atFire(this)) }
+        // Friends today: who did what (heard every minute), and who's been cheered for it.
+        var friendsToday by remember { mutableStateOf(app.tend.data.Friends.doneToday()) }
+        var cheeredToday by remember { mutableStateOf(setOf<String>()) }
+        LaunchedEffect(Unit) {
+            if (app.tend.data.Account.user(this@MainActivity) != null) runCatching {
+                app.tend.data.Friends.sent(this@MainActivity)?.let { s -> cheeredToday = s.used.filterValues { app.tend.data.Friends.Kind.CHEER in it }.keys }
+            }
+        }
         LaunchedEffect(Unit) {
             while (true) {
                 if (app.tend.data.Account.user(this@MainActivity) != null) runCatching { app.tend.data.Friends.list(this@MainActivity) }
+                friendsToday = app.tend.data.Friends.doneToday()
                 // The town's weather, at most hourly.
                 if (kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { app.tend.data.WeatherService.refresh(this@MainActivity) }) {
                     refresh++; app.tend.widget.Widgets.refresh(this@MainActivity)
@@ -506,7 +517,12 @@ class MainActivity : ComponentActivity() {
                 refresh++
             }
         }
-        LaunchedEffect(joinFire, atFire) { if (joinFire) { joinFire = false; atFire.firstOrNull()?.let(join) } }
+        // Answering a call to the fire: with them if they're there already, else starting it for both.
+        val answerCall: () -> Unit = {
+            val call = app.tend.data.Friends.fireCall(this)
+            join(atFire.firstOrNull { it.id == call?.from } ?: atFire.firstOrNull() ?: app.tend.data.Friends.AtFire(call?.from.orEmpty(), call?.name ?: "your friend", "BO", 0, 0, ""))
+        }
+        LaunchedEffect(joinFire, atFire) { if (joinFire) { joinFire = false; answerCall() } }
         val fireGuests = atFire.map { (runCatching { app.tend.core.Avatar.valueOf(it.companion) }.getOrDefault(app.tend.core.Avatar.BO)) to it.name }
 
         val toggleApp: (String) -> Unit = { pkg ->
@@ -963,6 +979,16 @@ class MainActivity : ComponentActivity() {
                 onOpenInsights = { screen = Screen.INSIGHTS },
                 atFire = atFire,
                 onJoin = join,
+                fireCall = remember(refresh, now / 60_000) { app.tend.data.Friends.fireCall(this@MainActivity)?.name },
+                onAnswerCall = answerCall,
+                friendsToday = friendsToday,
+                cheered = cheeredToday,
+                onCheer = { f ->
+                    cheeredToday = cheeredToday + f.id
+                    lifecycleScope.launch {
+                        if (app.tend.data.Friends.send(this@MainActivity, f.id, app.tend.data.Friends.Kind.CHEER)) app.tend.data.Stats.log(this@MainActivity, "cheer", mapOf("from" to "home"))
+                    }
+                },
                 voice = remember(refresh, atFire, done, java.time.LocalTime.now().hour) {
                     val now = java.time.LocalDateTime.now()
                     val days = store.daySummaries()

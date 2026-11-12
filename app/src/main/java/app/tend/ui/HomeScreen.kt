@@ -117,6 +117,13 @@ fun HomeScreen(
     visitor: app.tend.core.Visitor? = null,
     onGreetVisitor: () -> Unit = {},
     /** A small tip on the camp (how to move things), until it's been tried. */
+    /** A friend calling you to the campfire just now (their name). */
+    fireCall: String? = null,
+    onAnswerCall: () -> Unit = {},
+    /** Friends who did something today, with a cheer for each (once a day). */
+    friendsToday: List<app.tend.data.Friends.Friend> = emptyList(),
+    cheered: Set<String> = emptySet(),
+    onCheer: (app.tend.data.Friends.Friend) -> Unit = {},
     campTip: app.tend.core.Tip? = null,
     onCampTip: (app.tend.core.Tip) -> Unit = {},
     steps: List<app.tend.core.StepState> = emptyList(),
@@ -258,6 +265,11 @@ fun HomeScreen(
                 "Phone-free until ${"%d:%02d".format(until.hour, until.minute)}. Put yours down too: +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each", { onJoin(f) },
             )
         }
+        // A friend calling to the fire (nobody's there yet): one tap puts your phone down too.
+        if (focusSecondsLeft == null && atFire.isEmpty() && fireCall != null) Notice(
+            "friends", "$fireCall calls you to the campfire",
+            "Put your phones down together: +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each", onAnswerCall,
+        )
         // The trial's last days: said once a day on home, never in the way.
         if (plusDaysLeft != null && plusDaysLeft <= 3) Notice(
             "sparkle", if (plusDaysLeft <= 1) "Last day of tend Plus" else "$plusDaysLeft more day${if (plusDaysLeft == 1) "" else "s"} of tend Plus",
@@ -362,6 +374,27 @@ fun HomeScreen(
         if (focusSecondsLeft == null) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Or just a timer", style = MaterialTheme.typography.bodyMedium, color = Brand.Muted, modifier = Modifier.weight(1f))
             listOf(25, 50, 90).forEach { m -> ChipButton("$m min", { onStartFocus(Tasks.timer(m)) }, filled = false) }
+        }
+        // Friends today: what they did, and a cheer for it, one tap each.
+        if (friendsToday.isNotEmpty()) Column(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("FRIENDS TODAY", style = MaterialTheme.typography.labelSmall)
+            friendsToday.take(3).forEach { f ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Face(f.companion, 32)
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        "${f.name} ${app.tend.core.Tasks.doneShown(f.lastDone.orEmpty())}", style = MaterialTheme.typography.bodyMedium, color = Brand.Ink,
+                        maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+                    )
+                    val done = f.id in cheered
+                    Text(
+                        if (done) "Cheered" else "\uD83D\uDC4F Cheer", style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
+                        color = if (done) Brand.Muted else Color.White,
+                        modifier = Modifier.clip(RoundedCornerShape(50)).background(if (done) Brand.Sage else Brand.Moss)
+                            .then(if (done) Modifier else Modifier.tappable { onCheer(f) }).padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                }
+            }
         }
         // The extras, after what matters: challenges, Bo's quest and the level, as three small tiles.
         GoalTiles(

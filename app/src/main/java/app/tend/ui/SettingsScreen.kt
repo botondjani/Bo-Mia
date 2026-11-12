@@ -196,6 +196,7 @@ fun SettingsScreen(
             Text("MORE", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
             var confirmReset by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
             Card {
+                LanguagePicker()
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("light" to "Light", "dark" to "Dark", "system" to "Auto").forEach { (key, label) ->
                         val on = key == theme

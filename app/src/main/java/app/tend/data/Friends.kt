@@ -56,8 +56,21 @@ object Friends {
     /** Your friends, oldest friendship first; null when the server can't be reached. Who's at the fire is kept too. */
     suspend fun list(c: Context): List<Friend>? {
         val reply = Account.rpc(c, "tend_friends")?.takeIf { it.ok } ?: return null
-        return parse(reply.body).also { keepAtFire(c, it) }
+        return parse(reply.body).also { keepAtFire(c, it); last = it }
     }
+
+    /** Friends as last heard from the server (this run of the app). */
+    @Volatile private var last: List<Friend> = emptyList()
+
+    /** Friends who did something today, most recent first: for "Friends today" on home. */
+    fun doneToday(now: Long = System.currentTimeMillis()): List<Friend> {
+        val midnight = java.time.LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        return last.filter { it.lastDone != null && (it.lastDoneAt ?: 0) in midnight..now }.sortedByDescending { it.lastDoneAt }
+    }
+
+    /** A friend calling you to the campfire in the last half hour (the newest one), or null. */
+    fun fireCall(c: Context, now: Long = System.currentTimeMillis()): Note? =
+        notes(c).firstOrNull { it.kind == Kind.FIRE && now - it.at < 30 * 60_000L }
 
     private fun time(s: String?): Long? = s?.takeIf { it.isNotBlank() && it != "null" }?.let { runCatching { java.time.OffsetDateTime.parse(it).toInstant().toEpochMilli() }.getOrNull() }
 
@@ -197,7 +210,9 @@ object Friends {
 
     /** What friends do to each other's camps. */
     enum class Kind(val id: String) {
-        WAVE("wave"), VISIT("visit"), TP("tp"), CHEER("cheer"), GIFT("gift");
+        WAVE("wave"), VISIT("visit"), TP("tp"), CHEER("cheer"), GIFT("gift"),
+        /** "Come to the fire": let's put the phones down together, now. */
+        FIRE("fire");
 
         /** How it reads for whoever got it: "Anna waved at you". */
         fun received(name: String) = when (this) {
@@ -206,13 +221,14 @@ object Friends {
             TP -> "$name toilet-papered your oak"
             CHEER -> "$name cheered you on"
             GIFT -> "$name sent you a present"
+            FIRE -> "$name calls you to the campfire"
         }
 
         /** For the widget's small label: "Anna: visited". */
-        val short: String get() = when (this) { WAVE -> "waved"; VISIT -> "visited"; TP -> "toilet paper!"; CHEER -> "cheered!"; GIFT -> "a present!" }
+        val short: String get() = when (this) { WAVE -> "waved"; VISIT -> "visited"; TP -> "toilet paper!"; CHEER -> "cheered!"; GIFT -> "a present!"; FIRE -> "to the fire!" }
 
         /** For the 1x1 widget's badge. */
-        val emoji: String get() = when (this) { WAVE -> "\uD83D\uDC4B"; VISIT -> "\uD83E\uDD86"; TP -> "\uD83E\uDDFB"; CHEER -> "\uD83D\uDC4F"; GIFT -> "\uD83C\uDF81" }
+        val emoji: String get() = when (this) { WAVE -> "\uD83D\uDC4B"; VISIT -> "\uD83E\uDD86"; TP -> "\uD83E\uDDFB"; CHEER -> "\uD83D\uDC4F"; GIFT -> "\uD83C\uDF81"; FIRE -> "\uD83D\uDD25" }
 
         companion object { fun of(id: String) = entries.firstOrNull { it.id == id } }
     }
@@ -232,7 +248,10 @@ object Friends {
         val reply = Account.rpc(c, "tend_sent")?.takeIf { it.ok } ?: return null
         return runCatching {
             val a = JSONArray(reply.body)
-            val rows = (0 until a.length()).mapNotNull { i -> a.getJSONObject(i).let { o -> Kind.of(o.optString("kind"))?.let { Triple(o.optString("to_id"), it, o.optBoolean("cleared")) } } }
+            val hourAgo = System.currentTimeMillis() - 3_600_000L
+            val rows = (0 until a.length()).mapNotNull { i -> a.getJSONObject(i).let { o -> Kind.of(o.optString("kind"))?.let { Triple(o.optString("to_id"), it, o.optBoolean("cleared")) }
+                // A call to the fire can be made again after an hour.
+                ?.takeIf { it.second != Kind.FIRE || (time(o.optString("created_at")) ?: 0) > hourAgo } } }
             Sent(rows.groupBy({ it.first }, { it.second }).mapValues { it.value.toSet() }, rows.filter { it.second == Kind.TP && !it.third }.map { it.first }.toSet())
         }.getOrNull()
     }
@@ -328,17 +347,20 @@ object Friends {
         if (!app.tend.reminder.RecapReminder.canNotify(c)) return
         val nm = c.getSystemService(android.app.NotificationManager::class.java)
         nm.createNotificationChannel(android.app.NotificationChannel(CHANNEL, "Friends", android.app.NotificationManager.IMPORTANCE_DEFAULT))
-        val first = fresh.first()
+        val first = fresh.firstOrNull { it.kind == Kind.FIRE } ?: fresh.first()
         val text = when (first.kind) {
             Kind.TP -> "Tap the oak in your camp to unroll it."
             Kind.VISIT -> "They left a rubber duck in your river."
             Kind.WAVE -> "Wave back from your camp."
             Kind.CHEER -> "For what you did today. Cheer them back from your camp."
             Kind.GIFT -> "It's waiting in your camp. Tap it to open."
+            Kind.FIRE -> "Put your phones down together: +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each. Tap to join."
         } + if (fresh.size > 1) " And ${fresh.size - 1} more from friends." else ""
         val open = android.app.PendingIntent.getActivity(
-            c, 21, android.content.Intent(c, app.tend.MainActivity::class.java).putExtra(app.tend.reminder.RecapReminder.EXTRA_OPEN, app.tend.reminder.WeeklyLetter.OPEN_CLEARING).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
-            android.app.PendingIntent.FLAG_IMMUTABLE,
+            // A call to the fire opens tend ready to join; the rest opens the camp, where it happened.
+            c, if (first.kind == Kind.FIRE) 24 else 21,
+            android.content.Intent(c, app.tend.MainActivity::class.java).putExtra(app.tend.reminder.RecapReminder.EXTRA_OPEN, if (first.kind == Kind.FIRE) OPEN_JOIN else app.tend.reminder.WeeklyLetter.OPEN_CLEARING).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT,
         )
         nm.notify(
             NOTIFICATION_ID,

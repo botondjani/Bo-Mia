@@ -65,8 +65,11 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
     var cheered by remember { mutableStateOf(setOf<String>()) }
     // Presents sent today (one a day to each friend), the same way.
     var gifted by remember { mutableStateOf(setOf<String>()) }
+    // Called to the fire in the last hour.
+    var called by remember { mutableStateOf(setOf<String>()) }
     LaunchedEffect(Unit) {
         Friends.sent(context)?.let { s ->
+            called = s.used.filterValues { Friends.Kind.FIRE in it }.keys
             cheered = s.used.filterValues { Friends.Kind.CHEER in it }.keys
             gifted = s.used.filterValues { Friends.Kind.GIFT in it }.keys
         }
@@ -135,6 +138,14 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
                             }
                         }
                     },
+                    called = f.id in called,
+                    onCall = {
+                        called = called + f.id
+                        scope.launch {
+                            if (Friends.send(context, f.id, Friends.Kind.FIRE)) { note = "${f.name} hears the call. Start something phone-free and meet at the fire."; app.tend.data.Stats.log(context, "fire_call") }
+                            else { called = called - f.id; note = "Couldn't call ${f.name} right now (once an hour to each friend)." }
+                        }
+                    },
                     onCheer = {
                         cheered = cheered + f.id
                         scope.launch { if (!Friends.send(context, f.id, Friends.Kind.CHEER)) note = "Couldn't send the cheer. Try again in a moment." else app.tend.data.Stats.log(context, "cheer") }
@@ -184,7 +195,7 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
 }
 
 @Composable
-private fun FriendRow(f: Friends.Friend, cheered: Boolean, gifted: Boolean, onVisit: () -> Unit, onCheer: () -> Unit, onGift: () -> Unit, onRemove: () -> Unit) = Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).tappable(onClick = onVisit).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun FriendRow(f: Friends.Friend, cheered: Boolean, gifted: Boolean, onVisit: () -> Unit, called: Boolean = false, onCall: () -> Unit = {}, onCheer: () -> Unit, onGift: () -> Unit, onRemove: () -> Unit) = Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).tappable(onClick = onVisit).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
     Face(f.companion, 40)
     Spacer(Modifier.width(10.dp))
     Column(Modifier.weight(1f)) {
@@ -193,7 +204,7 @@ private fun FriendRow(f: Friends.Friend, cheered: Boolean, gifted: Boolean, onVi
         val done = f.lastDone
         val at = f.lastDoneAt
         Text(
-            if (done != null && at != null) "${done.replaceFirstChar { it.uppercase() }} · ${android.text.format.DateUtils.getRelativeTimeSpanString(at, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS)}"
+            if (done != null && at != null) "${app.tend.core.Tasks.doneShown(done).replaceFirstChar { it.uppercase() }} · ${android.text.format.DateUtils.getRelativeTimeSpanString(at, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS)}"
             else "Level ${f.level} · ${f.placed.size} thing${if (f.placed.size == 1) "" else "s"} at camp",
             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, maxLines = 1,
         )
@@ -205,17 +216,27 @@ private fun FriendRow(f: Friends.Friend, cheered: Boolean, gifted: Boolean, onVi
         modifier = Modifier.clip(RoundedCornerShape(50)).background(if (cheered) Brand.Sage else Brand.Moss)
             .then(if (cheered) Modifier else Modifier.tappable(onClick = onCheer)).padding(horizontal = 10.dp, vertical = 6.dp),
     )
-    // A present: ten acorns, once a day.
+    // Come to the fire: let's put the phones down together (once an hour).
     Spacer(Modifier.width(6.dp))
     Text(
-        if (gifted) "\uD83C\uDF81 Sent" else "\uD83C\uDF81 ${Friends.GIFT_ACORNS}", style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
-        color = if (gifted) Brand.Muted else Brand.Moss,
+        if (called) "Called" else "\uD83D\uDD25 Call", style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
+        color = if (called) Brand.Muted else Brand.Moss,
         modifier = Modifier.clip(RoundedCornerShape(50)).background(Brand.Sage)
-            .then(if (gifted) Modifier else Modifier.tappable(onClick = onGift)).padding(horizontal = 10.dp, vertical = 6.dp),
+            .then(if (called) Modifier else Modifier.tappable(onClick = onCall)).padding(horizontal = 10.dp, vertical = 6.dp),
     )
-    // Removing is rare: a small "more" at the end (it asks first), so the name keeps its room on narrow phones.
-    Text("\u22EE", style = MaterialTheme.typography.titleMedium, color = Brand.Muted,
-        modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onRemove).semantics { contentDescription = "Remove ${f.name}" }.padding(horizontal = 8.dp, vertical = 6.dp))
+    // The rarer things behind a small "more": a present (ten acorns, once a day), and removing (it asks first).
+    Box {
+        var more by remember { mutableStateOf(false) }
+        Text("\u22EE", style = MaterialTheme.typography.titleMedium, color = Brand.Muted,
+            modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable { more = true }.semantics { contentDescription = "More" }.padding(horizontal = 8.dp, vertical = 6.dp))
+        androidx.compose.material3.DropdownMenu(expanded = more, onDismissRequest = { more = false }, containerColor = Brand.Card) {
+            androidx.compose.material3.DropdownMenuItem(
+                text = { Text(if (gifted) "Present sent today" else "Send a present (${Friends.GIFT_ACORNS} acorns)") },
+                enabled = !gifted, onClick = { more = false; onGift() },
+            )
+            androidx.compose.material3.DropdownMenuItem(text = { Text("Remove ${f.name}", color = Brand.Coral) }, onClick = { more = false; onRemove() })
+        }
+    }
 }
 
 /** "Anna waved at you · 2 hours ago" */
