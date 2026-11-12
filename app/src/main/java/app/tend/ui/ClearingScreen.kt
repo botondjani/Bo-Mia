@@ -582,6 +582,8 @@ fun ClearingScreen(
             )
         }
     }
+    // Everything under the camp rises in as the page opens (the camp itself glides over from home).
+    Column(Modifier.pageBody(), verticalArrangement = Arrangement.spacedBy(Space.m)) {
     // What the companion is up to, for a familiar camp (the same for the hour). Worked out every time,
     // not only when shown: a remember inside a changing branch can trip up what follows it.
     val campLine = remember(java.time.LocalTime.now().hour) {
@@ -667,7 +669,9 @@ fun ClearingScreen(
     }
     }
 
-    Column(Modifier.onGloballyPositioned { collectionAt = it.positionInParent().y.toInt() }, verticalArrangement = Arrangement.spacedBy(Space.m)) {
+    }
+
+    Column(Modifier.onGloballyPositioned { collectionAt = it.positionInParent().y.toInt() }.pageBody(), verticalArrangement = Arrangement.spacedBy(Space.m)) {
         Guestbook(guestbook)
         totals?.let { MilestonesCard(it) }
         Things(avatar, worn, onShelf, earned, onToggleAccessory)

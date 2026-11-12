@@ -192,4 +192,16 @@ class WelcomeBackTest {
         // One not earned can't be put on.
         assertEquals(off, Accessories.toggle(Accessory.BOWTIE, earned, off))
     }
+
+    @Test fun `tips take turns, every other day, a few days each`() {
+        val all = listOf(Tip.MOVE, Tip.WIDGET, Tip.TOWN)
+        assertEquals(null, Tip.today(all, emptyMap(), 101))          // an odd day: none
+        assertEquals(Tip.TOWN, Tip.today(all, emptyMap(), 100))      // 100 / 2 = 50, 50 % 3 = 2: the third
+        val seen = (0L until 12 step 2).mapNotNull { Tip.today(all, emptyMap(), it) }
+        assertEquals(setOf(Tip.MOVE, Tip.WIDGET, Tip.TOWN), seen.toSet())
+        // Shown enough: it steps aside; nothing left: no tip.
+        assertTrue(Tip.today(all, mapOf(Tip.MOVE to 3), 0) != Tip.MOVE)
+        assertEquals(null, Tip.today(all, all.associateWith { 3 }, 0))
+        assertEquals(null, Tip.today(emptyList(), emptyMap(), 0))
+    }
 }

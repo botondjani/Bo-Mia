@@ -836,6 +836,17 @@ class TendStore(private val context: Context) {
         app.tend.core.Totals(daysTended, days.sumOf { it.tasksDone }, days.sumOf { it.unusedMinutes } / 60)
     }
 
+    /**
+     * Today's tip for the camp at home, of the ones that still apply; counted once a day, so each
+     * shows a few days at most.
+     */
+    fun tipToday(eligible: List<app.tend.core.Tip>, today: LocalDate = LocalDate.now()): app.tend.core.Tip? {
+        fun days(t: app.tend.core.Tip) = prefs.getStringSet("tip_days_${t.name}", emptySet())!!
+        val tip = app.tend.core.Tip.today(eligible, eligible.associateWith { (days(it) - today.toString()).size }, today.toEpochDay()) ?: return null
+        if (today.toString() !in days(tip)) prefs.edit().putStringSet("tip_days_${tip.name}", days(tip) + today.toString()).apply()
+        return tip
+    }
+
     /** Milestones already celebrated in the camp. */
     var milestonesSeen: Set<app.tend.core.Milestone>
         get() = prefs.getStringSet("milestones_seen", emptySet())!!.mapNotNull { runCatching { app.tend.core.Milestone.valueOf(it) }.getOrNull() }.toSet()

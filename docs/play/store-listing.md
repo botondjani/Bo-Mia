@@ -70,7 +70,7 @@ For a digital detox that sticks: less screen time, more of your life, and a smal
 
 - App icon 512 × 512: `icon-512.png`
 - Feature graphic 1024 × 500: `feature-graphic.png`
-- Phone screenshots 1080 × 1920: `screenshot-1.png` … (2 to 8)
+- Phone screenshots 1080 × 1920: `screenshot-1.png` … `screenshot-4.png` (made from the app as it is now; Play wants 2 to 8)
 
 ## App content forms
 

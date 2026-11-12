@@ -98,6 +98,8 @@ class MainActivity : ComponentActivity() {
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (store.reminderPrompted) store.reminderEnabled = granted // asked for the evening reminder, not for nudges
         RecapReminder.schedule(this)
+        // Allowed while a timer is already running: its countdown shows from now.
+        if (granted && store.focusStartedAt > 0) app.tend.health.TimerAlarm.showRunning(this, store.focusTask, store.focusStartedAt + store.focusTask.target * 60_000L)
         refresh++
     }
 
@@ -771,7 +773,8 @@ class MainActivity : ComponentActivity() {
                 acorns = store.acorns,
                 isEvening = app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour),
                 permissions = permissions(),
-                onShareCrash = TendApp.crashFile(this).takeIf { it.exists() }?.let { file ->
+                // Test builds only: Google Play collects crashes by itself.
+                onShareCrash = TendApp.crashFile(this).takeIf { !BuildConfig.PLAY && it.exists() }?.let { file ->
                     {
                         val report = file.readText()
                         file.delete()
@@ -804,7 +807,10 @@ class MainActivity : ComponentActivity() {
                 onStartFocus = { task ->
                     TaskSync.startTimer(this@MainActivity, task)
                     // The moment notes make sense: "Bo will tell you when it's done". Asked once.
-                    if (!store.reminderPrompted && !RecapReminder.canNotify(this@MainActivity)) allowNotes()
+                    // Asked again at later timers too: the time left counts down in a notification.
+                    if (!RecapReminder.canNotify(this@MainActivity)) {
+                        if (!store.reminderPrompted) allowNotes() else if (Build.VERSION.SDK_INT >= 33) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
                     refresh++
                 },
                 onCheckOff = { task ->
@@ -855,8 +861,18 @@ class MainActivity : ComponentActivity() {
                 onWakeUp = { store.wakeUp(); refresh++ },
                 // Until something has been moved: how (on the camp, small).
                 campTip = remember(refresh) {
-                    "Tip: you can move things around".takeIf {
-                        store.layout.isEmpty() && store.placed.values.any { id -> app.tend.core.Things.byId(id)?.let(app.tend.core.Clearing::movable) == true }
+                    // Only what still applies: nothing moved yet, no widget yet, no town yet.
+                    store.tipToday(buildList {
+                        if (store.layout.isEmpty() && store.placed.values.any { id -> app.tend.core.Things.byId(id)?.let(app.tend.core.Clearing::movable) == true }) add(app.tend.core.Tip.MOVE)
+                        if (widgetPlaced() == false) add(app.tend.core.Tip.WIDGET)
+                        if (store.weatherPlace == null) add(app.tend.core.Tip.TOWN)
+                    })
+                },
+                onCampTip = { tip ->
+                    when (tip) {
+                        app.tend.core.Tip.MOVE -> screen = Screen.CLEARING
+                        app.tend.core.Tip.WIDGET -> if (!pinWidget()) screen = Screen.SETTINGS
+                        app.tend.core.Tip.TOWN -> screen = Screen.SETTINGS
                     }
                 },
                 camp = {

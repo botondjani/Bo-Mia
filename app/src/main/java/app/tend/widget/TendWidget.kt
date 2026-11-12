@@ -35,7 +35,23 @@ object Widgets {
     /** What the widgets showed last; the store changes every second, the widgets only when this does. */
     @Volatile private var lastShown: String? = null
 
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+
+    /**
+     * Redraws the widgets when what they show has changed. Called on every store write, from any
+     * thread: the drawing itself always happens on the main thread (the painters share their
+     * brushes with the app's own screens), and a widget that can't be drawn never takes the app down.
+     */
     fun refresh(context: Context, force: Boolean = false) {
+        if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
+            val app = context.applicationContext
+            main.post { refresh(app, force) }
+            return
+        }
+        runCatching { draw(context, force) }.onFailure { android.util.Log.w("tend", "Widgets not redrawn", it) }
+    }
+
+    private fun draw(context: Context, force: Boolean) {
         val manager = AppWidgetManager.getInstance(context)
         val ids = { cls: Class<*> -> manager.getAppWidgetIds(ComponentName(context, cls)) }
         val wide = ids(TendWidget::class.java)

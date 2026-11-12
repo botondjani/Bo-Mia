@@ -117,7 +117,8 @@ fun HomeScreen(
     visitor: app.tend.core.Visitor? = null,
     onGreetVisitor: () -> Unit = {},
     /** A small tip on the camp (how to move things), until it's been tried. */
-    campTip: String? = null,
+    campTip: app.tend.core.Tip? = null,
+    onCampTip: (app.tend.core.Tip) -> Unit = {},
     steps: List<app.tend.core.StepState> = emptyList(),
     /** Bo's quest for today: what, whether it's done and claimed, and claiming it. */
     quest: app.tend.core.Quest? = null,
@@ -202,9 +203,9 @@ fun HomeScreen(
             camp()
             campTip?.let {
                 Text(
-                    it, style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp), color = Brand.Moss,
+                    it.text(avatar.displayName), style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp), color = Brand.Moss,
                     modifier = Modifier.align(Alignment.BottomStart).padding(start = 16.dp, bottom = 20.dp)
-                        .clip(RoundedCornerShape(50)).background(Color(0xE6FFFFFF)).padding(horizontal = 12.dp, vertical = 5.dp),
+                        .clip(RoundedCornerShape(50)).background(Color(0xE6FFFFFF)).tappable { onCampTip(it) }.padding(horizontal = 12.dp, vertical = 5.dp),
                 )
             }
             // What the companion says: one small bubble, so the camp shows.
@@ -235,6 +236,8 @@ fun HomeScreen(
             }
         }
 
+        // Everything under the camp rises in as the page opens (the camp itself glides).
+        Column(Modifier.pageBody(), verticalArrangement = Arrangement.spacedBy(Space.m)) {
         // The evening: tonight's recap, right under the camp.
         if (isEvening && !sleeping && pausedUntil <= System.currentTimeMillis()) {
             val seen = app.tend.data.TendStore(context).recapSeenOn == day.date.toString()
@@ -400,6 +403,7 @@ fun HomeScreen(
         val today = app.tend.core.DaySummary(day.date, Budget.usedMinutes(day), remaining.coerceAtLeast(0), day.completedTasks.size)
         val week = app.tend.core.WeekOverview.of(history.filter { it.date != day.date } + today, day.date)
         if (week.days.count { it != null } >= 2) Box(Modifier.padding(bottom = Space.xl)) { WeekCard(week, onOpenInsights) }
+        }
     }
     }
 }
@@ -821,7 +825,8 @@ private fun FocusTimerContent(
     )
     Box(contentAlignment = Alignment.Center) {
         val total = task.target * 60f
-        androidx.compose.foundation.Canvas(Modifier.size(280.dp)) {
+        // Wide enough that the companion and the time sit inside the ring with room to spare.
+        androidx.compose.foundation.Canvas(Modifier.size(300.dp)) {
             val w = 14.dp.toPx()
             val inset = w / 2
             val arc = androidx.compose.ui.geometry.Size(size.width - w, size.height - w)
@@ -852,7 +857,7 @@ private fun FocusTimerContent(
                 // Activities without a prop of their own (like your own ones) get their icon floating around.
                 if (prop == Prop.NONE && phoneFree) FloatingIcons(task.icon)
                 androidx.compose.runtime.CompositionLocalProvider(LocalAccessories provides LocalAccessories.current + extra) {
-                    CharacterView(avatar, app.tend.core.Mood.HAPPY, 150.dp, reading = !phoneFree, prop = prop)
+                    CharacterView(avatar, app.tend.core.Mood.HAPPY, 128.dp, reading = !phoneFree, prop = prop)
                 }
             }
             Text("%d:%02d".format(secondsLeft / 60, secondsLeft % 60), style = MaterialTheme.typography.headlineLarge, color = Brand.Moss)

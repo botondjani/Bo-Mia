@@ -29,3 +29,22 @@ fun sharedCamp(key: String = "camp"): Modifier? {
     val s = LocalCampShare.current ?: return null
     return with(s.shared) { Modifier.sharedElement(rememberSharedContentState(key), s.visibility) }
 }
+
+/**
+ * For the rest of a page, under what home and the camp share: it rises into place as the page
+ * opens and sinks away as it closes, so going into the camp (and back) reads as going somewhere,
+ * while the camp itself stays put.
+ */
+@OptIn(ExperimentalSharedTransitionApi::class, androidx.compose.animation.ExperimentalAnimationApi::class)
+@Composable
+fun Modifier.pageBody(): Modifier {
+    val s = LocalCampShare.current ?: return this
+    return with(s.visibility) {
+        this@pageBody.animateEnterExit(
+            enter = androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(420, delayMillis = 60, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it / 4 } +
+                androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(300, delayMillis = 90)),
+            exit = androidx.compose.animation.slideOutVertically(androidx.compose.animation.core.tween(220)) { it / 6 } +
+                androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(160)),
+        )
+    }
+}

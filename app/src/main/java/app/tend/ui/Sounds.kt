@@ -44,7 +44,7 @@ object Sounds {
     /** The sound for the companion using [thing], as long as the use lasts. */
     fun forUse(c: Context, thing: String, delayMs: Long = 0) {
         if (!on(c, kindOf(thing))) return
-        if (delayMs > 0) worker.execute { Thread.sleep(delayMs) }
+        if (delayMs > 0) worker.execute { runCatching { Thread.sleep(delayMs) } }
         val secs = Uses.seconds(thing)
         when (thing) {
             "guitar" -> play("song", true) { song(secs) }
@@ -88,7 +88,8 @@ object Sounds {
     fun stop() = worker.execute { main?.runCatching { stop(); release() }; main = null }
 
     private fun play(key: String, isMain: Boolean, make: () -> ShortArray) = worker.execute {
-        val pcm = cache.getOrPut(key, make)
+        // A sound that can't be made is only a missing sound, never a crash.
+        val pcm = runCatching { cache.getOrPut(key, make) }.getOrNull() ?: return@execute
         // The one it replaces goes first: two long sounds at once can be more than the phone gives an app.
         if (isMain) { main?.runCatching { stop(); release() }; main = null } else { extra?.runCatching { stop(); release() }; extra = null }
         runCatching {
