@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.nativeCanvas
 import app.tend.core.Accessory
@@ -1247,7 +1248,7 @@ internal fun thingWidth(id: String): Float = when (id) {
     "cabin" -> 0.22f
     "bell_tent", "tent" -> 0.16f
     "picnic_table", "log_bench" -> 0.11f
-    "rocking_chair" -> 0.07f
+    "rocking_chair" -> 0.07f * ROCKER
     "raft" -> 0.16f
     "canoe" -> 0.16f
     "campfire", "kettle", "pizza_oven" -> 0.1f
@@ -1279,6 +1280,9 @@ private fun DrawScope.overhead(id: String, a: Offset, b: Offset, u: Float, light
  * Draws one thing standing at [p] (its base); [u] is the scene height, so things scale with it.
  * Glowing parts are added to [lights] for the night. Overhead things are drawn by the scene.
  */
+/** The rocking chair, drawn this much bigger than its first sketch: a chair the companion fits in. */
+internal const val ROCKER = 1.45f
+
 fun DrawScope.drawThing(id: String, p: Offset, u: Float, lights: MutableList<Light> = mutableListOf()) {
     when (id) {
         // ---- The events' own ----
@@ -1520,8 +1524,8 @@ fun DrawScope.drawThing(id: String, p: Offset, u: Float, lights: MutableList<Lig
             }
             drawCircle(BarkDark, u * 0.004f, head)
         }
-        "rocking_chair" -> {
-            // Side on: curved rockers, a slatted seat and back, armrests.
+        "rocking_chair" -> scale(ROCKER, pivot = p) {
+            // Side on: curved rockers, a slatted seat and back, armrests. Big enough to sit in.
             drawArc(Wood, 20f, 140f, false, Offset(p.x - u * 0.04f, p.y - u * 0.03f), Size(u * 0.08f, u * 0.034f), style = Stroke(u * 0.005f, cap = StrokeCap.Round))
             for (dx in listOf(-0.018f, 0.018f)) drawLine(Wood, p + Offset(u * dx, -u * 0.01f), p + Offset(u * dx, -u * 0.035f), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
             drawRoundRect(WoodLight, p + Offset(-u * 0.024f, -u * 0.04f), Size(u * 0.048f, u * 0.007f), CornerRadius(u * 0.003f))
@@ -1795,7 +1799,7 @@ private fun thingSize(id: String): Pair<Float, Float> = when (id) {
     "canoe" -> 0.21f to 0.05f
     "dock" -> 0.2f to 0.07f
     "kettle" -> 0.11f to 0.13f
-    "rocking_chair" -> 0.07f to 0.08f
+    "rocking_chair" -> 0.07f * ROCKER to 0.08f * ROCKER
     "raft" -> 0.18f to 0.05f
     "campfire" -> 0.08f to 0.09f
     "pizza_oven" -> 0.11f to 0.13f

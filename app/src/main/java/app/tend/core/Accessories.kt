@@ -43,4 +43,22 @@ object Accessories {
         val week = lastDays.takeLast(7)
         return Accessory.habits.filter { a -> week.count { day -> day.any { a.tasks.isEmpty() || it in a.tasks } } >= a.days }.toSet()
     }
+
+    /** On top of the head there's room for one: the hat first, then the nightcap, then the leaf. */
+    val TOP = listOf(Accessory.HAT, Accessory.NIGHTCAP, Accessory.LEAF)
+
+    /** What's actually on, of the [earned] ones: not the ones taken [off], and one thing on top of the head. */
+    fun worn(earned: Set<Accessory>, off: Set<Accessory>): Set<Accessory> {
+        val on = earned - off
+        val top = TOP.firstOrNull { it in on }
+        return on.filter { it !in TOP || it == top }.toSet()
+    }
+
+    /** Tapping [a] in the collection: off if it's on; on if it isn't (taking its place on the head, if that's where it goes). */
+    fun toggle(a: Accessory, earned: Set<Accessory>, off: Set<Accessory>): Set<Accessory> = when {
+        a !in earned -> off
+        a in worn(earned, off) -> off + a
+        a in TOP -> off - a + TOP.filter { it != a && it in earned }
+        else -> off - a
+    }
 }

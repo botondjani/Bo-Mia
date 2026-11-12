@@ -133,7 +133,11 @@ Optional feature "Close only Reels & Shorts". When the user turns it on, tend's 
 - Play Console → App content → Health apps: category **Activity and fitness** / **Sleep management** features used for habit rewards; no medical claims.
 
 ### tend Plus (not sold yet)
-- The Play build has no purchases yet (`canBuy = false`): the listing says nothing about paid features, and the content rating answers "no purchases". When Play Billing is added: create the product in Play Console → Monetise, answer "in-app purchases: yes", and update this file.
+- Until Play Billing is in, Plus is on for everyone and no trial counts down (`TendStore.PLUS_ON_SALE = false`): nothing is locked that can't be bought. The listing says nothing about paid features, and the content rating answers "no purchases".
+- When billing is added: create the product in Play Console → Monetise, set `PLUS_ON_SALE = true` (the 14-day trial starts counting then), answer "in-app purchases: yes", and update this file.
+
+### Smaller download (R8)
+- `./gradlew bundlePlayRelease -Pshrink` builds a shrunk bundle (about half the size). Try the shrunk side-loaded APK on a phone first (`assembleSideloadRelease -Pshrink`): every screen, Google sign-in, the pause, a timer. Once it holds, make shrinking the default in `app/build.gradle.kts`.
 
 ### Sensitive permissions
 - **Usage access** (`PACKAGE_USAGE_STATS`): core function, detecting which app is opened and measuring screen time.

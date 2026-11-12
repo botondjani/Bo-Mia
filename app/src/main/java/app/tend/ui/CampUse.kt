@@ -120,7 +120,7 @@ object Uses {
     }
 
     /** Things drawn differently while used (they move, or the companion holds them). */
-    val redrawn = setOf("guitar", "fishing_rod", "swing", "canoe", "raft", "rocking_chair")
+    val redrawn = setOf("guitar", "fishing_rod", "swing", "canoe", "raft", "rocking_chair", "dock", "treehouse")
 }
 
 /**
@@ -258,6 +258,9 @@ fun DrawScope.drawWalker(avatar: Avatar, mood: Mood, worn: Set<Accessory>, at: O
     actor(avatar, mood, worn, at + Offset(0f, -step * s * 0.07f), s, rotation = if (toRight) 5f else -5f, look = if (toRight) 1f else -1f, bounce = step * 0.5f)
 }
 
+/** How far to the side of a small thing the companion stands (in scene heights): next to it, not over it. */
+private const val BESIDE = 0.1f
+
 /** Where the companion stands for [use], as a fraction-free point in the scene. */
 fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>, here: Offset? = null, layout: Map<Int, Offset> = emptyMap()): Offset {
     val w = size.width
@@ -283,23 +286,23 @@ fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>, here: Offset? = nu
             // Beside the fire pit, clear of the stones and the flames (or on the bench, if there is one).
             if (bench) seat + Offset(0f, -u * 0.012f) else fire + Offset(-u * 0.21f, u * 0.03f)
         // Fetched first: to the woodpile for a log, then over to the fire; to the rod, then to the bank.
-        "woodpile" -> fetched(use.t, p + Offset(u * 0.05f * k, u * 0.004f), fire + Offset(-u * 0.21f, u * 0.03f))
-        "fishing_rod" -> fetched(use.t, p + Offset(u * 0.05f * k, u * 0.004f), Offset(w * 0.335f, h * 0.84f))
+        "woodpile" -> fetched(use.t, p + Offset(u * BESIDE * k, u * 0.004f), fire + Offset(-u * 0.21f, u * 0.03f))
+        "fishing_rod" -> fetched(use.t, p + Offset(u * BESIDE * k, u * 0.004f), Offset(w * 0.335f, h * 0.84f))
         "wildflowers", "lantern", "tulips", "watering_can", "birdhouse", "beach_ball", "watermelon", "pumpkins", "scarecrow", "gift_boxes", "snowman",
         "jack_o_lantern", "paper_lanterns", "xmas_tree", "flower_arch" ->
-            p + Offset(u * 0.055f * k, u * 0.004f)
+            p + Offset(u * BESIDE * k, u * 0.004f)
         "leaf_pile", "sled", "deck_chair" -> p + Offset(0f, -u * 0.004f)
-        "telescope" -> p + Offset(-u * 0.05f * k, u * 0.004f)
+        "telescope" -> p + Offset(-u * BESIDE * k, u * 0.004f)
         "log_bench", "picnic_table" -> p + Offset(0f, -u * 0.012f * k)
         "tent", "bell_tent", "cabin" -> p + Offset(0f, u * 0.01f * k)
         "hammock" -> p + Offset(0f, -u * 0.03f)
         "swing" -> p + Offset(-u * 0.01f, -u * 0.04f)
-        "treehouse" -> Offset(p.x + u * 0.03f, u * 0.6f - u * 0.42f * 0.4f - u * 0.004f) // on the platform, in the tree
+        "treehouse" -> Offset(p.x + u * 0.062f, u * 0.6f - u * 0.42f * 0.4f - u * 0.004f) // on the platform, in the tree, beside the little house
         // Out on the water, and drifting back to the mooring before stepping off.
         "canoe", "raft" -> p + Offset(sin(use.t * 0.7f) * w * 0.04f * (if (use.end > 0f) ((use.end - Uses.STEP - use.t) / 1.5f).coerceIn(0f, 1f) else 1f), -u * 0.02f)
         "rocking_chair" -> p + Offset(0f, -u * 0.012f * k)
         "wind_chimes", "bird_feeder" -> Offset(w * 0.64f, h * 0.71f)
-        "dock" -> p + Offset(-u * 0.05f, u * 0.0f)
+        "dock" -> p + Offset(-u * 0.04f, u * 0.014f) // on the planks, near the end
         "string_lights" -> Offset(w * 0.6f, h * 0.7f)
         else -> p
     }
@@ -607,7 +610,9 @@ fun DrawScope.drawUse(
             }
         }
         "treehouse" -> {
-            actor(avatar, mood, worn, base + Offset(0f, -u * 0.012f), u * 0.085f, rotation = sin(t * 6f) * 8f)
+            // Out on the platform in front of the little house, waving down.
+            drawThing("treehouse", p, u, lights)
+            actor(avatar, mood, worn, base + Offset(0f, u * 0.006f), u * 0.075f, rotation = sin(t * 6f) * 8f)
         }
         "canoe" -> {
             // Paddling up and down the river.
@@ -628,10 +633,13 @@ fun DrawScope.drawUse(
             // Sized like the chair where it stands (the companion keeps its own size).
             rotate(sin(t * 2.2f) * 7f, base + Offset(0f, u * 0.012f)) { scale(k, pivot = base + Offset(0f, u * 0.012f * k)) {
                 val chair = base + Offset(0f, u * 0.012f)
-                drawArc(Color(0xFF9C6B45), 20f, 140f, false, Offset(chair.x - u * 0.04f, chair.y - u * 0.03f), Size(u * 0.08f, u * 0.034f), style = Stroke(u * 0.005f, cap = StrokeCap.Round))
-                drawLine(Color(0xFF9C6B45), chair + Offset(u * 0.02f, -u * 0.037f), chair + Offset(u * 0.03f, -u * 0.085f), strokeWidth = u * 0.005f, cap = StrokeCap.Round)
-                actor(avatar, mood, worn, base, s * 0.82f / k, look = -0.3f, sleepy = t > 4f)
-                for (dx in listOf(-0.018f, 0.018f)) drawLine(Color(0xFF9C6B45), chair + Offset(u * dx, -u * 0.01f), chair + Offset(u * dx, -u * 0.035f), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
+                // The whole chair, the companion in it, then the near armrest and legs over them.
+                drawThing("rocking_chair", chair, u)
+                actor(avatar, mood, worn, base + Offset(-u * 0.004f, -u * 0.04f), s * 0.8f / k, look = -0.3f, sleepy = t > 4f) // on the seat
+                scale(ROCKER, pivot = chair) {
+                    drawLine(Color(0xFF9C6B45), chair + Offset(-u * 0.022f, -u * 0.052f), chair + Offset(u * 0.022f, -u * 0.054f), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
+                    for (dx in listOf(-0.018f, 0.018f)) drawLine(Color(0xFF9C6B45), chair + Offset(u * dx, -u * 0.01f), chair + Offset(u * dx, -u * 0.035f), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
+                }
             } }
         }
         "wind_chimes" -> {
@@ -651,7 +659,9 @@ fun DrawScope.drawUse(
             }
         }
         "dock" -> {
-            actor(avatar, mood, worn, base + Offset(0f, -u * 0.004f), s * 0.8f, bounce = sin(t * 2f) * 0.3f, look = -0.6f)
+            // Sitting on the planks near the end, looking out over the water.
+            drawThing("dock", p, u, lights)
+            actor(avatar, mood, worn, base, s * 0.62f, bounce = sin(t * 2f) * 0.3f, look = -0.6f)
             for (k in 0 until 2) {
                 val r = ((t * 0.5f + k * 0.5f) % 1f)
                 drawOval(Color.White.copy(alpha = 0.4f * (1 - r)), Offset(base.x - u * 0.05f * r - u * 0.01f, base.y + u * 0.012f), Size(u * 0.1f * r + u * 0.02f, u * 0.012f * (r + 0.3f)), style = Stroke(u * 0.002f))

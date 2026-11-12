@@ -621,7 +621,7 @@ class MainActivity : ComponentActivity() {
                 strictEndsAt = store.strictEndsAt,
                 onStrict = { store.setStrict(it); refresh++ },
                 plus = store.isPlus,
-                trialDaysLeft = store.trialDaysLeft.takeIf { store.isPlus && !store.plusPaid },
+                trialDaysLeft = store.trialDaysLeft.takeIf { store.plusTrialRunning },
                 plusPaid = store.plusPaid,
                 onPlus = openPlus,
                 onTestTrial = if (BuildConfig.PLAY) null else { days -> store.setTrialStart(days); refresh++ },
@@ -634,11 +634,12 @@ class MainActivity : ComponentActivity() {
 
             p == "PLUS" -> app.tend.ui.PlusScreen(
                 store.avatar,
-                trialDaysLeft = store.trialDaysLeft.takeIf { store.isPlus && !store.plusPaid },
+                trialDaysLeft = store.trialDaysLeft.takeIf { store.plusTrialRunning },
                 paid = store.plusPaid,
                 wonBack = remember(refresh) {
                     app.tend.core.InsightsOf.of(store.daySummaries(), store.normalMinutes, 0, LocalDate.now()).wonBack.takeIf { store.normalMinutes != null }
                 },
+                included = !TendStore.PLUS_ON_SALE,
                 canBuy = false, // Google Play billing: next
                 onBuy = {},
                 onClose = {
@@ -700,7 +701,9 @@ class MainActivity : ComponentActivity() {
                 outfits = store.outfits,
                 outfitWorn = store.outfitWorn,
                 onBuyOutfit = { a -> store.buyOutfit(a).also { if (it) { saveProfile(); refresh++ } } },
-                onWearOutfit = { a -> store.wearOutfit(a); refresh++ },
+                onWearOutfit = { a -> store.wearOutfit(a); shelf = store.accessories(); refresh++ },
+                earned = remember(refresh, shelf) { store.accessoriesEarned },
+                onToggleAccessory = { a -> store.toggleAccessory(a); shelf = store.accessories(); refresh++ },
                 onOpenSettings = { screen = Screen.SETTINGS },
                 onOpenRiver = { id -> riverFocus = id; screen = Screen.RIVER },
                 paper = app.tend.data.Friends.paperOnMe(this).isNotEmpty(),
@@ -959,7 +962,7 @@ class MainActivity : ComponentActivity() {
                     )
                 },
                 strict = store.isStrict,
-                plusDaysLeft = store.trialDaysLeft.takeIf { store.isPlus && !store.plusPaid },
+                plusDaysLeft = store.trialDaysLeft.takeIf { store.plusTrialRunning },
                 onPlus = { openPlus(app.tend.ui.PlusFrom.SETTINGS) },
                 askStats = app.tend.data.Stats.consent(this@MainActivity) == null && store.daysTended >= 1,
                 onStats = { app.tend.data.Stats.setConsent(this@MainActivity, it); refresh++ },

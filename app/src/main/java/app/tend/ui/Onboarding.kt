@@ -293,9 +293,11 @@ fun Onboarding(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Column(Modifier.weight(1f)) {
-                                Text("A welcome gift: 14 days of tend Plus", style = MaterialTheme.typography.titleSmall)
+                                val onSale = app.tend.data.TendStore.PLUS_ON_SALE
+                                Text(if (onSale) "A welcome gift: 14 days of tend Plus" else "A welcome gift: tend Plus, on us", style = MaterialTheme.typography.titleSmall)
                                 Text(
-                                    "Every week of your time, a limit for each app, strict mode, and the season's own things. Then it's your choice: Plus, or the free tend.",
+                                    "Every week of your time, a limit for each app, strict mode, and the season's own things. " +
+                                        if (onSale) "Then it's your choice: Plus, or the free tend." else "All yours, free, while tend is new.",
                                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp), color = Brand.Muted,
                                 )
                             }

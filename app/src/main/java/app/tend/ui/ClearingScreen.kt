@@ -116,6 +116,9 @@ fun ClearingScreen(
     outfitWorn: app.tend.core.Accessory? = null,
     onBuyOutfit: (app.tend.core.Accessory) -> Boolean = { false },
     onWearOutfit: (app.tend.core.Accessory?) -> Unit = {},
+    /** The habit accessories earned right now (worn or taken off), and putting one on or off. */
+    earned: Set<Accessory> = worn,
+    onToggleAccessory: ((Accessory) -> Unit)? = null,
     /** Friends phone-free right now, at the fire (companion, name). */
     guests: List<Pair<Avatar, String>> = emptyList(),
     /** Friends who cheered you since the camp last showed it; shown once, then [onCheersShown]. */
@@ -667,7 +670,7 @@ fun ClearingScreen(
     Column(Modifier.onGloballyPositioned { collectionAt = it.positionInParent().y.toInt() }, verticalArrangement = Arrangement.spacedBy(Space.m)) {
         Guestbook(guestbook)
         totals?.let { MilestonesCard(it) }
-        Things(avatar, worn, onShelf)
+        Things(avatar, worn, onShelf, earned, onToggleAccessory)
     }
 
     // The shop: over the page, all the way up. Bought: it closes, and up to the camp to watch it pop in.

@@ -47,7 +47,7 @@ import app.tend.core.Recap
  * there now; "See all" opens the whole list with how to get each.
  */
 @Composable
-internal fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory>) {
+internal fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory>, earned: Set<Accessory> = worn, onToggle: ((Accessory) -> Unit)? = null) {
     var all by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     Card {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -57,7 +57,7 @@ internal fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory
                 modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable { all = true }.padding(horizontal = 8.dp, vertical = 4.dp),
             )
         }
-        if (worn.isEmpty()) Text(
+        if (earned.isEmpty()) Text(
             "Do any activity and ${avatar.displayName} gets a lucky leaf. More things come with a few good days.",
             style = MaterialTheme.typography.bodyMedium,
         ) else androidx.compose.foundation.layout.FlowRow(
@@ -65,8 +65,9 @@ internal fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory
             horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.padding(top = 4.dp),
         ) {
-            Accessory.habits.filter { it in worn }.forEach { ThingTile(it, worn, onShelf, Modifier.weight(1f)) }
-            repeat((3 - worn.size % 3) % 3) { Spacer(Modifier.weight(1f)) }
+            val mine = Accessory.habits.filter { it in earned }
+            mine.forEach { ThingTile(it, worn, onShelf, Modifier.weight(1f), earned, onToggle) }
+            repeat((3 - mine.size % 3) % 3) { Spacer(Modifier.weight(1f)) }
         }
     }
     if (all) androidx.compose.ui.window.Dialog(onDismissRequest = { all = false }) {
@@ -75,12 +76,12 @@ internal fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text("${avatar.displayName}'s things", style = MaterialTheme.typography.titleLarge)
-            Text("Earned by doing, kept while the habit holds. Faded ones wait on the shelf.", style = MaterialTheme.typography.bodyMedium)
+            Text("Earned by doing, kept while the habit holds. Tap one to put it on or take it off. Faded ones wait on the shelf.", style = MaterialTheme.typography.bodyMedium)
             androidx.compose.foundation.layout.FlowRow(
                 maxItemsInEachRow = 3,
                 horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Accessory.habits.forEach { ThingTile(it, worn, onShelf, Modifier.weight(1f)) }
+                Accessory.habits.forEach { ThingTile(it, worn, onShelf, Modifier.weight(1f), earned, onToggle) }
                 repeat((3 - Accessory.habits.size % 3) % 3) { Spacer(Modifier.weight(1f)) }
             }
             PrimaryButton("Close", { all = false })
@@ -89,8 +90,12 @@ internal fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory
 }
 
 @Composable
-private fun ThingTile(a: Accessory, worn: Set<Accessory>, onShelf: Set<Accessory>, modifier: Modifier) =
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+private fun ThingTile(a: Accessory, worn: Set<Accessory>, onShelf: Set<Accessory>, modifier: Modifier, earned: Set<Accessory> = worn, onToggle: ((Accessory) -> Unit)? = null) =
+    Column(
+        // Earned ones go on and off with a tap.
+        if (onToggle != null && a in earned) modifier.clip(RoundedCornerShape(14.dp)).tappable { onToggle(a) }.padding(vertical = 4.dp) else modifier.padding(vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         Box(
             Modifier.size(48.dp).clip(CircleShape)
                 // Light chips in both themes, so the ink-drawn glasses stay visible.
@@ -99,7 +104,7 @@ private fun ThingTile(a: Accessory, worn: Set<Accessory>, onShelf: Set<Accessory
         ) {
             androidx.compose.foundation.Image(
                 CharacterPainter.accessoryIcon(a, 96).asImageBitmap(), a.title,
-                Modifier.size(40.dp).graphicsLayer { alpha = if (a in worn) 1f else if (a in onShelf) 0.6f else 0.3f },
+                Modifier.size(40.dp).graphicsLayer { alpha = if (a in worn) 1f else if (a in earned || a in onShelf) 0.6f else 0.3f },
             )
         }
         Text(
@@ -107,7 +112,7 @@ private fun ThingTile(a: Accessory, worn: Set<Accessory>, onShelf: Set<Accessory
             maxLines = 1, textAlign = TextAlign.Center, color = if (a in worn) Brand.Ink else Brand.Muted, modifier = Modifier.padding(top = 4.dp),
         )
         Text(
-            when (a) { in worn -> "Wearing it"; in onShelf -> "On the shelf"; else -> a.short },
+            when (a) { in worn -> "Wearing it"; in earned -> "Tap to wear"; in onShelf -> "On the shelf"; else -> a.short },
             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp), textAlign = TextAlign.Center,
         )
     }

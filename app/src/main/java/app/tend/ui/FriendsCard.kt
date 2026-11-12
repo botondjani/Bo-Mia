@@ -1,5 +1,7 @@
 package app.tend.ui
 
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import android.content.Intent
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
@@ -211,8 +213,9 @@ private fun FriendRow(f: Friends.Friend, cheered: Boolean, gifted: Boolean, onVi
         modifier = Modifier.clip(RoundedCornerShape(50)).background(Brand.Sage)
             .then(if (gifted) Modifier else Modifier.tappable(onClick = onGift)).padding(horizontal = 10.dp, vertical = 6.dp),
     )
-    Text("Remove", style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp), color = Brand.Muted,
-        modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onRemove).padding(horizontal = 8.dp, vertical = 6.dp))
+    // Removing is rare: a small "more" at the end (it asks first), so the name keeps its room on narrow phones.
+    Text("\u22EE", style = MaterialTheme.typography.titleMedium, color = Brand.Muted,
+        modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onRemove).semantics { contentDescription = "Remove ${f.name}" }.padding(horizontal = 8.dp, vertical = 6.dp))
 }
 
 /** "Anna waved at you · 2 hours ago" */

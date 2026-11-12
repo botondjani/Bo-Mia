@@ -41,6 +41,8 @@ fun PlusScreen(
     paid: Boolean,
     /** Minutes won back so far, when known. */
     wonBack: Int?,
+    /** Plus isn't sold yet: everyone has it. */
+    included: Boolean = false,
     /** Google Play billing is there (the Play build, once it's set up). */
     canBuy: Boolean,
     onBuy: () -> Unit,
@@ -53,7 +55,7 @@ fun PlusScreen(
     BobbingCharacter(avatar, Mood.HAPPY, 120.dp)
     Text(
         when {
-            paid -> "You have tend Plus"
+            paid || included -> "You have tend Plus"
             trialDaysLeft == null -> "Your Plus trial has ended"
             else -> "tend Plus"
         },
@@ -62,6 +64,7 @@ fun PlusScreen(
     Text(
         when {
             paid -> "Thank you for keeping ${avatar.displayName}'s camp going."
+            included -> "Everything below is yours, free, while tend is new."
             wonBack != null && wonBack >= 60 -> "So far you've won back ${InsightsOf.hours(wonBack)}. Plus keeps everything that helped."
             trialDaysLeft == null -> "Plus keeps everything that helped."
             trialDaysLeft <= 1 -> "Your trial ends today. Everything below is yours until then."
@@ -79,14 +82,14 @@ fun PlusScreen(
         "Free stays free: the pause, your minutes, activities, the camp and friends.",
         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp), textAlign = TextAlign.Center, color = Brand.Muted,
     )
-    if (!paid) {
+    if (!paid && !included) {
         if (canBuy) PrimaryButton("Get Plus", onBuy, modifier = Modifier.fillMaxWidth())
         else Box(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Brand.Card).padding(vertical = 14.dp, horizontal = 16.dp),
             contentAlignment = Alignment.Center,
         ) { Text("Plus will be on Google Play soon", style = MaterialTheme.typography.labelLarge, color = Brand.Muted, textAlign = TextAlign.Center) }
     }
-    SecondaryButton(if (paid || trialDaysLeft != null) "Back" else "Continue free", onClose, modifier = Modifier.fillMaxWidth())
+    SecondaryButton(if (paid || included || trialDaysLeft != null) "Back" else "Continue free", onClose, modifier = Modifier.fillMaxWidth())
 }
 
 @Composable

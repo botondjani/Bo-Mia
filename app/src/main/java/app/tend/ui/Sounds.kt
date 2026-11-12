@@ -130,12 +130,14 @@ object Sounds {
      */
     private fun toPcm(f: FloatArray, gain: Float = 1f, rms: Float? = null): ShortArray {
         val fade = (RATE * 0.03f).toInt()
+        // Long ones ebb away at the end instead of stopping short.
+        val out = if (f.size > RATE * 3) (RATE * 0.6f).toInt() else fade
         val level = rms?.let { target ->
             val now = kotlin.math.sqrt(f.sumOf { (it * gain).toDouble() * it * gain } / f.size.coerceAtLeast(1)).toFloat()
             if (now > 1e-6f) target / now else 1f
         } ?: 1f
         return ShortArray(f.size) { i ->
-            val env = minOf(1f, i / fade.toFloat(), (f.size - i) / fade.toFloat())
+            val env = minOf(1f, i / fade.toFloat(), (f.size - i) / out.toFloat())
             val x = kotlin.math.tanh(f[i] * gain * level * env)
             (x * 26000).toInt().toShort()
         }
@@ -255,7 +257,7 @@ object Sounds {
             val t = i / RATE.toFloat()
             val rise = ((t - secs * 0.45f) / (secs * 0.4f)).coerceIn(0f, 1f)
             ph += 2 * PI * (900 + 500 * rise) / RATE
-            out[i] = sin(ph).toFloat() * 0.08f * rise
+            out[i] = sin(ph).toFloat() * 0.18f * rise
         }
         return toPcm(out)
     }
@@ -380,7 +382,7 @@ object Sounds {
     private val HUM = listOf(0 to 2f, 2 to 1f, 4 to 1f, 2 to 2f, 0 to 2f, -3 to 2f, 0 to 4f)
     private val CHIME = listOf(12 to 1f, 16 to 1f, 19 to 1f, 24 to 3f)
     /** Long enough for the chime once through (a music box tune repeats to fill its time). */
-    private const val CHIME_SECS = 1.05f
+    private const val CHIME_SECS = 1.7f
     private val CHIMES = listOf(19 to 1f, 24 to 2f, 16 to 1f, 21 to 3f, 12 to 1f, 19 to 2f, 26 to 1f, 24 to 4f)
 
     /** A tune on a music box: sine bells with a bright overtone, each ringing out. */
@@ -388,7 +390,8 @@ object Sounds {
         val out = buffer(secs)
         var t = 0.05f
         var i = 0
-        while (t < secs - 0.3f) {
+        // A short one plays once through and rings out; a long one repeats to fill its time.
+        while (t < secs - 0.3f && (secs > 3f || i < tune.size)) {
             val (semi, beats) = tune[i % tune.size]
             val f = 440.0 * Math.pow(2.0, semi / 12.0)
             val start = (t * RATE).toInt()
@@ -400,7 +403,7 @@ object Sounds {
             t += beats * beat
             i++
         }
-        return toPcm(room(out), rms = if (secs > 3f) 0.075f else null)
+        return toPcm(room(out), rms = if (secs > 3f) 0.075f else 0.085f)
     }
 
     /** A little room around a sound (a few soft echoes, fading): warmer, less like a beep. */

@@ -173,4 +173,23 @@ class WelcomeBackTest {
         val done = day.copy(completedTasks = setOf("read"))
         org.junit.Assert.assertTrue(Moods.line(BudgetConfig(), done, listOf(Tasks.READ), welcomeBack = true).startsWith("Today we already"))
     }
+
+    @Test fun `accessories go on and off, one at a time on top of the head`() {
+        val earned = setOf(Accessory.HAT, Accessory.NIGHTCAP, Accessory.LEAF, Accessory.GLASSES)
+        // Nothing chosen yet: the hat is on top, the glasses with it.
+        assertEquals(setOf(Accessory.HAT, Accessory.GLASSES), Accessories.worn(earned, emptySet()))
+        // Tap the nightcap: it takes the hat's place.
+        var off = Accessories.toggle(Accessory.NIGHTCAP, earned, emptySet())
+        assertEquals(setOf(Accessory.NIGHTCAP, Accessory.GLASSES), Accessories.worn(earned, off))
+        // Tap it again: off, and nothing else jumps on by itself.
+        off = Accessories.toggle(Accessory.NIGHTCAP, earned, off)
+        assertEquals(setOf(Accessory.GLASSES), Accessories.worn(earned, off))
+        // Glasses off and on again.
+        off = Accessories.toggle(Accessory.GLASSES, earned, off)
+        assertTrue(Accessories.worn(earned, off).isEmpty())
+        off = Accessories.toggle(Accessory.GLASSES, earned, off)
+        assertEquals(setOf(Accessory.GLASSES), Accessories.worn(earned, off))
+        // One not earned can't be put on.
+        assertEquals(off, Accessories.toggle(Accessory.BOWTIE, earned, off))
+    }
 }

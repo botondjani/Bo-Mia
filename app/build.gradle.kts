@@ -36,7 +36,10 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // Shrinking (R8) only when asked for with -Pshrink, until a shrunk build has been tried on a phone.
+            isMinifyEnabled = project.hasProperty("shrink")
+            isShrinkResources = project.hasProperty("shrink")
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
             signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
         }
     }

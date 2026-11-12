@@ -631,8 +631,11 @@ class TendStore(private val context: Context) {
 
     val trialEndsAt: Long get() = plusTrialStart + PLUS_TRIAL_DAYS * 86_400_000L
 
-    /** Plus is on: bought, or still in the trial. */
-    val isPlus: Boolean get() = plusPaid || System.currentTimeMillis() < trialEndsAt
+    /** Plus is on: bought, still in the trial, or not sold yet (then everyone has it: nothing is locked that can't be bought). */
+    val isPlus: Boolean get() = plusPaid || !PLUS_ON_SALE || System.currentTimeMillis() < trialEndsAt
+
+    /** The free trial is counting down (only once Plus can be bought). */
+    val plusTrialRunning: Boolean get() = PLUS_ON_SALE && !plusPaid && isPlus
 
     /** Days left of the trial, counting today (1 on its last day; 0 once it's over or bought). */
     val trialDaysLeft: Int
@@ -908,11 +911,26 @@ class TendStore(private val context: Context) {
         val byDate = daySummaries().associateBy { it.date }
         // The last six closed days plus today as it stands, so a first activity earns the leaf right away.
         val week = (6 downTo 1).map { byDate[today.minusDays(it.toLong())]?.done.orEmpty() } + listOf(today().completedTasks)
-        val worn = Accessories.active(week)
+        val earned = Accessories.active(week)
         val seen = prefs.getStringSet("acc_seen", emptySet())!!
-        if (!seen.containsAll(worn.map { it.name })) prefs.edit().putStringSet("acc_seen", seen + worn.map { it.name }).apply()
-        val shelf = Accessory.habits.filter { it.name in seen && it !in worn }.toSet()
-        return (worn + listOfNotNull(outfitWorn)) to shelf
+        if (!seen.containsAll(earned.map { it.name })) prefs.edit().putStringSet("acc_seen", seen + earned.map { it.name }).apply()
+        val shelf = Accessory.habits.filter { it.name in seen && it !in earned }.toSet()
+        accessoriesEarned = earned
+        return (Accessories.worn(earned, accessoriesOff) + listOfNotNull(outfitWorn)) to shelf
+    }
+
+    /** Earned right now (as of the last [accessories] read), worn or not. */
+    var accessoriesEarned: Set<Accessory> = emptySet()
+        private set
+
+    /** Earned ones the user took off (or that gave their place on the head to another). */
+    val accessoriesOff: Set<Accessory>
+        get() = prefs.getStringSet("acc_off", emptySet())!!.mapNotNull { n -> Accessory.entries.firstOrNull { it.name == n } }.toSet()
+
+    /** Puts an earned accessory on or takes it off. */
+    fun toggleAccessory(a: Accessory) {
+        accessories()
+        edit { putStringSet("acc_off", Accessories.toggle(a, accessoriesEarned, accessoriesOff).map { it.name }.toSet()) }
     }
 
     private fun summary(d: DayState) = DaySummary(
@@ -983,6 +1001,8 @@ class TendStore(private val context: Context) {
     companion object {
         const val EARLY_NIGHT_ACORNS = 5
         const val PLUS_TRIAL_DAYS = 14
+        /** Whether Plus can be bought (Google Play billing). Until it can, it's on for everyone and no trial counts down. */
+        const val PLUS_ON_SALE = false
         private const val PASS_VALID_MS = 15_000L
         const val QUICK_LOOKS_PER_DAY = 5
 

@@ -214,6 +214,11 @@ class MonitorService : Service() {
                 sessionPkg = new
                 sessionStart = now
                 sessionEnds = app.tend.core.TimeBox.endsAt(now, pass)
+                // Opened for a few minutes: the time left counts down in the notifications.
+                if (sessionEnds != Long.MAX_VALUE) {
+                    val label = runCatching { packageManager.getApplicationInfo(new, 0).loadLabel(packageManager).toString() }.getOrDefault("This app")
+                    app.tend.health.TimerAlarm.showRunning(this, "$label, for $pass min", "${store.avatar.displayName} checks in when the time is up.", sessionEnds)
+                }
                 // Carrying on after a short break (another "15 more", a quick look elsewhere): the same stretch.
                 if (now - lastLeft > STREAK_GAP_MS || streakStart == 0L) { streakStart = now; nextPeekAt = now + Peek.EVERY_MS }
             } else {
@@ -249,7 +254,7 @@ class MonitorService : Service() {
 
     /** Three days before the Plus trial ends: one note, with what it has given so far. */
     private fun trialNote() {
-        if (!store.onboarded || store.plusPaid || store.trialNoteSent || !store.isPlus || store.trialDaysLeft > 3) return
+        if (!store.onboarded || !store.plusTrialRunning || store.trialNoteSent || store.trialDaysLeft > 3) return
         if (java.time.LocalTime.now().hour !in 10..20 || !app.tend.reminder.RecapReminder.canNotify(this)) return
         store.trialNoteSent = true
         val won = store.normalMinutes?.let { app.tend.core.InsightsOf.of(store.daySummaries(), it, 0, java.time.LocalDate.now()).wonBack } ?: 0
@@ -343,6 +348,7 @@ class MonitorService : Service() {
         val pkg = sessionPkg ?: return
         lastLeft = now
         peek.hide()
+        if (sessionEnds != Long.MAX_VALUE) app.tend.health.TimerAlarm.hideRunning(this)
         val seconds = (now - sessionStart) / 1000
         sessionPkg = null
         sessionEnds = Long.MAX_VALUE

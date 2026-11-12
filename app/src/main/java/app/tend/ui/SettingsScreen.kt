@@ -585,6 +585,7 @@ private fun PlusCard(plus: Boolean, daysLeft: Int?, paid: Boolean, onTestTrial: 
                 when {
                     paid -> "Yours. Thank you!"
                     plus && daysLeft != null -> if (daysLeft <= 1) "Free trial: last day" else "Free trial: $daysLeft day${if (daysLeft == 1) "" else "s"} left"
+                    plus -> "Yours, free, while tend is new"
                     else -> "Your time in full, a limit for each app, strict mode, the season's things"
                 },
                 style = MaterialTheme.typography.bodyMedium,

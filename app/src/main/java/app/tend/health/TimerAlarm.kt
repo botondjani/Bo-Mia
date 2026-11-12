@@ -57,8 +57,11 @@ object TimerAlarm {
     private const val RUNNING_CHANNEL = "timer_running"
     private const val RUNNING_ID = 8
 
-    /** While a timer runs: a quiet notification that counts down to [end]. */
-    fun showRunning(context: Context, task: app.tend.core.TaskDef, end: Long) {
+    /** While an activity's timer runs: a quiet notification that counts down to [end]. */
+    fun showRunning(context: Context, task: app.tend.core.TaskDef, end: Long) = showRunning(context, task.title, "Every app waits until it's done.", end)
+
+    /** While anything runs on a clock (an activity, or an app opened for a few minutes): the time left, counting down. */
+    fun showRunning(context: Context, title: String, text: String, end: Long) {
         if (!RecapReminder.canNotify(context)) return
         val nm = context.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel(RUNNING_CHANNEL, "Running timer", NotificationManager.IMPORTANCE_LOW))
@@ -66,7 +69,7 @@ object TimerAlarm {
         nm.notify(
             RUNNING_ID,
             Notification.Builder(context, RUNNING_CHANNEL).setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle(task.title).setContentText("Every app waits until it's done.")
+                .setContentTitle(title).setContentText(text)
                 .setWhen(end).setShowWhen(true).setUsesChronometer(true).setChronometerCountDown(true)
                 .setOngoing(true).setOnlyAlertOnce(true).setContentIntent(open)
                 // Gone by itself at the end, even if the alarm comes a little late.
