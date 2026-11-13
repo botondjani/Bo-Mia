@@ -558,7 +558,7 @@ fun ClearingScreen(
         AcornBadge(acorns, Modifier.align(Alignment.TopEnd).padding(12.dp))
         // Until something has been moved: how, right on the camp.
         if (hintSpot != null && drag == null && carries.isEmpty()) Text(
-            tr("Tip: hold a thing to move it", "Tipp: tarts nyomva egy tárgyat, és arrébb teheted"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp), color = Brand.Moss,
+            tr("Tip: hold a thing to move it", "Tipp: tartsd nyomva, és húzd"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp), color = Brand.Moss,
             modifier = Modifier.align(Alignment.TopCenter).padding(top = 18.dp)
                 .clip(RoundedCornerShape(50)).background(Color(0xE6FFFFFF)).padding(horizontal = 12.dp, vertical = 5.dp),
         )

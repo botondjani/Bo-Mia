@@ -45,7 +45,7 @@
 936	"A táborod"
 937	"Itt fog élni ${avatar.displayName}. Egyelőre üres: kezdd egy tábortűzzel."
 938	"Szép. Most koppints a tűzre."
-939	"${avatar.displayName} mindent használ, amit szerzel, akkor is, ha nem vagy itt. A tevékenységek és a „Most nem” makkot hoznak újabb dolgokra; ha nyomva tartasz egy tárgyat, bárhová áttehetted."
+939	"${avatar.displayName} mindent használ, amit szerzel, akkor is, ha nem vagy itt. A tevékenységek és a „Most nem” makkot hoznak újabb dolgokra; ha nyomva tartasz egy tárgyat, bárhová átteheted."
 940	"A BOLT"
 941	"$acorns makkod van. A tábortűz ${fire.price}: koppints rá, és a tiéd."
 942	"$acorns makkod maradt. Minden tevékenység 10-et ad, egy „Most nem” 2-t."

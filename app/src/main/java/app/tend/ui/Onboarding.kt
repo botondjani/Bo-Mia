@@ -248,7 +248,7 @@ fun Onboarding(
                             when {
                                 !lit -> tr("This is where ${avatar.displayName} will live. It's empty for now: start with a campfire.", "Itt fog élni ${avatar.displayName}. Egyelőre üres: kezdd egy tábortűzzel.")
                                 !roasting -> tr("Lovely. Now tap the fire.", "Szép. Most koppints a tűzre.")
-                                else -> tr("${avatar.displayName} uses everything you get, even when you're away. Activities and \"Not now\" earn acorns for more; hold a thing to move it anywhere.", "${avatar.displayName} mindent használ, amit szerzel, akkor is, ha nem vagy itt. A tevékenységek és a „Most nem” makkot hoznak újabb dolgokra; ha nyomva tartasz egy tárgyat, bárhová áttehetted.")
+                                else -> tr("${avatar.displayName} uses everything you get, even when you're away. Activities and \"Not now\" earn acorns for more; hold a thing to move it anywhere.", "${avatar.displayName} mindent használ, amit szerzel, akkor is, ha nem vagy itt. A tevékenységek és a „Most nem” makkot hoznak újabb dolgokra; ha nyomva tartasz egy tárgyat, bárhová átteheted.")
                             },
                         )
                         val appear = rememberAppear(placed)

@@ -428,7 +428,7 @@ class InterstitialActivity : ComponentActivity() {
         }
         app.tend.data.Friends.atFire(this).firstOrNull()?.let { f -> return tr("Join ${f.name} at the fire", "Ülj le a tűzhöz: ${f.name} már ott van") to { open(app.tend.data.Friends.OPEN_JOIN) } }
         val next = Tasks.next(store.today(), store.selectedTasks) ?: return null
-        return tr("${next.title} with ${store.avatar.displayName} · +${next.rewardMinutes} min", "${next.title} · ${store.avatar.displayName} veled tart · +${next.rewardMinutes} perc") to { open(app.tend.reminder.RecapReminder.OPEN_ACTIVITIES) }
+        return tr("${next.title} with ${store.avatar.displayName} · +${next.rewardMinutes} min", "${next.title} · +${next.rewardMinutes} perc") to { open(app.tend.reminder.RecapReminder.OPEN_ACTIVITIES) }
     }
 
     /** "Not now", and what it earns while today's acorns for it last. */
@@ -458,7 +458,7 @@ class InterstitialActivity : ComponentActivity() {
             tr("Reply", "Üzenet") to "Messages",
             tr("Look up", "Keresek") to "Looking something up",
             tr("Bored", "Unalom") to "Just bored",
-            tr("Habit", "Megszokás") to "Out of habit",
+            tr("Habit", "Szokás") to "Out of habit",
         )
 
         fun intent(context: Context, pkg: String, timeUp: Boolean = false, focus: Boolean = false) = Intent(context, InterstitialActivity::class.java)

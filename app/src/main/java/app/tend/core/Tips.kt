@@ -8,9 +8,9 @@ enum class Tip {
     MOVE, WIDGET, TOWN;
 
     fun text(name: String) = when (this) {
-        MOVE -> tr("Tip: hold a thing in the camp to move it", "Tipp: tarts nyomva egy tárgyat a táborban, és arrébb teheted")
-        WIDGET -> tr("Tip: put $name on your home screen", "Tipp: $name a kezdőképernyődre is kiülhet")
-        TOWN -> tr("Tip: add your town for its real weather", "Tipp: add meg a városod, és a táborban is olyan idő lesz")
+        MOVE -> tr("Tip: you can move things around", "Tipp: a tárgyakat átrendezheted")
+        WIDGET -> tr("Tip: put $name on your home screen", "Tipp: tedd ki a widgetet")
+        TOWN -> tr("Tip: add your town for real weather", "Tipp: állítsd be a városod")
     }
 
     companion object {
