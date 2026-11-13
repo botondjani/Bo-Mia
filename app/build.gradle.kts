@@ -56,6 +56,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     buildFeatures { compose = true; buildConfig = true }
+    // Lint misreads the merged manifest once a flavor manifest has an <application> element (the side-load
+    // one drops the accessibility service): it says MonitorService has no foregroundServiceType, but the
+    // merged manifests of both flavors do (specialUse), checked in the build outputs.
+    lint { disable += "ForegroundServiceType" }
 }
 
 kotlin {

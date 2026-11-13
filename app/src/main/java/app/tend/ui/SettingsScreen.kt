@@ -137,7 +137,8 @@ fun SettingsScreen(
         // The apps, each with its own limit, in one list; the full picker opens below it.
         "apps" -> {
             AppsCard(catalog, blocked, onToggleApp, appLimits, appSecondsToday, strict, plus, onAppLimit) { onPlus(PlusFrom.APP_LIMITS) }
-            ShortsGuardCard(plus) { onPlus(PlusFrom.SETTINGS) }
+            // The accessibility service ships in the Play build only (Play Protect blocks side-loaded apps that have one).
+            if (app.tend.BuildConfig.PLAY) ShortsGuardCard(plus) { onPlus(PlusFrom.SETTINGS) }
         }
         // Minutes: the day's budget, strict mode and a break, together.
         "minutes" -> {
