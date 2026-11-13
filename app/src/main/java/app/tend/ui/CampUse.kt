@@ -975,6 +975,34 @@ fun rememberAppear(placed: Map<Int, String>): Map<Int, Float> {
     return anims.mapValues { it.value.value }
 }
 
+/**
+ * A campfire that has just been bought is built where it's seen: 0..1 while it is, null otherwise
+ * (and null for a camp that opens with its fire already there).
+ */
+@androidx.compose.runtime.Composable
+fun rememberFireBuild(placed: Map<Int, String>): Float? {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val seen = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(placed[0]) }
+    val anim = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(1f) }
+    var building by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(placed[0]) {
+        val now = placed[0]
+        val fresh = now == "campfire" && seen.value != "campfire"
+        seen.value = now
+        if (!fresh) return@LaunchedEffect
+        building = true
+        anim.snapTo(0f)
+        // A moment first (the shop closing, the page scrolling up), so it's seen from the start.
+        kotlinx.coroutines.delay(500)
+        Sounds.place(context)
+        launch { kotlinx.coroutines.delay(950); Sounds.place(context) }
+        launch { kotlinx.coroutines.delay(2300); Sounds.forUse(context, "campfire") }
+        anim.animateTo(1f, androidx.compose.animation.core.tween(3600, easing = androidx.compose.animation.core.LinearEasing))
+        building = false
+    }
+    return if (building) anim.value else null
+}
+
 /** Little four-point stars bursting out from [at] and fading, [k] 0..1. */
 fun DrawScope.sparkles(at: Offset, u: Float, k: Float) {
     if (k <= 0f || k >= 1f) return

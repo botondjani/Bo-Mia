@@ -69,6 +69,8 @@ class MonitorService : Service() {
     private val peek by lazy { Peek(this) }
     private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main) // store writes stay on the main thread, like the poll
     private var interceptedPkg: String? = null
+    private var focusCaughtPkg: String? = null
+    private var focusCaughtAt = 0L
     private var interceptedAt = 0L
 
     private val tick = object : Runnable {
@@ -203,9 +205,13 @@ class MonitorService : Service() {
         if (store.onboarded && !store.isPaused && (app.tend.health.TaskSync.focusSecondsLeft(store) ?: 0L) > 0L && new !in homes && new !in essentials && new !in FocusApps.extra(store.focusTask)) {
             if (sessionPkg != null) endSession(now, askWorthIt = false)
             if (!android.provider.Settings.canDrawOverlays(this)) return
+            // Just caught, and the pop-up is still closing: not a second one on top.
+            if (new == focusCaughtPkg && now - focusCaughtAt < 2_500L) return
             peek.hide()
             interceptedPkg = new
             interceptedAt = now
+            focusCaughtPkg = new
+            focusCaughtAt = now
             startActivity(InterstitialActivity.intent(this, new, focus = true))
             return
         }

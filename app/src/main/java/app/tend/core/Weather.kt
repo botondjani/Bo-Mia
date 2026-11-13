@@ -5,6 +5,15 @@ import java.time.LocalDate
 /** The day's weather in the camp: the same all day (fog only in the morning), different from day to day. */
 enum class Weather { CLEAR, CLOUDY, RAIN, FOG, SNOW;
 
+    /** In a few words, for a message. */
+    fun say(): String = when (this) {
+        CLEAR -> tr("sunny", "napos")
+        CLOUDY -> tr("cloudy", "felhős")
+        RAIN -> tr("rainy", "esős")
+        FOG -> tr("foggy", "ködös")
+        SNOW -> tr("snowy", "havas")
+    }
+
     companion object {
         /** For [date] at [hour]: a coin thrown per day, weighted by [season]. */
         fun of(date: LocalDate, hour: Int, season: Season = Season.of(date)): Weather {

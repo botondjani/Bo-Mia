@@ -67,7 +67,8 @@ object TaskSync {
     enum class TimerResult { DONE, BROKEN }
 
     /** Starts a reading/learning or phone-free timer; it also finishes in the background. */
-    fun startTimer(context: Context, task: TaskDef) {
+    fun startTimer(context: Context, wanted: TaskDef) {
+        val task = if (wanted.id == Tasks.TIMER_ID) Tasks.timer(Tasks.clampTimer(wanted.target)) else wanted
         val store = TendStore(context)
         if (store.focusStartedAt > 0) return
         store.timerBroken = ""

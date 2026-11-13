@@ -45,7 +45,14 @@ object Tasks {
     const val TIMER_ID = "timer"
 
     /** Just a timer, no activity: no minutes, but every app waits until it ends, the same as on an activity's timer. */
-    fun timer(minutes: Int) = TaskDef(TIMER_ID, tr("Focus time", "Fókuszidő"), tr("Timer · $minutes min", "Időzítő · $minutes perc"), 0, Verification.FOCUS_TIMER, minutes, "sparkle")
+    fun timer(minutes: Int) = TaskDef(TIMER_ID, tr("Phone down", "Telefon le"), tr("Phone down · $minutes min", "Telefon le · $minutes perc"), 0, Verification.FOCUS_TIMER, minutes, "sparkle")
+
+    const val TIMER_MIN = 15
+    const val TIMER_MAX = 120
+    const val TIMER_STEP = 5
+
+    /** A plain timer's length: 15 to 120 minutes, in steps of 5. */
+    fun clampTimer(minutes: Int): Int = ((minutes.coerceIn(TIMER_MIN, TIMER_MAX) + TIMER_STEP / 2) / TIMER_STEP * TIMER_STEP).coerceIn(TIMER_MIN, TIMER_MAX)
 
     val presets = listOf(MOVE, OUTSIDE, SLEEP, READ, LEARN, FRIENDS, HOBBY, CHORES, COOK)
 

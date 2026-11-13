@@ -30,7 +30,6 @@ import app.tend.data.TendStore
 import app.tend.ui.Brand
 import app.tend.ui.CharacterView
 import app.tend.ui.PopupSheet
-import app.tend.ui.blurBehind
 import app.tend.ui.TendIcons
 import app.tend.ui.TendTheme
 
@@ -39,7 +38,6 @@ class WorthItActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        blurBehind()
         val store = TendStore(this)
         val pkg = intent.getStringExtra(EXTRA_PKG).orEmpty()
         val seconds = intent.getLongExtra(EXTRA_SECONDS, 0)

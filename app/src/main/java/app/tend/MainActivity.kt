@@ -464,10 +464,18 @@ class MainActivity : ComponentActivity() {
         // The town chosen: saved, and its weather fetched at once.
         val onTown: (app.tend.data.WeatherService.Place?) -> Unit = { p ->
             store.setWeatherPlace(p); refresh++
-            lifecycleScope.launch {
-                if (kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { app.tend.data.WeatherService.refresh(this@MainActivity, force = true) }) {
-                    refresh++; app.tend.widget.Widgets.refresh(this@MainActivity)
+            // The weather of the new town, at once: asked up to three times (a slow connection is common), then the camp changes and says so.
+            if (p != null) lifecycleScope.launch {
+                var got = false
+                for (attempt in 0 until 3) {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { app.tend.data.WeatherService.refresh(this@MainActivity, force = true) }
+                    if (app.tend.core.LiveWeather.fresh() != null) { got = true; break }
+                    kotlinx.coroutines.delay(1_500)
                 }
+                refresh++; app.tend.widget.Widgets.refresh(this@MainActivity, force = true)
+                val now = app.tend.core.LiveWeather.fresh()
+                if (got && now != null) Toast.makeText(this@MainActivity, tr("The camp has ${p.name}'s weather now: ${now.say()}.", "A tábor mostantól ${p.name} időjárását követi: ${now.say()}."), Toast.LENGTH_LONG).show()
+                else Toast.makeText(this@MainActivity, tr("Couldn't reach the weather service. It will try again on its own.", "Most nem érem el az időjárás-szolgáltatást. Magától újra próbálja."), Toast.LENGTH_LONG).show()
             }
         }
         // A little about you: the town, an age range, a gender.
@@ -935,6 +943,7 @@ class MainActivity : ComponentActivity() {
                     val placed = remember(refresh) { store.placed }
                     val layout = remember(refresh) { campLayout() }
                     val appear = app.tend.ui.rememberAppear(placed)
+                    val fireBuild = app.tend.ui.rememberFireBuild(placed)
                     LaunchedEffect(nightClock > app.tend.ui.Uses.BED_WALK + 2f) {
                         val bed = app.tend.ui.bedOf(store.placed)
                         if (night && nightClock > app.tend.ui.Uses.BED_WALK + 2f && bed != null && store.restSpot != bed) { store.restSpot = bed; restSpot = bed }
@@ -948,7 +957,7 @@ class MainActivity : ComponentActivity() {
                             val at = placed.entries.firstOrNull { it.value == r && r != "campfire" }?.key
                             app.tend.ui.InUse(at ?: -1, r, (frame - start) / 1e9f, yawn + if (r == "campfire" || at != null) app.tend.ui.Uses.WALK else 0f, reward = true)
                         } ?: idle.value
-                        drawClearing(store.avatar, placed, mood, shelf.first, night, signpost = store.hasSignpost, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor, rest = restSpot, nightClock = nightClock, appear = appear, layout = layout, ambient = ambient.value, guests = fireGuests, unlocked = unlocked)
+                        drawClearing(store.avatar, placed, mood, shelf.first, night, signpost = store.hasSignpost, fireBuild = fireBuild, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor, rest = restSpot, nightClock = nightClock, appear = appear, layout = layout, ambient = ambient.value, guests = fireGuests, unlocked = unlocked)
                     }
                 },
                 onOpenRecap = { screen = Screen.RECAP },
@@ -972,6 +981,8 @@ class MainActivity : ComponentActivity() {
                     (!store.reminderPrompted && !(store.reminderEnabled && RecapReminder.canNotify(this@MainActivity))),
                 onAllowNotes = ::allowNotes,
                 onAddWidget = ::pinWidget,
+                timerMinutes = store.focusTimerMinutes,
+                onTimerMinutes = { store.focusTimerMinutes = it },
                 signedIn = app.tend.data.Account.user(this@MainActivity) != null,
                 onOpenAccount = { screen = Screen.SETTINGS },
                 exerciseTracked = store.exerciseTracked,

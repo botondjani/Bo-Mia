@@ -119,6 +119,9 @@ fun HomeScreen(
     visitor: app.tend.core.Visitor? = null,
     onGreetVisitor: () -> Unit = {},
     /** A small tip on the camp (how to move things), until it's been tried. */
+    /** The length of the last plain "phone down" (15 to 120 minutes), and saying a new one. */
+    timerMinutes: Int = 25,
+    onTimerMinutes: (Int) -> Unit = {},
     /** Logged in (else home offers an account once, among the next steps: setup doesn't ask). */
     signedIn: Boolean = true,
     onOpenAccount: () -> Unit = {},
@@ -389,10 +392,28 @@ fun HomeScreen(
                 Text(tr("Everything done today. ${avatar.displayName} is proud of you.", "Mára minden megvan. ${avatar.displayName} büszke rád."), style = MaterialTheme.typography.titleMedium)
             }
         }
-        // Or no activity at all: just a timer, and every app waits the same.
-        if (focusSecondsLeft == null) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(tr("Or just a timer", "Vagy időzítő"), style = MaterialTheme.typography.bodyMedium, color = Brand.Muted, modifier = Modifier.weight(1f))
-            listOf(25, 50, 90).forEach { m -> ChipButton(tr("$m min", "$m perc"), { onStartFocus(Tasks.timer(m)) }, filled = false) }
+        // Or no activity at all: phone down for as long as you like (15 to 120 minutes), and every app waits.
+        if (focusSecondsLeft == null) {
+            var minutes by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(Tasks.clampTimer(timerMinutes)) }
+            fun nudge(d: Int) { minutes = Tasks.clampTimer(minutes + d); onTimerMinutes(minutes) }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text(tr("Phone down", "Telefon le"), style = MaterialTheme.typography.titleSmall)
+                    Text(tr("Every app waits", "Minden app vár"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+                }
+                for ((label, d) in listOf("\u2212" to -Tasks.TIMER_STEP)) {
+                    val on = minutes > Tasks.TIMER_MIN
+                    Text(label, style = MaterialTheme.typography.titleLarge, color = if (on) Brand.Moss else Brand.Muted.copy(alpha = 0.4f), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.size(36.dp).clip(CircleShape).background(Brand.Mint.copy(alpha = if (on) 0.25f else 0.1f)).then(if (on) Modifier.tappable { nudge(d) } else Modifier).padding(top = 1.dp))
+                }
+                Text(tr("$minutes min", "$minutes perc"), style = MaterialTheme.typography.titleMedium, color = Brand.Moss, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.width(64.dp))
+                run {
+                    val on = minutes < Tasks.TIMER_MAX
+                    Text("+", style = MaterialTheme.typography.titleLarge, color = if (on) Brand.Moss else Brand.Muted.copy(alpha = 0.4f), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.size(36.dp).clip(CircleShape).background(Brand.Mint.copy(alpha = if (on) 0.25f else 0.1f)).then(if (on) Modifier.tappable { nudge(Tasks.TIMER_STEP) } else Modifier).padding(top = 1.dp))
+                }
+                ChipButton(tr("Start", "Indítás"), { onStartFocus(Tasks.timer(minutes)) })
+            }
         }
         // Friends today: what they did, and a cheer for it, one tap each.
         if (friendsToday.isNotEmpty()) Column(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -875,7 +896,7 @@ private fun FocusTimerContent(
         when {
             hello -> tr("HERE WE GO!", "KEZDJÜK!")
             task.id == Tasks.MOVE.id -> tr("WORKOUT, PHONE OFF", "EDZÉS, TELEFON NÉLKÜL")
-            task.id == Tasks.TIMER_ID -> tr("FOCUS TIME", "FÓKUSZIDŐ")
+            task.id == Tasks.TIMER_ID -> tr("PHONE DOWN", "TELEFON LE")
             phoneFree -> tr("PHONE-FREE TIME", "TELEFONMENTES IDŐ")
             task.id == Tasks.LEARN.id -> tr("LEARNING TOGETHER", "EGYÜTT TANULUNK")
             else -> tr("READING TOGETHER", "EGYÜTT OLVASUNK")

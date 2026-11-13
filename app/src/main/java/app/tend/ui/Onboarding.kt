@@ -99,6 +99,8 @@ class PermissionActions(
 enum class PermissionLock { NONE, LOCKED, TRIPPED }
 
 // Short on purpose: the town is asked later in the camp, and an account is offered on home (or right here, for those who have one).
+private const val STEP_MS = 650L
+
 private enum class Step { WELCOME, USAGE, APPS, ACTIVITIES, PAUSE, CAMP }
 
 @Composable
@@ -127,15 +129,21 @@ fun Onboarding(
 ) {
     var stepIndex by rememberSaveable { mutableIntStateOf(0) }
     val step = Step.entries[stepIndex]
-    val next = { stepIndex = (stepIndex + 1).coerceAtMost(Step.entries.lastIndex) }
+    // A second tap on "Continue" while the page slides in lands on the next page's button: steps move at most
+    // once per transition, so none is skipped.
+    var movedAt by remember { mutableStateOf(0L) }
+    val next = {
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - movedAt > STEP_MS) { movedAt = now; stepIndex = (stepIndex + 1).coerceAtMost(Step.entries.lastIndex) }
+    }
     // Where people leave the setup, if they share counts: each step once, as it's reached.
     val ctx = androidx.compose.ui.platform.LocalContext.current
     androidx.compose.runtime.LaunchedEffect(step) { app.tend.data.Stats.log(ctx, "onboarding_step", mapOf("step" to step.name.lowercase(), "n" to step.ordinal + 1)) }
     // System back goes one step back instead of leaving the app mid-setup.
-    androidx.activity.compose.BackHandler(enabled = stepIndex > 0) { stepIndex-- }
+    androidx.activity.compose.BackHandler(enabled = stepIndex > 0) { movedAt = android.os.SystemClock.uptimeMillis(); stepIndex-- }
 
     Column(Modifier.fillMaxSize().background(Brand.Sage)) {
-        Progress(stepIndex + 1, Step.entries.size + 1) { if (stepIndex > 0) stepIndex-- }
+        Progress(stepIndex + 1, Step.entries.size + 1) { if (stepIndex > 0) { movedAt = android.os.SystemClock.uptimeMillis(); stepIndex-- } }
         AnimatedContent(
             targetState = step,
             transitionSpec = {
@@ -245,6 +253,7 @@ fun Onboarding(
                             },
                         )
                         val appear = rememberAppear(placed)
+                        val fireBuild = rememberFireBuild(placed)
                         val ambient = rememberAmbientClock()
                         Box(Modifier.fillMaxWidth().aspectRatio(1.35f).clip(RoundedCornerShape(26.dp)).campEntrance()) {
                             Canvas(
@@ -252,7 +261,7 @@ fun Onboarding(
                                     detectTapGestures { tap ->
                                         val p = SpotPositions.getValue(0)
                                         val near = kotlin.math.abs(tap.x / size.width - p.x) < 0.18f && kotlin.math.abs(tap.y / size.height - p.y + 0.05f) < 0.2f
-                                        if (lit && near && !roasting) {
+                                        if (lit && near && !roasting && fireBuild == null) {
                                             roastStart = 0L
                                             Sounds.forUse(context, "campfire", (Uses.WALK * 1000).toLong())
                                             onUsed("campfire")
@@ -261,9 +270,9 @@ fun Onboarding(
                                 },
                             ) {
                                 val use = if (roasting && roastStart > 0) InUse(0, "campfire", (frame - roastStart) / 1e9f, Uses.WALK) else null
-                                drawClearing(avatar, placed, Mood.HAPPY, appear = appear, use = use, ambient = ambient.value)
+                                drawClearing(avatar, placed, Mood.HAPPY, appear = appear, use = use, ambient = ambient.value, fireBuild = fireBuild)
                                 // Where to tap: a soft ring pulsing around the fire.
-                                if (lit && !roasting && appear.isEmpty()) {
+                                if (lit && !roasting && appear.isEmpty() && fireBuild == null) {
                                     val c = SpotPositions.getValue(0).let { Offset(it.x * size.width, it.y * size.height - size.height * 0.04f) }
                                     drawCircle(Color.White.copy(alpha = 0.7f * (1f - pulse)), size.height * (0.06f + 0.08f * pulse), c, style = androidx.compose.ui.graphics.drawscope.Stroke(size.height * 0.008f))
                                 }

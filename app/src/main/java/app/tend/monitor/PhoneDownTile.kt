@@ -22,7 +22,7 @@ class PhoneDownTile : TileService() {
 
     override fun onClick() {
         val store = TendStore(this)
-        if (store.focusStartedAt <= 0) TaskSync.startTimer(this, next(store) ?: app.tend.core.Tasks.timer(25))
+        if (store.focusStartedAt <= 0) TaskSync.startTimer(this, next(store) ?: app.tend.core.Tasks.timer(store.focusTimerMinutes))
         update()
         open()
     }
@@ -40,7 +40,7 @@ class PhoneDownTile : TileService() {
         tile.label = tr("Phone down", "Telefon le")
         if (Build.VERSION.SDK_INT >= 29) tile.subtitle = when {
             left != null -> tr("${(left + 59) / 60} min left", "még ${(left + 59) / 60} perc")
-            else -> (next(store) ?: app.tend.core.Tasks.timer(25)).let { tr("${it.title} · ${it.target} min", "${it.title} · ${it.target} perc") }
+            else -> (next(store) ?: app.tend.core.Tasks.timer(store.focusTimerMinutes)).let { tr("${it.title} · ${it.target} min", "${it.title} · ${it.target} perc") }
         }
         tile.updateTile()
     }

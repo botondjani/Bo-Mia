@@ -42,8 +42,9 @@ fun PopupSheet(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val shown = remember { MutableTransitionState(false).apply { targetState = true } }
-    // A change in the system blur eases the scrim over instead of jumping.
-    val scrim by androidx.compose.animation.core.animateFloatAsState(if (blurOn.value) 0.25f else 0.55f, tween(450), label = "scrim")
+    // A steady scrim over the app underneath. No live blur: the system blur re-renders whatever plays
+    // behind (a reel, a video) and flickers with it on many phones.
+    val scrim = SCRIM
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val minHeight = maxHeight * minHeightFraction
         AnimatedVisibility(shown, enter = fadeIn(tween(260))) {
@@ -84,49 +85,4 @@ fun PopupSheet(
     }
 }
 
-/** Whether the system currently blurs behind our pop-ups; when it doesn't, the scrim gets darker. */
-private val blurOn = androidx.compose.runtime.mutableStateOf(false)
-
-/**
- * Blurs whatever app is underneath a pop-up window (Android 12+). The radius is set once:
- * changing it frame by frame made the blur flicker on some phones. Android can switch
- * cross-window blur off at any moment (battery saver, heat, some launchers), so we follow it
- * and darken the scrim instead, which keeps the pop-up looking the same either way.
- */
-fun android.app.Activity.blurBehind() {
-    blurOn.value = false
-    if (android.os.Build.VERSION.SDK_INT < 31) return
-    val prefs = getSharedPreferences("tend_ui", android.content.Context.MODE_PRIVATE)
-    // This phone switched blur on and off under a pop-up lately (a video playing, battery saver):
-    // for a few days a steady dark scrim looks better than a flickering blur, then we try again.
-    if (System.currentTimeMillis() < prefs.getLong("blur_off_until", 0)) return
-    val wm = getSystemService(android.view.WindowManager::class.java)
-    // Blur off right now (battery saver, power save mode): don't ask for it, just use the scrim.
-    var last = wm.isCrossWindowBlurEnabled
-    if (!last) return
-    window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-    window.attributes = window.attributes.also { it.blurBehindRadius = BLUR_RADIUS }
-    blurOn.value = true
-    var flips = 0
-    lateinit var listener: java.util.function.Consumer<Boolean>
-    listener = java.util.function.Consumer<Boolean> { on ->
-        // Android calls back with the current state as soon as we listen: not a change.
-        if (on == last) return@Consumer
-        last = on
-        if (++flips >= 2) {
-            // Off and on again in one pop-up: stop blurring here, and for the next few days.
-            prefs.edit().putLong("blur_off_until", System.currentTimeMillis() + BLUR_PAUSE_MS).apply()
-            window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-            window.attributes = window.attributes.also { it.blurBehindRadius = 0 }
-            blurOn.value = false
-            wm.removeCrossWindowBlurEnabledListener(listener)
-        } else blurOn.value = on
-    }
-    wm.addCrossWindowBlurEnabledListener(mainExecutor, listener)
-    (this as? androidx.lifecycle.LifecycleOwner)?.lifecycle?.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
-        override fun onDestroy(owner: androidx.lifecycle.LifecycleOwner) = wm.removeCrossWindowBlurEnabledListener(listener)
-    })
-}
-
-private const val BLUR_RADIUS = 120
-private const val BLUR_PAUSE_MS = 3 * 24 * 3_600_000L
+private const val SCRIM = 0.62f

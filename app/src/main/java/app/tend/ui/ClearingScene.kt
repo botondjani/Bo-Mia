@@ -139,6 +139,8 @@ fun DrawScope.drawClearing(
     bridge: Boolean = false,
     /** A first friend made: a signpost by the path, pointing to their camp. */
     signpost: Boolean = false,
+    /** The campfire being built just now (0..1): logs laid, a spark, the flame growing; null when it simply stands. */
+    fireBuild: Float? = null,
     use: InUse? = null,
     lastStrum: Float = 9f,
     visitor: app.tend.core.Visitor? = null,
@@ -545,7 +547,8 @@ fun DrawScope.drawClearing(
         ground += p.y to {
             if (spot.kind == SpotKind.FIRE) firePitStones(p, u)
             val thing = placed[spot.id]
-            if (thing != null && spot.id != held && !(act?.spot == spot.id && !walking && stepTo == null && thing in Uses.redrawn)) {
+            if (thing == "campfire" && fireBuild != null && fireBuild < 1f) buildFire(p, anchor, u, fireBuild, lights)
+            else if (thing != null && spot.id != held && !(act?.spot == spot.id && !walking && stepTo == null && thing in Uses.redrawn)) {
                 val k = spotScale(spot.id, layout)
                 val a = appear[spot.id]
                 // Popping up from the ground with a little overshoot, and a burst of sparkles.
@@ -1746,11 +1749,48 @@ fun DrawScope.drawThing(id: String, p: Offset, u: Float, lights: MutableList<Lig
     }
 }
 
-private fun DrawScope.campfire(p: Offset, u: Float, lights: MutableList<Light>) {
+/**
+ * The campfire being laid and lit: two logs fly in from the companion's hands one after the other,
+ * kindling goes under them, a spark catches, and the flame grows ([t] 0..1).
+ */
+private fun DrawScope.buildFire(p: Offset, from: Offset, u: Float, t: Float, lights: MutableList<Light>) {
     val c = p + Offset(0f, -u * 0.012f)
-    drawLine(BarkDark, c + Offset(-u * 0.035f, u * 0.006f), c + Offset(u * 0.035f, -u * 0.01f), strokeWidth = u * 0.012f, cap = StrokeCap.Round)
-    drawLine(Bark, c + Offset(-u * 0.035f, -u * 0.01f), c + Offset(u * 0.035f, u * 0.006f), strokeWidth = u * 0.012f, cap = StrokeCap.Round)
+    fun seg(a: Float, b: Float) = ((t - a) / (b - a)).coerceIn(0f, 1f)
+    fun ease(x: Float) = x * x * (3f - 2f * x)
+    val hand = from + Offset(u * 0.02f, -u * 0.06f)
+    // Each log: from the hands in an arc, turning, to its place in the pit.
+    fun log(a: Float, b: Float, color: Color, l0: Offset, l1: Offset) {
+        val k = seg(a, b)
+        if (k <= 0f) return
+        val mid = (l0 + l1) / 2f
+        val pos = if (k >= 1f) mid else {
+            val e = ease(k)
+            Offset(hand.x + (mid.x - hand.x) * e, hand.y + (mid.y - hand.y) * e - kotlin.math.sin(Math.PI.toFloat() * k) * u * 0.09f)
+        }
+        val half = (l1 - l0) / 2f
+        val turn = if (k >= 1f) 1f else ease(k)
+        val dir = Offset(half.x * (0.45f + 0.55f * turn), half.y * turn + (-u * 0.012f) * (1f - turn))
+        drawLine(color, pos - dir, pos + dir, strokeWidth = u * 0.012f, cap = StrokeCap.Round)
+    }
+    log(0.00f, 0.22f, BarkDark, c + Offset(-u * 0.035f, u * 0.006f), c + Offset(u * 0.035f, -u * 0.01f))
+    log(0.22f, 0.44f, Bark, c + Offset(-u * 0.035f, -u * 0.01f), c + Offset(u * 0.035f, u * 0.006f))
+    // Kindling tucked under the logs.
+    val tuck = seg(0.46f, 0.56f)
+    if (tuck > 0f) for (i in -1..1) drawLine(BarkDark.copy(alpha = tuck), c + Offset(i * u * 0.014f, -u * 0.002f), c + Offset(i * u * 0.014f + u * 0.008f, -u * 0.012f * tuck), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
+    // The spark, then the flame.
+    sparkles(c + Offset(0f, -u * 0.014f), u, seg(0.58f, 0.72f))
+    val flame = ease(seg(0.66f, 1f))
+    if (flame > 0f) campfire(p, u, lights, flame = flame, logs = false)
+}
+
+private fun DrawScope.campfire(p: Offset, u: Float, lights: MutableList<Light>, flame: Float = 1f, logs: Boolean = true) {
+    val c = p + Offset(0f, -u * 0.012f)
+    if (logs) {
+        drawLine(BarkDark, c + Offset(-u * 0.035f, u * 0.006f), c + Offset(u * 0.035f, -u * 0.01f), strokeWidth = u * 0.012f, cap = StrokeCap.Round)
+        drawLine(Bark, c + Offset(-u * 0.035f, -u * 0.01f), c + Offset(u * 0.035f, u * 0.006f), strokeWidth = u * 0.012f, cap = StrokeCap.Round)
+    }
     val f = c + Offset(0f, -u * 0.006f)
+    if (flame < 1f) { scale(flame, pivot = f) { campfire(p, u, mutableListOf(), flame = 1f, logs = false) }; lights += Light(f + Offset(0f, -u * 0.02f), u * 0.16f * flame, flame); return }
     drawPath(Path().apply { moveTo(f.x - u * 0.022f, f.y); quadraticTo(f.x - u * 0.024f, f.y - u * 0.035f, f.x - u * 0.004f, f.y - u * 0.062f); quadraticTo(f.x + u * 0.004f, f.y - u * 0.04f, f.x + u * 0.01f, f.y - u * 0.05f); quadraticTo(f.x + u * 0.026f, f.y - u * 0.025f, f.x + u * 0.022f, f.y); close() }, Flame)
     drawPath(Path().apply { moveTo(f.x - u * 0.011f, f.y); quadraticTo(f.x - u * 0.01f, f.y - u * 0.022f, f.x, f.y - u * 0.036f); quadraticTo(f.x + u * 0.012f, f.y - u * 0.018f, f.x + u * 0.011f, f.y); close() }, FlameCore)
     // A wisp of smoke.

@@ -254,6 +254,7 @@ fun ClearingScreen(
         sentToBed[0] = false
     }
     val appear = rememberAppear(placed)
+    val fireBuild = rememberFireBuild(placed)
     // A light tick under the finger when a tap does something; a firmer one for a purchase.
     val view = androidx.compose.ui.platform.LocalView.current
     fun tick(firm: Boolean = false) = view.performHapticFeedback(
@@ -533,7 +534,7 @@ fun ClearingScreen(
                     ?: using?.takeIf { useStart >= 0 }?.let { (spot, thing) -> InUse(spot, thing, (frame - useStart) / 1e9f, walk, Uses.seconds(thing)) } ?: idle.value
                 drawClearing(
                     avatar, placed, mood, worn = worn, night = night, signpost = signpost, paper = paperLeft, ducks = ducks.size, bridge = bridge,
-                    use = use, lastStrum = (frame - strumAt) / 1e9f - walk, visitor = visitor, rest = rest, nightClock = nightClock, appear = appear,
+                    use = use, fireBuild = fireBuild, lastStrum = (frame - strumAt) / 1e9f - walk, visitor = visitor, rest = rest, nightClock = nightClock, appear = appear,
                     bursts = bursts.map { it.first to it.second.value },
                     layout = drag?.let { (spot, at) -> pinned + (spot to at) } ?: pinned,
                     carry = carry.value,

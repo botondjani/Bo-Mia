@@ -17,7 +17,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import app.tend.ui.PopupSheet
-import app.tend.ui.blurBehind
 import app.tend.ui.PrimaryButton
 import app.tend.ui.SecondaryButton
 import androidx.compose.foundation.layout.Arrangement
@@ -114,7 +113,6 @@ class InterstitialActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        blurBehind()
         val pkg = intent.getStringExtra(EXTRA_PKG) ?: return finish()
         pkgName = pkg
         val label = runCatching { packageManager.getApplicationInfo(pkg, 0).loadLabel(packageManager).toString() }.getOrDefault(pkg)
@@ -385,7 +383,12 @@ class InterstitialActivity : ComponentActivity() {
 
     /** During an activity: back to it (tend's own screen shows the time left). */
     private fun backToIt() {
-        startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+        // Home first, tend on top of it: leaving tend again lands on the home screen, not back in the
+        // app that was waiting underneath (which would bring this pop-up up a second time).
+        startActivities(arrayOf(
+            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+        ))
         finish()
     }
 
