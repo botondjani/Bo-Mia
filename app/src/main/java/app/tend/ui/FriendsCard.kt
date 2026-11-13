@@ -82,6 +82,8 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
         val list = Friends.list(context)
         offline = list == null
         if (list != null) friends = list
+        // A new friendship: said here too, with its acorns.
+        Friends.takeNewFriends(context)?.let { note = it; onChanged() }
         // The together goal reached: acorns (and the bridge, the first time).
         val me = Friends.me(context)
         if (list != null && Friends.claimWeek(context, Friends.week(me, list), me.week)) { claimed = true; onChanged() }
@@ -308,6 +310,14 @@ private fun InviteDialog(onDismiss: () -> Unit) {
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().surface(radius = 28.dp).padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(tr("Invite a friend", "Hívj meg egy barátot"), style = MaterialTheme.typography.titleLarge)
+            // What it's worth, for both: said before anything is sent.
+            Text(
+                tr(
+                    "When they accept, you both get acorns (${app.tend.data.TendStore.FIRST_FRIEND_ACORNS} for a first friend), and a signpost for your camps.",
+                    "Ha elfogadja, mindketten makkot kaptok (az első barátért ${app.tend.data.TendStore.FIRST_FRIEND_ACORNS}-at), és útjelző tábla kerül a táborotokba.",
+                ),
+                style = MaterialTheme.typography.bodyMedium, color = Brand.Muted,
+            )
             val c = code
             when {
                 c != null -> {

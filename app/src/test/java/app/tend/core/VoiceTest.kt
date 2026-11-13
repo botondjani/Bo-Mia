@@ -41,10 +41,15 @@ class VoiceTest {
         assertTrue(rainy.any { it.contains("Rain on the tent") })
     }
 
-    @Test fun `a run of days counts back from yesterday`() {
+    @Test fun `a run of days counts back from yesterday, over one missed day`() {
         val today = LocalDate.of(2026, 11, 10)
+        // Three days, a missed one, and one more before it: the missed day is bridged, not counted.
         val days = listOf(3L, 2L, 1L).map { DaySummary(today.minusDays(it), 0, 0, 1) } + DaySummary(today.minusDays(5), 0, 0, 1)
-        assertEquals(3, Voice.streak(days, today))
-        assertEquals(0, Voice.streak(listOf(DaySummary(today.minusDays(2), 0, 0, 1)), today))
+        assertEquals(4, Voice.streak(days, today))
+        // Two missed days before it: the run is just the three.
+        assertEquals(3, Voice.streak(days.take(3) + DaySummary(today.minusDays(6), 0, 0, 1), today))
+        // Yesterday missed, the day before done: kept alive at one.
+        assertEquals(1, Voice.streak(listOf(DaySummary(today.minusDays(2), 0, 0, 1)), today))
+        assertEquals(0, Voice.streak(listOf(DaySummary(today.minusDays(3), 0, 0, 1)), today))
     }
 }

@@ -119,6 +119,11 @@ fun HomeScreen(
     visitor: app.tend.core.Visitor? = null,
     onGreetVisitor: () -> Unit = {},
     /** A small tip on the camp (how to move things), until it's been tried. */
+    /** Logged in (else home offers an account once, among the next steps: setup doesn't ask). */
+    signedIn: Boolean = true,
+    onOpenAccount: () -> Unit = {},
+    /** Good days in a row (one missed day a week is forgiven). */
+    streak: app.tend.core.Streak.State? = null,
     /** A friend calling you to the campfire just now (their name). */
     fireCall: String? = null,
     onAnswerCall: () -> Unit = {},
@@ -178,6 +183,7 @@ fun HomeScreen(
     var explain by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf("") }
     if (explain == "minutes") MinutesDialog(cfg, tasks, canClose = permissions.overlay) { explain = "" }
     if (explain == "acorns") AcornsDialog { explain = "" }
+    if (explain == "streak" && streak != null) StreakDialog(avatar.displayName, streak) { explain = "" }
     val remaining = Budget.remainingMinutes(cfg, day)
     val context = androidx.compose.ui.platform.LocalContext.current
     Box(Modifier.fillMaxSize()) {
@@ -233,6 +239,16 @@ fun HomeScreen(
                 AcornIcon(18.dp)
                 Spacer(Modifier.width(5.dp))
                 Text("$acorns", style = MaterialTheme.typography.titleMedium, color = Color(0xFF3D2A1C))
+            }
+            // Good days in a row, from the second one on: a small flame under the acorns.
+            if (streak != null && streak.days >= 2) Row(
+                Modifier.align(Alignment.TopEnd).padding(top = 54.dp, end = 16.dp)
+                    .clip(RoundedCornerShape(50)).background(Color(0xF0FFFFFF)).tappable { explain = "streak" }.padding(horizontal = 10.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                FlameIcon(15.dp)
+                Spacer(Modifier.width(4.dp))
+                Text(tr("${streak.days} days", "${streak.days} nap"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), color = Color(0xFF3D2A1C))
             }
             // The way in, plainly: a button to the camp, where it's bigger and everything happens.
             Row(
@@ -310,13 +326,14 @@ fun HomeScreen(
         if (monitorSlept && batteryRisk) Notice("alert", tr("${avatar.displayName} fell asleep in the background", "${avatar.displayName} elaludt a háttérben"), tr("Your phone paused tend for a while. Tap to keep ${avatar.displayName} awake.", "A telefonod egy időre leállította a tendet. Koppints, hogy ${avatar.displayName} ébren maradjon."), onKeepAwake)
         // In the first days the first steps ask for the widget; here only what can't wait.
         val importantOnly = nextStepsImportantOnly || firstDays
-        val nextSteps = showNextSteps && (needsHealth || batteryRisk || (!importantOnly && (!widgetPlaced || notesOff)))
+        val nextSteps = showNextSteps && (needsHealth || batteryRisk || (!importantOnly && (!widgetPlaced || notesOff || !signedIn)))
         if (nextSteps) NextSteps(
             avatar,
             widget = !widgetPlaced && !importantOnly, onWidget = { if (!onAddWidget()) widgetGuide = true },
             health = if (needsHealth) health else null, onHealth = onConnectHealth,
             notes = notesOff && !importantOnly, onNotes = onAllowNotes,
             battery = batteryRisk && !monitorSlept, onBattery = onKeepAwake,
+            account = !signedIn && !importantOnly, onAccount = onOpenAccount,
             onDismiss = onNextStepsDone,
         ) else if (needsHealth) {
             Notice(
@@ -495,6 +512,7 @@ private fun NextSteps(
     health: HealthConnect.Status?, onHealth: () -> Unit,
     notes: Boolean, onNotes: () -> Unit,
     battery: Boolean, onBattery: () -> Unit,
+    account: Boolean = false, onAccount: () -> Unit = {},
     onDismiss: () -> Unit,
 ) = Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     class Step(val icon: String, val title: String, val body: String, val cta: String, val action: () -> Unit)
@@ -510,6 +528,8 @@ private fun NextSteps(
         },
         if (widget) Step("sun", tr("Home screen widget", "Widget a kezdőképernyőre"), tr("$name at a glance, next to your apps.", "$name egy pillantásra, az appjaid mellett."), tr("Add", "Hozzáadás"), onWidget) else null,
         if (notes) Step("moon", tr("Calm evenings", "Nyugodt esték"), tr("An evening recap, sleepy pauses at night and a Sunday letter.", "Esti összefoglaló, álmos szünetek éjjel és egy vasárnapi levél."), tr("Turn on", "Bekapcsolom"), onNotes) else null,
+        // Last: an account keeps the camp safe and lets friends in (setup doesn't ask for one).
+        if (account) Step("friends", tr("Keep your camp safe", "Tartsd biztonságban a táborod"), tr("A backup, and friends at your fire.", "Mentés, és barátok a tüzednél."), tr("Log in", "Belépés"), onAccount) else null,
     )
     val pager = androidx.compose.foundation.pager.rememberPagerState { steps.size }
     Row(verticalAlignment = Alignment.CenterVertically) {

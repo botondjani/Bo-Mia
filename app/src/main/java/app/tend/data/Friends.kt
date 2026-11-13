@@ -58,8 +58,28 @@ object Friends {
     /** Your friends, oldest friendship first; null when the server can't be reached. Who's at the fire is kept too. */
     suspend fun list(c: Context): List<Friend>? {
         val reply = Account.rpc(c, "tend_friends")?.takeIf { it.ok } ?: return null
-        return parse(reply.body).also { keepAtFire(c, it); last = it }
+        return parse(reply.body).also { keepAtFire(c, it); last = it; celebrate(c, it) }
     }
+
+    /** New friends since last heard: acorns for each (both sides get theirs), and said once ([takeNewFriends]). */
+    private fun celebrate(c: Context, friends: List<Friend>) {
+        val store = TendStore(c)
+        val known = store.friendsCelebrated
+        val fresh = friends.filter { it.id !in known }
+        val acorns = store.celebrateFriends(fresh.map { it.id })
+        if (acorns <= 0) return
+        val first = known.isEmpty()
+        val names = fresh.joinToString(tr(" and ", " és ")) { it.name }
+        prefs(c).edit().putString(
+            "friend_news",
+            if (first) tr("You and $names are friends now: +$acorns acorns, and a signpost for your camp.", "Mostantól barátok vagytok: $names. +$acorns makk, és egy útjelző tábla a táborodba.")
+            else tr("You and $names are friends now: +$acorns acorns.", "Mostantól barátok vagytok: $names. +$acorns makk."),
+        ).apply()
+        Stats.log(c, "friend_made", mapOf("first" to first))
+    }
+
+    /** What to say about a new friendship, once. */
+    fun takeNewFriends(c: Context): String? = prefs(c).getString("friend_news", null)?.also { prefs(c).edit().remove("friend_news").apply() }
 
     /** Friends as last heard from the server (this run of the app). */
     @Volatile private var last: List<Friend> = emptyList()

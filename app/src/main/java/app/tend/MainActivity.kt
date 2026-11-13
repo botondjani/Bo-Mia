@@ -495,6 +495,10 @@ class MainActivity : ComponentActivity() {
             while (true) {
                 if (app.tend.data.Account.user(this@MainActivity) != null) runCatching { app.tend.data.Friends.list(this@MainActivity) }
                 friendsToday = app.tend.data.Friends.doneToday()
+                // A new friendship (they accepted, or you did): said once, with its acorns.
+                app.tend.data.Friends.takeNewFriends(this@MainActivity)?.let { news ->
+                    Toast.makeText(this@MainActivity, news, Toast.LENGTH_LONG).show(); app.tend.ui.Sounds.acorns(this@MainActivity); refresh++
+                }
                 // The town's weather, at most hourly.
                 if (kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { app.tend.data.WeatherService.refresh(this@MainActivity) }) {
                     refresh++; app.tend.widget.Widgets.refresh(this@MainActivity)
@@ -577,7 +581,6 @@ class MainActivity : ComponentActivity() {
                     // The camp starts empty: the first thing (the campfire) is bought, guided, at the end of setup.
                     onBuy = { thing -> store.buy(thing).also { if (it) refresh++ } },
                     onUsed = { thing -> store.markUsed(thing); refresh++ },
-                    about = aboutYou,
                     onFinish = finish,
                 )
             }
@@ -728,6 +731,7 @@ class MainActivity : ComponentActivity() {
                 onOpenRiver = { id -> riverFocus = id; screen = Screen.RIVER },
                 paper = app.tend.data.Friends.paperOnMe(this).isNotEmpty(),
                 bridge = store.bridgeBuilt,
+                signpost = store.hasSignpost,
                 steps = remember(refresh) { firstSteps() },
                 onClaimStep = { store.claimStep(it); refresh++ },
                 onUsed = { thing -> if (thing !in store.usedThings) { store.markUsed(thing); refresh++ } },
@@ -944,7 +948,7 @@ class MainActivity : ComponentActivity() {
                             val at = placed.entries.firstOrNull { it.value == r && r != "campfire" }?.key
                             app.tend.ui.InUse(at ?: -1, r, (frame - start) / 1e9f, yawn + if (r == "campfire" || at != null) app.tend.ui.Uses.WALK else 0f, reward = true)
                         } ?: idle.value
-                        drawClearing(store.avatar, placed, mood, shelf.first, night, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor, rest = restSpot, nightClock = nightClock, appear = appear, layout = layout, ambient = ambient.value, guests = fireGuests, unlocked = unlocked)
+                        drawClearing(store.avatar, placed, mood, shelf.first, night, signpost = store.hasSignpost, paper = if (paper) 1f else 0f, ducks = ducks, bridge = store.bridgeBuilt, use = use, visitor = visitor, rest = restSpot, nightClock = nightClock, appear = appear, layout = layout, ambient = ambient.value, guests = fireGuests, unlocked = unlocked)
                     }
                 },
                 onOpenRecap = { screen = Screen.RECAP },
@@ -968,6 +972,8 @@ class MainActivity : ComponentActivity() {
                     (!store.reminderPrompted && !(store.reminderEnabled && RecapReminder.canNotify(this@MainActivity))),
                 onAllowNotes = ::allowNotes,
                 onAddWidget = ::pinWidget,
+                signedIn = app.tend.data.Account.user(this@MainActivity) != null,
+                onOpenAccount = { screen = Screen.SETTINGS },
                 exerciseTracked = store.exerciseTracked,
                 sleepEstimated = store.sleepEstimatedOn == LocalDate.now().toString(),
                 brokenTimer = Tasks.presets.firstOrNull { it.id == store.timerBroken },
@@ -981,6 +987,7 @@ class MainActivity : ComponentActivity() {
                 onOpenInsights = { screen = Screen.INSIGHTS },
                 atFire = atFire,
                 onJoin = join,
+                streak = remember(refresh, done) { app.tend.core.Voice.streakOf(store.daySummaries(), LocalDate.now()) },
                 fireCall = remember(refresh, now / 60_000) { app.tend.data.Friends.fireCall(this@MainActivity)?.name },
                 onAnswerCall = answerCall,
                 friendsToday = friendsToday,
@@ -997,7 +1004,8 @@ class MainActivity : ComponentActivity() {
                     app.tend.core.Voice.Moment(
                         store.avatar.displayName, now, store.config, store.today(), store.selectedTasks,
                         yesterday = days.firstOrNull { it.date == now.toLocalDate().minusDays(1) }?.done.orEmpty(),
-                        streak = app.tend.core.Voice.streak(days, now.toLocalDate()),
+                        streak = app.tend.core.Voice.streakOf(days, now.toLocalDate()).days,
+                        kept = app.tend.core.Voice.streakOf(days, now.toLocalDate()).kept,
                         weather = app.tend.core.LiveWeather.fresh() ?: app.tend.core.Weather.of(now.toLocalDate(), now.hour),
                         visitor = store.visitorWaiting(),
                         atFire = atFire.map { it.name },

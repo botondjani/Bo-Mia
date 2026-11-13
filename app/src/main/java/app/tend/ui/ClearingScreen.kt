@@ -90,6 +90,8 @@ fun ClearingScreen(
     onOpenRiver: (friendId: String?) -> Unit = {},
     paper: Boolean = false,
     bridge: Boolean = false,
+    /** A first friend made: the signpost by the path. */
+    signpost: Boolean = false,
     onFriendsChanged: () -> Unit = {},
     steps: List<app.tend.core.StepState> = emptyList(),
     onClaimStep: (app.tend.core.Step) -> Unit = {},
@@ -530,7 +532,7 @@ fun ClearingScreen(
                     ?: cheerT.takeIf { it >= 0f }?.let { InUse(-2, "act_hearts", it) }
                     ?: using?.takeIf { useStart >= 0 }?.let { (spot, thing) -> InUse(spot, thing, (frame - useStart) / 1e9f, walk, Uses.seconds(thing)) } ?: idle.value
                 drawClearing(
-                    avatar, placed, mood, worn = worn, night = night, paper = paperLeft, ducks = ducks.size, bridge = bridge,
+                    avatar, placed, mood, worn = worn, night = night, signpost = signpost, paper = paperLeft, ducks = ducks.size, bridge = bridge,
                     use = use, lastStrum = (frame - strumAt) / 1e9f - walk, visitor = visitor, rest = rest, nightClock = nightClock, appear = appear,
                     bursts = bursts.map { it.first to it.second.value },
                     layout = drag?.let { (spot, at) -> pinned + (spot to at) } ?: pinned,

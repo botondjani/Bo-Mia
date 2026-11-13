@@ -20,6 +20,8 @@ object Voice {
         val yesterday: Set<String> = emptySet(),
         /** Days in a row with something done, yesterday counting back (today not included). */
         val streak: Int = 0,
+        /** Yesterday was missed, and the run was kept alive all the same. */
+        val kept: Boolean = false,
         val weather: Weather = Weather.CLEAR,
         val season: Season = Season.of(now.toLocalDate()),
         /** An animal waiting at the camp. */
@@ -39,6 +41,11 @@ object Voice {
         if (Budget.isLocked(m.cfg, m.day) && !m.welcomeBack && m.canClose) return next?.let { tr("Out of minutes: your apps are closed. ${it.title} opens them again (+${it.rewardMinutes} min).", "Elfogytak a percek: az appjaid zárva vannak. Ezzel újra kinyílnak: ${it.title} (+${it.rewardMinutes} perc).") }
             ?: tr("Out of minutes: your apps are closed until tomorrow.", "Elfogytak a percek: az appjaid holnapig zárva vannak.")
         if (m.welcomeBack && done.isEmpty()) return tr("Welcome back! I missed you. Let's start small today: ${next!!.title.lowercase()}?", "Jó újra látni! Hiányoztál. Kezdjük ma valami kicsivel: ${next!!.title.lowercase()}?")
+        // Yesterday slipped by, and the run goes on: said first thing, before anything's done today.
+        if (m.kept && done.isEmpty() && m.streak >= 2) return tr(
+            "Yesterday slipped by. I kept the fire going: still ${m.streak} days in a row.",
+            "A tegnap kimaradt. Őriztem a tüzet: még mindig ${m.streak} nap egymás után.",
+        )
         m.atFire.firstOrNull()?.let { f -> return pick(m, "fire", listOf(tr("$f is at our fire, phone down. Join them?", "$f a tüzünknél ül, letette a telefont. Csatlakozunk?"), tr("Look who's by the fire: $f. Shall we sit with them?", "Nézd, ki ül a tűznél: $f. Odaülünk mellé?"))) }
         m.visitor?.let { v -> return pick(m, "visitor", listOf(tr("${v.aName.replaceFirstChar { it.uppercase() }} is at the camp! Come say hello.", "${v.aName.replaceFirstChar { it.uppercase() }} van a táborban! Gyere, köszönj neki."), tr("Shh… ${v.aName} came by. Go and greet it?", "Pszt… erre járt ${v.aName}. Köszönsz neki?"))) }
 
@@ -126,12 +133,9 @@ object Voice {
         else -> parts.dropLast(1).joinToString(", ") + tr(" and ", " és ") + parts.last()
     }
 
-    /** Days in a row with something done, counting back from yesterday. */
-    fun streak(days: List<DaySummary>, today: java.time.LocalDate): Int {
-        val active = days.filter { it.tasksDone > 0 || it.done.isNotEmpty() }.map { it.date }.toSet()
-        var n = 0
-        var d = today.minusDays(1)
-        while (d in active) { n++; d = d.minusDays(1) }
-        return n
-    }
+    /** Good days in a row (see [Streak]: one missed day a week doesn't end it). */
+    fun streakOf(days: List<DaySummary>, today: java.time.LocalDate): Streak.State =
+        Streak.of(days.filter { it.tasksDone > 0 || it.done.isNotEmpty() }.map { it.date }.toSet(), today)
+
+    fun streak(days: List<DaySummary>, today: java.time.LocalDate): Int = streakOf(days, today).days
 }

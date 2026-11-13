@@ -1,5 +1,6 @@
 package app.tend.ui
 
+import androidx.compose.foundation.layout.size
 import app.tend.core.tr
 
 import androidx.compose.foundation.layout.Arrangement
@@ -64,4 +65,35 @@ private fun Line(what: String, worth: String) = Row(verticalAlignment = Alignmen
     Text(what, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
     Spacer(Modifier.width(8.dp))
     Text(worth, style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+}
+
+/** Good days in a row, and how a missed one is forgiven. */
+@Composable
+fun StreakDialog(name: String, streak: app.tend.core.Streak.State, onDismiss: () -> Unit) = Sheet(tr("${streak.days} days in a row", "${streak.days} nap egymás után"), onDismiss) {
+    Para(tr("A day counts when you did at least one of your activities.", "Egy nap akkor számít, ha legalább egy tevékenységed megvolt."))
+    Para(tr(
+        "Miss a day and $name keeps the fire going for you: once a week the run carries on. Two missed days in a row start a new one, and that's fine too.",
+        "Ha kimarad egy nap, $name őrzi helyetted a tüzet: hetente egyszer a sorozat megy tovább. Két kihagyott nap után új kezdődik, és az is rendben van.",
+    ))
+    Para(
+        if (streak.kept) tr("Yesterday was that day: the fire's still burning.", "A tegnap volt ez a nap: a tűz még ég.")
+        else if (streak.spare) tr("This week's spare day is still there.", "Az e heti tartaléknapod még megvan.")
+        else tr("This week's spare day is used; a new one comes in a few days.", "Az e heti tartaléknapot már felhasználtad; pár nap múlva jön az új."),
+    )
+}
+
+/** A small flame, for the streak. */
+@Composable
+fun FlameIcon(size: androidx.compose.ui.unit.Dp) = androidx.compose.foundation.Canvas(androidx.compose.ui.Modifier.size(size)) {
+    val w = this.size.width; val h = this.size.height
+    fun flame(scale: Float, color: androidx.compose.ui.graphics.Color) = drawPath(androidx.compose.ui.graphics.Path().apply {
+        val cx = w / 2; val b = h * 0.98f; val top = b - h * 0.95f * scale; val r = w * 0.42f * scale
+        moveTo(cx, top)
+        cubicTo(cx + r * 0.2f, top + (b - top) * 0.35f, cx + r * 1.15f, top + (b - top) * 0.45f, cx + r, b - r * 0.75f)
+        cubicTo(cx + r, b + r * 0.1f, cx - r, b + r * 0.1f, cx - r, b - r * 0.75f)
+        cubicTo(cx - r * 1.1f, top + (b - top) * 0.55f, cx - r * 0.35f, top + (b - top) * 0.5f, cx, top)
+        close()
+    }, color)
+    flame(1f, androidx.compose.ui.graphics.Color(0xFFE8963F))
+    flame(0.55f, androidx.compose.ui.graphics.Color(0xFFF6D57A))
 }

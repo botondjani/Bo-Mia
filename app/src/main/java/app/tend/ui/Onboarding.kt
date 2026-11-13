@@ -98,7 +98,8 @@ class PermissionActions(
 /** Where Android's restricted-settings lock stands: none, locked, or refused once (the unlock option now shows). */
 enum class PermissionLock { NONE, LOCKED, TRIPPED }
 
-private enum class Step { WELCOME, USAGE, APPS, ACTIVITIES, ABOUT, PAUSE, ACCOUNT, CAMP }
+// Short on purpose: the town is asked later in the camp, and an account is offered on home (or right here, for those who have one).
+private enum class Step { WELCOME, USAGE, APPS, ACTIVITIES, PAUSE, CAMP }
 
 @Composable
 fun Onboarding(
@@ -122,7 +123,6 @@ fun Onboarding(
     onBuy: (String) -> Boolean = { false },
     onUsed: (String) -> Unit = {},
     /** A little about you (all optional): your town for the weather, an age range, a gender. */
-    about: @Composable () -> Unit = {},
     onFinish: () -> Unit,
 ) {
     var stepIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -157,6 +157,12 @@ fun Onboarding(
                     Text(tr("WHO KEEPS YOU COMPANY?", "KI TARTSON VELED?"), style = MaterialTheme.typography.labelSmall)
                     CompanionPicker(avatar, onAvatar)
                     Text(tr("Same heart, different hair. You can switch any time.", "Ugyanaz a szív, más frizura. Bármikor válthatsz."), style = MaterialTheme.typography.bodyMedium, color = Brand.Muted)
+                    // Coming back with an account (a new phone): log in here and the camp is restored.
+                    var loggingIn by rememberSaveable { mutableStateOf(false) }
+                    if (!signedIn) LinkText(tr("I already have an account", "Már van fiókom"), { loggingIn = true })
+                    if (loggingIn) androidx.compose.ui.window.Dialog(onDismissRequest = { loggingIn = false }) {
+                        Column(Modifier.clip(RoundedCornerShape(28.dp)).background(Brand.Sage).padding(16.dp)) { account { loggingIn = false } }
+                    }
                 }
 
                 Step.USAGE -> StepPage(cta = tr("Continue", "Tovább"), ctaEnabled = perms.permissions.usageAccess, onCta = next) {
@@ -199,11 +205,6 @@ fun Onboarding(
                     }
                 }
 
-                Step.ABOUT -> StepPage(cta = tr("Continue", "Tovább"), onCta = next) {
-                    Title(tr("A little about you", "Egy kicsit rólad"), tr("All optional. Your town gives the camp its own weather: rain there, rain here.", "Semmi sem kötelező. A városodtól a tábor saját időjárást kap: ha ott esik, itt is."))
-                    about()
-                }
-
                 Step.PAUSE -> StepPage(
                     cta = if (perms.permissions.allGranted) tr("Continue", "Tovább") else tr("A few taps to go", "Még pár koppintás"),
                     ctaEnabled = perms.permissions.allGranted,
@@ -218,14 +219,6 @@ fun Onboarding(
                     )
                     PermissionSteps(perms)
                     if (!perms.permissions.allGranted) LinkText(tr("Continue without", "Folytatom nélküle"), { askSkip = true })
-                }
-
-                Step.ACCOUNT -> StepPage(cta = if (signedIn) tr("Continue", "Tovább") else tr("Skip for now", "Most kihagyom"), onCta = next) {
-                    Title(
-                        tr("Keep your camp safe", "Tartsd biztonságban a táborod"),
-                        tr("With an account your camp is backed up, and friends can join in: visits, cheers, and sitting at each other's campfire. Optional: tend works fully without one.", "Fiókkal a táborodról mentés készül, és a barátaid is csatlakozhatnak: látogatás, taps, közös ülés egymás tábortüzénél. Nem kötelező: a tend enélkül is teljes."),
-                    )
-                    account(next)
                 }
 
                 // The end, guided: an empty camp; get the campfire, then tap it and watch.

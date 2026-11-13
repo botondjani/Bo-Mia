@@ -847,6 +847,26 @@ class TendStore(private val context: Context) {
         return tip
     }
 
+    /** Friends whose friendship has been celebrated (their ids): each gives acorns once; the first, a signpost for the camp. */
+    val friendsCelebrated: Set<String> get() = prefs.getStringSet("friends_celebrated", emptySet())!!.toSet()
+
+    /** A friend has been made at least once: the signpost stands by the path (it stays). */
+    val hasSignpost: Boolean get() = friendsCelebrated.isNotEmpty()
+
+    /**
+     * Celebrates friends not celebrated yet: [FIRST_FRIEND_ACORNS] for the very first, [FRIEND_ACORNS]
+     * for each one after (up to [FRIENDS_CELEBRATED_MAX] in all). Returns the acorns given.
+     */
+    fun celebrateFriends(ids: List<String>): Int {
+        val known = friendsCelebrated
+        val fresh = ids.filter { it.isNotBlank() && it !in known }.distinct().take((FRIENDS_CELEBRATED_MAX - known.size).coerceAtLeast(0))
+        if (fresh.isEmpty()) return 0
+        val acorns = fresh.indices.sumOf { i -> if (known.isEmpty() && i == 0) FIRST_FRIEND_ACORNS else FRIEND_ACORNS }
+        edit { putStringSet("friends_celebrated", known + fresh) }
+        addAcorns(acorns, "friend")
+        return acorns
+    }
+
     /** Milestones already celebrated in the camp. */
     var milestonesSeen: Set<app.tend.core.Milestone>
         get() = prefs.getStringSet("milestones_seen", emptySet())!!.mapNotNull { runCatching { app.tend.core.Milestone.valueOf(it) }.getOrNull() }.toSet()
@@ -1012,6 +1032,9 @@ class TendStore(private val context: Context) {
     companion object {
         const val EARLY_NIGHT_ACORNS = 5
         const val PLUS_TRIAL_DAYS = 14
+        const val FIRST_FRIEND_ACORNS = 30
+        const val FRIEND_ACORNS = 15
+        const val FRIENDS_CELEBRATED_MAX = 10
         /** Whether Plus can be bought (Google Play billing). Until it can, it's on for everyone and no trial counts down. */
         const val PLUS_ON_SALE = false
         private const val PASS_VALID_MS = 15_000L

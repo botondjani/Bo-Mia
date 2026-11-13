@@ -204,4 +204,23 @@ class WelcomeBackTest {
         assertEquals(null, Tip.today(all, all.associateWith { 3 }, 0))
         assertEquals(null, Tip.today(emptyList(), emptyMap(), 0))
     }
+
+    @Test fun `a streak forgives one missed day a week, not two in a row`() {
+        val t = LocalDate.of(2026, 11, 20)
+        fun days(vararg ago: Int) = ago.map { t.minusDays(it.toLong()) }.toSet()
+        // Five days running, today not done yet: still five.
+        assertEquals(Streak.State(5, kept = false, spare = true), Streak.of(days(1, 2, 3, 4, 5), t))
+        // Today done too.
+        assertEquals(6, Streak.of(days(0, 1, 2, 3, 4, 5), t).days)
+        // Yesterday missed: kept alive, the missed day isn't counted, and the spare is used.
+        assertEquals(Streak.State(3, kept = true, spare = false), Streak.of(days(2, 3, 4), t))
+        // Two missed in a row: over.
+        assertEquals(0, Streak.of(days(3, 4, 5), t).days)
+        // Two single gaps within a week: only the nearer one is bridged.
+        assertEquals(2, Streak.of(days(1, 3, 5, 6), t).days)
+        // Gaps a week apart are both bridged.
+        assertEquals(10, Streak.of(days(0, 1, 2, 4, 5, 6, 7, 8, 9, 11), t).days)
+        // Nothing at all.
+        assertEquals(Streak.State(0, kept = false, spare = true), Streak.of(emptySet(), t))
+    }
 }
