@@ -140,10 +140,12 @@ class InterstitialActivity : ComponentActivity() {
         val appLimit = store.appLimits[pkg]?.takeIf { store.appLocked(pkg) }
         val locked = Budget.isLocked(cfg, day) || appLimit != null
         val evening = Budget.isEvening(if (store.eveningPause) store.eveningFrom else -1, java.time.LocalTime.now().hour)
-        val delaySeconds = Budget.openDelaySeconds(cfg, day, evening)
         val scheduled = store.activeLock()
         // A scheduled lock isn't an open: it doesn't make the next pause longer.
-        if (savedInstanceState == null && !locked && scheduled == null) day = store.update { it.copy(opensToday = it.opensToday + 1) }
+        val counts = savedInstanceState == null && !locked && scheduled == null
+        val earlier = if (counts) store.recordOpen() else 0
+        val delaySeconds = Budget.openDelaySeconds(cfg, earlier, evening)
+        if (counts) day = store.update { it.copy(opensToday = it.opensToday + 1) }
         view = View(
             label, locked, day.opensToday, delaySeconds, Budget.remainingMinutes(cfg, day), evening,
             timeUp = intent.getBooleanExtra(EXTRA_TIME_UP, false),
@@ -230,31 +232,11 @@ class InterstitialActivity : ComponentActivity() {
 
     @Composable
     private fun Delay(pkg: String, v: View) {
-        var answer by rememberSaveable { mutableStateOf<String?>(null) }
         var left by rememberSaveable { mutableIntStateOf(v.delaySeconds) }
         LaunchedEffect(Unit) { while (left > 0) { delay(1000); left-- } }
 
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Header(v)
-        Text(tr("WHAT ARE YOU LOOKING FOR?", "MIT KERESEL?"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
-        // One row of four short labels, equal widths. The logged answer keeps the full wording.
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            LOOKING_FOR.forEach { (label, a) ->
-                val on = answer == a
-                Text(
-                    label,
-                    style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
-                    color = if (on) Color.White else Brand.Moss,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(50)).background(if (on) Brand.Moss else Brand.Card)
-                        .clickable { if (answer == null) store.logAnswer("looking_for", pkg, a); answer = a }
-                        .padding(horizontal = 2.dp, vertical = 9.dp),
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                )
-            }
-        }
-        }
+        // Simple on purpose: where you are, "Not now", and the ways in.
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { Header(v) }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp)) {
         Text(
             if (store.focusStartedAt > 0) tr("${v.remaining} min left today · opening ends your reading session", "Ma még ${v.remaining} perc · a megnyitás véget vet az olvasásnak") else tr("${v.remaining} min left today", "Ma még ${v.remaining} perced van"),
@@ -267,36 +249,43 @@ class InterstitialActivity : ComponentActivity() {
             packageManager.getLaunchIntentForPackage(pkg)?.let { startActivity(it) }
             finish()
         }
-        val instead = insteadSuggestion(v.evening)
-        if (instead != null) {
-            // The pause turns into the thing you'd rather do, one tap away.
-            PrimaryButton(instead.first, { decide("instead"); instead.second() })
-            SecondaryButton(notNowLabel(), ::notNow)
-            OpenLinks(v, left, openFor)
-        } else {
-            PrimaryButton(notNowLabel(), ::notNow)
-            OpenLinks(v, left, openFor)
+        // A friend at the fire right now: the one suggestion worth a button.
+        app.tend.data.Friends.atFire(this@InterstitialActivity).firstOrNull()?.let { f ->
+            SecondaryButton(tr("Join ${f.name} at the fire", "Ülj le a tűzhöz: ${f.name} már ott van"), {
+                decide("instead")
+                startActivity(Intent(this@InterstitialActivity, MainActivity::class.java).putExtra(app.tend.reminder.RecapReminder.EXTRA_OPEN, app.tend.data.Friends.OPEN_JOIN)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+                finish()
+            })
         }
+        PrimaryButton(notNowLabel(), ::notNow)
+        OpenLinks(v, left, openFor)
+        // Just answering someone: in at once, for a few minutes, a few times a day (not in strict mode).
+        val quick = store.quickLooksLeft()
+        if (quick > 0) Text(
+            tr("Just replying to a message · $REPLY_MINUTES min, now", "Csak válaszolok egy üzenetre · $REPLY_MINUTES perc, most") +
+                if (quick <= 2) tr(" ($quick left today)", " (ma még $quick)") else "",
+            style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
+                store.useQuickLook()
+                store.logAnswer("looking_for", pkg, "Messages")
+                openFor(REPLY_MINUTES)
+            }.padding(vertical = 10.dp),
+        )
         }
     }
 
     /**
-     * Ways in, side by side: 1 min right away (five a day), 5 or 15 min after the countdown.
+     * Ways in, side by side: 5 or 15 min after the countdown (replying to a message goes in at once, below).
      * When the time is up, tend checks in again.
      */
     @Composable
     private fun OpenLinks(v: View, left: Int, openFor: (Int) -> Unit) {
-        val quick = store.quickLooksLeft()
         Text(
             tr("Open ${v.label} for", "${v.label} megnyitása ennyi időre:"),
             style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
         )
         Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            // 1 min: right away, no wait (five a day). Filled, so it reads as "this one works now".
-            if (quick > 0) OpenChip(
-                tr("1 min", "1 perc"), if (quick <= 2) tr("now · $quick left", "most · még $quick") else tr("now", "most"),
-                enabled = true, filled = true, modifier = Modifier.weight(1f).fillMaxHeight(),
-            ) { store.useQuickLook(); openFor(1) }
             app.tend.core.TimeBox.CHOICES.forEach { minutes ->
                 OpenChip(
                     tr("$minutes min", "$minutes perc"), if (left > 0) tr("in $left s", "$left mp múlva") else tr("open", "nyitható"),
@@ -456,13 +445,8 @@ class InterstitialActivity : ComponentActivity() {
         private const val EXTRA_TIME_UP = "time_up"
         private const val EXTRA_FOCUS = "focus"
 
-        /** Short label on the chip to the answer that's logged. */
-        private val LOOKING_FOR = listOf(
-            tr("Reply", "Üzenet") to "Messages",
-            tr("Look up", "Keresek") to "Looking something up",
-            tr("Bored", "Unalom") to "Just bored",
-            tr("Habit", "Szokás") to "Out of habit",
-        )
+        /** Replying to a message: in at once, for this long. */
+        private const val REPLY_MINUTES = 3
 
         fun intent(context: Context, pkg: String, timeUp: Boolean = false, focus: Boolean = false) = Intent(context, InterstitialActivity::class.java)
             .putExtra(EXTRA_PKG, pkg)

@@ -52,9 +52,12 @@ class BudgetTest {
     }
 
     @Test fun `opens wait 5 s, one second more each time, at most 10 s`() {
-        assertEquals(5, Budget.openDelaySeconds(cfg, day))
-        assertEquals(8, Budget.openDelaySeconds(cfg, day.copy(opensToday = 3)))
-        assertEquals(10, Budget.openDelaySeconds(cfg, day.copy(opensToday = 40)))
+        // The first two opens in an hour wait the base; each one after, a second more; up to the most.
+        assertEquals(5, Budget.openDelaySeconds(cfg, 0))
+        assertEquals(5, Budget.openDelaySeconds(cfg, 1))
+        assertEquals(6, Budget.openDelaySeconds(cfg, 2))
+        assertEquals(8, Budget.openDelaySeconds(cfg, 4))
+        assertEquals(10, Budget.openDelaySeconds(cfg, 40))
     }
 
     @Test fun `only unused minutes grow the garden, overuse does not carry over`() {

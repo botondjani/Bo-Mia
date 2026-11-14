@@ -70,6 +70,9 @@ class MonitorService : Service() {
     private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main) // store writes stay on the main thread, like the poll
     private var interceptedPkg: String? = null
     private var focusCaughtPkg: String? = null
+    /** The paused app last left, and when its chosen time was up: coming back in time skips the pause. */
+    private var leftPkg: String? = null
+    private var leftEnds = 0L
     private var focusCaughtAt = 0L
     private var interceptedAt = 0L
 
@@ -217,15 +220,20 @@ class MonitorService : Service() {
         }
         if (store.onboarded && new in store.blockedPackages && !store.isPaused) {
             if (sessionPkg != null) endSession(now, askWorthIt = false) // another paused app: the pause takes over
-            val pass = if (((store.isLocked() || store.appLocked(new)) && !store.borrowing(new)) || scheduledLock() != null) null else store.consumePass(new)
-            if (pass != null) {
+            val closed = ((store.isLocked() || store.appLocked(new)) && !store.borrowing(new)) || scheduledLock() != null
+            val pass = if (closed) null else store.consumePass(new)
+            // Back in the same app within a few minutes, with its chosen time not up yet: no second
+            // pause, the same minutes carry on (not in strict mode).
+            val back = !closed && pass == null && !store.isStrict && new == leftPkg && now - lastLeft < REENTRY_MS && now < leftEnds
+            if (pass != null || back) {
                 sessionPkg = new
                 sessionStart = now
-                sessionEnds = app.tend.core.TimeBox.endsAt(now, pass)
+                sessionEnds = if (back) leftEnds else app.tend.core.TimeBox.endsAt(now, pass!!)
+                if (back) app.tend.data.Stats.log(this, "pause_skipped_reentry")
                 // Opened for a few minutes: the time left counts down in the notifications.
                 if (sessionEnds != Long.MAX_VALUE) {
                     val label = runCatching { packageManager.getApplicationInfo(new, 0).loadLabel(packageManager).toString() }.getOrDefault(tr("This app", "Ez az app"))
-                    app.tend.health.TimerAlarm.showRunning(this, tr("$label, for $pass min", "$label, $pass percre"), tr("${store.avatar.displayName} checks in when the time is up.", "${store.avatar.displayName} szól, ha letelt az idő."), sessionEnds)
+                    app.tend.health.TimerAlarm.showRunning(this, tr("$label, for ${((sessionEnds - now + 59_999) / 60_000)} min", "$label, még ${((sessionEnds - now + 59_999) / 60_000)} percig"), tr("${store.avatar.displayName} checks in when the time is up.", "${store.avatar.displayName} szól, ha letelt az idő."), sessionEnds)
                 }
                 // Carrying on after a short break (another "15 more", a quick look elsewhere): the same stretch.
                 if (now - lastLeft > STREAK_GAP_MS || streakStart == 0L) { streakStart = now; nextPeekAt = now + Peek.EVERY_MS }
@@ -355,6 +363,8 @@ class MonitorService : Service() {
     private fun endSession(now: Long, askWorthIt: Boolean) {
         val pkg = sessionPkg ?: return
         lastLeft = now
+        leftPkg = pkg
+        leftEnds = sessionEnds
         peek.hide()
         if (sessionEnds != Long.MAX_VALUE) app.tend.health.TimerAlarm.hideRunning(this)
         val seconds = (now - sessionStart) / 1000
@@ -406,6 +416,8 @@ class MonitorService : Service() {
         private const val SYNC_EVERY_MS = 15 * 60_000L
         private const val INBOX_EVERY_MS = 5 * 60_000L
         private const val STREAK_GAP_MS = 3 * 60_000L
+        /** Back in the same app within this long (and within its chosen time): no second pause. */
+        private const val REENTRY_MS = 5 * 60_000L
         private const val PLUS_CHANNEL = "plus"
         private const val AWAY_CONFIRM_MS = 8_000L
         private const val HELPER_MAX_MS = 10 * 60_000L

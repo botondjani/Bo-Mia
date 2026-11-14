@@ -735,7 +735,7 @@ class TendStore(private val context: Context) {
     // ---- Strict mode ----
 
     /**
-     * No shortcuts: no 1-minute looks, no 5 minutes for acorns, no waking the apps after good night,
+     * No shortcuts: no replying without the wait, no 5 minutes for acorns, no waking the apps after good night,
      * no break; limits only get tighter. Turning it off takes effect the next day.
      */
     val isStrict: Boolean
@@ -785,6 +785,14 @@ class TendStore(private val context: Context) {
         if (!ok) return null
         edit { remove("pass_pkg") }
         return prefs.getInt("pass_minutes", 0)
+    }
+
+    /** Notes a pause shown now; returns how many there were in the hour before it. */
+    fun recordOpen(now: Long = System.currentTimeMillis()): Int {
+        val hourAgo = now - 3_600_000L
+        val recent = prefs.getString("recent_opens", "")!!.split(',').mapNotNull { it.toLongOrNull() }.filter { it in hourAgo..now }
+        prefs.edit().putString("recent_opens", (recent + now).takeLast(30).joinToString(",")).apply()
+        return recent.size
     }
 
     /** "Quick look": open for one minute without the wait, a few times a day. */

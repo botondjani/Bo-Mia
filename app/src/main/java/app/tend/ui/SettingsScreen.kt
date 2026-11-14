@@ -172,7 +172,7 @@ fun SettingsScreen(
                     }
                     EveningStepper(eveningFrom, onEvening)
                 }
-                SwitchRow(tr("Sleepy pauses", "Álmos szünetek"), tr("The pause waits 15 s and ${avatar.displayName} gets sleepy", "A szünet 15 mp-ig tart, és ${avatar.displayName} elálmosodik"), eveningPause, onEveningPause)
+                SwitchRow(tr("Sleepy pauses", "Álmos szünetek"), tr("The pause waits 10 s and ${avatar.displayName} gets sleepy", "A szünet 10 mp-ig tart, és ${avatar.displayName} elálmosodik"), eveningPause, onEveningPause)
                 SwitchRow(tr("Evening recap", "Esti összefoglaló"), tr("A note when the evening starts", "Üzenet, amikor kezdődik az este"), reminderEnabled, onReminder)
                 bedtime?.let { LockRow(it, tr("Bedtime lock", "Lefekvési zár"), onLockSchedule) }
                 Divider()
@@ -574,7 +574,7 @@ private fun StrictRow(strict: Boolean, endsAt: Long, onStrict: (Boolean) -> Unit
         when {
             endsAt > 0 -> tr("Turned off: it ends at midnight.", "Kikapcsoltad: éjfélkor ér véget.")
             strict -> tr("On. Turning it off takes effect tomorrow.", "Bekapcsolva. Ha kikapcsolod, holnaptól érvényes.")
-            else -> tr("No 1-minute looks, no 5 minutes for acorns, no waking the apps, no breaks; limits only get tighter.", "Nincs 1 perces bepillantás, nincs 5 perc makkért, nincs appébresztés, nincs szünet; a limitek csak szigorodhatnak.")
+            else -> tr("No skipping the wait to reply, no 5 minutes for acorns, no waking the apps, no breaks; limits only get tighter.", "Nincs várakozás nélküli válaszolás, nincs 5 perc makkért, nincs appébresztés, nincs szünet; a limitek csak szigorodhatnak.")
         },
         strict && endsAt == 0L, onStrict,
     )
