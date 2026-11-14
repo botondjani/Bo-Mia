@@ -383,6 +383,8 @@ class MainActivity : ComponentActivity() {
         // The animal tapped on home: into the camp, and greet it there.
         var greetOnOpen by rememberSaveable { mutableStateOf(false) }
         var activitiesFocus by remember { mutableIntStateOf(0) }
+        // The camp page's "Challenges": home, with the challenges open.
+        var openChallenges by remember { mutableIntStateOf(0) }
         var goodNightAcorns by remember { mutableIntStateOf(0) }
         val goToStep: (app.tend.core.Step) -> Unit = { step ->
             when (step) {
@@ -417,6 +419,11 @@ class MainActivity : ComponentActivity() {
             healthBackground = hc.backgroundAvailable()
             val done = TaskSync.sync(this@MainActivity)
             if (done.tasks.isNotEmpty()) celebrate = done
+            // A finished "phone down" (not an activity): its minutes, said briefly.
+            else if (done.minutes > 0) {
+                Toast.makeText(this@MainActivity, tr("Phone down done: +${done.minutes} min", "Megvan a Telefon le: +${done.minutes} perc"), Toast.LENGTH_LONG).show()
+                app.tend.ui.Sounds.acorns(this@MainActivity)
+            }
             synced++
             // A newly earned accessory gets a little moment.
             store.takeNewAccessories().firstOrNull()?.let {
@@ -742,6 +749,7 @@ class MainActivity : ComponentActivity() {
                 signpost = store.hasSignpost,
                 steps = remember(refresh) { firstSteps() },
                 onClaimStep = { store.claimStep(it); refresh++ },
+                onOpenChallenges = { screen = Screen.HOME; openChallenges++ },
                 onUsed = { thing -> if (thing !in store.usedThings) { store.markUsed(thing); refresh++ } },
                 rest = store.restSpot,
                 onRest = { store.restSpot = it; refresh++ },
@@ -981,6 +989,10 @@ class MainActivity : ComponentActivity() {
                     (!store.reminderPrompted && !(store.reminderEnabled && RecapReminder.canNotify(this@MainActivity))),
                 onAllowNotes = ::allowNotes,
                 onAddWidget = ::pinWidget,
+                onClaimStep = { store.claimStep(it); refresh++ },
+                onOpenRiver = { id -> riverFocus = id; screen = Screen.RIVER },
+                onFriendsChanged = { saveProfile(); refresh++ },
+                openChallenges = openChallenges,
                 timerMinutes = store.focusTimerMinutes,
                 onTimerMinutes = { store.focusTimerMinutes = it },
                 signedIn = app.tend.data.Account.user(this@MainActivity) != null,

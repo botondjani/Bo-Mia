@@ -120,6 +120,8 @@ fun ClearingScreen(
     outfitWorn: app.tend.core.Accessory? = null,
     onBuyOutfit: (app.tend.core.Accessory) -> Boolean = { false },
     onWearOutfit: (app.tend.core.Accessory?) -> Unit = {},
+    /** Opens the challenges (they live on home). */
+    onOpenChallenges: () -> Unit = {},
     /** The habit accessories earned right now (worn or taken off), and putting one on or off. */
     earned: Set<Accessory> = worn,
     onToggleAccessory: ((Accessory) -> Unit)? = null,
@@ -157,7 +159,6 @@ fun ClearingScreen(
     var friendsOpen by rememberSaveable { mutableStateOf(openInvite) }
     androidx.compose.runtime.LaunchedEffect(openInvite) { if (openInvite) friendsOpen = true }
     var shopOpen by rememberSaveable { mutableStateOf(false) }
-    var stepsOpen by rememberSaveable { mutableStateOf(false) }
     var collectionAt by remember { androidx.compose.runtime.mutableIntStateOf(0) }
 
     // The same header as home, settings and all (nothing moves going between them).
@@ -643,35 +644,19 @@ fun ClearingScreen(
         Text(tr("Not now", "Most nem"), style = MaterialTheme.typography.labelLarge, color = Brand.Muted, modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onTownLater).padding(vertical = 6.dp))
     }
 
-    // The challenges: a strip with the round's progress; tapped, the whole list unfolds (and folds back).
-    androidx.compose.animation.AnimatedContent(
-        stepsOpen, label = "steps",
-        transitionSpec = {
-            (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(260, delayMillis = 80)) togetherWith
-                androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(140)))
-                .using(androidx.compose.animation.SizeTransform(clip = false) { _, _ -> androidx.compose.animation.core.spring(dampingRatio = 0.85f, stiffness = 380f) })
-        },
-    ) { open ->
-    // Folded: what's done waits on top, to claim right away; then the strip with what's next.
-    if (!open) Column(verticalArrangement = Arrangement.spacedBy(Space.xs)) {
-        ClaimableSteps(steps) { onClaimStep(it); Sounds.acorns(context) }
-        FirstStepsStrip(steps, onOpen = { stepsOpen = true }, onGo = { stepsOpen = true }, showWaiting = false)
-    }
-    else Column(verticalArrangement = Arrangement.spacedBy(Space.xs)) {
-    FirstStepsCard(steps, onClaim = { onClaimStep(it); Sounds.acorns(context) }, onFold = { stepsOpen = false }, onGo = { step ->
-        when (step) {
-            app.tend.core.Step.PLACE, app.tend.core.Step.TREES, app.tend.core.Step.BETTER_FIRE, app.tend.core.Step.SHELTER, app.tend.core.Step.ON_THE_RIVER -> shopOpen = true
-            app.tend.core.Step.USE, app.tend.core.Step.MOVE, app.tend.core.Step.GREET, app.tend.core.Step.THREE_THINGS -> scope.launch { scroll.animateScrollTo(0) }
-            app.tend.core.Step.FRIEND, app.tend.core.Step.TOGETHER -> friendsOpen = true
-            app.tend.core.Step.FIVE_ANIMALS, app.tend.core.Step.RARE -> scope.launch { scroll.animateScrollTo(collectionAt) }
-            else -> onStep(step)
+    // The challenges live in one place (home's "Challenges"): here a button there, with what's waiting.
+    run {
+        val waiting = app.tend.core.FirstSteps.current(steps).filter { it.claimable }.sumOf { it.step.acorns }
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(if (waiting > 0) Brand.Moss else Brand.Card).tappable(onClick = onOpenChallenges)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TendIcons.Badge("star", 34.dp)
+            Spacer(Modifier.width(10.dp))
+            Text(tr("Challenges", "Kihívások"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp), color = if (waiting > 0) Color.White else Brand.Ink, modifier = Modifier.weight(1f))
+            Text(if (waiting > 0) tr("$waiting acorns waiting", "$waiting makk vár") else "\u203A", style = MaterialTheme.typography.labelLarge, color = if (waiting > 0) Color.White else Brand.Muted)
         }
-    })
-    Text(
-        tr("Show less", "Kevesebb"), style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
-        modifier = Modifier.align(Alignment.CenterHorizontally).clip(RoundedCornerShape(10.dp)).tappable { stepsOpen = false }.padding(horizontal = 12.dp, vertical = 6.dp),
-    )
-    }
     }
 
     }

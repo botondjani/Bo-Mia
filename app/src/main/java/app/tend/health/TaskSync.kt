@@ -114,6 +114,12 @@ object TaskSync {
             PhoneFree.Outcome.DONE -> {
                 stopTimer(context)
                 if (task.id != Tasks.TIMER_ID) store.credit(task.id, task.rewardMinutes, manual = false)
+                else {
+                    // Phone down: minutes back too, up to half of what can be earned in a day.
+                    val cfg = store.config
+                    val before = store.today().earnedMinutes
+                    store.lastPhoneDownGrant = store.update { Budget.creditPhoneDown(cfg, it, task.target) }.earnedMinutes - before
+                }
                 // Phone-free at the same time as a friend: a little extra, for both (each side gives its own).
                 val together = app.tend.data.Friends.overlapping(context, start, now)
                 if (together.isNotEmpty()) {

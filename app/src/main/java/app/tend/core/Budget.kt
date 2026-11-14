@@ -99,6 +99,23 @@ object Budget {
         )
     }
 
+    /** Key in [DayState.grants] for what "phone down" gave today. */
+    const val PHONE_DOWN = "phone_down"
+
+    /** The most "phone down" can give in a day: half of what can be earned. */
+    fun phoneDownCap(cfg: BudgetConfig): Int = (cfg.totalMinutes - cfg.freeMinutes).coerceAtLeast(0) / 2
+
+    /**
+     * A plain "phone down" of [minutes] finished: as many minutes back, up to [phoneDownCap] for the
+     * day (and the day's total). It's not an activity: nothing is ticked off.
+     */
+    fun creditPhoneDown(cfg: BudgetConfig, day: DayState, minutes: Int): DayState {
+        val already = day.grants[PHONE_DOWN] ?: 0
+        val granted = minOf(minutes, phoneDownCap(cfg) - already, earnableMinutes(cfg, day)).coerceAtLeast(0)
+        if (granted == 0) return day
+        return day.copy(earnedMinutes = day.earnedMinutes + granted, grants = day.grants + (PHONE_DOWN to already + granted))
+    }
+
     /** Takes back a credited task (a mistaken check-off), exactly what it granted. */
     fun undo(day: DayState, taskId: String, manual: Boolean): DayState {
         if (taskId !in day.completedTasks) return day

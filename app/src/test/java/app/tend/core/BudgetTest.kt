@@ -144,4 +144,17 @@ class BudgetTest {
         assertEquals("Bo is happy", Moods.status("Bo", Mood.HAPPY))
         assertEquals("Mia is sleepy", Moods.status("Mia", Mood.TIRED))
     }
+
+    @org.junit.Test fun `phone down gives minutes back, up to half of what can be earned`() {
+        val cfg = BudgetConfig(totalMinutes = 180, freeMinutes = 45) // 135 can be earned: phone down up to 67
+        var d = Budget.creditPhoneDown(cfg, day, 50)
+        assertEquals(50, d.earnedMinutes)
+        d = Budget.creditPhoneDown(cfg, d, 50)
+        assertEquals(67, d.earnedMinutes) // capped at half
+        d = Budget.creditPhoneDown(cfg, d, 25)
+        assertEquals(67, d.earnedMinutes)
+        org.junit.Assert.assertTrue(d.completedTasks.isEmpty()) // not an activity
+        // Activities still earn up to the day's total.
+        assertEquals(135, Budget.credit(cfg, d, "move", 100, manual = false).earnedMinutes)
+    }
 }

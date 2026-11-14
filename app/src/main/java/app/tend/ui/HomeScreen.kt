@@ -65,6 +65,7 @@ import app.tend.core.Verification
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     avatar: Avatar,
@@ -122,6 +123,12 @@ fun HomeScreen(
     /** The length of the last plain "phone down" (15 to 120 minutes), and saying a new one. */
     timerMinutes: Int = 25,
     onTimerMinutes: (Int) -> Unit = {},
+    /** Claiming a finished challenge, opening a friend's camp, and friends having changed. */
+    onClaimStep: (app.tend.core.Step) -> Unit = {},
+    onOpenRiver: (String?) -> Unit = {},
+    onFriendsChanged: () -> Unit = {},
+    /** Bumped to open the challenges from elsewhere (the camp page's button). */
+    openChallenges: Int = 0,
     /** Logged in (else home offers an account once, among the next steps: setup doesn't ask). */
     signedIn: Boolean = true,
     onOpenAccount: () -> Unit = {},
@@ -399,7 +406,7 @@ fun HomeScreen(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column(Modifier.weight(1f)) {
                     Text(tr("Phone down", "Telefon le"), style = MaterialTheme.typography.titleSmall)
-                    Text(tr("Every app waits", "Minden app vár"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+                    Text(tr("Earns minutes too", "Perceket is ad"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
                 }
                 for ((label, d) in listOf("\u2212" to -Tasks.TIMER_STEP)) {
                     val on = minutes > Tasks.TIMER_MIN
@@ -437,10 +444,21 @@ fun HomeScreen(
             }
         }
         // The extras, after what matters: challenges, Bo's quest and the level, as three small tiles.
-        GoalTiles(
-            steps, onOpenClearing, onStep, quest, questDone, questClaimed, onClaimQuest,
-            level?.takeIf { !(firstDays && it.level == 1 && it.into == 0) }, challenge, onOpenInsights,
-        )
+        // Two buttons: everything to do for acorns in one place, and friends.
+        var hubOpen by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+        var friendsOpen by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+        androidx.compose.runtime.LaunchedEffect(openChallenges) { if (openChallenges > 0) hubOpen = true }
+        val waiting = app.tend.core.FirstSteps.current(steps).filter { it.claimable }.sumOf { it.step.acorns } + (quest?.takeIf { questDone && !questClaimed }?.acorns ?: 0)
+        HubButtons(waiting, friendsToday.size, onChallenges = { hubOpen = true }, onFriends = { friendsOpen = true })
+        if (hubOpen) ChallengesSheet(
+            steps, onClaimStep, { step -> hubOpen = false; onStep(step) }, quest, questDone, questClaimed, onClaimQuest,
+            level, challenge, { hubOpen = false; onOpenInsights() },
+        ) { hubOpen = false }
+        if (friendsOpen) androidx.compose.material3.ModalBottomSheet(onDismissRequest = { friendsOpen = false }, containerColor = Brand.Sage) {
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = Space.xl)) {
+                FriendsCard(onOpenSettings, { id -> friendsOpen = false; onOpenRiver(id) }, onFriendsChanged)
+            }
+        }
         weekStory?.let { (back, days, letGo) -> WeekStoryCard(back, days, letGo, onShareWeek, onWeekStoryDone) }
         // "Done today" right under the activities.
         if (done.isEmpty() && active.isNotEmpty()) {
@@ -612,61 +630,77 @@ private fun NextSteps(
  * Three small tiles side by side, the same height: the challenges (the round's ring and what's
  * next), Bo's quest (claim it right here once done), and the level with the weekly goal.
  */
+/** Challenges and friends, side by side: each a big, calm button with what's waiting. */
 @Composable
-private fun GoalTiles(
-    steps: List<app.tend.core.StepState>, onOpenClearing: () -> Unit, onStep: (app.tend.core.Step) -> Unit,
+private fun HubButtons(waiting: Int, friendsToday: Int, onChallenges: () -> Unit, onFriends: () -> Unit) =
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        @Composable
+        fun Button(icon: String, title: String, note: String?, highlight: Boolean, onClick: () -> Unit) = Row(
+            Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(if (highlight) Brand.Moss else Brand.Card).tappable(onClick = onClick)
+                .padding(horizontal = 12.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TendIcons.Badge(icon, 34.dp)
+            Spacer(Modifier.width(10.dp))
+            Column {
+                Text(title, style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp), color = if (highlight) Color.White else Brand.Ink, maxLines = 1)
+                note?.let { Text(it, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = if (highlight) Color.White.copy(alpha = 0.85f) else Brand.Muted, maxLines = 1) }
+            }
+        }
+        Button("star", tr("Challenges", "Kihívások"), if (waiting > 0) tr("$waiting acorns waiting", "$waiting makk vár") else tr("Quest and goals", "Küldetés és célok"), waiting > 0, onChallenges)
+        Button("friends", tr("Friends", "Barátok"), if (friendsToday > 0) tr("$friendsToday did something today", "$friendsToday ma tett valamit") else tr("Your camps together", "Közös táborok"), false, onFriends)
+    }
+
+/** Everything for acorns in one place: today's quest, this week's goal and the level, and the challenges. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun ChallengesSheet(
+    steps: List<app.tend.core.StepState>, onClaimStep: (app.tend.core.Step) -> Unit, onGo: (app.tend.core.Step) -> Unit,
     quest: app.tend.core.Quest?, questDone: Boolean, questClaimed: Boolean, onClaimQuest: () -> Unit,
     level: app.tend.core.Level?, challenge: app.tend.core.Challenge?, onOpenInsights: () -> Unit,
-) {
-    val round = app.tend.core.FirstSteps.current(steps)
-    if (round.isEmpty() && quest == null && level == null) return
-    @Composable
-    fun Tile(modifier: Modifier, filled: Boolean = false, onClick: () -> Unit, content: @Composable () -> Unit) = Column(
-        modifier.fillMaxHeight().clip(RoundedCornerShape(18.dp)).background(if (filled) Brand.Moss else Brand.Card).tappable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) { content() }
-    @Composable
-    fun Ring(k: Float, label: String, color: Color = Brand.Moss) = Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
-        androidx.compose.foundation.Canvas(Modifier.size(34.dp)) {
-            val w = 3.dp.toPx()
-            drawArc(Brand.Sage, 0f, 360f, false, androidx.compose.ui.geometry.Offset(w / 2, w / 2), androidx.compose.ui.geometry.Size(size.width - w, size.height - w), style = androidx.compose.ui.graphics.drawscope.Stroke(w))
-            if (k > 0f) drawArc(color, -90f, 360f * k, false, androidx.compose.ui.geometry.Offset(w / 2, w / 2), androidx.compose.ui.geometry.Size(size.width - w, size.height - w), style = androidx.compose.ui.graphics.drawscope.Stroke(w, cap = androidx.compose.ui.graphics.StrokeCap.Round))
-        }
-        Text(label, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, letterSpacing = 0.sp), color = Brand.Moss)
-    }
-    val small = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp)
-    Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (round.isNotEmpty()) {
-            val waiting = round.filter { it.claimable }.sumOf { it.step.acorns }
-            val next = round.firstOrNull { !it.done }?.step
-            val done = round.count { it.done }
-            Tile(Modifier.weight(1f), onClick = { if (waiting > 0 || next == null) onOpenClearing() else onStep(next) }) {
-                Ring(done / round.size.toFloat(), "$done/${round.size}")
-                Text(tr("Challenges", "Kihívások"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), maxLines = 1)
-                Text(if (waiting > 0) tr("$waiting to claim", "$waiting makk vár") else next?.let { tr("Next: +${it.acorns}", "Következő: +${it.acorns}") } ?: tr("All done", "Mind megvan"), style = small, color = Brand.Muted, maxLines = 1)
-            }
-        }
+    onDismiss: () -> Unit,
+) = androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Brand.Sage) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    Column(
+        Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = Space.xl),
+        verticalArrangement = Arrangement.spacedBy(Space.m),
+    ) {
+        Text(tr("Challenges", "Kihívások"), style = MaterialTheme.typography.headlineSmall)
+        // Today's quest.
         quest?.let { q ->
             val claimable = questDone && !questClaimed
-            Tile(Modifier.weight(1f), filled = claimable, onClick = { if (claimable) onClaimQuest() }) {
-                Box(Modifier.size(34.dp).clip(CircleShape).background(if (claimable) Color.White.copy(alpha = 0.2f) else Brand.Sage), contentAlignment = Alignment.Center) {
-                    Text(if (questClaimed) "\u2713" else "\u2605", style = MaterialTheme.typography.titleMedium, color = if (claimable) Color.White else Brand.Moss)
+            Row(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(tr("TODAY'S QUEST", "MAI KÜLDETÉS"), style = MaterialTheme.typography.labelSmall)
+                    Text(q.title, style = MaterialTheme.typography.titleMedium)
+                    Text(q.how, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp), color = Brand.Muted)
                 }
-                Text(q.title, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp, lineHeight = 16.sp), color = if (claimable) Color.White else Brand.Ink, maxLines = 2)
-                Text(
-                    when { questClaimed -> tr("Done today", "Ma megvan"); claimable -> tr("Tap: +${q.acorns} acorns", "Koppints: +${q.acorns} makk"); else -> tr("Quest · +${q.acorns}", "Küldetés · +${q.acorns}") },
-                    style = small, color = if (claimable) Color.White.copy(alpha = 0.85f) else Brand.Muted, maxLines = 1,
-                )
+                Spacer(Modifier.width(10.dp))
+                when {
+                    questClaimed -> Text(tr("Done", "Megvan"), style = MaterialTheme.typography.labelLarge, color = Brand.Muted)
+                    claimable -> ChipButton(tr("+${q.acorns} acorns", "+${q.acorns} makk"), { onClaimQuest(); app.tend.ui.Sounds.acorns(context) })
+                    else -> Text("+${q.acorns}", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
+                }
             }
         }
-        level?.let { l ->
-            Tile(Modifier.weight(1f), onClick = onOpenInsights) {
-                Ring(l.fraction, tr("LV ${l.level}", "${l.level}."))
-                Text(tr("Level ${l.level}", "${l.level}. szint"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), maxLines = 1)
-                Text(challenge?.let { if (it.done) tr("Week's goal done", "Megvan a heti cél") else tr("${it.progress.coerceAtMost(it.target)}/${it.target} this week", "${it.progress.coerceAtMost(it.target)}/${it.target} a héten") } ?: "${l.into}/${l.needed} XP", style = small, color = Brand.Muted, maxLines = 1)
+        // This week's goal and the level.
+        if (challenge != null || level != null) Column(Modifier.fillMaxWidth().surface(radius = 20.dp).tappable(onClick = onOpenInsights).padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            challenge?.let { c ->
+                Text(tr("THIS WEEK", "A HÉTEN"), style = MaterialTheme.typography.labelSmall)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(c.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    Text(if (c.done) "\u2713" else "${c.progress.coerceAtMost(c.target)}/${c.target}", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
+                }
+                Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)).background(Brand.Sage)) {
+                    Box(Modifier.fillMaxWidth((c.progress / c.target.toFloat()).coerceIn(0f, 1f)).height(6.dp).clip(RoundedCornerShape(50)).background(Brand.Mint))
+                }
+            }
+            level?.let { l ->
+                Text(tr("Level ${l.level} · ${l.into}/${l.needed} XP", "${l.level}. szint · ${l.into}/${l.needed} XP"), style = MaterialTheme.typography.bodyMedium, color = Brand.Muted, modifier = Modifier.padding(top = 4.dp))
             }
         }
+        // The challenges, round by round.
+        if (steps.isNotEmpty()) FirstStepsCard(steps, onClaim = { onClaimStep(it); app.tend.ui.Sounds.acorns(context) }, onGo = onGo)
     }
 }
 
@@ -953,7 +987,7 @@ private fun FocusTimerContent(
         val left = (app.tend.core.PhoneFree.GRACE_SECONDS - screenOnSeconds).coerceAtLeast(0)
         Pill(tr("Other apps allowed: %d:%02d left", "Más appokra még: %d:%02d").format(left / 60, left % 60), if (left < 60) Brand.Coral.copy(alpha = 0.2f) else Brand.Sage)
     } else if (task.id == Tasks.TIMER_ID) Text(
-        tr("Every app waits until the timer ends. ${avatar.displayName} keeps time with you.", "Minden app megvárja, míg lejár az időzítő. ${avatar.displayName} veled méri az időt."),
+        tr("Every app waits until the timer ends, and it gives minutes back. ${avatar.displayName} keeps time with you.", "Minden app megvárja a végét, és perceket ad vissza. ${avatar.displayName} veled méri az időt."),
         style = MaterialTheme.typography.bodyMedium,
         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
     ) else Text(

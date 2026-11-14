@@ -38,7 +38,10 @@ object TimerAlarm {
         val (title, text) = when {
             result == TaskSync.TimerResult.BROKEN ->
                 tr("The phone came back a little early", "A telefon kicsit korán került elő") to tr("No worries. ${task.title} is there whenever you want another go.", "Semmi baj. Bármikor újra nekifuthatsz: ${task.title.lowercase()}.")
-            task.id == app.tend.core.Tasks.TIMER_ID -> tr("Phone down done", "Letelt a Telefon le") to tr("${task.target} minutes, all yours. $name kept time.", "${task.target} perc, csak a tiéd. $name mérte az időt.")
+            task.id == app.tend.core.Tasks.TIMER_ID -> tr("Phone down done", "Letelt a Telefon le") to store.lastPhoneDownGrant.let { g ->
+                if (g > 0) tr("${task.target} minutes without the phone: +$g min. $name kept time.", "${task.target} perc telefon nélkül: +$g perc. $name mérte az időt.")
+                else tr("${task.target} minutes without the phone. Today's phone-down minutes are all earned.", "${task.target} perc telefon nélkül. A mai Telefon le percek már mind megvannak.")
+            }
             app.tend.core.PhoneFree.runsPhoneFree(task) -> tr("${task.title} done, phone-free", "Megvan, telefon nélkül: ${task.title.lowercase()}") to tr("+${task.rewardMinutes} min. $name is proud of you.", "+${task.rewardMinutes} perc. $name büszke rád.")
             else -> tr("${task.title} done", "Megvan: ${task.title.lowercase()}") to tr("+${task.rewardMinutes} min. $name enjoyed that.", "+${task.rewardMinutes} perc. $name élvezte.")
         }.let { (t, body) ->

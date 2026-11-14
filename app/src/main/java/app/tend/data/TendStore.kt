@@ -517,6 +517,11 @@ class TendStore(private val context: Context) {
         get() = prefs.getString("focus_task", Tasks.READ.id)!!
         set(v) = edit { putString("focus_task", v) }
 
+    /** Minutes the last finished "phone down" gave (for its note). */
+    var lastPhoneDownGrant: Int
+        get() = prefs.getInt("phone_down_grant", 0)
+        set(v) = edit { putInt("phone_down_grant", v) }
+
     /** Length of a plain timer ([Tasks.timer]) while one runs. */
     var focusTimerMinutes: Int
         get() = prefs.getInt("focus_timer_min", 25)
