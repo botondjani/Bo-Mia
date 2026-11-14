@@ -66,6 +66,7 @@ import app.tend.core.Avatar
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import app.tend.core.AppKinds
 import app.tend.core.BudgetConfig
 import app.tend.core.Budget
 import app.tend.core.DayState
@@ -560,6 +561,21 @@ fun BudgetSteppers(cfg: BudgetConfig, onConfig: (BudgetConfig) -> Unit) {
     Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp).background(Brand.Sage))
     Stepper(tr("Max per day", "Napi maximum"), tr("With earned minutes", "A megszerzett percekkel együtt"), listOf(90, 120, 180, 240), cfg.totalMinutes) {
         onConfig(cfg.copy(totalMinutes = it, freeMinutes = minOf(cfg.freeMinutes, it)))
+    }
+    Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp).background(Brand.Sage))
+    Text(tr("These count too", "Ezek is beleszámítanak"), style = MaterialTheme.typography.titleMedium)
+    Text(tr("No pause pops up, their time just comes off the same minutes", "Szünet nem ugrik fel, csak az idejük fogy ugyanabból a keretből"), style = MaterialTheme.typography.bodyMedium)
+    Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf(AppKinds.SOCIAL to tr("Social", "Közösségi"), AppKinds.VIDEO to tr("Video", "Videó"), AppKinds.GAMES to tr("Games", "Játékok")).forEach { (kind, label) ->
+            val on = kind in cfg.counted
+            Text(
+                label, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), textAlign = TextAlign.Center,
+                color = if (on) Color.White else Brand.Moss,
+                modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(if (on) Brand.Moss else Brand.Sage)
+                    .border(1.dp, if (on) Brand.Moss else Brand.Mint, RoundedCornerShape(14.dp))
+                    .clickable { onConfig(cfg.copy(counted = if (on) cfg.counted - kind else cfg.counted + kind)) }.padding(vertical = 10.dp),
+            )
+        }
     }
     Text(tr("At 0 the picked apps stay closed until you earn more with an activity. Every day starts fresh.", "Nullánál a kiválasztott appok zárva maradnak, amíg egy tevékenységgel nem szerzel többet. Minden nap tiszta lappal indul."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
 }

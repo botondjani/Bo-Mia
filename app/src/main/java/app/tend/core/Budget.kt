@@ -18,7 +18,17 @@ data class BudgetConfig(
     val maxDelaySeconds: Int = 10,
     /** In evening mode every open waits this long: late scrolls are the ones we regret most. */
     val eveningDelaySeconds: Int = 10,
+    /** Kinds of app ([AppKinds]) whose time also counts toward the day's minutes, with no pause. */
+    val counted: Set<String> = AppKinds.ALL,
 )
+
+/** Kinds of app that count toward the day's minutes without a pause: only the picked apps get one. */
+object AppKinds {
+    const val SOCIAL = "social"
+    const val VIDEO = "video"
+    const val GAMES = "games"
+    val ALL = setOf(SOCIAL, VIDEO, GAMES)
+}
 
 /** Everything that resets at midnight. Earned minutes expire with it. */
 data class DayState(

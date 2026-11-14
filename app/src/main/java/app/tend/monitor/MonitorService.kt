@@ -179,6 +179,14 @@ class MonitorService : Service() {
                 endSession(now, askWorthIt = false)
                 intercept(fg, now)
             }
+        } else if (fg != null && sessionPkg == null && fg !in blocked && fg != packageName && countsToo(fg) && !store.isLocked()) {
+            // Social, video and games that weren't picked: their time counts too, with no pause.
+            val seconds = (now - lastTick) / 1000
+            if (seconds > 0) {
+                store.update { it.copy(usedSeconds = it.usedSeconds + seconds) }
+                store.addAppSeconds(fg, seconds)
+                app.tend.reminder.Notes.checkLowMinutes(this)
+            }
         } else if (fg != null && fg in blocked && fg == interceptedPkg &&
             now - interceptedAt > MISS_AFTER_MS
         ) {
@@ -244,6 +252,12 @@ class MonitorService : Service() {
     }
 
     private fun scheduledLock() = store.activeLock()
+
+    private val kinds = HashMap<String, String?>()
+
+    /** Whether time in this app counts toward the day's minutes though it isn't picked (its kind is on in Settings). */
+    private fun countsToo(pkg: String): Boolean =
+        kinds.getOrPut(pkg) { app.tend.ui.AppCatalog.kindOf(this, pkg) }?.let { it in store.config.counted } == true
 
     /**
      * Every ten minutes in a row in paused apps, the companion peeks in from the edge: not right

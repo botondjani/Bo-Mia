@@ -43,25 +43,26 @@ CARE FOR BO BY CARING FOR YOURSELF
 • Daily goals you pick: steps, workouts, sleep, reading, learning, friends, hobbies, tidying, cooking, or your own
 • Walks, workouts and sleep count by themselves with Health Connect (great with a smartwatch)
 • Focus timers and phone-free timers for everything else: while one runs, every app waits
-• Or just a timer: 25, 50 or 90 minutes of focus, one tap
+• Or just "Phone down": a timer from 15 to 120 minutes, one tap
 • Level up Body, Mind and Rest: every activity is XP
 • A weekly challenge picked from your habits, with bonus XP
 • Bo earns little things for good habits: a lucky leaf, a sun hat, a nightcap
 
 YOUR CAMP BY THE RIVER
-Walks, books and every "Not now" earn acorns. Spend them on a camp in a clearing by the river: a campfire, a hammock, a canvas tent, a canoe, string lights between the trees. A little something every day, a cabin or a boat to save for. Share it with friends.
+Walks, books and every "Not now" earn acorns. Spend them on a camp in a clearing by the river: a campfire, a hammock, a canvas tent, a canoe, string lights between the trees. A little something every day, a cabin or a boat to save for. Friends can drop by, wave, cheer you on, and sit at each other's fire: putting the phone down is easier together.
 
 A KIND PAUSE, NOT A BLOCK
-When you open TikTok, Instagram or another app you picked, Bo pops up for a breath. Often that's all it takes to stop doomscrolling. Still want in? Take a quick look, or open it for 5 or 15 minutes; Bo checks in when the time is up. No guilt, no shame.
+When you open TikTok, Instagram or another app you picked, Bo pops up for a breath. Often that's all it takes to stop doomscrolling. Still want in? Take a quick look, or open it for 5 or 15 minutes; Bo checks in when the time is up. No guilt, no shame. Time in other social, video and game apps comes off the same daily minutes too, with no pause.
 
 CALM BY DESIGN
 • Evening mode: a sleepy Bo and a longer pause at night, for better sleep
 • Scheduled lock for bedtime or work hours
 • Morning plan, evening recap, Sunday letter: at most three notes a day
 • Home screen widgets, light and dark theme
+• In English and Hungarian
 
 PRIVATE
-No ads, no tracking, no account needed. Log in only if you want a backup; your health data never leaves your phone.
+No ads, no tracking, no account needed. Log in only if you want a backup or friends; your health data never leaves your phone.
 
 For a digital detox that sticks: less screen time, more of your life, and a small friend cheering you on.
 ```

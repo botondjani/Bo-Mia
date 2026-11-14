@@ -25,7 +25,7 @@ GONDOZD BÓT AZZAL, HOGY MAGADRA FIGYELSZ
 • Napi célok, amiket te választasz: lépések, edzés, alvás, olvasás, tanulás, barátok, hobbi, rendrakás, főzés, vagy bármi saját
 • A séta, az edzés és az alvás magától beszámít a Health Connecttel (okosórával a legjobb)
 • Minden másra fókusz- és telefonmentes időzítő: amíg megy, minden app megvárja
-• Vagy csak egy időzítő: 25, 50 vagy 90 perc nyugalom, egy koppintással
+• Vagy csak „Telefon le”: időzítő 15-től 120 percig, egy koppintással
 • Szintek a Testnek, az Elmének és a Pihenésnek: minden tevékenység XP
 • Heti kihívás a saját szokásaidból, bónusszal
 • Bo apró holmikat kap a jó szokásokért: szerencselevelet, szalmakalapot, hálósapkát
@@ -34,7 +34,7 @@ TÁBOR A FOLYÓPARTON
 A sétákért, a könyvekért és minden „Most nem”-ért makk jár. Ebből építed a tábort a folyóparti tisztáson: tábortűz, függőágy, vászonsátor, kenu, fényfüzér a fák között. Minden nap jut valami apróság, és van mire gyűjteni is. A barátaid átjöhetnek, integethetnek, megtapsolhatnak, és odaülhettek egymás tábortüzéhez: együtt letenni a telefont könnyebb.
 
 KEDVES SZÜNET, NEM TILTÁS
-Amikor megnyitod a TikTokot, az Instagramot vagy bármelyik appot, amit kiválasztottál, Bo felbukkan egy lélegzetvételnyi szünetre. Gyakran ennyi is elég, hogy ne ragadj bele a görgetésbe. Mégis kell? Nézz be egy percre, vagy nyisd meg 5 vagy 15 percre; Bo szól, ha letelt. Nincs bűntudat, nincs szégyen.
+Amikor megnyitod a TikTokot, az Instagramot vagy bármelyik appot, amit kiválasztottál, Bo felbukkan egy lélegzetvételnyi szünetre. Gyakran ennyi is elég, hogy ne ragadj bele a görgetésbe. Mégis kell? Nézz be egy percre, vagy nyisd meg 5 vagy 15 percre; Bo szól, ha letelt. Nincs bűntudat, nincs szégyen. A többi közösségi, videós és játékapp ideje is ugyanabból a napi keretből fogy, szünet nélkül.
 
 NYUGALOMRA TERVEZVE
 • Esti mód: álmos Bo és hosszabb szünet éjjel, a jobb alvásért

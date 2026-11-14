@@ -499,8 +499,9 @@ class TendStore(private val context: Context) {
         get() = BudgetConfig(
             totalMinutes = prefs.getInt("cfg_total", BudgetConfig().totalMinutes),
             freeMinutes = prefs.getInt("cfg_free", BudgetConfig().freeMinutes),
+            counted = prefs.getStringSet("cfg_counted", null) ?: BudgetConfig().counted,
         )
-        set(v) = edit { putInt("cfg_total", v.totalMinutes); putInt("cfg_free", v.freeMinutes) }
+        set(v) = edit { putInt("cfg_total", v.totalMinutes); putInt("cfg_free", v.freeMinutes); putStringSet("cfg_counted", v.counted) }
 
     /** Start of the running reading session (wall clock), 0 when none. Survives the app being closed. */
     var focusStartedAt: Long

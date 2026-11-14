@@ -74,6 +74,21 @@ class AppCatalog(private val context: Context) {
         fun heavyToAdd(dailyMinutes: Map<String, Int>, installed: List<String>, picked: Set<String>): List<String> =
             installed.filter { (dailyMinutes[it] ?: 0) >= HEAVY_MINUTES && it !in picked }.sortedByDescending { dailyMinutes[it] }
 
+        /** Social, video or games ([app.tend.core.AppKinds]), from the app's own store category; null for anything else. */
+        fun kindOf(context: Context, pkg: String): String? {
+            val info = runCatching { context.packageManager.getApplicationInfo(pkg, 0) }.getOrNull() ?: return null
+            @Suppress("DEPRECATION")
+            return when {
+                pkg in SOCIAL || info.category == android.content.pm.ApplicationInfo.CATEGORY_SOCIAL -> app.tend.core.AppKinds.SOCIAL
+                pkg in VIDEO || info.category == android.content.pm.ApplicationInfo.CATEGORY_VIDEO -> app.tend.core.AppKinds.VIDEO
+                info.category == android.content.pm.ApplicationInfo.CATEGORY_GAME || info.flags and android.content.pm.ApplicationInfo.FLAG_IS_GAME != 0 -> app.tend.core.AppKinds.GAMES
+                else -> null
+            }
+        }
+
+        /** Video apps that don't all say so in their store category. */
+        private val VIDEO = setOf("com.google.android.youtube", "com.netflix.mediaclient", "tv.twitch.android.app", "com.disney.disneyplus", "com.hbo.hbonow", "com.amazon.avod.thirdpartyclient")
+
         /** Ordered roughly by how often they come up as "mindless scrolling". */
         val SUGGESTED = listOf(
             "com.instagram.android",
