@@ -159,6 +159,7 @@ fun ClearingScreen(
     var friendsOpen by rememberSaveable { mutableStateOf(openInvite) }
     androidx.compose.runtime.LaunchedEffect(openInvite) { if (openInvite) friendsOpen = true }
     var shopOpen by rememberSaveable { mutableStateOf(false) }
+    var bookOpen by rememberSaveable { mutableStateOf(false) }
     var collectionAt by remember { androidx.compose.runtime.mutableIntStateOf(0) }
 
     // The same header as home, settings and all (nothing moves going between them).
@@ -662,7 +663,7 @@ fun ClearingScreen(
     }
 
     Column(Modifier.onGloballyPositioned { collectionAt = it.positionInParent().y.toInt() }.pageBody(), verticalArrangement = Arrangement.spacedBy(Space.m)) {
-        Guestbook(guestbook)
+        GuestbookRow(guestbook) { bookOpen = true }
         totals?.let { MilestonesCard(it) }
         Things(avatar, worn, onShelf, earned, onToggleAccessory)
     }
@@ -685,6 +686,10 @@ fun ClearingScreen(
     }
 
     // Friends: over the page, from the bottom.
+    if (bookOpen) androidx.compose.material3.ModalBottomSheet(onDismissRequest = { bookOpen = false }, containerColor = Brand.Sage) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = Space.xl)) { Guestbook(guestbook) }
+    }
+
     if (friendsOpen) androidx.compose.material3.ModalBottomSheet(onDismissRequest = { friendsOpen = false }, containerColor = Brand.Sage) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = Space.xl)) {
             FriendsCard(onOpenSettings, onOpenRiver, onFriendsChanged, openInvite)
@@ -984,7 +989,19 @@ private fun GreetedCard(v: app.tend.core.Visitor, book: Map<app.tend.core.Visito
     }
 }
 
-/** The animals that came to the camp: seen ones in colour with how often, the rest as shadows, four to a row. */
+/** The guestbook, closed: how many animals came, the ones met as small icons; tap to open. */
+@Composable
+private fun GuestbookRow(book: Map<app.tend.core.Visitor, Int>, onOpen: () -> Unit) = Row(
+    Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Brand.Card).tappable(onClick = onOpen).padding(horizontal = 14.dp, vertical = 12.dp),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    Text(tr("Guestbook", "Vendégkönyv"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp), modifier = Modifier.weight(1f))
+    app.tend.core.Visitor.entries.filter { it in book }.take(4).forEach { v -> Canvas(Modifier.size(26.dp)) { drawVisitorIcon(v) } }
+    Spacer(Modifier.width(8.dp))
+    Text("${book.size} / ${app.tend.core.Visitor.entries.size}  \u203A", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+}
+
+/** The animals that came to the camp: seen ones in colour, the rest as shadows, four to a row. */
 @Composable
 private fun Guestbook(book: Map<app.tend.core.Visitor, Int>) {
     Card {
@@ -1000,7 +1017,7 @@ private fun Guestbook(book: Map<app.tend.core.Visitor, Int>) {
                         Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(14.dp)).background(Brand.Sage), contentAlignment = Alignment.Center) {
                             Canvas(Modifier.fillMaxSize().padding(6.dp)) { drawVisitorIcon(v, seen = n > 0) }
                         }
-                        Text(if (n > 0) v.title + if (n > 1) " ×$n" else "" else "?", style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                        Text(if (n > 0) v.title else "?", style = MaterialTheme.typography.labelMedium, maxLines = 1)
                         Text(v.rarity.label, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 10.sp), color = if (v.rare) Color(0xFFB9783F) else Brand.Muted)
                     }
                 }
