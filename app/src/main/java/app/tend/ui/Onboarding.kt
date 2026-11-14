@@ -101,7 +101,7 @@ enum class PermissionLock { NONE, LOCKED, TRIPPED }
 // Short on purpose: the town is asked later in the camp, and an account is offered on home (or right here, for those who have one).
 private const val STEP_MS = 650L
 
-private enum class Step { WELCOME, USAGE, APPS, ACTIVITIES, PAUSE, CAMP }
+private enum class Step { WELCOME, USAGE, APPS, MINUTES, ACTIVITIES, PAUSE, CAMP }
 
 @Composable
 fun Onboarding(
@@ -134,7 +134,7 @@ fun Onboarding(
     var movedAt by remember { mutableStateOf(0L) }
     val next = {
         val now = android.os.SystemClock.uptimeMillis()
-        if (now - movedAt > STEP_MS) { movedAt = now; stepIndex = (stepIndex + 1).coerceAtMost(Step.entries.lastIndex) }
+        if (movedAt == 0L || now - movedAt > STEP_MS) { movedAt = now; stepIndex = (stepIndex + 1).coerceAtMost(Step.entries.lastIndex) }
     }
     // Where people leave the setup, if they share counts: each step once, as it's reached.
     val ctx = androidx.compose.ui.platform.LocalContext.current
@@ -198,6 +198,17 @@ fun Onboarding(
                         else tr("We picked the usual suspects. Tap to change.", "A szokásos gyanúsítottakat választottuk. Koppintással változtathatsz."),
                     )
                     AppPicker(catalog, blocked, onToggleApp)
+                }
+
+                // How much a day: the free minutes and the most there can be, next to what those apps take now.
+                Step.MINUTES -> StepPage(cta = tr("Continue", "Tovább"), onCta = next) {
+                    val now = blocked.sumOf { catalog.dailyMinutes[it] ?: 0 }
+                    Title(
+                        tr("How much time a day?", "Mennyi idő jár naponta?"),
+                        if (now > 0) tr("These apps take about $now minutes a day now. Start a little below that: you can change it any time.", "Ezek az appok most nagyjából napi $now percet visznek el. Kezdd egy kicsit kevesebbel: bármikor módosíthatod.")
+                        else tr("Pick what feels fair: you can change it any time in Settings.", "Válaszd, ami fair: a Beállításokban bármikor módosíthatod."),
+                    )
+                    BudgetPicker(cfg, onConfig)
                 }
 
                 Step.ACTIVITIES -> {
