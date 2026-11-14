@@ -137,6 +137,7 @@ fun HomeScreen(
     /** A friend calling you to the campfire just now (their name). */
     fireCall: String? = null,
     onAnswerCall: () -> Unit = {},
+    onDismissCall: () -> Unit = {},
     /** Friends who did something today, with a cheer for each (once a day). */
     friendsToday: List<app.tend.data.Friends.Friend> = emptyList(),
     cheered: Set<String> = emptySet(),
@@ -294,10 +295,16 @@ fun HomeScreen(
             )
         }
         // A friend calling to the fire (nobody's there yet): one tap puts your phone down too.
-        if (focusSecondsLeft == null && atFire.isEmpty() && fireCall != null) Notice(
-            "friends", tr("$fireCall calls you to the campfire", "$fireCall a tábortűzhöz hív"),
-            tr("Put your phones down together: +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each", "Tegyétek le együtt a telefont: fejenként +${app.tend.core.Acorns.TOGETHER_FIRE} makk"), onAnswerCall,
-        )
+        if (focusSecondsLeft == null && atFire.isEmpty() && fireCall != null) Column(
+            Modifier.fillMaxWidth().surface(radius = 20.dp).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(tr("$fireCall calls you to the campfire", "$fireCall a tábortűzhöz hív"), style = MaterialTheme.typography.titleMedium)
+            Text(tr("Put your phones down together: +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each.", "Tegyétek le együtt a telefont: fejenként +${app.tend.core.Acorns.TOGETHER_FIRE} makk."), style = MaterialTheme.typography.bodyMedium, color = Brand.Muted)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ChipButton(tr("Join", "Csatlakozom"), onAnswerCall)
+                ChipButton(tr("Not now", "Most nem"), onDismissCall, filled = false)
+            }
+        }
         // The trial's last days: said once a day on home, never in the way.
         if (plusDaysLeft != null && plusDaysLeft <= 3) Notice(
             "sparkle", if (plusDaysLeft <= 1) tr("Last day of tend Plus", "A tend Plus utolsó napja") else tr("$plusDaysLeft more day${if (plusDaysLeft == 1) "" else "s"} of tend Plus", "Még $plusDaysLeft nap tend Plus"),

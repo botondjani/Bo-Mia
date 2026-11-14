@@ -71,6 +71,7 @@ object TaskSync {
         val task = if (wanted.id == Tasks.TIMER_ID) Tasks.timer(Tasks.clampTimer(wanted.target)) else wanted
         val store = TendStore(context)
         if (store.focusStartedAt > 0) return
+        app.tend.data.Friends.doneFireCall(context) // phone down now: a call to the fire is answered
         store.timerBroken = ""
         if (task.id == Tasks.TIMER_ID) store.focusTimerMinutes = task.target
         store.focusTaskId = task.id

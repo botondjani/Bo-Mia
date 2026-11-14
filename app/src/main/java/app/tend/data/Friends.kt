@@ -91,8 +91,20 @@ object Friends {
     }
 
     /** A friend calling you to the campfire in the last half hour (the newest one), or null. */
-    fun fireCall(c: Context, now: Long = System.currentTimeMillis()): Note? =
-        notes(c).firstOrNull { it.kind == Kind.FIRE && now - it.at < 30 * 60_000L }
+    fun fireCall(c: Context, now: Long = System.currentTimeMillis()): Note? {
+        val done = prefs(c).getLong("fire_call_done", 0)
+        return notes(c).firstOrNull { it.kind == Kind.FIRE && it.id > done && now - it.at < FIRE_CALL_MS }
+    }
+
+    /** The call to the fire is answered or put away (or a timer of your own started): it's gone, here and in the notifications. */
+    fun doneFireCall(c: Context) {
+        val newest = notes(c).filter { it.kind == Kind.FIRE }.maxOfOrNull { it.id } ?: return
+        prefs(c).edit().putLong("fire_call_done", newest).apply()
+        c.getSystemService(android.app.NotificationManager::class.java).cancel(NOTIFICATION_ID)
+    }
+
+    /** A call to the fire is worth answering for half an hour. */
+    private const val FIRE_CALL_MS = 30 * 60_000L
 
     private fun time(s: String?): Long? = s?.takeIf { it.isNotBlank() && it != "null" }?.let { runCatching { java.time.OffsetDateTime.parse(it).toInstant().toEpochMilli() }.getOrNull() }
 
@@ -292,8 +304,27 @@ object Friends {
         // Paper taken down while offline: tell the server now.
         if (notes.any { it.kind == Kind.TP && !it.cleared && it.id <= p.getLong("paper_down", 0) }) Account.rpc(c, "tend_clear_paper")
         val fresh = notes.filter { it.id > known && System.currentTimeMillis() - it.at < 6 * 3_600_000L }
-        if (fresh.isNotEmpty()) notify(c, fresh)
+        // A cheer is worth something: a few acorns each, up to a few a day.
+        val paid = p.getLong("cheers_paid", 0)
+        val cheers = notes.filter { it.kind == Kind.CHEER && it.id > maxOf(paid, known) }
+        if (cheers.isNotEmpty()) {
+            val store = TendStore(c)
+            val today = java.time.LocalDate.now().toString()
+            val countedToday = if (p.getString("cheers_day", "") == today) p.getInt("cheers_today", 0) else 0
+            val counted = cheers.size.coerceAtMost((CHEERS_PAID_A_DAY - countedToday).coerceAtLeast(0))
+            if (counted > 0) store.addAcorns(counted * CHEER_ACORNS, "cheer")
+            p.edit().putLong("cheers_paid", cheers.maxOf { it.id }).putString("cheers_day", today).putInt("cheers_today", countedToday + counted).apply()
+        }
+        // Calls already over aren't news any more.
+        val news = fresh.filter { it.kind != Kind.FIRE || System.currentTimeMillis() - it.at < FIRE_CALL_MS }
+        if (news.isNotEmpty()) notify(c, news)
         return notes.any { it.id > known }
+    }
+
+    /** Notes not yet seen in the app (from the last day), newest first. */
+    fun unseenNotes(c: Context, now: Long = System.currentTimeMillis()): List<Note> {
+        val seen = prefs(c).getLong("notes_seen", 0)
+        return notes(c).filter { it.id > seen && now - it.at < DAY_MS && (it.kind != Kind.FIRE || now - it.at < FIRE_CALL_MS) }
     }
 
     /** Notes kept from the last sync, newest first. */
@@ -344,11 +375,17 @@ object Friends {
 
     fun markSeen(c: Context) {
         val newest = notes(c).maxOfOrNull { it.id } ?: return
+        // Seen in the app: the note in the notifications has done its job.
+        c.getSystemService(android.app.NotificationManager::class.java).cancel(NOTIFICATION_ID)
         if (newest > prefs(c).getLong("notes_seen", 0)) {
             prefs(c).edit().putLong("notes_seen", newest).apply()
             app.tend.widget.Widgets.refresh(c)
         }
     }
+
+    /** Acorns for each cheer received, and how many cheers a day are worth them. */
+    const val CHEER_ACORNS = 2
+    private const val CHEERS_PAID_A_DAY = 5
 
     /** Acorns in a present from a friend. */
     const val GIFT_ACORNS = 10
@@ -374,7 +411,7 @@ object Friends {
             Kind.TP -> tr("Tap the oak in your camp to unroll it.", "Koppints a tölgyfára a táborodban, és letekered.")
             Kind.VISIT -> tr("They left a rubber duck in your river.", "Egy gumikacsát hagyott a folyódban.")
             Kind.WAVE -> tr("Wave back from your camp.", "Integess vissza a táborodból.")
-            Kind.CHEER -> tr("For what you did today. Cheer them back from your camp.", "Azért, amit ma csináltál. Tapsold meg te is a táborodból.")
+            Kind.CHEER -> tr("For what you did today: +$CHEER_ACORNS acorns.", "Azért, amit ma csináltál: +$CHEER_ACORNS makk.")
             Kind.GIFT -> tr("It's waiting in your camp. Tap it to open.", "A táborodban vár. Koppints rá, és kibontod.")
             Kind.FIRE -> tr("Put your phones down together: +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each. Tap to join.", "Tegyétek le együtt a telefont: fejenként +${app.tend.core.Acorns.TOGETHER_FIRE} makk. Koppints, és csatlakozol.")
         } + if (fresh.size > 1) tr(" And ${fresh.size - 1} more from friends.", " És még ${fresh.size - 1} a barátaidtól.") else ""
@@ -388,7 +425,10 @@ object Friends {
             NOTIFICATION_ID,
             android.app.Notification.Builder(c, CHANNEL).setSmallIcon(app.tend.R.drawable.ic_notification)
                 .setContentTitle(first.kind.received(first.name)).setContentText(text)
-                .setContentIntent(open).setAutoCancel(true).build(),
+                .setContentIntent(open).setAutoCancel(true)
+                // Gone by itself: a call when it's over, the rest by the evening.
+                .setTimeoutAfter(if (first.kind == Kind.FIRE) (FIRE_CALL_MS - (System.currentTimeMillis() - first.at)).coerceAtLeast(60_000L) else 12 * 3_600_000L)
+                .build(),
         )
     }
 

@@ -541,6 +541,7 @@ class MainActivity : ComponentActivity() {
         // Answering a call to the fire: with them if they're there already, else starting it for both.
         val answerCall: () -> Unit = {
             val call = app.tend.data.Friends.fireCall(this)
+            app.tend.data.Friends.doneFireCall(this)
             join(atFire.firstOrNull { it.id == call?.from } ?: atFire.firstOrNull() ?: app.tend.data.Friends.AtFire(call?.from.orEmpty(), call?.name ?: tr("your friend", "a barátod"), "BO", 0, 0, ""))
         }
         LaunchedEffect(joinFire, atFire) { if (joinFire) { joinFire = false; answerCall() } }
@@ -1013,6 +1014,7 @@ class MainActivity : ComponentActivity() {
                 streak = remember(refresh, done) { app.tend.core.Voice.streakOf(store.daySummaries(), LocalDate.now()) },
                 fireCall = remember(refresh, now / 60_000) { app.tend.data.Friends.fireCall(this@MainActivity)?.name },
                 onAnswerCall = answerCall,
+                onDismissCall = { app.tend.data.Friends.doneFireCall(this@MainActivity); refresh++ },
                 friendsToday = friendsToday,
                 cheered = cheeredToday,
                 onCheer = { f ->

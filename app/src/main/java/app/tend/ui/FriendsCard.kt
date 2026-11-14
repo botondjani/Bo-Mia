@@ -94,7 +94,8 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
         if (owner != null) asking = code to owner else note = tr("That code isn't anyone's (or it's yours). Check it and try again.", "Ez a kód senkié (vagy a tiéd). Nézd meg, és próbáld újra.")
     }
 
-    val notes = remember { Friends.notes(context).filter { System.currentTimeMillis() - it.at < 3 * 86_400_000L }.take(4) }
+    // What's new since you last looked (then it's seen): a few lines, not a history.
+    val notes = remember { Friends.unseenNotes(context).take(4) }
     LaunchedEffect(signedIn) {
         if (!signedIn) return@LaunchedEffect
         Friends.markSeen(context)
@@ -117,9 +118,6 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
         } else {
             val list = friends.orEmpty()
             notes.forEach { n -> NoteRow(n) }
-            app.tend.data.TendStore(context).ducksCaught.takeIf { it > 0 }?.let { n ->
-                Text(tr("Rubber ducks from visits: $n", "Gumikacsák a látogatásokból: $n"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
-            }
             if (list.isEmpty()) Text(
                 if (offline) tr("Can't reach the server right now.", "Most nem érjük el a szervert.") else tr("No friends yet. Invite someone: when they accept, you'll see each other's camps.", "Még nincs barátod. Hívj meg valakit: ha elfogadja, látjátok egymás táborát."),
                 style = MaterialTheme.typography.bodyMedium,
@@ -213,16 +211,13 @@ private fun FriendRow(f: Friends.Friend, cheered: Boolean, gifted: Boolean, onVi
             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, maxLines = 1,
         )
     }
-    // Something done lately: one tap to cheer it (once a day).
-    if (f.lastDone != null) Text(
-        if (cheered) tr("Cheered", "Megtapsolva") else tr("\uD83D\uDC4F Cheer", "👏 Taps"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
-        color = if (cheered) Brand.Muted else androidx.compose.ui.graphics.Color.White,
-        modifier = Modifier.clip(RoundedCornerShape(50)).background(if (cheered) Brand.Sage else Brand.Moss)
-            .then(if (cheered) Modifier else Modifier.tappable(onClick = onCheer)).padding(horizontal = 10.dp, vertical = 6.dp),
-    )
-    // Come to the fire: let's put the phones down together (once an hour).
-    Spacer(Modifier.width(6.dp))
-    Text(
+    // One action up front: a cheer for something done today, otherwise a call to the fire.
+    val today = f.lastDoneAt?.let { java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate() } == java.time.LocalDate.now()
+    val cheerFirst = f.lastDone != null && today && !cheered
+    if (cheerFirst) Text(
+        tr("\uD83D\uDC4F Cheer", "👏 Taps"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp), color = androidx.compose.ui.graphics.Color.White,
+        modifier = Modifier.clip(RoundedCornerShape(50)).background(Brand.Moss).tappable(onClick = onCheer).padding(horizontal = 10.dp, vertical = 6.dp),
+    ) else Text(
         if (called) tr("Called", "Hívva") else tr("\uD83D\uDD25 Call", "🔥 Hívás"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
         color = if (called) Brand.Muted else Brand.Moss,
         modifier = Modifier.clip(RoundedCornerShape(50)).background(Brand.Sage)
@@ -234,6 +229,10 @@ private fun FriendRow(f: Friends.Friend, cheered: Boolean, gifted: Boolean, onVi
         Text("\u22EE", style = MaterialTheme.typography.titleMedium, color = Brand.Muted,
             modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable { more = true }.semantics { contentDescription = tr("More", "Egyebek") }.padding(horizontal = 8.dp, vertical = 6.dp))
         androidx.compose.material3.DropdownMenu(expanded = more, onDismissRequest = { more = false }, containerColor = Brand.Card) {
+            if (cheerFirst) androidx.compose.material3.DropdownMenuItem(
+                text = { Text(if (called) tr("Called to the fire", "Már hívtad a tűzhöz") else tr("Call to the fire", "Hívás a tűzhöz")) },
+                enabled = !called, onClick = { more = false; onCall() },
+            )
             androidx.compose.material3.DropdownMenuItem(
                 text = { Text(if (gifted) tr("Present sent today", "Ma már küldtél ajándékot") else tr("Send a present (${Friends.GIFT_ACORNS} acorns)", "Ajándék küldése (${Friends.GIFT_ACORNS} makk)")) },
                 enabled = !gifted, onClick = { more = false; onGift() },
