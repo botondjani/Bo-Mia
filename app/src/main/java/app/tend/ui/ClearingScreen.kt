@@ -476,8 +476,8 @@ fun ClearingScreen(
                             when {
                                 using?.second == thing && thing == "guitar" -> { strumAt = frame; useStart = frame - ((walk + 1f) * 1e9f).toLong(); Sounds.strum(context) }
                                 using?.first == hit -> {}
-                                // Busy: it waits its turn, quietly (three at most).
-                                using != null -> if (hit !in queue && queue.size < 3) queue += hit
+                                // Busy with something else: that's left off, and over to this one from where they are.
+                                using != null -> { queue.clear(); Sounds.stop(); startUse(hit, thing) }
                                 // Walk over first, unless already there; the sound starts on arrival.
                                 else -> startUse(hit, thing)
                             }
@@ -681,7 +681,7 @@ fun ClearingScreen(
         val free = with(density) { (pageH - hubTop - Space.xxl.toPx()).toDp() }
         val tileH = 68.dp
         // What's left under the tiles: a quiet drawing, so the page ends calmly and still doesn't scroll.
-        val rest = (free - tileH * 2 - 10.dp - Space.m - 6.dp).coerceAtLeast(0.dp)
+        val rest = (free - tileH * 2 - 10.dp - Space.m * 2 - 14.dp - 6.dp).coerceAtLeast(0.dp)
         // Where they start on the page (not on screen: scrolling doesn't change it).
         Column(Modifier.fillMaxWidth().onGloballyPositioned { hubTop = (it.positionInRoot().y - pageTop).toInt() + scroll.value }, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -693,7 +693,20 @@ fun ClearingScreen(
                 HubTile("achievements", tr("Achievements", "Eredmények"), totals?.let { t -> "${app.tend.core.Milestone.reached(t).size} / ${app.tend.core.Milestone.entries.size}" } ?: "", false, Modifier.weight(1f).height(tileH)) { milestonesOpen = true }
             }
         }
-        if (rest > 24.dp) CampFooter(Modifier.fillMaxWidth().height(rest))
+        if (rest > 24.dp) {
+            // A fine line with a leaf in the middle: the tiles above, the quiet drawing below.
+            Canvas(Modifier.fillMaxWidth().height(14.dp)) {
+                val y = size.height / 2
+                val c = Offset(size.width / 2, y)
+                val line = Brand.Moss.copy(alpha = 0.28f)
+                drawLine(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color.Transparent, line), endX = c.x - 14.dp.toPx()), Offset(size.width * 0.08f, y), Offset(c.x - 14.dp.toPx(), y), strokeWidth = 1.dp.toPx())
+                drawLine(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(line, Color.Transparent), startX = c.x + 14.dp.toPx(), endX = size.width * 0.92f), Offset(c.x + 14.dp.toPx(), y), Offset(size.width * 0.92f, y), strokeWidth = 1.dp.toPx())
+                val r = 6.dp.toPx()
+                drawPath(Path().apply { moveTo(c.x - r, y); quadraticTo(c.x, y - r * 0.9f, c.x + r, y); quadraticTo(c.x, y + r * 0.9f, c.x - r, y); close() }, Brand.Moss.copy(alpha = 0.45f))
+                drawLine(Brand.Sage, Offset(c.x - r * 0.7f, y), Offset(c.x + r * 0.7f, y), strokeWidth = 0.8.dp.toPx())
+            }
+            CampFooter(Modifier.fillMaxWidth().height(rest))
+        }
     }
 
     }
@@ -724,7 +737,7 @@ fun ClearingScreen(
     // Friends: over the page, from the bottom.
     if (chestOpen) androidx.compose.material3.ModalBottomSheet(onDismissRequest = { chestOpen = false }, containerColor = Brand.Sage,
         sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.sheetBody()) {
+        Column(Modifier.sheetBody(0.62f)) {
             Inventory(avatar, placed, chest, onPutAway = { tick(); onPutAway(it) }, onSell = onSell, onTakeOut = { id ->
                 onTakeOut(id).also { ok -> if (ok) { tick(firm = true); chestOpen = false; scope.launch { scroll.animateScrollTo(0) } } }
             }, onTraded = onFriendsChanged, worn = worn, onShelf = onShelf, earned = earned, onToggleAccessory = onToggleAccessory,
@@ -733,14 +746,14 @@ fun ClearingScreen(
     }
     // Achievements: the milestones, and what the companion earns by habits.
     if (milestonesOpen) androidx.compose.material3.ModalBottomSheet(onDismissRequest = { milestonesOpen = false }, containerColor = Brand.Sage, sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.sheetBody(), verticalArrangement = Arrangement.spacedBy(Space.m)) {
+        Column(Modifier.sheetBody(0.62f), verticalArrangement = Arrangement.spacedBy(Space.m)) {
             Text(tr("Achievements", "Eredmények"), style = MaterialTheme.typography.headlineSmall)
             totals?.let { MilestonesCard(it) }
             Things(avatar, worn, onShelf, earned, onToggleAccessory)
         }
     }
     if (bookOpen) androidx.compose.material3.ModalBottomSheet(onDismissRequest = { bookOpen = false }, containerColor = Brand.Sage, sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.sheetBody()) { Guestbook(guestbook) }
+        Column(Modifier.sheetBody(0.62f)) { Guestbook(guestbook) }
     }
 
     if (friendsOpen) androidx.compose.material3.ModalBottomSheet(onDismissRequest = { friendsOpen = false }, containerColor = Brand.Sage, sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
@@ -1304,23 +1317,23 @@ private fun thingIconBitmap(id: String): androidx.compose.ui.graphics.ImageBitma
 private fun CampFooter(modifier: Modifier) = Canvas(modifier) {
     val w = size.width
     val h = size.height
-    val base = h * 0.78f
+    val base = h * 0.86f
     val ink = Brand.Moss.copy(alpha = 0.18f)
     drawPath(Path().apply {
         moveTo(0f, base)
-        cubicTo(w * 0.25f, base - h * 0.12f, w * 0.45f, base + h * 0.04f, w * 0.7f, base - h * 0.08f)
-        cubicTo(w * 0.85f, base - h * 0.14f, w * 0.95f, base - h * 0.02f, w, base - h * 0.04f)
+        cubicTo(w * 0.25f, base - h * 0.22f, w * 0.45f, base + h * 0.04f, w * 0.7f, base - h * 0.16f)
+        cubicTo(w * 0.85f, base - h * 0.26f, w * 0.95f, base - h * 0.06f, w, base - h * 0.08f)
         lineTo(w, h); lineTo(0f, h); close()
-    }, androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Brand.Mint.copy(alpha = 0.28f), Brand.Sage.copy(alpha = 0f)), startY = base - h * 0.14f, endY = h))
+    }, androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Brand.Mint.copy(alpha = 0.32f), Brand.Sage.copy(alpha = 0f)), startY = base - h * 0.26f, endY = h))
     for ((x, sc) in listOf(0.12f to 1f, 0.17f to 0.7f, 0.78f to 0.9f, 0.84f to 0.6f)) {
-        val bx = w * x; val by = base - h * 0.02f; val th = h * 0.22f * sc
+        val bx = w * x; val by = base - h * 0.06f; val th = h * 0.42f * sc
         drawPath(Path().apply { moveTo(bx, by - th); lineTo(bx + th * 0.35f, by); lineTo(bx - th * 0.35f, by); close() }, ink)
     }
     // A dotted path off into the hills.
-    for (i in 0 until 9) { val k = i / 8f; drawCircle(ink, h * 0.012f, Offset(w * (0.42f + 0.18f * k), base + h * (0.12f - 0.1f * k))) }
+    for (i in 0 until 11) { val k = i / 10f; drawCircle(ink, h * 0.014f, Offset(w * (0.4f + 0.2f * k), base + h * (0.1f - 0.16f * k))) }
     // Two birds far off.
-    for ((x, y) in listOf(0.55f to 0.3f, 0.6f to 0.36f)) {
-        val c = Offset(w * x, base - h * y); val r = h * 0.03f
+    for ((x, y) in listOf(0.52f to 0.62f, 0.58f to 0.7f, 0.47f to 0.72f)) {
+        val c = Offset(w * x, base - h * y); val r = h * 0.04f
         drawPath(Path().apply { moveTo(c.x - r, c.y); quadraticTo(c.x - r / 2, c.y - r * 0.6f, c.x, c.y); quadraticTo(c.x + r / 2, c.y - r * 0.6f, c.x + r, c.y) }, ink, style = androidx.compose.ui.graphics.drawscope.Stroke(h * 0.008f))
     }
 }

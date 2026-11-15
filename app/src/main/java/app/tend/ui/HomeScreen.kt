@@ -680,7 +680,7 @@ internal fun ChallengesSheet(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     Column(
-        Modifier.sheetBody(),
+        Modifier.sheetBody(0.62f),
         verticalArrangement = Arrangement.spacedBy(Space.m),
     ) {
         Text(tr("Challenges", "Kihívások"), style = MaterialTheme.typography.headlineSmall)
