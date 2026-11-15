@@ -210,6 +210,7 @@ class TendStore(private val context: Context) {
         if (step in stepsClaimed) return
         stepsClaimed = stepsClaimed + step
         addAcorns(step.acorns, "steps")
+        addXp(app.tend.core.Progress.XP_STEP)
     }
 
     /** Today's visitor, still waiting to be greeted; null once greeted today. */
@@ -529,7 +530,24 @@ class TendStore(private val context: Context) {
     /** All XP: activities plus completed weekly challenges. */
     fun skillXp(): Map<app.tend.core.Skill, Int> = app.tend.core.Progress.skillXp(daySummaries())
 
-    fun totalXp(): Int = skillXp().values.sum() + challengesDone.size * app.tend.core.Progress.XP_PER_CHALLENGE
+    /**
+     * All XP: activities, weekly challenges, the unused share of every closed day, and what's been
+     * added as it happened (phone down, quests, first steps). Once, when XP grew more sources and a
+     * steeper curve, topped up so no one drops below the level they'd seen.
+     */
+    fun totalXp(): Int {
+        val days = daySummaries()
+        val today = LocalDate.now()
+        val raw = app.tend.core.Progress.skillXp(days).values.sum() + challengesDone.size * app.tend.core.Progress.XP_PER_CHALLENGE +
+            days.filter { it.date != today }.sumOf(app.tend.core.Progress::xpUnused) + prefs.getInt("xp_extra", 0)
+        if (prefs.getBoolean("xp_v2", false)) return raw
+        val add = (app.tend.core.Progress.xpFor(levelSeen) - raw).coerceAtLeast(0)
+        prefs.edit().putBoolean("xp_v2", true).putInt("xp_extra", prefs.getInt("xp_extra", 0) + add).apply()
+        return raw + add
+    }
+
+    /** XP for something done just now (a phone down, a quest, a first step). */
+    fun addXp(xp: Int) { if (xp > 0) prefs.edit().putInt("xp_extra", prefs.getInt("xp_extra", 0) + xp).apply() }
 
     /** The Play review sheet was offered (once). */
     var reviewAsked: Boolean

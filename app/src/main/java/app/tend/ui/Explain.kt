@@ -45,7 +45,7 @@ fun AcornsDialog(onDismiss: () -> Unit) = Sheet(tr("Acorns", "Makk"), onDismiss)
     Line(tr("A visitor in the camp", "Látogató a táborban"), "+${Rarity.COMMON.acorns}–${Rarity.RARE.acorns}")
     Line(tr("A challenge", "Egy kihívás"), "+${app.tend.core.Step.entries.minOf { it.acorns }}–${app.tend.core.Step.entries.maxOf { it.acorns }}")
     Line(tr("The weekly goal", "A heti cél"), "+${Acorns.CHALLENGE}")
-    Line(tr("A new level", "Új szint"), "+${Acorns.LEVEL_UP}")
+    Line(tr("A new level", "Új szint"), tr("+20, and 5 more for each level", "+20, és szintenként 5-tel több"))
 }
 
 @Composable

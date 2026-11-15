@@ -802,6 +802,7 @@ class MainActivity : ComponentActivity() {
                     if (store.questClaimedOn != LocalDate.now().toString()) {
                         store.questClaimedOn = LocalDate.now().toString()
                         store.addAcorns(app.tend.core.Quests.of(LocalDate.now(), store.selectedTasks, store.config.freeMinutes).acorns, "quest")
+                        store.addXp(app.tend.core.Progress.XP_QUEST)
                         app.tend.ui.Sounds.acorns(this@MainActivity); refresh++
                     }
                 },
@@ -928,6 +929,7 @@ class MainActivity : ComponentActivity() {
                     if (store.questClaimedOn != LocalDate.now().toString()) {
                         store.questClaimedOn = LocalDate.now().toString()
                         store.addAcorns(app.tend.core.Quests.of(LocalDate.now(), store.selectedTasks, store.config.freeMinutes).acorns, "quest")
+                        store.addXp(app.tend.core.Progress.XP_QUEST)
                         app.tend.ui.Sounds.acorns(this@MainActivity); refresh++
                     }
                 },
@@ -1080,7 +1082,7 @@ class MainActivity : ComponentActivity() {
                 onStats = { app.tend.data.Stats.setConsent(this@MainActivity, it); refresh++ },
                 levelUp = progress.level.level.takeIf { it > store.levelSeen && store.tourDone },
                 onLevelUpSeen = {
-                    store.addAcorns(app.tend.core.Acorns.LEVEL_UP * (progress.level.level - store.levelSeen).coerceAtLeast(0), "level")
+                    store.addAcorns(((store.levelSeen + 1)..progress.level.level).sumOf(app.tend.core.Perks::levelUpAcorns), "level")
                     store.levelSeen = progress.level.level
                     refresh++
                 },
@@ -1162,10 +1164,10 @@ class MainActivity : ComponentActivity() {
             app.tend.data.Stats.log(this, "challenge_done", mapOf("target" to challenge.target))
         }
         val skillXp = app.tend.core.Progress.skillXp(days)
-        val total = skillXp.values.sum() + store.challengesDone.size * app.tend.core.Progress.XP_PER_CHALLENGE
+        val total = store.totalXp()
         return HomeProgress(
             app.tend.core.Progress.level(total),
-            skillXp.mapValues { app.tend.core.Progress.level(it.value) },
+            skillXp.mapValues { app.tend.core.Progress.skillLevel(it.value) },
             challenge,
             days,
         )

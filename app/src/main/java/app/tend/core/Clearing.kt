@@ -242,7 +242,6 @@ object Acorns {
     const val WITHIN_BUDGET = 10
     const val BELOW_NORMAL_CAP = 20
     const val CHALLENGE = 60
-    const val LEVEL_UP = 30
     /** Out of minutes, once a day: five minutes now, not counted, for this many acorns. */
     const val BORROW = 20
     const val BORROW_MINUTES = 5
@@ -294,6 +293,9 @@ object Perks {
     /** Acorns for one activity: +1 from level 5, +2 from level 20. */
     fun perActivity(level: Int) = Acorns.PER_ACTIVITY + (if (level >= MORE_ACORNS_LEVEL) 2 else if (level >= ACORN_LEVEL) 1 else 0)
 
+    /** Acorns for reaching [level]: more the higher it is (level 2: 30, level 10: 70, level 20: 120). */
+    fun levelUpAcorns(level: Int) = 20 + 5 * level
+
     /** The weekly challenge's acorns: double from level 15. */
     fun challenge(level: Int) = Acorns.CHALLENGE * (if (level >= CHALLENGE_LEVEL) 2 else 1)
 
@@ -311,6 +313,7 @@ object Perks {
 
     /** What reaching [level] brings, in a few words each: the new home, things in the shop, a perk. */
     fun newAt(level: Int): List<String> = buildList {
+        if (level > 1) add(tr("+${levelUpAcorns(level)} acorns", "+${levelUpAcorns(level)} makk"))
         Home.newAt(level)?.let { id -> Things.byId(id)?.let { add(tr("A new home: ${it.name.lowercase()}", "Új otthon: ${it.name.lowercase()}")) } }
         Things.all.filter { unlockLevel(it) == level && level > 1 }.forEach { add(tr("New in the shop: ${it.name.lowercase()}", "Új a boltban: ${it.name.lowercase()}")) }
         when (level) {

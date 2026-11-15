@@ -711,6 +711,12 @@ internal fun ChallengesSheet(
             }
             level?.let { l ->
                 Text(tr("Level ${l.level} · ${l.into}/${l.needed} XP", "${l.level}. szint · ${l.into}/${l.needed} XP"), style = MaterialTheme.typography.bodyMedium, color = Brand.Muted, modifier = Modifier.padding(top = 4.dp))
+                // Where XP comes from, most first.
+                Text(
+                    tr("XP: minutes left at the end of the day (up to ${app.tend.core.Progress.XP_UNUSED_DAY} a day) · an activity ${app.tend.core.Progress.XP_PER_ACTIVITY} · the weekly challenge ${app.tend.core.Progress.XP_PER_CHALLENGE} · today's quest ${app.tend.core.Progress.XP_QUEST} · phone down 1 per 5 min · a first step ${app.tend.core.Progress.XP_STEP}",
+                        "XP: a nap végén megmaradt keret (napi akár ${app.tend.core.Progress.XP_UNUSED_DAY}) · tevékenység ${app.tend.core.Progress.XP_PER_ACTIVITY} · heti kihívás ${app.tend.core.Progress.XP_PER_CHALLENGE} · mai küldetés ${app.tend.core.Progress.XP_QUEST} · telefon le 5 percenként 1 · első lépés ${app.tend.core.Progress.XP_STEP}"),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted,
+                )
             }
         }
         // The challenges, round by round.
@@ -729,8 +735,8 @@ private fun LevelUpDialog(avatar: Avatar, level: Int, onDone: () -> Unit) = andr
         Text(tr("Level $level!", "$level. szint!"), style = MaterialTheme.typography.headlineMedium, color = Brand.Moss)
         // What the level brings: a new home, things in the shop, a perk on round levels.
         val news = app.tend.core.Perks.newAt(level)
-        if (news.isEmpty()) Text(
-            tr("${avatar.displayName} levelled up. Every activity is XP for Body, Mind or Rest, and the weekly goal gives a bonus.", "${avatar.displayName} szintet lépett. Minden tevékenység XP a Testnek, az Elmének vagy a Pihenésnek, a heti cél pedig bónuszt ad."),
+        if (news.size <= 1) Text(
+            tr("${avatar.displayName} levelled up: ${news.firstOrNull().orEmpty()}.", "${avatar.displayName} szintet lépett: ${news.firstOrNull().orEmpty()}."),
             style = MaterialTheme.typography.bodyMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
         else Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Brand.Sage).padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {

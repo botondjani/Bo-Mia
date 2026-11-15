@@ -31,9 +31,33 @@ data class Challenge(val title: String, val unit: String, val target: Int, val p
 object Progress {
     const val XP_PER_ACTIVITY = 20
     const val XP_PER_CHALLENGE = 100
+    /** A day ended with all its minutes left: the most a day gives; part of them, that share. */
+    const val XP_UNUSED_DAY = 100
+    const val XP_QUEST = 20
+    const val XP_STEP = 10
 
-    /** Level 2 after 40 XP (two activities), then each level asks 20 more than the one before. */
+    /** A plain "phone down": 1 XP for every 5 minutes, at most 24. */
+    fun xpPhoneDown(minutes: Int) = (minutes / 5).coerceIn(0, 24)
+
+    /** What a closed day's unused minutes give: the share of its minutes left, of [XP_UNUSED_DAY]. Not for a day on a break. */
+    fun xpUnused(d: DaySummary): Int {
+        val all = d.usedMinutes + d.unusedMinutes
+        return if (d.paused || all <= 0) 0 else XP_UNUSED_DAY * d.unusedMinutes.coerceAtLeast(0) / all
+    }
+
+    /** XP needed in all for [level]: 20 x (level² - 1). Level 2 at 60, 10 at 1980, 20 at 7980. */
+    fun xpFor(level: Int): Int = 20 * (level * level - 1)
+
+    /** The overall level from all XP. */
     fun level(xp: Int): Level {
+        val xp = xp.coerceAtLeast(0)
+        var level = 1
+        while (xp >= xpFor(level + 1)) level++
+        return Level(level, xp - xpFor(level), xpFor(level + 1) - xpFor(level))
+    }
+
+    /** A skill's level (Body, Mind, Rest: from activities only): level 2 after 40 XP, then each asks 20 more. */
+    fun skillLevel(xp: Int): Level {
         var left = xp.coerceAtLeast(0)
         var level = 1
         var need = 40

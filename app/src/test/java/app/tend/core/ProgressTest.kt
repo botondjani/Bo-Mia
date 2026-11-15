@@ -7,11 +7,20 @@ import java.time.LocalDate
 
 class ProgressTest {
     @Test fun levels() {
-        assertEquals(Level(1, 0, 40), Progress.level(0))
-        assertEquals(Level(1, 20, 40), Progress.level(20))
-        assertEquals(Level(2, 0, 60), Progress.level(40))
-        assertEquals(Level(3, 0, 80), Progress.level(100))
+        // Skills: level 2 after 40 XP, then 20 more each.
+        assertEquals(Level(1, 20, 40), Progress.skillLevel(20))
+        assertEquals(Level(3, 0, 80), Progress.skillLevel(100))
+        // Overall: 20 x (level² - 1) in all.
+        assertEquals(Level(1, 0, 60), Progress.level(0))
+        assertEquals(Level(2, 0, 100), Progress.level(60))
+        assertEquals(10, Progress.level(1980).level)
+        assertEquals(19, Progress.level(7979).level)
         assertEquals(1, Progress.level(-5).level)
+        // The unused share of a day is worth the most: a whole day's minutes left, 100; half, 50.
+        assertEquals(100, Progress.xpUnused(DaySummary(java.time.LocalDate.now(), 0, 45, 0)))
+        assertEquals(50, Progress.xpUnused(DaySummary(java.time.LocalDate.now(), 30, 30, 0)))
+        assertEquals(0, Progress.xpUnused(DaySummary(java.time.LocalDate.now(), 30, 30, 0, paused = true)))
+        assertEquals(24, Progress.xpPhoneDown(240))
     }
 
     @Test fun skillsFromDoneTasks() {

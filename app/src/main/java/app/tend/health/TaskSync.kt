@@ -120,6 +120,7 @@ object TaskSync {
                     val cfg = store.config
                     val before = store.today().earnedMinutes
                     store.lastPhoneDownGrant = store.update { Budget.creditPhoneDown(cfg, it, task.target) }.earnedMinutes - before
+                    store.addXp(app.tend.core.Progress.xpPhoneDown(task.target))
                 }
                 // Phone-free at the same time as a friend: a little extra, for both (each side gives its own).
                 val together = app.tend.data.Friends.overlapping(context, start, now)
