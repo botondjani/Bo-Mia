@@ -673,7 +673,11 @@ internal fun ChallengesSheet(
     quest: app.tend.core.Quest?, questDone: Boolean, questClaimed: Boolean, onClaimQuest: () -> Unit,
     level: app.tend.core.Level?, challenge: app.tend.core.Challenge?, onOpenInsights: () -> Unit,
     onDismiss: () -> Unit,
-) = androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Brand.Sage) {
+) = androidx.compose.material3.ModalBottomSheet(
+    onDismissRequest = onDismiss, containerColor = Brand.Sage,
+    // Open all the way at once: everything in view, no second pull.
+    sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+) {
     val context = androidx.compose.ui.platform.LocalContext.current
     Column(
         Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = Space.xl),

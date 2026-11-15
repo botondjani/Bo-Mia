@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -38,14 +39,15 @@ fun MinutesDialog(cfg: BudgetConfig, tasks: List<TaskDef>, canClose: Boolean = t
 @Composable
 fun AcornsDialog(onDismiss: () -> Unit) = Sheet(tr("Acorns", "Makk"), onDismiss) {
     Para(tr("For the camp: spend them in the shop. They don't buy minutes, except one 5-minute emergency a day.", "A táborra való: a boltban költheted el. Percet nem lehet venni rajta, kivéve napi egy 5 perces vészhelyzetet."))
-    Line(tr("An activity", "Egy tevékenység"), tr("+${Acorns.PER_ACTIVITY} (+1 from level 5, +2 from level 20; 5 a day)", "+${Acorns.PER_ACTIVITY} (5. szinttől +1, 20.-tól +2; naponta 5)"))
+    Line(tr("An activity", "Egy tevékenység"), tr("+${Acorns.PER_ACTIVITY} (5 a day)", "+${Acorns.PER_ACTIVITY} (naponta 5)"))
     Line(tr("\"Not now\" on a paused app", "„Most nem” egy szüneteltetett appnál"), tr("+${Acorns.PER_NOT_NOW} (up to ${Acorns.NOT_NOW_CAP})", "+${Acorns.PER_NOT_NOW} (legfeljebb ${Acorns.NOT_NOW_CAP})"))
     Line(tr("A day within your minutes", "Egy nap a perceiden belül"), "+${Acorns.WITHIN_BUDGET}")
     Line(tr("Below your normal", "A megszokottnál kevesebb"), tr("+1 per 10 min", "10 percenként +1"))
     Line(tr("A visitor in the camp", "Látogató a táborban"), "+${Rarity.COMMON.acorns}–${Rarity.RARE.acorns}")
     Line(tr("A challenge", "Egy kihívás"), "+${app.tend.core.Step.entries.minOf { it.acorns }}–${app.tend.core.Step.entries.maxOf { it.acorns }}")
     Line(tr("The weekly goal", "A heti cél"), "+${Acorns.CHALLENGE}")
-    Line(tr("A new level", "Új szint"), tr("+20, and 5 more for each level", "+20, és szintenként 5-tel több"))
+    Line(tr("A new level", "Új szint"), tr("+20 + 5 × level", "+20 + 5 × szint"))
+    Para(tr("From level 5 every activity gives 1 more, from level 20, 2 more.", "Az 5. szinttől minden tevékenység 1-gyel, a 20.-tól 2-vel többet ér."))
 }
 
 @Composable
@@ -64,7 +66,8 @@ private fun Para(text: String) = Text(text, style = MaterialTheme.typography.bod
 private fun Line(what: String, worth: String) = Row(verticalAlignment = Alignment.CenterVertically) {
     Text(what, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
     Spacer(Modifier.width(8.dp))
-    Text(worth, style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+    // Never wider than half the row: a long value wraps, the name keeps its room.
+    Text(worth, style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.widthIn(max = 150.dp))
 }
 
 /** Good days in a row, and how a missed one is forgiven. */

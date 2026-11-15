@@ -931,8 +931,9 @@ private fun Shop(
             },
             dismissButton = {
                 Row {
-                    if (stored && app.tend.data.Account.user(androidx.compose.ui.platform.LocalContext.current) != null)
-                        androidx.compose.material3.TextButton(onClick = { giving = t; open = null }) { Text(tr("Give", "Odaadom"), color = Brand.Moss) }
+                    // Given from the camp too: it's put away first, then it goes (or waits in the chest).
+                    if (owned && app.tend.data.Account.user(androidx.compose.ui.platform.LocalContext.current) != null)
+                        androidx.compose.material3.TextButton(onClick = { if (!stored) onPutAway(t.id); giving = t; open = null }) { Text(tr("Give", "Odaadom"), color = Brand.Moss) }
                     if (owned) androidx.compose.material3.TextButton(onClick = { onSell(t.id); open = null }) { Text(tr("Sell ${Clearing.sellValue(t)}", "Eladom ${Clearing.sellValue(t)}"), color = Brand.Coral) }
                     else androidx.compose.material3.TextButton(onClick = { open = null }) { Text(tr("Close", "Bezárás")) }
                 }
