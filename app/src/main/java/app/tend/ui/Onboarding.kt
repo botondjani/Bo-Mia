@@ -160,7 +160,7 @@ fun Onboarding(
                 Step.INTRO -> StepPage(cta = tr("Continue", "Tovább"), onCta = next, scroll = false) {
                     LanguagePicker()
                     Spacer(Modifier.height(8.dp))
-                    Says(avatar, tr("tend helps you scroll less.", "A tend segít kevesebbet görgetni."), tr("And gives the time back to things you'd rather do.", "És visszaadja az időt annak, amit szívesebben csinálnál."), figure = 150.dp)
+                    Says(avatar, tr("tend helps you scroll less.", "A tend segít kevesebbet görgetni."), tr("And win your time back for what you'd rather do.", "És visszanyerni az idődet arra, amit szívesebben csinálnál."), figure = 150.dp)
                     Spacer(Modifier.weight(1f))
                     // Coming back with an account (a new phone): log in here and the camp is restored.
                     var loggingIn by rememberSaveable { mutableStateOf(false) }
@@ -175,7 +175,7 @@ fun Onboarding(
                     Says(avatar, tr("How it works", "Így működik"), figure = 110.dp)
                     Point("sparkle", tr("You pick the apps that take your time.", "Kiválasztod az appokat, amik elviszik az idődet."))
                     Point("sun", tr("A few minutes a day come free. When they're gone, those apps close.", "Naponta egy kevés idő ingyen jár rájuk. Ha elfogy, bezárnak."))
-                    Point("heart", tr("Most minutes you win yourself: with Phone down, or by doing your daily tasks.", "A percek nagy részét te szerzed meg: a Telefon le funkcióval, vagy a napi feladataid elvégzésével."))
+                    Point("heart", tr("Most minutes you unlock yourself: with Phone down, or by doing your daily tasks.", "A percek nagy részét te oldod fel: a Telefon le funkcióval, vagy a napi feladataid elvégzésével."))
                 }
 
                 Step.WELCOME -> StepPage(cta = tr("Continue with ${avatar.displayName}", "Tovább, ${avatar.displayName} jön velem"), onCta = next, scroll = false) {
@@ -227,7 +227,7 @@ fun Onboarding(
                     Says(avatar,
                         tr("How much time a day for them?", "Mennyi idő jár rájuk naponta?"),
                         (if (now > 0) tr("They take about $now min a day now. ", "Most nagyjából napi $now percet visznek el. ") else "") +
-                            tr("A little comes free; the rest you win.", "Egy kevés ingyen jár, a többit megszerzed."),
+                            tr("A little comes free; the rest you unlock.", "Egy kevés ingyen jár, a többit te oldod fel."),
                         figure = 110.dp,
                     )
                     Card {
@@ -235,7 +235,7 @@ fun Onboarding(
                             onConfig(cfg.copy(freeMinutes = it, totalMinutes = maxOf(cfg.totalMinutes, it)))
                         }
                         Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp).background(Brand.Sage))
-                        Stepper(tr("At most a day", "Naponta legfeljebb"), tr("With the minutes you win", "A megszerzett percekkel együtt"), listOf(90, 120, 180, 240), cfg.totalMinutes) {
+                        Stepper(tr("At most a day", "Naponta legfeljebb"), tr("With the minutes you unlock", "A feloldott percekkel együtt"), listOf(90, 120, 180, 240), cfg.totalMinutes) {
                             onConfig(cfg.copy(totalMinutes = it, freeMinutes = minOf(cfg.freeMinutes, it)))
                         }
                     }
@@ -248,32 +248,29 @@ fun Onboarding(
                         cta = if (tasks.isEmpty()) tr("Pick at least one", "Válassz legalább egyet") else tr("Continue", "Tovább"),
                         ctaEnabled = tasks.isNotEmpty(), onCta = next, scroll = false,
                     ) {
-                        Says(avatar, tr("Two ways to win minutes back", "Két módon nyersz vissza perceket"), figure = 80.dp)
+                        Says(avatar, tr("Two ways to unlock minutes", "Két módon oldhatsz fel perceket"), figure = 80.dp)
                         // 1: phone down, the big one.
                         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Brand.Moss).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                            TendIcons.Badge("sparkle", 40.dp)
+                            Box(Modifier.size(40.dp).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) { TendIcons.Badge("sparkle", 36.dp) }
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(tr("Phone down", "Telefon le"), style = MaterialTheme.typography.titleMedium, color = Color.White)
-                                Text(tr("Set a timer and put it away: every minute comes back.", "Indíts egy időzítőt, és tedd félre: minden perc visszajár."), style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.9f))
+                                Text(tr("Set a timer and put it away: each minute away unlocks a minute.", "Indíts egy időzítőt, és tedd félre: minden letett perc felold egy percet."), style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.9f))
                             }
                         }
                         // 2: your daily tasks (remove with a tap, or add your own), and ideas at the bottom.
                         var adding by rememberSaveable { mutableStateOf(false) }
                         if (adding) OwnActivityDialog(onDismiss = { adding = false }) { t -> adding = false; onToggleTask(t) }
-                        Text(tr("…or your daily tasks:", "…vagy a napi feladataid:"), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 4.dp))
-                        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            tasks.forEach { t -> TaskPill(t.title, t.icon, picked = true) { onToggleTask(t) } }
-                            TaskPill(tr("Your own", "Saját"), "pen", picked = false, plus = true) { adding = true }
-                        }
-                        Spacer(Modifier.weight(1f))
-                        val ideas = app.tend.core.Tasks.presets.filter { p -> tasks.none { it.id == p.id } }.take(6)
-                        if (ideas.isNotEmpty()) {
-                            Text(tr("Ideas", "Ötletek"), style = MaterialTheme.typography.labelSmall, color = Brand.Muted)
-                            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                ideas.forEach { t -> TaskPill(t.title, t.icon, picked = false) { onToggleTask(t) } }
+                        Text(tr("…or daily tasks: tap to pick", "…vagy napi feladatok: koppints, amelyik kell"), style = MaterialTheme.typography.titleMedium, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
+                        // One even grid: the ideas and your own, picked ones filled; then "add your own".
+                        val options = (app.tend.core.Tasks.presets.take(6) + tasks.filter { t -> app.tend.core.Tasks.presets.take(6).none { it.id == t.id } }).take(8)
+                        options.chunked(2).forEach { row ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                row.forEach { t -> TaskTile(t.title, t.icon, picked = tasks.any { it.id == t.id }, Modifier.weight(1f)) { onToggleTask(t) } }
+                                if (row.size == 1) Spacer(Modifier.weight(1f))
                             }
                         }
+                        TaskTile(tr("Add your own", "Saját hozzáadása"), "pen", picked = false, Modifier.fillMaxWidth(), plus = true) { adding = true }
                     }
                 }
 
@@ -900,15 +897,16 @@ private fun AppSearch(catalog: AppCatalog, blocked: Set<String>, onToggle: (Stri
     }
 }
 
-/** A task as a pill: picked ones filled (a tap takes them off), ideas plain (a tap adds them). */
+/** A task as an even tile in the grid: picked ones filled with a tick; "add your own" with a plus. */
 @Composable
-private fun TaskPill(label: String, icon: String, picked: Boolean, plus: Boolean = false, onClick: () -> Unit) = Row(
-    Modifier.clip(RoundedCornerShape(50)).background(if (picked) Brand.Mint.copy(alpha = 0.4f) else Brand.Card)
-        .border(1.5.dp, if (picked) Brand.Moss else Brand.Mint, RoundedCornerShape(50)).clickable(onClick = onClick).padding(start = 6.dp, end = 12.dp, top = 5.dp, bottom = 5.dp),
+private fun TaskTile(label: String, icon: String, picked: Boolean, modifier: Modifier, plus: Boolean = false, onClick: () -> Unit) = Row(
+    modifier.height(52.dp).clip(RoundedCornerShape(14.dp)).background(if (picked) Brand.Mint.copy(alpha = 0.4f) else Brand.Card)
+        .border(1.5.dp, if (picked) Brand.Moss else Color.Transparent, RoundedCornerShape(14.dp)).clickable(onClick = onClick).padding(horizontal = 8.dp),
     verticalAlignment = Alignment.CenterVertically,
 ) {
-    TendIcons.Badge(icon, 24.dp)
-    Spacer(Modifier.width(6.dp))
-    Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1)
-    if (picked || plus) { Spacer(Modifier.width(6.dp)); Text(if (plus) "+" else "×", style = MaterialTheme.typography.labelLarge, color = Brand.Moss) }
+    TendIcons.Badge(icon, 26.dp)
+    Spacer(Modifier.width(8.dp))
+    Text(label, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp, lineHeight = 15.sp), maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+    if (picked) androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, tint = Brand.Moss, modifier = Modifier.size(16.dp))
+    if (plus) Text("+", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
 }
