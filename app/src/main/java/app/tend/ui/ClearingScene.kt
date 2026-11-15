@@ -1368,6 +1368,61 @@ fun DrawScope.drawThing(id: String, p: Offset, u: Float, lights: MutableList<Lig
             }
         }
         // ---- The seasons' own ----
+        "kite" -> {
+            // A diamond kite up on its string, a tail of bows, tied to a peg.
+            val k = p + Offset(u * 0.03f, -u * 0.12f)
+            drawLine(Color(0xFFD8C7A6), p, k + Offset(0f, u * 0.022f), strokeWidth = u * 0.0015f)
+            drawPath(Path().apply { moveTo(k.x, k.y - u * 0.022f); lineTo(k.x + u * 0.016f, k.y); lineTo(k.x, k.y + u * 0.022f); lineTo(k.x - u * 0.016f, k.y); close() }, Color(0xFFE07A5F))
+            drawPath(Path().apply { moveTo(k.x, k.y - u * 0.022f); lineTo(k.x + u * 0.016f, k.y); lineTo(k.x - u * 0.016f, k.y); close() }, Color(0xFFF2C94C))
+            for (i in 1..3) drawCircle(listOf(Color(0xFF8EC5E8), Color(0xFFE07A5F), Color(0xFFF2C94C))[i - 1], u * 0.003f, k + Offset(-u * 0.006f * i, u * 0.022f + u * 0.008f * i))
+            drawLine(BarkDark, p, p + Offset(0f, -u * 0.008f), strokeWidth = u * 0.003f)
+        }
+        "picnic_basket" -> {
+            drawOval(Color(0xFFE07A5F).copy(alpha = 0.9f), Offset(p.x - u * 0.04f, p.y - u * 0.008f), Size(u * 0.08f, u * 0.018f)) // the blanket
+            drawRoundRect(Color(0xFFC79A6B), p + Offset(-u * 0.016f, -u * 0.026f), Size(u * 0.032f, u * 0.022f), CornerRadius(u * 0.004f))
+            for (i in 0 until 3) drawLine(Color(0xFF9A7350), p + Offset(-u * 0.016f, -u * (0.02f - i * 0.006f)), p + Offset(u * 0.016f, -u * (0.02f - i * 0.006f)), strokeWidth = u * 0.0012f)
+            drawArc(Color(0xFF9A7350), 180f, 180f, false, p + Offset(-u * 0.012f, -u * 0.04f), Size(u * 0.024f, u * 0.026f), style = Stroke(u * 0.002f))
+            drawCircle(Color(0xFFC0392B), u * 0.004f, p + Offset(u * 0.022f, -u * 0.004f)) // an apple beside it
+        }
+        "sandcastle" -> {
+            val sand = Color(0xFFE3C48A)
+            drawRect(sand, p + Offset(-u * 0.024f, -u * 0.018f), Size(u * 0.048f, u * 0.018f))
+            for (x in listOf(-0.024f, 0.012f)) drawRect(sand, p + Offset(u * x, -u * 0.034f), Size(u * 0.012f, u * 0.016f))
+            drawRect(Color(0xFFD1B074), p + Offset(-u * 0.006f, -u * 0.012f), Size(u * 0.012f, u * 0.012f))
+            drawLine(BarkDark, p + Offset(u * 0.018f, -u * 0.034f), p + Offset(u * 0.018f, -u * 0.05f), strokeWidth = u * 0.0015f)
+            drawPath(Path().apply { moveTo(p.x + u * 0.018f, p.y - u * 0.05f); lineTo(p.x + u * 0.03f, p.y - u * 0.046f); lineTo(p.x + u * 0.018f, p.y - u * 0.042f); close() }, Color(0xFFE07A5F))
+        }
+        "sunshade" -> {
+            drawLine(Color(0xFFEDE6D6), p, p + Offset(-u * 0.006f, -u * 0.08f), strokeWidth = u * 0.003f)
+            drawArc(Color(0xFF8EC5E8), 180f, 180f, true, p + Offset(-u * 0.05f, -u * 0.1f), Size(u * 0.088f, u * 0.042f))
+            for (i in 0 until 3) drawArc(Color.White, 180f + i * 60f, 20f, true, p + Offset(-u * 0.05f, -u * 0.1f), Size(u * 0.088f, u * 0.042f))
+        }
+        "mushrooms" -> for ((dx, sz) in listOf(-0.014f to 1f, 0.006f to 1.3f, 0.02f to 0.8f)) {
+            val b = p + Offset(u * dx, 0f)
+            drawRect(Color(0xFFF3EAD8), b + Offset(-u * 0.002f * sz, -u * 0.012f * sz), Size(u * 0.004f * sz, u * 0.012f * sz))
+            drawArc(Color(0xFFC0392B), 180f, 180f, true, b + Offset(-u * 0.009f * sz, -u * 0.018f * sz), Size(u * 0.018f * sz, u * 0.014f * sz))
+            drawCircle(Color.White, u * 0.0015f * sz, b + Offset(-u * 0.003f * sz, -u * 0.015f * sz))
+        }
+        "apple_crate" -> {
+            drawRect(Color(0xFFB5895C), p + Offset(-u * 0.022f, -u * 0.022f), Size(u * 0.044f, u * 0.022f))
+            drawLine(Color(0xFF8C6A4A), p + Offset(-u * 0.022f, -u * 0.011f), p + Offset(u * 0.022f, -u * 0.011f), strokeWidth = u * 0.0015f)
+            for (i in 0 until 5) drawCircle(if (i % 2 == 0) Color(0xFFC0392B) else Color(0xFF9CC25B), u * 0.0055f, p + Offset(u * (-0.016f + i * 0.008f), -u * (0.024f + (i % 2) * 0.004f)))
+        }
+        "skis" -> {
+            for ((dx, c) in listOf(-0.006f to Color(0xFFE07A5F), 0.006f to Color(0xFF5D8FB8))) {
+                drawLine(c, p + Offset(u * dx, 0f), p + Offset(u * (dx + 0.006f), -u * 0.07f), strokeWidth = u * 0.005f, cap = StrokeCap.Round)
+            }
+            drawLine(BarkDark, p + Offset(u * 0.018f, 0f), p + Offset(u * 0.022f, -u * 0.05f), strokeWidth = u * 0.0018f) // a pole
+            drawCircle(Color.White.copy(alpha = 0.8f), u * 0.012f, p + Offset(0f, u * 0.002f))
+        }
+        "snow_lantern" -> {
+            // Snowballs stacked in a little cone, a candle glowing inside.
+            for ((dy, n) in listOf(0f to 4, 0.009f to 3, 0.018f to 2, 0.027f to 1)) for (i in 0 until n) {
+                drawCircle(Color(0xFFF4F7F9), u * 0.0055f, p + Offset(u * (i - (n - 1) / 2f) * 0.0105f, -u * (0.005f + dy)))
+            }
+            drawCircle(Glow, u * 0.004f, p + Offset(0f, -u * 0.012f))
+            lights += Light(p + Offset(0f, -u * 0.014f), u * 0.05f, 0.7f)
+        }
         "tulips" -> for (k in 0 until 5) {
             val dx = (k - 2) * u * 0.009f
             val top = p + Offset(dx * 1.2f, -u * (0.032f + 0.008f * ((k * 7) % 3)))
@@ -1896,6 +1951,10 @@ private fun thingSize(id: String): Pair<Float, Float> = when (id) {
     "bell_tent" -> 0.2f to 0.18f
     "tent" -> 0.17f to 0.12f
     "old_tent" -> 0.15f to 0.1f
+    "kite" -> 0.07f to 0.15f
+    "sunshade" -> 0.1f to 0.11f
+    "skis" -> 0.06f to 0.08f
+    "picnic_basket" -> 0.09f to 0.05f
     "treehouse" -> 0.14f to 0.32f
     "swing" -> 0.07f to 0.13f
     "hammock" -> 0.15f to 0.1f

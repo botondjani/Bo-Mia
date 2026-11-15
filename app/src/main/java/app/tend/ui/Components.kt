@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -194,3 +196,10 @@ fun HoldToConfirm(label: String, modifier: Modifier = Modifier, seconds: Float =
         Text(if (progress.value > 0f && progress.value < 1f) tr("Keep holding…", "Tartsd még…") else label, style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
     }
 }
+
+/**
+ * A bottom sheet's content: always the same height (most of the screen) and scrolling inside, so a
+ * sheet with a few things and one with many open to the same size and nothing jumps.
+ */
+@Composable
+fun Modifier.sheetBody(): Modifier = this.fillMaxHeight(0.82f).verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = Space.xl)

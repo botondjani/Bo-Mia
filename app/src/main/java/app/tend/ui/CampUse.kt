@@ -62,6 +62,14 @@ object Uses {
         "wind_chimes" -> tr("$name listens to the chimes.", "$name a szélcsengőt hallgatja.")
         "bird_feeder" -> tr("$name watches the birds at the feeder.", "$name a madarakat nézi az etetőnél.")
         "tulips" -> tr("$name smells the tulips.", "$name megszagolja a tulipánokat.")
+        "kite" -> tr("$name looks up at the kite.", "$name a papírsárkányt nézi.")
+        "picnic_basket" -> tr("$name has a little picnic.", "$name piknikezik egy kicsit.")
+        "sandcastle" -> tr("$name adds a tower to the sandcastle.", "$name egy tornyot rak a homokvárra.")
+        "sunshade" -> tr("$name cools off in the shade.", "$name hűsöl az árnyékban.")
+        "mushrooms" -> tr("$name counts the mushrooms.", "$name megszámolja a gombákat.")
+        "apple_crate" -> tr("$name picks an apple.", "$name kivesz egy almát.")
+        "skis" -> tr("$name waxes the skis.", "$name viaszolja a síléceket.")
+        "snow_lantern" -> tr("$name lights the snow lantern.", "$name meggyújtja a hólámpást.")
         "watering_can" -> tr("$name waters the flowers.", "$name meglocsolja a virágokat.")
         "birdhouse" -> tr("$name watches a little bird move in.", "$name nézi, ahogy beköltözik egy kismadár.")
         "beach_ball" -> tr("$name plays with the beach ball.", "$name a strandlabdával játszik.")
@@ -225,7 +233,7 @@ internal fun depthScale(y: Float) = (0.55f + (y - 0.6f) * 1.6f).coerceIn(0.5f, 1
 /** Things used standing (or sitting at the fire): afterwards they stay right there. */
 private val STANDING = setOf(
     "guitar", "campfire", "kettle", "pizza_oven", "woodpile", "wildflowers", "lantern", "telescope", "fishing_rod", "wind_chimes", "bird_feeder",
-    "tulips", "watering_can", "birdhouse", "beach_ball", "watermelon", "leaf_pile", "pumpkins", "scarecrow", "gift_boxes", "sled", "snowman",
+    "tulips", "watering_can", "birdhouse", "beach_ball", "watermelon", "leaf_pile", "pumpkins", "scarecrow", "gift_boxes", "sled", "snowman", "kite", "picnic_basket", "sandcastle", "sunshade", "mushrooms", "apple_crate", "skis", "snow_lantern",
     "jack_o_lantern", "paper_lanterns", "xmas_tree", "flower_arch",
 )
 
@@ -292,7 +300,7 @@ fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>, here: Offset? = nu
         // Fetched first: to the woodpile for a log, then over to the fire; to the rod, then to the bank.
         "woodpile" -> fetched(use.t, p + Offset(u * BESIDE * k, u * 0.004f), fire + Offset(-u * 0.21f, u * 0.03f))
         "fishing_rod" -> fetched(use.t, p + Offset(u * BESIDE * k, u * 0.004f), Offset(w * 0.335f, h * 0.84f))
-        "wildflowers", "lantern", "tulips", "watering_can", "birdhouse", "beach_ball", "watermelon", "pumpkins", "scarecrow", "gift_boxes", "snowman",
+        "wildflowers", "lantern", "tulips", "watering_can", "birdhouse", "beach_ball", "watermelon", "pumpkins", "scarecrow", "gift_boxes", "snowman", "kite", "picnic_basket", "sandcastle", "sunshade", "mushrooms", "apple_crate", "skis", "snow_lantern",
         "jack_o_lantern", "paper_lanterns", "xmas_tree", "flower_arch" ->
             p + Offset(u * BESIDE * k, u * 0.004f)
         "leaf_pile", "sled", "deck_chair" -> p + Offset(0f, -u * 0.004f)
@@ -739,7 +747,7 @@ fun DrawScope.drawUse(
             rising(t, base + Offset(0f, -s * 1f), u * 0.012f, every = 0.8f, drift = 2f) { at, a -> drawCircle(GlowWarm.copy(alpha = a), u * 0.005f, at) }
         }
         // The seasons' own: beside it, with a little something happening.
-        "tulips", "watering_can", "birdhouse", "watermelon", "pumpkins", "scarecrow", "gift_boxes", "snowman",
+        "tulips", "watering_can", "birdhouse", "watermelon", "pumpkins", "scarecrow", "gift_boxes", "snowman", "kite", "picnic_basket", "sandcastle", "sunshade", "mushrooms", "apple_crate", "skis", "snow_lantern",
         "jack_o_lantern", "paper_lanterns", "xmas_tree", "flower_arch" -> {
             shadowAt(base, s * 0.45f)
             actor(avatar, mood, worn, base, s, look = -0.8f, bounce = sin(t * 1.8f) * 0.4f)

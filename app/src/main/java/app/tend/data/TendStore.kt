@@ -784,7 +784,7 @@ class TendStore(private val context: Context) {
 
     /** The seasons' outfits bought so far (kept for good). */
     val outfits: Set<Accessory>
-        get() = prefs.getStringSet("outfits", emptySet())!!.mapNotNull { n -> Accessory.entries.firstOrNull { it.name == n && it.outfit != null } }.toSet()
+        get() = prefs.getStringSet("outfits", emptySet())!!.mapNotNull { n -> Accessory.entries.firstOrNull { it.name == n && it.isOutfit } }.toSet()
 
     /** The outfit being worn, if any. */
     val outfitWorn: Accessory?
@@ -792,8 +792,8 @@ class TendStore(private val context: Context) {
 
     /** Buys this season's outfit (with Plus, for acorns) and puts it on. False when it can't be bought now. */
     fun buyOutfit(a: Accessory): Boolean {
-        if (a.outfit == null || a in outfits) return false
-        if (!isPlus || a.outfit != app.tend.core.Season.of(LocalDate.now()) || acorns < Accessory.OUTFIT_PRICE) return false
+        if (!a.isOutfit || a in outfits) return false
+        if (!isPlus || (a.outfit != null && a.outfit != app.tend.core.Season.of(LocalDate.now())) || acorns < Accessory.OUTFIT_PRICE) return false
         addAcorns(-Accessory.OUTFIT_PRICE, "outfit")
         edit { putStringSet("outfits", outfits.map { it.name }.toSet() + a.name); putString("outfit_worn", a.name) }
         Stats.log(context, "outfit", mapOf("which" to a.name.lowercase()))

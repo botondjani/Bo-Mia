@@ -272,6 +272,12 @@ object CharacterPainter {
             Accessory.SUNGLASSES -> RectF(27f, 37f, 73f, 55f)
             Accessory.SCARF -> RectF(23f, 72f, 77f, 99f)
             Accessory.BOBBLE_HAT -> RectF(22f, 2f, 78f, 34f)
+            Accessory.BERET -> RectF(25f, 6f, 75f, 30f)
+            Accessory.PARTY_HAT -> RectF(34f, -2f, 66f, 28f)
+            Accessory.BANDANA -> RectF(27f, 70f, 73f, 94f)
+            Accessory.HEADPHONES -> RectF(16f, 8f, 84f, 56f)
+            Accessory.CROWN -> RectF(32f, 3f, 68f, 26f)
+            Accessory.HAIR_BOW -> RectF(56f, 8f, 80f, 28f)
         }
         val scale = sizePx * 0.86f / maxOf(box.width(), box.height())
         c.translate(sizePx / 2f, sizePx / 2f)
@@ -284,7 +290,8 @@ object CharacterPainter {
     private fun drawAccessories(c: Canvas, all: Set<Accessory>) {
         // An outfit wins over a habit's thing in the same place: one hat at a time, one pair of glasses.
         var a = all
-        if (Accessory.BOBBLE_HAT in a || Accessory.FLOWER_CROWN in a) a = a - Accessory.HAT - Accessory.NIGHTCAP - Accessory.LEAF - Accessory.HEADBAND
+        if (a.any { it in setOf(Accessory.BOBBLE_HAT, Accessory.FLOWER_CROWN, Accessory.BERET, Accessory.PARTY_HAT, Accessory.CROWN, Accessory.HEADPHONES) }) a = a - Accessory.HAT - Accessory.NIGHTCAP - Accessory.LEAF - Accessory.HEADBAND
+        if (Accessory.BANDANA in a) a = a - Accessory.BOWTIE
         if (Accessory.SUNGLASSES in a) a = a - Accessory.GLASSES
         if (Accessory.SCARF in a) a = a - Accessory.BOWTIE
         if (Accessory.HEADBAND in a) {
@@ -331,6 +338,7 @@ object CharacterPainter {
             fill.color = CORAL; c.drawRect(36f, 16f, 64f, 20f, fill)
         }
         drawOutfits(c, a)
+        drawAnytime(c, a)
     }
 
     /** The seasons' outfits: a flower crown, sunglasses, a knitted scarf, a bobble hat. */
@@ -383,6 +391,56 @@ object CharacterPainter {
             for (x in 27..73 step 5) c.drawLine(x.toFloat(), 24.5f, x.toFloat(), 31.5f, stroke) // the knit
             stroke.color = INK; stroke.strokeWidth = 2.6f
             fill.color = 0xFFF7F3E8.toInt(); c.drawCircle(50f, 9f, 5.5f, fill)
+        }
+    }
+
+    /** The outfits for any time of year. */
+    private fun drawAnytime(c: Canvas, a: Set<Accessory>) {
+        if (Accessory.BANDANA in a) {
+            // A kerchief knotted round the neck, its point down the front, white dots on red.
+            fill.color = CORAL
+            c.drawRoundRect(RectF(28f, 72f, 72f, 78f), 3f, 3f, fill)
+            c.drawPath(Path().apply { moveTo(33f, 75f); lineTo(67f, 75f); lineTo(50f, 92f); close() }, fill)
+            fill.color = 0xFFFFFFFF.toInt()
+            for ((x, y) in listOf(42f to 79f, 50f to 81f, 58f to 79f, 46f to 85f, 54f to 85f, 50f to 89f)) c.drawCircle(x, y, 1.1f, fill)
+        }
+        if (Accessory.HEADPHONES in a) {
+            stroke.strokeWidth = 4f
+            c.drawPath(Path().apply { moveTo(23f, 44f); cubicTo(22f, 6f, 78f, 6f, 77f, 44f) }, stroke)
+            stroke.strokeWidth = 2.6f
+            fill.color = SKY
+            c.drawRoundRect(RectF(17f, 37f, 29f, 55f), 5f, 5f, fill); c.drawRoundRect(RectF(71f, 37f, 83f, 55f), 5f, 5f, fill)
+            c.drawRoundRect(RectF(17f, 37f, 29f, 55f), 5f, 5f, stroke); c.drawRoundRect(RectF(71f, 37f, 83f, 55f), 5f, 5f, stroke)
+        }
+        if (Accessory.BERET in a) {
+            c.save(); c.rotate(-12f, 50f, 20f)
+            fill.color = 0xFFB5523B.toInt()
+            c.drawOval(RectF(26f, 12f, 74f, 28f), fill)
+            fill.color = 0xFF8E3A27.toInt(); c.drawRoundRect(RectF(32f, 23f, 68f, 28f), 3f, 3f, fill)
+            fill.color = 0xFFB5523B.toInt(); c.drawCircle(50f, 11.5f, 2.3f, fill)
+            c.restore()
+        }
+        if (Accessory.PARTY_HAT in a) {
+            c.save(); c.rotate(10f, 50f, 24f)
+            fill.color = SKY
+            c.drawPath(Path().apply { moveTo(38f, 25f); lineTo(50f, 1f); lineTo(62f, 25f); close() }, fill)
+            stroke.color = CORAL; stroke.strokeWidth = 2.2f
+            c.drawLine(41.5f, 18f, 58.5f, 18f, stroke); c.drawLine(45f, 11f, 55f, 11f, stroke)
+            stroke.color = INK; stroke.strokeWidth = 2.6f
+            fill.color = SUNNY; c.drawCircle(50f, 1.5f, 3.6f, fill)
+            c.restore()
+        }
+        if (Accessory.CROWN in a) {
+            fill.color = 0xFFF2C14E.toInt()
+            c.drawPath(Path().apply { moveTo(35f, 24f); lineTo(34f, 9f); lineTo(42f, 16f); lineTo(50f, 5f); lineTo(58f, 16f); lineTo(66f, 9f); lineTo(65f, 24f); close() }, fill)
+            fill.color = CORAL; c.drawCircle(50f, 19f, 2.2f, fill)
+            fill.color = SKY; c.drawCircle(41f, 20f, 1.6f, fill); c.drawCircle(59f, 20f, 1.6f, fill)
+        }
+        if (Accessory.HAIR_BOW in a) {
+            fill.color = 0xFFF2A0B8.toInt()
+            c.drawPath(Path().apply { moveTo(68f, 18f); lineTo(58f, 10f); lineTo(58f, 26f); close() }, fill)
+            c.drawPath(Path().apply { moveTo(68f, 18f); lineTo(78f, 10f); lineTo(78f, 26f); close() }, fill)
+            fill.color = 0xFFD96C9C.toInt(); c.drawCircle(68f, 18f, 2.6f, fill)
         }
     }
 

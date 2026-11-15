@@ -8,6 +8,8 @@ enum class Accessory(
     val title: String, val how: String, val short: String, val tasks: Set<String>, val days: Int,
     /** A season's outfit, bought in the shop (with Plus) and worn by choice, not earned by a habit. */
     val outfit: Season? = null,
+    /** An outfit sold all year round. */
+    val always: Boolean = false,
 ) {
     // Quick ones for the first days: any activity counts (an empty set means any).
     LEAF(tr("Lucky leaf", "Szerencselevél"), tr("Any activity, once", "Bármilyen tevékenység, egyszer"), tr("1 activity", "1 tevékenység"), emptySet(), 1),
@@ -24,11 +26,25 @@ enum class Accessory(
     SUNGLASSES(tr("Sunglasses", "Napszemüveg"), tr("This summer, in the shop", "Idén nyáron a boltban"), "summer", emptySet(), 0, Season.SUMMER),
     SCARF(tr("Knitted scarf", "Kötött sál"), tr("This autumn, in the shop", "Idén ősszel a boltban"), "autumn", emptySet(), 0, Season.AUTUMN),
     BOBBLE_HAT(tr("Bobble hat", "Bojtos sapka"), tr("This winter, in the shop", "Idén télen a boltban"), "winter", emptySet(), 0, Season.WINTER),
+
+    // Outfits for any time of year.
+    BERET(tr("Beret", "Svájcisapka"), tr("In the shop", "A boltban"), "beret", emptySet(), 0, always = true),
+    PARTY_HAT(tr("Party hat", "Csákó"), tr("In the shop", "A boltban"), "party", emptySet(), 0, always = true),
+    BANDANA(tr("Bandana", "Kendő"), tr("In the shop", "A boltban"), "bandana", emptySet(), 0, always = true),
+    HEADPHONES(tr("Headphones", "Fejhallgató"), tr("In the shop", "A boltban"), "headphones", emptySet(), 0, always = true),
+    CROWN(tr("Little crown", "Kis korona"), tr("In the shop", "A boltban"), "crown", emptySet(), 0, always = true),
+    HAIR_BOW(tr("Hair bow", "Masni"), tr("In the shop", "A boltban"), "bow", emptySet(), 0, always = true),
     ;
+
+    /** Bought and worn by choice (a season's, or any time's), not earned by a habit. */
+    val isOutfit: Boolean get() = outfit != null || always
 
     companion object {
         /** The ones earned by habits (the outfits are bought). */
-        val habits: List<Accessory> get() = entries.filter { it.outfit == null }
+        val habits: List<Accessory> get() = entries.filter { !it.isOutfit }
+
+        /** The outfits sold all year round. */
+        val anytime: List<Accessory> get() = entries.filter { it.always }
 
         fun outfitFor(season: Season): Accessory = entries.first { it.outfit == season }
 

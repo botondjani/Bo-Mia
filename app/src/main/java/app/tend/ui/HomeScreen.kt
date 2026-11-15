@@ -467,8 +467,8 @@ fun HomeScreen(
             steps, onClaimStep, { step -> hubOpen = false; onStep(step) }, quest, questDone, questClaimed, onClaimQuest,
             level, challenge, { hubOpen = false; onOpenInsights() },
         ) { hubOpen = false }
-        if (friendsOpen) androidx.compose.material3.ModalBottomSheet(onDismissRequest = { friendsOpen = false }, containerColor = Brand.Sage) {
-            Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = Space.xl)) {
+        if (friendsOpen) androidx.compose.material3.ModalBottomSheet(onDismissRequest = { friendsOpen = false }, containerColor = Brand.Sage, sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+            Column(Modifier.sheetBody()) {
                 FriendsCard(onOpenSettings, { id -> friendsOpen = false; onOpenRiver(id) }, onFriendsChanged)
             }
         }
@@ -680,7 +680,7 @@ internal fun ChallengesSheet(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     Column(
-        Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = Space.xl),
+        Modifier.sheetBody(),
         verticalArrangement = Arrangement.spacedBy(Space.m),
     ) {
         Text(tr("Challenges", "Kihívások"), style = MaterialTheme.typography.headlineSmall)
