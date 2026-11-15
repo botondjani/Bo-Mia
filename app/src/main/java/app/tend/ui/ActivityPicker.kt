@@ -211,15 +211,23 @@ internal fun OwnActivityDialog(onDismiss: () -> Unit, onAdd: (TaskDef) -> Unit) 
                 placeholder = { Text(tr("e.g. Play guitar", "pl. Gitározás")) }, singleLine = true,
                 shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(),
             )
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                TendIcons.ownChoices.forEach { key ->
-                    Box(
-                        Modifier.size(44.dp).clip(CircleShape)
-                            .background(if (key == icon) Brand.Mint.copy(alpha = 0.45f) else Brand.Sage)
-                            .border(1.5.dp, if (key == icon) Brand.Moss else Color.Transparent, CircleShape)
-                            .clickable { icon = key },
-                        contentAlignment = Alignment.Center,
-                    ) { TendIcons.Glyph(key, 22.dp) }
+            // An even grid: five to a row, every row full.
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                TendIcons.ownChoices.chunked(5).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        row.forEach { key ->
+                            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                                Box(
+                                    Modifier.size(44.dp).clip(CircleShape)
+                                        .background(if (key == icon) Brand.Mint.copy(alpha = 0.45f) else Brand.Sage)
+                                        .border(1.5.dp, if (key == icon) Brand.Moss else Color.Transparent, CircleShape)
+                                        .clickable { icon = key },
+                                    contentAlignment = Alignment.Center,
+                                ) { TendIcons.Glyph(key, 22.dp) }
+                            }
+                        }
+                        repeat(5 - row.size) { Spacer(Modifier.weight(1f)) }
+                    }
                 }
             }
             Text(tr("HOW IT COUNTS", "HOGYAN SZÁMÍT"), style = MaterialTheme.typography.labelSmall)

@@ -21,14 +21,14 @@ class AppCatalog(private val context: Context) {
     }
 
     /**
-     * Minutes a day each app was used over the last two weeks (empty without usage access).
+     * Minutes a day each app was used over the last week (empty without usage access).
      * The home screen and tend itself are left out.
      */
     val dailyMinutes: Map<String, Int> by lazy {
         runCatching {
             val usm = context.getSystemService(android.app.usage.UsageStatsManager::class.java)
             val now = System.currentTimeMillis()
-            val days = 14
+            val days = 7
             val home = context.packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)?.activityInfo?.packageName
             usm.queryAndAggregateUsageStats(now - days * 86_400_000L, now)
                 .mapValues { (it.value.totalTimeInForeground / 60_000 / days).toInt() }
@@ -63,7 +63,7 @@ class AppCatalog(private val context: Context) {
     companion object {
         const val MAX_TILES = 9
 
-        /** Minutes a day (two-week average) that make an app one you "use a lot". */
+        /** Minutes a day (one-week average) that make an app one you "use a lot". */
         const val HEAVY_MINUTES = 20
 
         /** What setup suggests pausing: the social apps installed, and every app used [HEAVY_MINUTES]+ minutes a day. */

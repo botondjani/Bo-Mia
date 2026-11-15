@@ -37,7 +37,7 @@ object TendIcons {
     fun painterFor(key: String): androidx.compose.ui.graphics.painter.Painter? = res[key]?.let { painterResource(it) }
 
     /** Icons offered for the user's own activities. */
-    val ownChoices = listOf("pen", "music", "paw", "sprout", "bike", "wave", "cup", "brush", "camera", "dice", "puzzle", "star", "heart", "sun", "flower", "moon")
+    val ownChoices = listOf("pen", "music", "paw", "sprout", "bike", "wave", "cup", "brush", "camera", "dice", "puzzle", "star", "heart", "sun", "flower")
 
     @Composable
     fun Glyph(key: String, size: Dp = 24.dp, tint: Color = Brand.Moss) {

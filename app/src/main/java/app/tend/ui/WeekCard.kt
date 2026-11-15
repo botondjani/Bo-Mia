@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.text.drawText
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -53,13 +56,28 @@ fun WeekCard(view: WeekView, onOpen: (() -> Unit)? = null, total: List<Int?> = e
     }
     // A little headroom above the tallest bar or mark.
     val top = 1.15f * (view.days.indices.maxOfOrNull { i -> maxOf(all[i] ?: 0, view.days[i]?.let { it.usedMinutes + it.unusedMinutes } ?: 0) }?.coerceAtLeast(30) ?: 30)
-    Canvas(Modifier.fillMaxWidth().height(96.dp).pointerInput(Unit) {
-        detectTapGestures { o -> val i = (o.x / (size.width / 7f)).toInt().coerceIn(0, 6); picked = if (picked == i) null else i }
+    // Hour lines with their labels in a narrow gutter on the left, so the bars can be read.
+    val gutter = 30.dp
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val labelStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 9.sp, color = Brand.Muted)
+    val step = when { top <= 150 -> 30; top <= 330 -> 60; top <= 660 -> 120; else -> 240 }
+    Canvas(Modifier.fillMaxWidth().height(110.dp).pointerInput(Unit) {
+        detectTapGestures { o -> val g = gutter.toPx(); val i = ((o.x - g) / ((size.width - g) / 7f)).toInt().coerceIn(0, 6); picked = if (picked == i) null else i }
     }) {
-        val slot = size.width / 7
+        val g = gutter.toPx()
+        var m = step
+        while (m < top) {
+            val y = size.height - size.height * m / top
+            drawLine(Brand.Muted.copy(alpha = 0.18f), Offset(g, y), Offset(size.width, y), 1.dp.toPx())
+            val label = if (m % 60 == 0) tr("${m / 60} h", "${m / 60} ó") else tr("$m m", "$m p")
+            val t = measurer.measure(label, labelStyle)
+            drawText(t, topLeft = Offset(g - t.size.width - 4.dp.toPx(), y - t.size.height / 2f))
+            m += step
+        }
+        val slot = (size.width - g) / 7
         val bar = slot * 0.46f
         view.days.forEachIndexed { i, d ->
-            val x = slot * i + (slot - bar) / 2
+            val x = g + slot * i + (slot - bar) / 2
             // The whole screen time behind: a light bar the counted minutes sit in.
             all[i]?.let { t ->
                 val th = size.height * maxOf(t, d?.usedMinutes ?: 0) / top
@@ -87,6 +105,7 @@ fun WeekCard(view: WeekView, onOpen: (() -> Unit)? = null, total: List<Int?> = e
         }
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+        Spacer(Modifier.width(gutter))
         view.days.indices.forEach { i ->
             val date = java.time.LocalDate.now().minusDays((6 - i).toLong())
             Text(
@@ -107,10 +126,20 @@ fun WeekCard(view: WeekView, onOpen: (() -> Unit)? = null, total: List<Int?> = e
         },
         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted,
     )
-    Text(
-        if (total.isNotEmpty()) tr("Light: all screen time. Dark: what counted toward your minutes, red when it ran over. Dashes: each day's minutes.", "Világos: a teljes képernyőidő. Sötét: ami a keretedbe számított, piros, ha túllépted. Vonal: az aznapi keret.")
-        else tr("Dashes: each day's minutes. Red: a day they ran out.", "Vonalak: az egyes napok percei. Piros: aznap elfogytak."),
-        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted,
-    )
+    // The key: a swatch for each colour, and the dashes.
+    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        @Composable
+        fun Key(label: String, draw: androidx.compose.ui.graphics.drawscope.DrawScope.() -> Unit) = Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Canvas(Modifier.size(12.dp), onDraw = draw)
+            Spacer(Modifier.width(4.dp))
+            Text(label, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted)
+        }
+        if (total.isNotEmpty()) Key(tr("All screen time", "Teljes képernyőidő")) { drawRoundRect(Brand.Mint.copy(alpha = 0.45f), cornerRadius = CornerRadius(3.dp.toPx())) }
+        Key(tr("Picked apps", "Kiválasztott appok")) { drawRoundRect(Brand.Moss.copy(alpha = 0.8f), cornerRadius = CornerRadius(3.dp.toPx())) }
+        Key(tr("Over the limit", "Túllépve")) { drawRoundRect(Brand.Coral, cornerRadius = CornerRadius(3.dp.toPx())) }
+        Key(tr("Day's minutes", "Napi keret")) {
+            drawLine(Brand.Muted.copy(alpha = 0.7f), Offset(0f, size.height / 2), Offset(size.width, size.height / 2), 1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 2.dp.toPx())))
+        }
+    }
     if (onOpen != null) Text(tr("See all your time →", "Az összes időd →"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
 }

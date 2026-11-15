@@ -138,7 +138,7 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
                                 if (!Friends.send(context, f.id, Friends.Kind.GIFT)) {
                                     store.addAcorns(Friends.GIFT_ACORNS, "spent"); gifted = gifted - f.id
                                     note = tr("Couldn't send the present (one a day to each friend). Your acorns are back.", "Nem sikerült elküldeni az ajándékot (egy barátnak naponta egy mehet). A makkjaid visszakerültek.")
-                                } else { note = tr("A present is on its way to ${f.name}.", "Úton van az ajándék: ${f.name} kapja."); app.tend.data.Stats.log(context, "gift") }
+                                } else { note = tr("A present of ${Friends.GIFT_ACORNS} acorns is on its way to ${f.name}: it waits by their fire.", "Úton van az ajándék (${Friends.GIFT_ACORNS} makk): ${f.name} a tüzénél találja meg."); app.tend.data.Stats.log(context, "gift") }
                             }
                         }
                     },

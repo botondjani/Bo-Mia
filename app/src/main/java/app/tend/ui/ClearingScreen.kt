@@ -199,6 +199,8 @@ fun ClearingScreen(
     val paperNow by androidx.compose.runtime.rememberUpdatedState(paper)
     val bridgeNow by androidx.compose.runtime.rememberUpdatedState(bridge)
     var caught by remember { mutableStateOf<String?>(null) }
+    var giftPop by remember { mutableIntStateOf(0) }
+    var giftKey by remember { mutableIntStateOf(0) }
     // Moving things: hold one to pick it up, drag it anywhere on the meadow, let go to put it down.
     // Shown at once where it was put (the saved layout catches up right after).
     var local by remember { mutableStateOf(layout) }
@@ -446,6 +448,7 @@ fun ClearingScreen(
                             val who = giftsNow.distinct()
                             caught = tr("${who.joinToString(" and ")} sent you ${if (giftsNow.size == 1) "a present" else "presents"}: ${giftsNow.size * app.tend.data.Friends.GIFT_ACORNS} acorns!", "${who.joinToString(" és ")} ${if (giftsNow.size == 1) "ajándékot küldött" else "ajándékokat küldött"}: ${giftsNow.size * app.tend.data.Friends.GIFT_ACORNS} makk!")
                             burst(Offset(GiftSpot.x, GiftSpot.y - 0.05f)); tick(firm = true); Sounds.acorns(context)
+                            giftPop = giftsNow.size * app.tend.data.Friends.GIFT_ACORNS; giftKey++
                             onOpenGifts()
                             return@detectTapGestures
                         }
@@ -582,6 +585,8 @@ fun ClearingScreen(
                     unlocked = unlocked,
                 )
             }
+            // A present opened: what was in it, popping up over the camp.
+            AcornsClaimed(giftPop, giftKey, Modifier.align(Alignment.Center))
         }
         // On the camp: the way back home (top left) and the acorns (top right).
         Box(

@@ -83,6 +83,8 @@ fun RiverScreen(
     LaunchedEffect(Unit) {
         if (list == null) Friends.list(context).let { list = it; offline = it == null }
         Friends.sent(context)?.let { sent = it }
+        // Paper taken down (or anything else they did) shows here without leaving: asked again every 15 seconds.
+        launch { while (true) { kotlinx.coroutines.delay(15_000); Friends.sent(context)?.let { sent = it } } }
         val i = list.orEmpty().indexOfFirst { it.id == focus }
         if (i >= 0) state.scrollToItem(i + 2)
         // A camp you look at counts as a visit: the friend finds a rubber duck in their river.

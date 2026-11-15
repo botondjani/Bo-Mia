@@ -212,9 +212,8 @@ fun Onboarding(
                     ctaEnabled = blocked.isNotEmpty(), onCta = next, scroll = false,
                 ) {
                     Says(avatar, tr("Which apps take your time?", "Mely appok viszik el az idődet?"), tr("Their time comes off your daily minutes.", "Ezek ideje fogy a napi keretedből."), figure = 120.dp)
-                    // The ones picked from the search come first, so they're always seen; then the most used.
-                    val extra = catalog.all.filter { it.pkg in blocked && catalog.suggested.take(6).none { s -> s.pkg == it.pkg } }
-                    val tiles = (extra + catalog.suggested).distinctBy { it.pkg }.take(6)
+                    // The most used, in that order, and nothing else: picking doesn't move them (ones found by search are counted below).
+                    val tiles = catalog.suggested.take(6)
                     if (tiles.isNotEmpty()) AppGrid(catalog, tiles, blocked, onToggleApp)
                     val hidden = blocked.count { b -> tiles.none { it.pkg == b } }
                     if (hidden > 0) Text(tr("And $hidden more picked", "És még $hidden kiválasztva"), style = MaterialTheme.typography.bodyMedium, color = Brand.Muted)
@@ -244,7 +243,7 @@ fun Onboarding(
                 }
 
                 // Two ways to unlock minutes: putting the phone down (always there), and tasks of your own choosing.
-                Step.EARN -> StepPage(cta = if (tasks.isEmpty()) tr("Just Phone down for now", "Most csak a Telefon le") else tr("Continue", "Tovább"), onCta = next, scroll = false) {
+                Step.EARN -> StepPage(cta = if (tasks.isEmpty()) tr("Just Phone down for now", "Most csak a Telefon le") else tr("Continue", "Tovább"), onCta = next, scroll = tasks.size > 4) {
                     var adding by rememberSaveable { mutableStateOf(false) }
                     if (adding) OwnActivityDialog(onDismiss = { adding = false }) { t -> adding = false; onToggleTask(t) }
                     Says(avatar, tr("Two ways to unlock minutes", "Két módon oldhatsz fel perceket"), figure = 100.dp)
@@ -265,7 +264,9 @@ fun Onboarding(
                             if (row.size == 1) Spacer(Modifier.weight(1f))
                         }
                     }
-                    Row(
+                    val full = tasks.size >= app.tend.core.Tasks.MAX_SELECTED
+                    if (full) Text(tr("That's ${app.tend.core.Tasks.MAX_SELECTED}, the most there can be. Tap one to take it off.", "Ez ${app.tend.core.Tasks.MAX_SELECTED}, ennyi fér bele. Koppints egyre, ha levennéd."), style = MaterialTheme.typography.bodyMedium, color = Brand.Muted)
+                    else Row(
                         Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(16.dp)).background(Brand.Mint.copy(alpha = 0.3f))
                             .border(2.dp, Brand.Moss, RoundedCornerShape(16.dp)).clickable { adding = true }.padding(horizontal = 14.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -276,8 +277,8 @@ fun Onboarding(
                         Text("+", style = MaterialTheme.typography.headlineSmall, color = Brand.Moss)
                     }
                     Spacer(Modifier.weight(1f))
-                    val ideas = app.tend.core.Tasks.presets.filter { p -> tasks.none { it.id == p.id } }.take(6 - (tasks.size / 2) * 2)
-                    if (ideas.isNotEmpty()) {
+                    val ideas = app.tend.core.Tasks.presets.filter { p -> tasks.none { it.id == p.id } }.take((6 - (tasks.size / 2) * 2).coerceAtLeast(0))
+                    if (ideas.isNotEmpty() && !full) {
                         Text(tr("Or pick an idea", "Vagy válassz egy ötletet"), style = MaterialTheme.typography.labelSmall, color = Brand.Muted)
                         ideas.chunked(2).forEach { row ->
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

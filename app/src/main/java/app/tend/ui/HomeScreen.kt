@@ -531,7 +531,7 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) { done.forEach { DoneRow(it, day, onUndo) } }
         }
-        screenTime.lastOrNull()?.let { ScreenTimeRow(it, screenTime.getOrNull(screenTime.size - 2)) }
+        screenTime.lastOrNull()?.let { ScreenTimeRow(it, screenTime.getOrNull(screenTime.size - 2), onOpenInsights) }
         val today = app.tend.core.DaySummary(day.date, Budget.usedMinutes(day), remaining.coerceAtLeast(0), day.completedTasks.size)
         val week = app.tend.core.WeekOverview.of(history.filter { it.date != day.date } + today, day.date)
         if (week.days.count { it != null } >= 2) Box(Modifier.padding(bottom = Space.xl)) { WeekCard(week, onOpenInsights, screenTime) }
@@ -1125,8 +1125,9 @@ internal fun FaceDownPhone(modifier: Modifier = Modifier) {
 
 /** The phone's whole screen time today, every app, next to yesterday's. */
 @Composable
-private fun ScreenTimeRow(today: Int, yesterday: Int?) = Row(
-    Modifier.fillMaxWidth().padding(bottom = Space.xl).surface(radius = 16.dp).padding(horizontal = 14.dp, vertical = 12.dp),
+private fun ScreenTimeRow(today: Int, yesterday: Int?, onOpen: () -> Unit) = Row(
+    // Tapped: the full picture of your time.
+    Modifier.fillMaxWidth().padding(bottom = Space.xl).surface(radius = 16.dp).tappable(onClick = onOpen).padding(horizontal = 14.dp, vertical = 12.dp),
     verticalAlignment = Alignment.CenterVertically,
 ) {
     fun hm(m: Int) = if (m >= 60) tr("${m / 60} h ${m % 60} min", "${m / 60} ó ${m % 60} p") else tr("$m min", "$m perc")
@@ -1138,6 +1139,7 @@ private fun ScreenTimeRow(today: Int, yesterday: Int?) = Row(
         Text(hm(today), style = MaterialTheme.typography.titleMedium, color = Brand.Ink)
         if (yesterday != null) Text(tr("yesterday ${hm(yesterday)}", "tegnap ${hm(yesterday)}"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted)
     }
+    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Brand.Muted, modifier = Modifier.padding(start = 6.dp).size(20.dp))
 }
 
 /** Today's minutes in a header: what's left, a small bar of it, and what's still to earn. Home and the camp. */
