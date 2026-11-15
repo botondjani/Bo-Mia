@@ -319,10 +319,7 @@ class MainActivity : ComponentActivity() {
         fresh.preload { c ->
             val hasUsage = c.dailyMinutes.isNotEmpty()
             runOnUiThread {
-                // Before setup is done, the picker starts from what's recommended: the social apps and
-                // everything used a lot. Only while the user hasn't changed the pick themselves.
-                val before = catalog?.let(AppCatalog::recommended).orEmpty()
-                if (!store.onboarded && (store.blockedPackages.isEmpty() || store.blockedPackages == before)) store.blockedPackages = AppCatalog.recommended(c)
+                // Nothing is picked for the user: setup starts with no apps chosen.
                 catalog = c
                 catalogHasUsage = hasUsage
                 catalogLoading = false

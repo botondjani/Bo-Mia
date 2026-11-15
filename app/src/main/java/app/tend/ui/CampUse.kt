@@ -1024,8 +1024,10 @@ fun rememberFireBuild(placed: Map<Int, String>): Float? {
         // A moment first (the shop closing, the page scrolling up), so it's seen from the start.
         kotlinx.coroutines.delay(500)
         // A knock as each log goes down, the fire catching, then its crackle.
-        for (i in 0 until 3) launch { kotlinx.coroutines.delay((FireTimes.logDown(i) * 1000).toLong()); Sounds.place(context) }
-        launch { kotlinx.coroutines.delay((FireTimes.CATCH * 1000).toLong()); Sounds.forUse(context, "campfire") }
+        for (i in 0 until 3) launch { kotlinx.coroutines.delay((FireTimes.logDown(i) * 1000).toLong()); Sounds.logDown(context) }
+        // The crackle starts with the ember, and the fire's own sound takes over as the flame grows.
+        launch { kotlinx.coroutines.delay(((FireTimes.LIGHT_AT + 0.4f) * 1000).toLong()); Sounds.kindling(context) }
+        launch { kotlinx.coroutines.delay(((FireTimes.CATCH + 0.6f) * 1000).toLong()); Sounds.forUse(context, "campfire") }
         anim.animateTo(1f, androidx.compose.animation.core.tween((FIRE_BUILD_SECS * 1000).toInt(), easing = androidx.compose.animation.core.LinearEasing))
         building = false
     }

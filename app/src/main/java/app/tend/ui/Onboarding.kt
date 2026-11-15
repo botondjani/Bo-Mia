@@ -213,7 +213,7 @@ fun Onboarding(
                 ) {
                     Says(avatar, tr("Which apps take your time?", "Mely appok viszik el az idődet?"), tr("Their time comes off your daily minutes.", "Ezek ideje fogy a napi keretedből."), figure = 120.dp)
                     // The most used, in that order, and nothing else: picking doesn't move them (ones found by search are counted below).
-                    val tiles = catalog.suggested.take(6)
+                    val tiles = catalog.suggested.take(8)
                     if (tiles.isNotEmpty()) AppGrid(catalog, tiles, blocked, onToggleApp)
                     val hidden = blocked.count { b -> tiles.none { it.pkg == b } }
                     if (hidden > 0) Text(tr("And $hidden more picked", "És még $hidden kiválasztva"), style = MaterialTheme.typography.bodyMedium, color = Brand.Muted)
@@ -243,10 +243,11 @@ fun Onboarding(
                 }
 
                 // Two ways to unlock minutes: putting the phone down (always there), and tasks of your own choosing.
-                Step.EARN -> StepPage(cta = if (tasks.isEmpty()) tr("Just Phone down for now", "Most csak a Telefon le") else tr("Continue", "Tovább"), onCta = next, scroll = tasks.size > 4) {
+                Step.EARN -> StepPage(cta = if (tasks.isEmpty()) tr("Just Phone down for now", "Most csak a Telefon le") else tr("Continue", "Tovább"), onCta = next, scroll = false) {
                     var adding by rememberSaveable { mutableStateOf(false) }
                     if (adding) OwnActivityDialog(onDismiss = { adding = false }) { t -> adding = false; onToggleTask(t) }
-                    Says(avatar, tr("Two ways to unlock minutes", "Két módon oldhatsz fel perceket"), figure = 100.dp)
+                    // The more tasks, the smaller the companion (gone from 5 on), so the page fits without scrolling.
+                    Says(avatar, tr("Two ways to unlock minutes", "Két módon oldhatsz fel perceket"), figure = when { tasks.size <= 2 -> 100.dp; tasks.size <= 4 -> 64.dp; else -> 0.dp })
                     // 1: phone down, the big one.
                     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Brand.Moss).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(40.dp).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) { TendIcons.Badge("hourglass", 36.dp) }
@@ -525,10 +526,11 @@ fun AppPicker(catalog: AppCatalog, blocked: Set<String>, onToggle: (String) -> U
 @Composable
 private fun AppGrid(catalog: AppCatalog, apps: List<InstalledApp>, blocked: Set<String>, onToggle: (String) -> Unit) =
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        apps.chunked(3).forEach { row ->
-            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        // Four to a row, two rows: the eight used most.
+        apps.chunked(4).forEach { row ->
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { AppTile(catalog, it, it.pkg in blocked, onToggle, Modifier.weight(1f).fillMaxHeight()) }
-                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }
@@ -538,7 +540,7 @@ private fun AppTile(catalog: AppCatalog, app: InstalledApp, selected: Boolean, o
     modifier.clip(RoundedCornerShape(20.dp))
         .background(if (selected) Brand.Mint.copy(alpha = 0.35f) else Brand.Card)
         .border(2.dp, if (selected) Brand.Moss else Color.Transparent, RoundedCornerShape(20.dp))
-        .clickable { onToggle(app.pkg) }.padding(vertical = 12.dp, horizontal = 6.dp),
+        .clickable { onToggle(app.pkg) }.padding(vertical = 10.dp, horizontal = 4.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
 ) {
     Box {

@@ -78,6 +78,12 @@ object Sounds {
         play(key, false) { strumOf(CHORDS[chord], 2.2f) }
     }
 
+    /** A log laid in the fire pit: a short wooden clack with a low thud under it. */
+    fun logDown(c: Context) { if (on(c, Kind.LITTLE)) play("log", false) { woodDrop() } }
+
+    /** The kindling catching: a soft hiss and a few small crackles, more and more, into the fire. */
+    fun kindling(c: Context) { if (on(c, Kind.CAMP)) play("kindling", false) { kindlingCatch() } }
+
     /** Something set down on the grass: a soft, woody knock. */
     fun place(c: Context) { if (on(c, Kind.LITTLE)) play("place", false) { knock() } }
 
@@ -283,6 +289,56 @@ object Sounds {
         hit(0.15, 783.99, 0.26, 0.1)
         hit(0.25, 1046.5, 0.2, 0.28)
         return toPcm(out)
+    }
+
+    private fun woodDrop(): ShortArray {
+        val out = buffer(0.35f)
+        val rnd = java.util.Random(21)
+        var lp = 0.0
+        var bp = 0.0
+        for (k in out.indices) {
+            val t = k.toDouble() / RATE
+            // The wood: noise through a soft band (low-passed, then the lowest part taken away), very short.
+            lp += (rnd.nextDouble() * 2 - 1 - lp) * 0.25
+            bp += (lp - bp) * 0.05
+            val clack = (lp - bp) * exp(-t / 0.018) * 1.4
+            val thud = sin(2 * PI * (95 - 30 * t) * t) * exp(-t / 0.06) * 0.7
+            // A second, smaller knock as it settles.
+            val settle = if (t > 0.07) (lp - bp) * exp(-(t - 0.07) / 0.012) * 0.5 else 0.0
+            out[k] = ((clack + thud + settle) * 0.5).toFloat()
+        }
+        return toPcm(out, rms = 0.07f)
+    }
+
+    private fun kindlingCatch(): ShortArray {
+        val secs = 3f
+        val out = buffer(secs)
+        val rnd = java.util.Random(17)
+        var lp = 0f
+        var brown = 0f
+        for (i in out.indices) {
+            val t = i.toFloat() / RATE
+            val grow = (t / 1.8f).coerceAtMost(1f)
+            val fade = ((secs - t) / 0.8f).coerceIn(0f, 1f)
+            lp += ((rnd.nextFloat() * 2 - 1) - lp) * 0.08f
+            brown = (brown + (rnd.nextFloat() * 2 - 1) * 0.02f) * 0.995f
+            out[i] = (lp * 0.12f * grow + brown * 0.5f * grow) * fade
+        }
+        // Crackles: few and small at first, then more and bigger.
+        var t = 0.15f
+        while (t < secs - 0.2f) {
+            val grow = (t / 2f).coerceAtMost(1f)
+            val at = (t * RATE).toInt()
+            val len = (RATE * (0.003f + rnd.nextFloat() * 0.012f)).toInt()
+            val amp = (0.08f + rnd.nextFloat() * 0.3f) * (0.3f + 0.7f * grow) * ((secs - t) / 0.8f).coerceIn(0f, 1f)
+            var q = 0f
+            for (k in 0 until len) if (at + k < out.size) {
+                q += ((rnd.nextFloat() * 2 - 1) - q) * 0.4f
+                out[at + k] += q * amp * 1.6f * exp(-k / (len / 4f))
+            }
+            t += 0.03f + rnd.nextFloat() * (0.35f - 0.27f * grow)
+        }
+        return toPcm(out, 1.3f, rms = 0.06f)
     }
 
     private fun knock(): ShortArray {

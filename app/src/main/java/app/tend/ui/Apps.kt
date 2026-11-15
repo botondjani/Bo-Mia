@@ -61,14 +61,10 @@ class AppCatalog(private val context: Context) {
     }
 
     companion object {
-        const val MAX_TILES = 9
+        const val MAX_TILES = 8
 
         /** Minutes a day (one-week average) that make an app one you "use a lot". */
         const val HEAVY_MINUTES = 20
-
-        /** What setup suggests pausing: the social apps installed, and every app used [HEAVY_MINUTES]+ minutes a day. */
-        fun recommended(c: AppCatalog): Set<String> =
-            (c.suggested.map { it.pkg }.filter { it in SOCIAL } + heavyToAdd(c.dailyMinutes, c.all.map { it.pkg }, emptySet())).toSet()
 
         /** Installed apps used [HEAVY_MINUTES]+ a day that aren't picked yet, most used first. */
         fun heavyToAdd(dailyMinutes: Map<String, Int>, installed: List<String>, picked: Set<String>): List<String> =
