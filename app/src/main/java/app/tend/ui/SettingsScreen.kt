@@ -193,11 +193,11 @@ fun SettingsScreen(
         }
         // The account, your town and you, and the rest: one part.
         else -> {
-            AccountCard(onAccountChanged, onRestored)
+            var confirmReset by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+            AccountCard(onAccountChanged, onRestored, onStartOver = { confirmReset = true })
             Text(tr("YOUR TOWN & YOU", "A VÁROSOD ÉS TE"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
             Card { aboutYou() }
             Text(tr("MORE", "EGYEBEK"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
-            var confirmReset by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
             Card {
                 LanguagePicker(plain = Brand.Sage)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -231,7 +231,6 @@ fun SettingsScreen(
                     tr("Privacy", "Adatvédelem") to onPrivacy,
                     onFeedback?.let { tr("Feedback", "Visszajelzés") to it },
                     onExport?.let { tr("Export data", "Adatok exportálása") to it },
-                    tr("Start over", "Újrakezdés") to { confirmReset = true },
                 )
                 links.chunked(2).forEach { pair ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -251,7 +250,7 @@ fun SettingsScreen(
             if (confirmReset) androidx.compose.material3.AlertDialog(
                 onDismissRequest = { confirmReset = false },
                 title = { Text(tr("Start over?", "Újrakezded?")) },
-                text = { Text(tr("This deletes your minutes, activities, camp and settings on this phone. It can't be undone.", "Ez törli a perceidet, a tevékenységeidet, a táborodat és a beállításaidat erről a telefonról. Nem vonható vissza.")) },
+                text = { Text(tr("This deletes your minutes, activities, camp and settings on this phone, and signs you out; you start again with setup. Your account and its backup stay: log in again any time to bring this camp back.", "Ez törli a perceidet, a tevékenységeidet, a táborodat és a beállításaidat erről a telefonról, és kijelentkeztet; újra a beállítással kezdesz. A fiókod és a mentésed megmarad: ha újra belépsz, bármikor visszahozhatod ezt a tábort.")) },
                 confirmButton = { androidx.compose.material3.TextButton(onClick = { confirmReset = false; onStartOver() }) { Text(tr("Delete everything", "Mindent törlök"), color = Brand.Coral) } },
                 dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmReset = false }) { Text(tr("Keep", "Mégsem")) } },
                 containerColor = Brand.Card,

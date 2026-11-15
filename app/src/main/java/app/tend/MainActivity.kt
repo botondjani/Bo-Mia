@@ -205,6 +205,8 @@ class MainActivity : ComponentActivity() {
         for (name in listOf("tend", "tend_monitor", "tend_ui", app.tend.data.Stats.PREFS, app.tend.data.Account.PREFS_NAME)) getSharedPreferences(name, MODE_PRIVATE).edit().clear().commit()
         filesDir.listFiles()?.forEach { it.deleteRecursively() }
         cacheDir.listFiles()?.forEach { it.deleteRecursively() }
+        // Started over on purpose: logging in later asks before bringing the old camp back.
+        getSharedPreferences("tend", MODE_PRIVATE).edit().putBoolean("started_over", true).commit()
         app.tend.widget.Widgets.refresh(this, force = true)
         app.tend.ui.ThemeChoice.mode = null // read again from the (now empty) store
         startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))

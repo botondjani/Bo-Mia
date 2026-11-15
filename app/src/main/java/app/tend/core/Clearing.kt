@@ -311,11 +311,14 @@ object Perks {
     /** The weekly challenge's acorns: double from level 15. */
     fun challenge(level: Int) = Acorns.CHALLENGE * (if (level >= CHALLENGE_LEVEL) 2 else 1)
 
-    /** The level a shop thing opens at: the cheapest few from the start, then one more each level. */
+    /**
+     * The level a shop thing opens at: the cheapest few from the start, then two more each level, so
+     * there's always more open than the acorns earned so far (everything by level 8, around day 9).
+     */
     fun unlockLevel(thing: Thing): Int {
         if (thing.season != null || thing.event != null || Home.isHome(thing.id)) return 1
         val i = ladder.indexOf(thing.id)
-        return if (i < START) 1 else 2 + (i - START)
+        return if (i < START) 1 else 2 + (i - START) / 2
     }
 
     private const val START = 7

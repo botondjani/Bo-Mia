@@ -33,7 +33,7 @@ import kotlinx.coroutines.launch
  * [onChanged] runs after signing in or out, so the app can save the profile and redraw.
  */
 @Composable
-fun AccountCard(onChanged: () -> Unit, onRestored: () -> Unit = {}, onSignedIn: () -> Unit = {}) {
+fun AccountCard(onChanged: () -> Unit, onRestored: () -> Unit = {}, onSignedIn: () -> Unit = {}, onStartOver: (() -> Unit)? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var user by androidx.compose.runtime.remember { mutableStateOf(Account.user(context)) }
@@ -51,7 +51,13 @@ fun AccountCard(onChanged: () -> Unit, onRestored: () -> Unit = {}, onSignedIn: 
     /** Right after logging in: offer the server's backup, or send this phone's if there's none. */
     suspend fun afterLogin() {
         val saved = app.tend.data.Backup.fetch(context)
-        if (saved != null) found = saved
+        // A phone with next to nothing on it yet (a new phone, a reinstall): the old camp comes back by itself.
+        val fresh = app.tend.data.TendStore(context).daysTended <= 1 &&
+            !context.getSharedPreferences("tend", android.content.Context.MODE_PRIVATE).getBoolean("started_over", false)
+        if (saved != null && fresh) {
+            app.tend.data.Backup.restore(context, saved.data)
+            onRestored()
+        } else if (saved != null) found = saved
         else {
             if (app.tend.data.Backup.upload(context)) lastBackup = app.tend.data.Backup.lastBackupAt(context)
             onSignedIn()
@@ -128,6 +134,12 @@ fun AccountCard(onChanged: () -> Unit, onRestored: () -> Unit = {}, onSignedIn: 
             }
         }
         message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = if (it == tr("Check your inbox for a 6-digit code.", "Nézd meg a postaládád: küldtünk egy 6 jegyű kódot.")) Brand.Moss else Brand.Coral) }
+        onStartOver?.let { start ->
+            Text(
+                tr("Start over from scratch", "Előről kezdem"), style = MaterialTheme.typography.labelLarge, color = Brand.Coral, textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp).clip(RoundedCornerShape(12.dp)).tappable(onClick = start).padding(vertical = 8.dp),
+            )
+        }
     }
 
     found?.let { saved ->

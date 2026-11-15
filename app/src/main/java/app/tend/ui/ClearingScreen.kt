@@ -721,14 +721,15 @@ fun ClearingScreen(
             var ready by remember { mutableStateOf(false) }
             androidx.compose.runtime.LaunchedEffect(Unit) { androidx.compose.runtime.withFrameNanos { }; ready = true }
             if (ready) Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, plus = plus, onPlus = onPlus, level = level, outfits = outfits, outfitWorn = outfitWorn,
-                onBuyOutfit = { a -> onBuyOutfit(a).also { if (it) { tick(firm = true); Sounds.chime(context); closeShopThen { scope.launch { scroll.animateScrollTo(0) } } } } },
+                onBuyOutfit = { a -> onBuyOutfit(a).also { if (it) { tick(firm = true); Sounds.chime(context) } } },
                 onWearOutfit = { tick(); onWearOutfit(it) }, onBuy = { id ->
                 // Bought: a firm tick, a chime, and up to the camp to watch it pop in.
                 val spot = Things.byId(id)?.let { Clearing.spotFor(placed, it, level) }
-                onBuy(id).also { ok -> if (ok) { tick(firm = true); Sounds.chime(context); closeShopThen { spot?.let { showSpot(it) } } } }
+                // Bought: a firm tick and a chime; the shop stays open (it pops into the camp behind it).
+                onBuy(id).also { ok -> if (ok) { tick(firm = true); Sounds.chime(context) } }
             }, onSell = onSell, chest = chest, onPutAway = { tick(); onPutAway(it) }, onTakeOut = { id ->
                 // Out of the chest: up to the camp to watch it pop in, like a new one.
-                onTakeOut(id).also { ok -> if (ok) { tick(firm = true); closeShopThen { scope.launch { scroll.animateScrollTo(0) } } } }
+                onTakeOut(id).also { ok -> if (ok) tick(firm = true) }
             })
             }
         }
@@ -1318,22 +1319,39 @@ private fun CampFooter(modifier: Modifier) = Canvas(modifier) {
     val w = size.width
     val h = size.height
     val base = h * 0.86f
-    val ink = Brand.Moss.copy(alpha = 0.18f)
+    val ink = Brand.Moss.copy(alpha = 0.16f)
+    val inkDeep = Brand.Moss.copy(alpha = 0.26f)
+    fun fade(alpha: Float, top: Float) = androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Brand.Mint.copy(alpha = alpha), Brand.Sage.copy(alpha = 0f)), startY = top, endY = h)
+    // Far hills, paler, then the near ones.
+    drawPath(Path().apply {
+        moveTo(0f, base - h * 0.2f)
+        cubicTo(w * 0.2f, base - h * 0.42f, w * 0.38f, base - h * 0.18f, w * 0.55f, base - h * 0.32f)
+        cubicTo(w * 0.72f, base - h * 0.46f, w * 0.9f, base - h * 0.24f, w, base - h * 0.3f)
+        lineTo(w, h); lineTo(0f, h); close()
+    }, fade(0.16f, base - h * 0.46f))
     drawPath(Path().apply {
         moveTo(0f, base)
         cubicTo(w * 0.25f, base - h * 0.22f, w * 0.45f, base + h * 0.04f, w * 0.7f, base - h * 0.16f)
         cubicTo(w * 0.85f, base - h * 0.26f, w * 0.95f, base - h * 0.06f, w, base - h * 0.08f)
         lineTo(w, h); lineTo(0f, h); close()
-    }, androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Brand.Mint.copy(alpha = 0.32f), Brand.Sage.copy(alpha = 0f)), startY = base - h * 0.26f, endY = h))
-    for ((x, sc) in listOf(0.12f to 1f, 0.17f to 0.7f, 0.78f to 0.9f, 0.84f to 0.6f)) {
+    }, fade(0.32f, base - h * 0.26f))
+    // Pines: two tones, the near ones a little darker.
+    for ((x, sc, deep) in listOf(Triple(0.1f, 1f, true), Triple(0.15f, 0.7f, false), Triple(0.2f, 0.5f, false), Triple(0.8f, 0.9f, true), Triple(0.86f, 0.6f, false))) {
         val bx = w * x; val by = base - h * 0.06f; val th = h * 0.42f * sc
-        drawPath(Path().apply { moveTo(bx, by - th); lineTo(bx + th * 0.35f, by); lineTo(bx - th * 0.35f, by); close() }, ink)
+        drawPath(Path().apply { moveTo(bx, by - th); lineTo(bx + th * 0.35f, by); lineTo(bx - th * 0.35f, by); close() }, if (deep) inkDeep else ink)
+        drawLine(if (deep) inkDeep else ink, Offset(bx, by), Offset(bx, by + th * 0.08f), strokeWidth = h * 0.012f)
     }
-    // A dotted path off into the hills.
-    for (i in 0 until 11) { val k = i / 10f; drawCircle(ink, h * 0.014f, Offset(w * (0.4f + 0.2f * k), base + h * (0.1f - 0.16f * k))) }
-    // Two birds far off.
-    for ((x, y) in listOf(0.52f to 0.62f, 0.58f to 0.7f, 0.47f to 0.72f)) {
-        val c = Offset(w * x, base - h * y); val r = h * 0.04f
+    // A dotted path winding up to a little tent.
+    for (i in 0 until 12) { val k = i / 11f; drawCircle(ink, h * 0.012f * (1.2f - k * 0.5f), Offset(w * (0.36f + 0.22f * k + 0.03f * kotlin.math.sin(k * 6f)), base + h * (0.1f - 0.2f * k))) }
+    val tent = Offset(w * 0.62f, base - h * 0.12f); val tw = h * 0.12f
+    drawPath(Path().apply { moveTo(tent.x - tw, tent.y); lineTo(tent.x, tent.y - tw * 1.1f); lineTo(tent.x + tw, tent.y); close() }, inkDeep)
+    drawPath(Path().apply { moveTo(tent.x - tw * 0.25f, tent.y); lineTo(tent.x, tent.y - tw * 0.6f); lineTo(tent.x + tw * 0.25f, tent.y); close() }, Brand.Sage)
+    // Birds far off, and a thin crescent.
+    for ((x, y) in listOf(0.42f to 0.66f, 0.47f to 0.74f, 0.37f to 0.76f)) {
+        val c = Offset(w * x, base - h * y); val r = h * 0.035f
         drawPath(Path().apply { moveTo(c.x - r, c.y); quadraticTo(c.x - r / 2, c.y - r * 0.6f, c.x, c.y); quadraticTo(c.x + r / 2, c.y - r * 0.6f, c.x + r, c.y) }, ink, style = androidx.compose.ui.graphics.drawscope.Stroke(h * 0.008f))
     }
+    val moon = Offset(w * 0.72f, base - h * 0.72f); val mr = h * 0.06f
+    drawCircle(Brand.Mint.copy(alpha = 0.45f), mr, moon)
+    drawCircle(Brand.Sage, mr * 0.92f, moon + Offset(mr * 0.4f, -mr * 0.2f))
 }
