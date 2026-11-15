@@ -554,23 +554,13 @@ fun BudgetPicker(cfg: BudgetConfig, onConfig: (BudgetConfig) -> Unit) = Card { B
 
 /** The two steppers on their own, for a card that holds more. */
 @Composable
-fun BudgetSteppers(cfg: BudgetConfig, onConfig: (BudgetConfig) -> Unit, weekend: Boolean = false) {
+fun BudgetSteppers(cfg: BudgetConfig, onConfig: (BudgetConfig) -> Unit) {
     Stepper(tr("Free every day", "Minden nap jár"), tr("No effort needed", "Semmit nem kell tenned érte"), listOf(15, 30, 45, 60), cfg.freeMinutes) {
         onConfig(cfg.copy(freeMinutes = it, totalMinutes = maxOf(cfg.totalMinutes, it)))
     }
     Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp).background(Brand.Sage))
     Stepper(tr("Max per day", "Napi maximum"), tr("With earned minutes", "A megszerzett percekkel együtt"), listOf(90, 120, 180, 240), cfg.totalMinutes) {
         onConfig(cfg.copy(totalMinutes = it, freeMinutes = minOf(cfg.freeMinutes, it)))
-    }
-    if (weekend) {
-        Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp).background(Brand.Sage))
-        Row(Modifier.fillMaxWidth().clickable { onConfig(cfg.copy(weekendPlus = !cfg.weekendPlus)) }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(tr("More at weekends", "Hétvégén több idő"), style = MaterialTheme.typography.titleMedium)
-                Text(tr("Saturday and Sunday: +${BudgetConfig.WEEKEND_PLUS} min free, and +${BudgetConfig.WEEKEND_PLUS} to the max", "Szombaton és vasárnap: +${BudgetConfig.WEEKEND_PLUS} perc jár, és a maximum is +${BudgetConfig.WEEKEND_PLUS}"), style = MaterialTheme.typography.bodyMedium)
-            }
-            androidx.compose.material3.Switch(cfg.weekendPlus, { onConfig(cfg.copy(weekendPlus = it)) })
-        }
     }
     Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp).background(Brand.Sage))
     Text(tr("These count too", "Ezek is beleszámítanak"), style = MaterialTheme.typography.titleMedium)

@@ -150,6 +150,9 @@ fun HomeScreen(
     onClaimQuest: () -> Unit = {},
     /** Sunday evening and Monday: the week (minutes got back, active days, scrolls let go), to share or put away. */
     weekStory: Triple<Int, Int, Int>? = null,
+    /** Saturday or Sunday with the minutes gone: one more hour on offer, for today only. */
+    weekendExtra: Boolean = false,
+    onWeekendExtra: () -> Unit = {},
     /** The phone's whole screen time in minutes, the last 7 days, today last (empty without usage access). */
     screenTime: List<Int?> = emptyList(),
     onShareWeek: () -> Unit = {},
@@ -338,6 +341,7 @@ fun HomeScreen(
                 if (remaining <= 0) tr("tend can only notify you, not close them. Tap to fix.", "A tend csak értesíteni tud, bezárni nem. Koppints, és megjavítjuk.") else tr("Only a notification for now. Tap to fix.", "Egyelőre csak értesítés jön. Koppints, és megjavítjuk."), onFixPermissions,
             )
         }
+        if (weekendExtra) Notice("sun", tr("It's the weekend: one more hour?", "Hétvége van: kérsz még egy órát?"), tr("Today's minutes are gone. Tap for ${BudgetConfig.WEEKEND_PLUS} more, for today only.", "A mai keret elfogyott. Koppints, és kapsz még ${BudgetConfig.WEEKEND_PLUS} percet, csak mára."), onWeekendExtra)
         val needsHealth = tasks.any { it.verification == Verification.AUTOMATIC } &&
             (health == HealthConnect.Status.NEEDS_PERMISSION || health == HealthConnect.Status.NEEDS_INSTALL)
         if (monitorSlept && batteryRisk) Notice("alert", tr("${avatar.displayName} fell asleep in the background", "${avatar.displayName} elaludt a háttérben"), tr("Your phone paused tend for a while. Tap to keep ${avatar.displayName} awake.", "A telefonod egy időre leállította a tendet. Koppints, hogy ${avatar.displayName} ébren maradjon."), onKeepAwake)

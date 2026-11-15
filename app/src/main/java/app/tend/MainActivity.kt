@@ -614,7 +614,7 @@ class MainActivity : ComponentActivity() {
                 onRestored = ::restartFresh,
                 onConfig = {
                     val now = store.baseConfig
-                    if (store.isStrict && (it.freeMinutes > now.freeMinutes || it.totalMinutes > now.totalMinutes || it.weekendPlus && !now.weekendPlus)) strictNo() else { store.baseConfig = it; refresh++ }
+                    if (store.isStrict && (it.freeMinutes > now.freeMinutes || it.totalMinutes > now.totalMinutes)) strictNo() else { store.baseConfig = it; refresh++ }
                 },
                 onToggleApp = toggleApp,
                 tasks = store.selectedTasks,
@@ -732,6 +732,10 @@ class MainActivity : ComponentActivity() {
                 night = app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour),
                 onBuy = { thing -> store.buy(thing).also { if (it) { app.tend.data.Stats.log(this, "bought", mapOf("thing" to thing)); saveProfile(); refresh++ } } },
                 onSell = { thing -> store.sell(thing); saveProfile(); refresh++ },
+                chest = store.chest,
+                onPutAway = { thing -> store.putAway(thing); saveProfile(); refresh++ },
+                onTakeOut = { thing -> store.takeOut(thing).also { if (it) { saveProfile(); refresh++ } } },
+                onGave = { thing -> store.gaveAway(thing); app.tend.data.Stats.log(this, "gave_thing"); refresh++ },
                 layout = campLayout(),
                 onPlace = { spot, at -> if (store.place(spot, at.x, at.y)) { saveProfile(); refresh++ } },
                 plus = store.isPlus,
@@ -893,6 +897,8 @@ class MainActivity : ComponentActivity() {
                 },
                 questClaimed = store.questClaimedOn == LocalDate.now().toString(),
                 // The week's story: from Sunday 17:00 through Monday, until shared or put away.
+                weekendExtra = store.weekendExtraOffered,
+                onWeekendExtra = { store.takeWeekendExtra(); app.tend.data.Stats.log(this, "weekend_extra", mapOf("from" to "home")); refresh++ },
                 screenTime = androidx.compose.runtime.produceState(emptyList<Int?>(), refresh) {
                     value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                         val today = LocalDate.now()

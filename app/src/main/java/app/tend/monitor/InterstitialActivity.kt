@@ -347,6 +347,12 @@ class InterstitialActivity : ComponentActivity() {
         )
         }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp)) {
+        // The weekend: once a day, when the minutes run out, an extra hour on offer (for today only).
+        if (v.appLimit == null && store.weekendExtraOffered) PrimaryButton(tr("It's the weekend: one more hour today", "Hétvége van: még egy óra mára"), {
+            store.takeWeekendExtra()
+            decide("weekend_extra")
+            view = view?.copy(locked = false, remaining = Budget.remainingMinutes(store.config, store.today()))
+        })
         PrimaryButton(if (v.appLimit != null) tr("Do something with ${store.avatar.displayName} instead", "Csinálj inkább valami mást, ${store.avatar.displayName} veled tart") else tr("Let's earn some", "Szerezzünk perceket"), {
             decide(if (v.appLimit != null) "instead" else "earn")
             startActivity(Intent(this@InterstitialActivity, MainActivity::class.java).putExtra(app.tend.reminder.RecapReminder.EXTRA_OPEN, app.tend.reminder.RecapReminder.OPEN_ACTIVITIES)

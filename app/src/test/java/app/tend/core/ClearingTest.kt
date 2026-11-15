@@ -14,7 +14,7 @@ class ClearingTest {
         SpotKind.entries.forEach { k -> assertTrue("$k has things", Things.forKind(k).isNotEmpty()) }
         assertTrue(Things.all.all { t -> Clearing.spots.any { it.kind == t.kind } })
         assertEquals(10, Clearing.spots.count { it.kind != SpotKind.SMALL })
-        assertEquals(8, Clearing.spots.count { it.kind == SpotKind.SMALL })
+        assertEquals(Clearing.SMALL_SPOTS, Clearing.spots.count { it.kind == SpotKind.SMALL })
         assertEquals(Clearing.spots.size, Clearing.spots.map { it.id }.toSet().size)
     }
 

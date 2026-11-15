@@ -295,7 +295,13 @@ class TendStore(private val context: Context) {
                 addAcorns(retired.sumOf { app.tend.core.Things.retired.getValue(it) }, "sold", refreshWidgets = false)
                 return kept
             }
-            val now = app.tend.core.Clearing.parse(saved)
+            var now = app.tend.core.Clearing.parse(saved)
+            // On spots that are gone (there were 8 small ones): into the chest, kept.
+            val gone = now.filterKeys { app.tend.core.Clearing.spot(it) == null }
+            if (gone.isNotEmpty()) {
+                now = now - gone.keys
+                prefs.edit().putString("placed", app.tend.core.Clearing.format(now)).putString("chest", (chest + gone.values).distinct().joinToString(",")).apply()
+            }
             // Things with their own spot, placed elsewhere before: moved there when it's free.
             val moved = now.entries.fold(now) { acc, (spot, id) ->
                 val home = app.tend.core.Things.byId(id)?.spot
@@ -306,7 +312,48 @@ class TendStore(private val context: Context) {
         }
         set(v) = edit { putString("placed", app.tend.core.Clearing.format(v)) }
 
-    /** Buys [thingId] from the shop: it goes to a free spot of its kind, or swaps out the cheapest one there. */
+    /** Things bought and put away: not in the camp, kept to take out again or give a friend. */
+    var chest: List<String>
+        get() = prefs.getString("chest", "")!!.split(',').filter { it.isNotEmpty() && app.tend.core.Things.byId(it) != null }
+        private set(v) = edit { putString("chest", v.distinct().joinToString(",")) }
+
+    /** In the camp or in the chest. */
+    fun owns(thingId: String) = thingId in placed.values || thingId in chest
+
+    /** Puts [thingId] from the camp into the chest. */
+    @Synchronized
+    fun putAway(thingId: String) {
+        val spot = placed.entries.firstOrNull { it.value == thingId }?.key ?: return
+        val l = layout
+        placed = placed - spot
+        if (spot in l) saveLayout(l - spot)
+        chest = chest + thingId
+    }
+
+    /** Takes [thingId] out of the chest into the camp; what stood on its spot goes into the chest. False when it has no spot. */
+    @Synchronized
+    fun takeOut(thingId: String): Boolean {
+        if (thingId !in chest) return false
+        val thing = app.tend.core.Things.byId(thingId) ?: return false
+        val spot = app.tend.core.Clearing.spotFor(placed, thing) ?: return false
+        val l = layout
+        val was = placed[spot]
+        placed = placed + (spot to thingId)
+        if (spot in l) saveLayout(l - spot)
+        chest = chest - thingId + listOfNotNull(was)
+        return true
+    }
+
+    /** A thing gone from the chest to a friend. */
+    fun gaveAway(thingId: String) { chest = chest - thingId }
+
+    /** A thing from a friend: into the chest (if it's already yours, half its price in acorns instead). */
+    fun received(thingId: String) {
+        val thing = app.tend.core.Things.byId(thingId) ?: return
+        if (owns(thingId)) addAcorns(app.tend.core.Clearing.sellValue(thing), "gift") else chest = chest + thingId
+    }
+
+    /** Buys [thingId] from the shop: it goes to a free spot of its kind, or the cheapest one there goes into the chest. */
     fun buy(thingId: String): Boolean {
         val thing = app.tend.core.Things.byId(thingId) ?: return false
         val spot = app.tend.core.Clearing.spotFor(placed, thing) ?: return false
@@ -326,27 +373,32 @@ class TendStore(private val context: Context) {
         return true
     }
 
-    /** Sells [thingId] wherever it stands. */
+    /** Sells [thingId] wherever it is: in the camp or in the chest. */
     fun sell(thingId: String) {
-        placed.entries.firstOrNull { it.value == thingId }?.let { sell(it.key) }
+        placed.entries.firstOrNull { it.value == thingId }?.let { sell(it.key); return }
+        val thing = app.tend.core.Things.byId(thingId)?.takeIf { thingId in chest } ?: return
+        chest = chest - thingId
+        addAcorns(app.tend.core.Clearing.sellValue(thing), "sold")
     }
 
-    /** Buys [thingId] for [spotId]; a thing already there is sold first. False when it doesn't fit or isn't affordable. */
+    /** Buys [thingId] for [spotId]; a thing already there goes into the chest. False when it doesn't fit or isn't affordable. */
     @Synchronized
     fun buy(spotId: Int, thingId: String): Boolean {
         val spot = app.tend.core.Clearing.spot(spotId) ?: return false
         val thing = app.tend.core.Things.byId(thingId) ?: return false
         if (thing.kind != spot.kind) return false
         // A season's things are sold only in that season.
-        if (thing.season != null && thing.season != app.tend.core.Season.of(LocalDate.now()) && thingId !in placed.values) return false
-        if (thing.season != null && !isPlus && thingId !in placed.values) return false // the season's own come with Plus
+        if (owns(thingId)) return false
+        if (thing.season != null && thing.season != app.tend.core.Season.of(LocalDate.now())) return false
+        if (thing.season != null && !isPlus) return false // the season's own come with Plus
         // An event's things: only while it's on, and with Plus, like the seasons'.
-        if (thing.event != null && (!thing.event.on(LocalDate.now()) || !isPlus) && thingId !in placed.values) return false
-        val refund = placed[spotId]?.let(app.tend.core.Things::byId)?.let(app.tend.core.Clearing::sellValue) ?: 0
-        if (acorns + refund < thing.price) return false
-        if (refund > 0) addAcorns(refund, "sold")
+        if (thing.event != null && (!thing.event.on(LocalDate.now()) || !isPlus)) return false
+        if (acorns < thing.price) return false
         addAcorns(-thing.price, "spent")
+        val was = placed[spotId]
+        val l = layout
         placed = placed + (spotId to thingId)
+        if (was != null) { chest = chest + was; if (spotId in l) saveLayout(l - spotId) }
         return true
     }
 
@@ -495,8 +547,21 @@ class TendStore(private val context: Context) {
         get() = prefs.getStringSet("blocked", emptySet())!!
         set(v) = edit { putStringSet("blocked", v) }
 
-    /** The day's budget: [baseConfig] with the weekend's extra on Saturday and Sunday, when it's on. */
-    val config: BudgetConfig get() = baseConfig.forDay(LocalDate.now(), isStrict)
+    /** The day's budget: [baseConfig], with the weekend's extra hour when it was taken today (never in strict mode). */
+    val config: BudgetConfig get() = baseConfig.let { if (weekendExtraToday && !isStrict) it.withWeekendExtra() else it }
+
+    /** The day (yyyy-mm-dd) the weekend's extra hour was taken: one day at a time, never left on. */
+    private val weekendExtraToday: Boolean get() = prefs.getString("weekend_extra", "") == LocalDate.now().toString()
+
+    /** Saturday or Sunday, the minutes gone, not in strict mode, and not taken yet today: the extra hour is on offer. */
+    val weekendExtraOffered: Boolean
+        get() = BudgetConfig.isWeekend(LocalDate.now()) && !isStrict && !weekendExtraToday && app.tend.core.Budget.remainingMinutes(baseConfig, today()) <= 0
+
+    /** Takes the weekend's extra hour, for today only. */
+    fun takeWeekendExtra() {
+        if (!BudgetConfig.isWeekend(LocalDate.now()) || isStrict) return
+        edit { putString("weekend_extra", LocalDate.now().toString()) }
+    }
 
     /** The budget as set in Settings, without the weekend's extra. */
     var baseConfig: BudgetConfig
@@ -504,9 +569,8 @@ class TendStore(private val context: Context) {
             totalMinutes = prefs.getInt("cfg_total", BudgetConfig().totalMinutes),
             freeMinutes = prefs.getInt("cfg_free", BudgetConfig().freeMinutes),
             counted = prefs.getStringSet("cfg_counted", null) ?: BudgetConfig().counted,
-            weekendPlus = prefs.getBoolean("cfg_weekend", false),
         )
-        set(v) = edit { putInt("cfg_total", v.totalMinutes); putInt("cfg_free", v.freeMinutes); putStringSet("cfg_counted", v.counted); putBoolean("cfg_weekend", v.weekendPlus) }
+        set(v) = edit { putInt("cfg_total", v.totalMinutes); putInt("cfg_free", v.freeMinutes); putStringSet("cfg_counted", v.counted) }
 
     /** Start of the running reading session (wall clock), 0 when none. Survives the app being closed. */
     var focusStartedAt: Long

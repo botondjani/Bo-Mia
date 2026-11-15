@@ -97,7 +97,10 @@ object Things {
 }
 
 object Clearing {
-    /** 10 big spots and 8 small ones around the camp. Ids never change: placements are saved by id. */
+    /** Small things out at once: the rest wait in the chest, so the camp doesn't fill up. */
+    const val SMALL_SPOTS = 5
+
+    /** 10 big spots and [SMALL_SPOTS] small ones around the camp. Ids never change: placements are saved by id (15-17 were small spots once). */
     val spots: List<Spot> = listOf(
         Spot(0, SpotKind.FIRE),
         Spot(1, SpotKind.SEAT), Spot(2, SpotKind.SEAT),
@@ -105,7 +108,7 @@ object Clearing {
         Spot(5, SpotKind.TREES), Spot(6, SpotKind.TREES),
         Spot(7, SpotKind.WATER), Spot(8, SpotKind.WATER),
         Spot(9, SpotKind.ABOVE),
-    ) + (0 until 8).map { Spot(10 + it, SpotKind.SMALL) }
+    ) + (0 until SMALL_SPOTS).map { Spot(10 + it, SpotKind.SMALL) }
 
     fun spot(id: Int): Spot? = spots.firstOrNull { it.id == id }
 
@@ -114,7 +117,7 @@ object Clearing {
 
     /**
      * Where a bought [thing] goes: a free spot of its kind, else the spot whose thing is cheapest
-     * (it's swapped out). Null when it's already in the camp.
+     * (that one goes into the chest). Null when it's already in the camp.
      */
     fun spotFor(placed: Map<Int, String>, thing: Thing): Int? {
         if (thing.id in placed.values) return null
