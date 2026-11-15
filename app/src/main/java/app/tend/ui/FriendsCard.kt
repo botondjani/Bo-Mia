@@ -8,6 +8,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,6 +61,7 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
     var inviting by rememberSaveable { mutableStateOf(openInvite && signedIn) }
     LaunchedEffect(openInvite) { if (openInvite && signedIn) inviting = true }
     var typing by rememberSaveable { mutableStateOf(false) }
+    var trading by rememberSaveable { mutableStateOf(false) }
     var asking by remember { mutableStateOf<Pair<String, Friends.Friend>?>(null) }
     var removing by remember { mutableStateOf<Friends.Friend?>(null) }
     var note by rememberSaveable { mutableStateOf<String?>(null) }
@@ -157,6 +159,7 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
             if (list.isNotEmpty()) TogetherWeek(Friends.week(Friends.me(context), list), app.tend.data.TendStore(context).togetherDone.size, claimed)
             androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
                 if (list.isNotEmpty()) ChipButton(tr("Along the river", "A folyó mentén"), { onOpenRiver(null) })
+                if (list.isNotEmpty()) ChipButton(tr("Trade things", "Tárgycsere"), { trading = true }, filled = false)
                 ChipButton(tr("Invite a friend", "Hívj meg egy barátot"), { inviting = true }, filled = list.isEmpty())
                 ChipButton(tr("Enter a code", "Kód megadása"), { typing = true }, filled = false)
             }
@@ -165,6 +168,7 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
     }
 
     if (inviting) InviteDialog { inviting = false }
+    if (trading) TradeDialog(friends.orEmpty(), onGave = onChanged) { trading = false }
     if (typing) EnterCodeDialog(onDismiss = { typing = false }) { code -> typing = false; note = null; scope.launch { lookUp(code) } }
     asking?.let { (code, owner) ->
         androidx.compose.material3.AlertDialog(
@@ -364,4 +368,63 @@ fun qrBitmap(text: String, size: Int): Bitmap {
     val bmp = Bitmap.createBitmap(m.width, m.height, Bitmap.Config.ARGB_8888)
     for (x in 0 until m.width) for (y in 0 until m.height) bmp.setPixel(x, y, if (m[x, y]) 0xFF1D2A23.toInt() else 0xFFFFFFFF.toInt())
     return bmp
+}
+
+/**
+ * Trading things: pick a friend, then one of your things (out in the camp or in the chest); it goes
+ * into their chest. What friends gave you lately is listed too (it's in your chest: Camp → Chest).
+ */
+@Composable
+private fun TradeDialog(friends: List<Friends.Friend>, onGave: () -> Unit, onClose: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val store = remember { app.tend.data.TendStore(context) }
+    var to by remember { mutableStateOf(friends.singleOrNull()) }
+    var sending by remember { mutableStateOf(false) }
+    var note by remember { mutableStateOf<String?>(null) }
+    var mine by remember { mutableStateOf((store.chest + store.placed.values).distinct().filterNot(app.tend.core.Home::isHome).mapNotNull(app.tend.core.Things::byId)) }
+    val got = remember { Friends.notes(context).filter { it.kind == Friends.Kind.THING && it.thing != null }.take(3) }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(tr("Trade things", "Tárgycsere")) },
+        text = {
+            Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                got.forEach { n -> Text(tr("${n.name} gave you: ${app.tend.core.Things.byId(n.thing!!)?.name?.lowercase()} (in your chest)", "${n.name} adta neked: ${app.tend.core.Things.byId(n.thing!!)?.name?.lowercase()} (a ládádban)"), style = MaterialTheme.typography.bodyMedium, color = Brand.Moss) }
+                note?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Brand.Moss) }
+                Text(tr("To", "Kinek"), style = MaterialTheme.typography.labelSmall, color = Brand.Muted)
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    friends.forEach { f -> ChipButton(f.name, { to = f }, filled = to?.id == f.id) }
+                }
+                Text(tr("What (it leaves your camp for theirs)", "Mit (a te táborodból az övébe kerül)"), style = MaterialTheme.typography.labelSmall, color = Brand.Muted)
+                if (mine.isEmpty()) Text(tr("Nothing to give yet: buy something in the shop first.", "Még nincs mit adnod: előbb vegyél valamit a boltban."), style = MaterialTheme.typography.bodyMedium)
+                mine.chunked(3).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        row.forEach { t ->
+                            ShopTile(t, owned = true, affordable = true, Modifier.weight(1f), inChest = t.id in store.chest) {
+                                val f = to
+                                if (f == null) { note = tr("Pick a friend first.", "Előbb válassz barátot."); return@ShopTile }
+                                if (sending) return@ShopTile
+                                sending = true
+                                scope.launch {
+                                    // Put away first (if it's out), then sent; if it can't go, it waits in the chest.
+                                    if (t.id in store.placed.values) store.putAway(t.id)
+                                    if (Friends.giveThing(context, f.id, t.id)) {
+                                        store.gaveAway(t.id)
+                                        mine = mine - t
+                                        note = tr("${t.name} is on its way to ${f.name}.", "${t.name}: úton van, ${f.name} kapja.")
+                                        app.tend.data.Stats.log(context, "gave_thing")
+                                        onGave()
+                                    } else note = tr("Couldn't send it (5 a day at most). It's in your chest.", "Nem sikerült elküldeni (naponta legfeljebb 5). A ládádban van.")
+                                    sending = false
+                                }
+                            }
+                        }
+                        repeat(3 - row.size) { androidx.compose.foundation.layout.Spacer(Modifier.weight(1f)) }
+                    }
+                }
+            }
+        },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = onClose) { Text(tr("Done", "Kész")) } },
+        containerColor = Brand.Card,
+    )
 }

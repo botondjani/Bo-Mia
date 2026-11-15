@@ -736,7 +736,6 @@ class MainActivity : ComponentActivity() {
                 level = store.levelSeen,
                 onPutAway = { thing -> store.putAway(thing); saveProfile(); refresh++ },
                 onTakeOut = { thing -> store.takeOut(thing).also { if (it) { saveProfile(); refresh++ } } },
-                onGave = { thing -> store.gaveAway(thing); app.tend.data.Stats.log(this, "gave_thing"); refresh++ },
                 layout = campLayout(),
                 onPlace = { spot, at -> if (store.place(spot, at.x, at.y)) { saveProfile(); refresh++ } },
                 plus = store.isPlus,
@@ -793,8 +792,12 @@ class MainActivity : ComponentActivity() {
                 onStep = goToStep,
             )
             // Challenges open right here over the camp, as on home.
-            if (campChallenges) { val hp = remember(refresh) { homeProgress() }; app.tend.ui.ChallengesSheet(
-                remember(refresh) { firstSteps() }, { store.claimStep(it); refresh++ }, { step -> campChallenges = false; goToStep(step) },
+            // Worked out off the main thread (it reads the history), then the sheet opens: the camp doesn't stall.
+            val ready = if (campChallenges) androidx.compose.runtime.produceState<Pair<HomeProgress, List<app.tend.core.StepState>>?>(null, refresh) {
+                value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { homeProgress() to firstSteps() }
+            }.value else null
+            if (campChallenges && ready != null) { val hp = ready.first; app.tend.ui.ChallengesSheet(
+                ready.second, { store.claimStep(it); refresh++ }, { step -> campChallenges = false; goToStep(step) },
                 remember(refresh, LocalDate.now()) { app.tend.core.Quests.of(LocalDate.now(), store.selectedTasks, store.config.freeMinutes).takeIf { store.selectedTasks.isNotEmpty() } },
                 remember(refresh, LocalTime.now().hour) { app.tend.core.Quests.done(app.tend.core.Quests.of(LocalDate.now(), store.selectedTasks, store.config.freeMinutes), store.today(), store.notNowsToday, LocalTime.now().hour) },
                 store.questClaimedOn == LocalDate.now().toString(),

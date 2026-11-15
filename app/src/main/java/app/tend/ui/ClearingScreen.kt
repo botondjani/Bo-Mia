@@ -84,11 +84,10 @@ fun ClearingScreen(
     night: Boolean,
     onBuy: (thing: String) -> Boolean,
     onSell: (thing: String) -> Unit,
-    /** The chest: what's in it, putting a thing away, taking one out, and one given to a friend. */
+    /** The chest: what's in it, putting a thing away, and taking one out. */
     chest: List<String> = emptyList(),
     onPutAway: (thing: String) -> Unit = {},
     onTakeOut: (thing: String) -> Boolean = { false },
-    onGave: (thing: String) -> Unit = {},
     onBack: () -> Unit,
     onShare: () -> Unit,
     onOpenSettings: () -> Unit = {},
@@ -174,6 +173,7 @@ fun ClearingScreen(
     var shopOpen by rememberSaveable { mutableStateOf(false) }
     var bookOpen by rememberSaveable { mutableStateOf(false) }
     var milestonesOpen by rememberSaveable { mutableStateOf(false) }
+    var chestOpen by rememberSaveable { mutableStateOf(false) }
     var collectionAt by remember { androidx.compose.runtime.mutableIntStateOf(0) }
 
     // The same header as home, settings and all (nothing moves going between them).
@@ -390,14 +390,15 @@ fun ClearingScreen(
     }
     // Camp life: clouds and weather move, and the companion gets on with things when left alone.
     // A sheet over the page (the shop, friends): the camp holds still behind it, so the sheet moves smoothly.
-    val ambient = rememberAmbientClock(paused = shopOpen || friendsOpen)
+    // The camp keeps living behind the sheets (stopping it looked like a freeze).
+    val ambient = rememberAmbientClock()
     // Until something has been moved: which small thing hints that things can be picked up.
     // Something light and easy to carry, ideally (not the firewood, which belongs by the fire).
     val hintSpot = if (layout.isNotEmpty() || night) null else placed.entries.filter { (spot, id) ->
         spot in SpotPositions && id != "woodpile" &&
             app.tend.core.Things.byId(id)?.let { app.tend.core.Clearing.movable(it) && it.kind == app.tend.core.SpotKind.SMALL } == true
     }.minByOrNull { (_, id) -> listOf("lantern", "wildflowers", "guitar", "telescope").indexOf(id).let { if (it < 0) 9 else it } }?.key
-    val idle = rememberIdleLife(placed, rest, enabled = using == null && drag == null && settling == null && !carrying && carries.isEmpty() && !shopOpen && !friendsOpen && greeted == null && pokeAct == null && !night, layout = local) { onRest(it) }
+    val idle = rememberIdleLife(placed, rest, enabled = using == null && drag == null && settling == null && !carrying && carries.isEmpty() && greeted == null && pokeAct == null && !night, layout = local) { onRest(it) }
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { Sounds.stop() } }
 
     // The camp, big and edge to edge: wider than the screen, so it pans left and right.
@@ -669,6 +670,9 @@ fun ClearingScreen(
             HubDivider()
             HubRow({ Canvas(Modifier.size(30.dp)) { drawVisitorIcon(guestbook.keys.firstOrNull() ?: app.tend.core.Visitor.RABBIT, seen = guestbook.isNotEmpty()) } },
                 tr("Guestbook", "Vendégkönyv"), "${guestbook.size} / ${app.tend.core.Visitor.entries.size}", false) { bookOpen = true }
+            HubDivider()
+            HubRow({ Canvas(Modifier.size(30.dp)) { drawThingIcon("gift_boxes") } }, tr("Chest", "Láda"),
+                if (chest.isEmpty()) tr("empty", "üres") else tr("${chest.size} things", "${chest.size} tárgy"), false) { chestOpen = true }
             totals?.let { t ->
                 HubDivider()
                 HubRow({ TendIcons.Badge("sparkle", 30.dp) }, tr("Milestones", "Mérföldkövek"), "${app.tend.core.Milestone.reached(t).size} / ${app.tend.core.Milestone.entries.size}", false) { milestonesOpen = true }
@@ -694,7 +698,7 @@ fun ClearingScreen(
                 // Bought: a firm tick, a chime, and up to the camp to watch it pop in.
                 val spot = Things.byId(id)?.let { Clearing.spotFor(placed, it, level) }
                 onBuy(id).also { ok -> if (ok) { tick(firm = true); Sounds.chime(context); closeShopThen { spot?.let { showSpot(it) } } } }
-            }, onSell = onSell, chest = chest, onPutAway = { tick(); onPutAway(it) }, onGave = onGave, onTakeOut = { id ->
+            }, onSell = onSell, chest = chest, onPutAway = { tick(); onPutAway(it) }, onTakeOut = { id ->
                 // Out of the chest: up to the camp to watch it pop in, like a new one.
                 onTakeOut(id).also { ok -> if (ok) { tick(firm = true); closeShopThen { scope.launch { scroll.animateScrollTo(0) } } } }
             })
@@ -703,6 +707,14 @@ fun ClearingScreen(
     }
 
     // Friends: over the page, from the bottom.
+    if (chestOpen) androidx.compose.material3.ModalBottomSheet(onDismissRequest = { chestOpen = false }, containerColor = Brand.Sage,
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = Space.xl)) {
+            ChestCard(placed, chest, onPutAway = { tick(); onPutAway(it) }, onSell = onSell, onTakeOut = { id ->
+                onTakeOut(id).also { ok -> if (ok) { tick(firm = true); chestOpen = false; scope.launch { scroll.animateScrollTo(0) } } }
+            })
+        }
+    }
     if (milestonesOpen) totals?.let { t ->
         androidx.compose.material3.ModalBottomSheet(onDismissRequest = { milestonesOpen = false }, containerColor = Brand.Sage) {
             Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = Space.xl)) { MilestonesCard(t) }
@@ -779,12 +791,11 @@ private fun Shop(
     acorns: Int, placed: Map<Int, String>, earnedToday: Int, name: String, plus: Boolean, onPlus: () -> Unit,
     outfits: Set<app.tend.core.Accessory>, outfitWorn: app.tend.core.Accessory?, onBuyOutfit: (app.tend.core.Accessory) -> Boolean, onWearOutfit: (app.tend.core.Accessory?) -> Unit,
     onBuy: (String) -> Boolean, onSell: (String) -> Unit,
-    chest: List<String> = emptyList(), onPutAway: (String) -> Unit = {}, onTakeOut: (String) -> Boolean = { false }, onGave: (String) -> Unit = {},
+    chest: List<String> = emptyList(), onPutAway: (String) -> Unit = {}, onTakeOut: (String) -> Boolean = { false },
     level: Int = 1,
 ) {
     val inCamp = placed.values.toSet()
     fun owns(id: String) = id in inCamp || id in chest
-    var giving by remember { mutableStateOf<app.tend.core.Thing?>(null) }
     var outfitOpen by remember { mutableStateOf<app.tend.core.Accessory?>(null) }
     var open by remember { mutableStateOf<app.tend.core.Thing?>(null) }
     Card {
@@ -797,17 +808,6 @@ private fun Shop(
                 )
             }
             AcornBadge(acorns)
-        }
-        // The chest: things put away (or from friends), to take out again or give a friend.
-        if (chest.isNotEmpty()) {
-            Text(tr("YOUR CHEST", "A LÁDÁD"), style = MaterialTheme.typography.labelSmall, color = Brand.Moss, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
-            Text(tr("Tap one to put it out, or give it to a friend.", "Koppints egyre: kirakhatod, vagy odaadhatod egy barátodnak."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
-            chest.mapNotNull(Things::byId).chunked(3).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-                    row.forEach { thing -> ShopTile(thing, owned = true, affordable = true, Modifier.weight(1f), inChest = true) { open = thing } }
-                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
-                }
-            }
         }
         // An event's own, first, while it's on (a few days): then the season's.
         app.tend.core.CampEvent.on(java.time.LocalDate.now())?.let { event ->
@@ -931,9 +931,6 @@ private fun Shop(
             },
             dismissButton = {
                 Row {
-                    // Given from the camp too: it's put away first, then it goes (or waits in the chest).
-                    if (owned && app.tend.data.Account.user(androidx.compose.ui.platform.LocalContext.current) != null)
-                        androidx.compose.material3.TextButton(onClick = { if (!stored) onPutAway(t.id); giving = t; open = null }) { Text(tr("Give", "Odaadom"), color = Brand.Moss) }
                     if (owned) androidx.compose.material3.TextButton(onClick = { onSell(t.id); open = null }) { Text(tr("Sell ${Clearing.sellValue(t)}", "Eladom ${Clearing.sellValue(t)}"), color = Brand.Coral) }
                     else androidx.compose.material3.TextButton(onClick = { open = null }) { Text(tr("Close", "Bezárás")) }
                 }
@@ -941,44 +938,44 @@ private fun Shop(
             containerColor = Brand.Card,
         )
     }
-    giving?.let { t -> GiveDialog(t, onGave = { onGave(t.id) }) { giving = null } }
 }
 
-/** Gives [thing] to a friend: pick who; it leaves your chest for theirs. */
+/** The chest: what's put away (tap: out into the camp, or sell), and what's out (tap: put away). */
 @Composable
-private fun GiveDialog(thing: app.tend.core.Thing, onGave: () -> Unit, onClose: () -> Unit) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
-    var friends by remember { mutableStateOf<List<app.tend.data.Friends.Friend>?>(null) }
-    var note by remember { mutableStateOf<String?>(null) }
-    androidx.compose.runtime.LaunchedEffect(Unit) { friends = app.tend.data.Friends.list(context) ?: emptyList() }
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = onClose,
-        icon = { Canvas(Modifier.size(64.dp)) { drawThingIcon(thing.id) } },
-        title = { Text(tr("Give the ${thing.name.lowercase()} to…", "Kinek adod? ${thing.name}")) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                note?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Brand.Moss) }
-                when {
-                    friends == null -> Text(tr("Loading your friends…", "Betöltöm a barátaidat…"), style = MaterialTheme.typography.bodyMedium)
-                    friends!!.isEmpty() -> Text(tr("Add a friend first: then you can give each other things for your camps.", "Előbb vegyél fel egy barátot: utána adhattok egymásnak tárgyakat a táborotokba."), style = MaterialTheme.typography.bodyMedium)
-                    note == null -> friends!!.forEach { f ->
-                        Text(
-                            f.name, style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Brand.Sage).tappable {
-                                scope.launch {
-                                    if (app.tend.data.Friends.giveThing(context, f.id, thing.id)) { onGave(); note = tr("Sent! It's in ${f.name}'s chest.", "Elküldve! ${f.name} ládájában vár.") }
-                                    else note = tr("Couldn't send it (at most 5 a day). Try again later.", "Nem sikerült elküldeni (naponta legfeljebb 5). Próbáld később.")
-                                }
-                            }.padding(horizontal = 14.dp, vertical = 10.dp),
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = { androidx.compose.material3.TextButton(onClick = onClose) { Text(tr("Close", "Bezárás")) } },
-        containerColor = Brand.Card,
-    )
+private fun ChestCard(placed: Map<Int, String>, chest: List<String>, onPutAway: (String) -> Unit, onSell: (String) -> Unit, onTakeOut: (String) -> Boolean) = Card {
+    var open by remember { mutableStateOf<app.tend.core.Thing?>(null) }
+    Text(tr("CHEST", "LÁDA"), style = MaterialTheme.typography.labelSmall)
+    Text(tr("Put things away to make room; take them out again any time. To give one to a friend: Friends → Trade.", "Tedd el, amit most nem szeretnél kint látni; bármikor kiveheted. Barátnak adni: Barátok → Csere."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+    fun grid(ids: List<String>, inChest: Boolean) = ids.mapNotNull(Things::byId).chunked(3)
+    if (chest.isEmpty()) Text(tr("Nothing in it yet.", "Még üres."), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
+    grid(chest, true).forEach { row ->
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+            row.forEach { t -> ShopTile(t, owned = true, affordable = true, Modifier.weight(1f), inChest = true) { open = t } }
+            repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+        }
+    }
+    Text(tr("OUT IN THE CAMP", "KINT A TÁBORBAN"), style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.padding(top = 12.dp))
+    grid(placed.values.filterNot(app.tend.core.Home::isHome), false).forEach { row ->
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+            row.forEach { t -> ShopTile(t, owned = true, affordable = true, Modifier.weight(1f)) { open = t } }
+            repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+        }
+    }
+    open?.let { t ->
+        val stored = t.id in chest
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { open = null },
+            icon = { Canvas(Modifier.size(84.dp)) { drawThingIcon(t.id) } },
+            title = { Text(t.name) },
+            text = { Text(if (stored) tr("In your chest. Put it out, and what stands on its spot goes in.", "A ládádban van. Ha kirakod, ami a helyén áll, a ládába kerül.") else tr("Out in the camp. Put it away to make room.", "Kint van a táborban. Tedd el, ha helyet csinálnál.")) },
+            confirmButton = {
+                if (stored) androidx.compose.material3.TextButton(onClick = { if (onTakeOut(t.id)) open = null }) { Text(tr("Put it out", "Kirakom"), color = Brand.Moss) }
+                else androidx.compose.material3.TextButton(onClick = { onPutAway(t.id); open = null }) { Text(tr("Put away", "Elteszem"), color = Brand.Moss) }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { onSell(t.id); open = null }) { Text(tr("Sell ${Clearing.sellValue(t)}", "Eladom ${Clearing.sellValue(t)}"), color = Brand.Coral) } },
+            containerColor = Brand.Card,
+        )
+    }
 }
 
 /** One thing in the shop: its picture, name and price (a tick when it's in the camp). */
