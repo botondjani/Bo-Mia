@@ -301,7 +301,8 @@ fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>, here: Offset? = nu
         "swing" -> p + Offset(-u * 0.01f, -u * 0.04f)
         "treehouse" -> Offset(p.x + u * 0.062f, u * 0.6f - u * 0.42f * 0.4f - u * 0.004f) // on the platform, in the tree, beside the little house
         // Out on the water, and drifting back to the mooring before stepping off.
-        "canoe", "raft" -> p + Offset(sin(use.t * 0.7f) * w * 0.04f * (if (use.end > 0f) ((use.end - Uses.STEP - use.t) / 1.5f).coerceIn(0f, 1f) else 1f), -u * 0.02f)
+        // Pushing off from the bank, out a little and back.
+        "canoe", "raft" -> p + Offset(-(1f - kotlin.math.cos(use.t * 0.7f)) / 2f * w * 0.08f * (if (use.end > 0f) ((use.end - Uses.STEP - use.t) / 1.5f).coerceIn(0f, 1f) else 1f), -u * 0.02f)
         "rocking_chair" -> p + Offset(0f, -u * 0.012f * k)
         "wind_chimes", "bird_feeder" -> Offset(w * 0.64f, h * 0.71f)
         "dock" -> p + Offset(-u * 0.04f, u * 0.014f) // on the planks, near the end
@@ -1062,4 +1063,91 @@ private fun DrawScope.droplets(at: Offset, u: Float, k: Float) {
         val p = at + Offset(dx * (1 + k * 2), -sin(k * PI.toFloat()) * u * (0.025f + i % 2 * 0.012f))
         drawCircle(Color(0xFFDDEFF3).copy(alpha = 0.9f * (1 - k)), u * 0.0025f, p)
     }
+}
+
+/** Our bank of the river at height [y] (scene fractions): the water is left of it. */
+internal fun riverEdge(y: Float): Float {
+    val pts = listOf(0.535f to 0.31f, 0.58f to 0.33f, 0.64f to 0.315f, 0.7f to 0.29f, 0.76f to 0.27f, 0.84f to 0.258f, 0.93f to 0.27f, 1f to 0.31f)
+    if (y <= pts.first().first) return pts.first().second
+    for (i in 1 until pts.size) if (y <= pts[i].first) {
+        val (y0, x0) = pts[i - 1]; val (y1, x1) = pts[i]
+        return x0 + (x1 - x0) * (y - y0) / (y1 - y0)
+    }
+    return pts.last().second
+}
+
+internal fun DrawScope.inWater(p: Offset) = p.y > size.height * 0.55f && p.x < riverEdge(p.y / size.height) * size.width
+
+/**
+ * The way on foot from [a] to [b]: onto the bank first when one end is on the water (a hop, not a
+ * walk over it), and round the fire pit, not through the flames, when there's a fire.
+ */
+internal fun DrawScope.route(a: Offset, b: Offset, placed: Map<Int, String>, layout: Map<Int, Offset>): List<Offset> {
+    val w = size.width
+    val h = size.height
+    fun bank(p: Offset) = Offset((riverEdge(p.y / h) + 0.035f) * w, p.y + h * 0.01f)
+    val pts = mutableListOf(a)
+    val wa = inWater(a)
+    val wb = inWater(b)
+    if (wa) pts += bank(a)
+    val landTo = if (wb) bank(b) else b
+    if (placed[0] != null) {
+        val c = spotPos(0, layout).let { Offset(it.x * w, it.y * h) }
+        val rx = h * 0.2f
+        val ry = h * 0.085f
+        val p = pts.last()
+        fun sc(o: Offset) = Offset((o.x - c.x) / rx, (o.y - c.y) / ry)
+        val s = sc(p); val e = sc(landTo)
+        val d = e - s
+        val len2 = (d.x * d.x + d.y * d.y).coerceAtLeast(1e-6f)
+        val k = (-(s.x * d.x + s.y * d.y) / len2).coerceIn(0f, 1f)
+        val near = s + d * k
+        // Passing through it (starting or ending close by too: round it, then in to the spot).
+        if (near.getDistance() < 1f && (s - e).getDistance() > 0.5f) {
+            // Round it on the side the straight line passed (in front, if right through the middle).
+            val n = if (near.getDistance() < 0.05f) Offset(0f, 1f) else near / near.getDistance()
+            val ta = kotlin.math.atan2(s.y, s.x)
+            val tn = kotlin.math.atan2(n.y, n.x)
+            val tb = kotlin.math.atan2(e.y, e.x)
+            fun wrap(x: Float): Float { var v = x; while (v > Math.PI) v -= (2 * Math.PI).toFloat(); while (v <= -Math.PI) v += (2 * Math.PI).toFloat(); return v }
+            var sweep = wrap(tb - ta)
+            val toN = wrap(tn - ta)
+            if (toN * sweep < 0f || kotlin.math.abs(toN) > kotlin.math.abs(sweep)) sweep -= kotlin.math.sign(sweep) * (2 * Math.PI).toFloat()
+            for (i in 1..5) {
+                val t = ta + sweep * i / 6f
+                pts += Offset(c.x + kotlin.math.cos(t) * rx * 1.2f, c.y + kotlin.math.sin(t) * ry * 1.2f)
+            }
+        }
+    }
+    if (wb) pts += bank(b)
+    pts += b
+    return pts
+}
+
+/** The point [k] (0..1) of the way along [pts], by distance walked. */
+internal fun along(pts: List<Offset>, k: Float): Offset {
+    if (pts.size < 2) return pts.first()
+    val lens = pts.zipWithNext { p, q -> (q - p).getDistance() }
+    var left = lens.sum() * k.coerceIn(0f, 1f)
+    for (i in lens.indices) {
+        if (left <= lens[i] || i == lens.lastIndex) return pts[i] + (pts[i + 1] - pts[i]) * (if (lens[i] > 0f) (left / lens[i]).coerceIn(0f, 1f) else 1f)
+        left -= lens[i]
+    }
+    return pts.last()
+}
+
+/** How high a hop is at [k] of the way along [pts]: on the last stretch onto the water, or the first one off it. */
+internal fun DrawScope.hop(pts: List<Offset>, k: Float): Float {
+    if (pts.size < 3) return 0f
+    val lens = pts.zipWithNext { p, q -> (q - p).getDistance() }
+    val total = lens.sum().coerceAtLeast(1f)
+    val at = total * k.coerceIn(0f, 1f)
+    val onto = inWater(pts.last())
+    val off = inWater(pts.first())
+    val (from, len) = when {
+        onto && at >= total - lens.last() -> (total - lens.last()) to lens.last()
+        off && at <= lens.first() -> 0f to lens.first()
+        else -> return 0f
+    }
+    return kotlin.math.sin(((at - from) / len.coerceAtLeast(1f)).coerceIn(0f, 1f) * Math.PI.toFloat()) * size.height * 0.05f
 }

@@ -359,9 +359,27 @@ object Friends {
         app.tend.widget.Widgets.refresh(c)
     }
 
-    /** The newest note not yet seen on the clearing page, from the last day; for the widget. */
-    fun unseen(c: Context, now: Long = System.currentTimeMillis()): Note? =
-        notes(c).firstOrNull()?.takeIf { it.id > prefs(c).getLong("notes_seen", 0) && now - it.at < DAY_MS }
+    /**
+     * For the widget: the newest note still worth a look. Paper, a duck or a present only while
+     * it's still in the camp (unrolled, fished out, opened: done); a call to the fire only while it's on.
+     */
+    fun unseen(c: Context, now: Long = System.currentTimeMillis()): Note? = unseenNotes(c, now).firstOrNull { n ->
+        when (n.kind) {
+            Kind.TP -> paperOnMe(c).any { it.id == n.id }
+            Kind.VISIT -> ducks(c).any { it.id == n.id }
+            Kind.GIFT -> n.id > prefs(c).getLong("gifts_opened", 0)
+            else -> true
+        }
+    }
+
+    /** Where a note is answered: the call joined, a wave or cheer in the friends list, the rest in the camp. */
+    fun openFor(kind: Kind): String = when (kind) {
+        Kind.FIRE -> OPEN_JOIN
+        Kind.WAVE, Kind.CHEER -> OPEN_NOTES
+        else -> app.tend.reminder.WeeklyLetter.OPEN_CLEARING
+    }
+
+    const val OPEN_NOTES = "friend_notes"
 
     /** Who cheered you since the camp last showed it (names, newest first). */
     fun cheersToShow(c: Context): List<String> {
@@ -418,7 +436,7 @@ object Friends {
         val open = android.app.PendingIntent.getActivity(
             // A call to the fire opens tend ready to join; the rest opens the camp, where it happened.
             c, if (first.kind == Kind.FIRE) 24 else 21,
-            android.content.Intent(c, app.tend.MainActivity::class.java).putExtra(app.tend.reminder.RecapReminder.EXTRA_OPEN, if (first.kind == Kind.FIRE) OPEN_JOIN else app.tend.reminder.WeeklyLetter.OPEN_CLEARING).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+            android.content.Intent(c, app.tend.MainActivity::class.java).putExtra(app.tend.reminder.RecapReminder.EXTRA_OPEN, openFor(first.kind)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
             android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT,
         )
         nm.notify(

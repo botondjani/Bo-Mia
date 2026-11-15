@@ -101,6 +101,9 @@ fun ClearingScreen(
     onRest: (Int?) -> Unit = {},
     mood: app.tend.core.Mood = app.tend.core.Mood.HAPPY,
     openInvite: Boolean = false,
+    /** Open with the friends list up (once: [onFriendsShown] then). */
+    openFriends: Boolean = false,
+    onFriendsShown: () -> Unit = {},
     onStep: (app.tend.core.Step) -> Unit = {},
     visitor: app.tend.core.Visitor? = null,
     guestbook: Map<app.tend.core.Visitor, Int> = emptyMap(),
@@ -156,8 +159,11 @@ fun ClearingScreen(
     verticalArrangement = Arrangement.spacedBy(Space.m),
 ) {
     // The shop and friends open from buttons, over the page; the challenges fold into a strip.
-    var friendsOpen by rememberSaveable { mutableStateOf(openInvite) }
-    androidx.compose.runtime.LaunchedEffect(openInvite) { if (openInvite) friendsOpen = true }
+    var friendsOpen by rememberSaveable { mutableStateOf(openInvite || openFriends) }
+    androidx.compose.runtime.LaunchedEffect(openInvite, openFriends) {
+        if (openInvite || openFriends) friendsOpen = true
+        if (openFriends) onFriendsShown()
+    }
     var shopOpen by rememberSaveable { mutableStateOf(false) }
     var bookOpen by rememberSaveable { mutableStateOf(false) }
     var collectionAt by remember { androidx.compose.runtime.mutableIntStateOf(0) }

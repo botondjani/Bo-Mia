@@ -127,8 +127,6 @@ fun HomeScreen(
     onClaimStep: (app.tend.core.Step) -> Unit = {},
     onOpenRiver: (String?) -> Unit = {},
     onFriendsChanged: () -> Unit = {},
-    /** Bumped to open the challenges from elsewhere (the camp page's button). */
-    openChallenges: Int = 0,
     /** Logged in (else home offers an account once, among the next steps: setup doesn't ask). */
     signedIn: Boolean = true,
     onOpenAccount: () -> Unit = {},
@@ -456,7 +454,6 @@ fun HomeScreen(
         // Two buttons: everything to do for acorns in one place, and friends.
         var hubOpen by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
         var friendsOpen by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
-        androidx.compose.runtime.LaunchedEffect(openChallenges) { if (openChallenges > 0) hubOpen = true }
         val waiting = app.tend.core.FirstSteps.current(steps).filter { it.claimable }.sumOf { it.step.acorns } + (quest?.takeIf { questDone && !questClaimed }?.acorns ?: 0)
         HubButtons(waiting, friendsToday.size, onChallenges = { hubOpen = true }, onFriends = { friendsOpen = true })
         if (hubOpen) ChallengesSheet(
@@ -664,7 +661,7 @@ private fun HubButtons(waiting: Int, friendsToday: Int, onChallenges: () -> Unit
 /** Everything for acorns in one place: today's quest, this week's goal and the level, and the challenges. */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun ChallengesSheet(
+internal fun ChallengesSheet(
     steps: List<app.tend.core.StepState>, onClaimStep: (app.tend.core.Step) -> Unit, onGo: (app.tend.core.Step) -> Unit,
     quest: app.tend.core.Quest?, questDone: Boolean, questClaimed: Boolean, onClaimQuest: () -> Unit,
     level: app.tend.core.Level?, challenge: app.tend.core.Challenge?, onOpenInsights: () -> Unit,

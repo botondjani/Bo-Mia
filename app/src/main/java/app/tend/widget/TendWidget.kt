@@ -85,7 +85,7 @@ object Widgets {
         // Something from a friend: a tap goes straight to the camp, where it is (the paper, the duck, the wave).
         val open = if (fresh != null) PendingIntent.getActivity(
             context, 1,
-            Intent(context, MainActivity::class.java).putExtra(app.tend.reminder.RecapReminder.EXTRA_OPEN, app.tend.reminder.WeeklyLetter.OPEN_CLEARING),
+            Intent(context, MainActivity::class.java).putExtra(app.tend.reminder.RecapReminder.EXTRA_OPEN, app.tend.data.Friends.openFor(fresh.kind)),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         ) else PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val minutes = "${remaining.coerceAtLeast(0)}"

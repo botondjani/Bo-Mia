@@ -93,6 +93,8 @@ class MainActivity : ComponentActivity() {
     /** Set when the evening notification was tapped. */
     private var openRecap by mutableStateOf(false)
     private var openClearing by mutableStateOf(false)
+    /** Opening the camp with the friends list up (a wave or a cheer to see). */
+    private var campFriends by mutableStateOf(false)
     private var openActivities by mutableStateOf(false)
     /** Opened from "Anna put her phone down": join her at the fire. */
     private var joinFire by mutableStateOf(false)
@@ -140,6 +142,7 @@ class MainActivity : ComponentActivity() {
             RecapReminder.OPEN_RECAP -> openRecap = true
             app.tend.reminder.WeeklyLetter.OPEN_CLEARING -> openClearing = true
             app.tend.data.Friends.OPEN_JOIN -> joinFire = true
+            app.tend.data.Friends.OPEN_NOTES -> { campFriends = true; openClearing = true }
             RecapReminder.OPEN_ACTIVITIES -> openActivities = true
         }
         // A friend's invite: keep the code (it waits through onboarding or logging in) and open the clearing.
@@ -384,7 +387,7 @@ class MainActivity : ComponentActivity() {
         var greetOnOpen by rememberSaveable { mutableStateOf(false) }
         var activitiesFocus by remember { mutableIntStateOf(0) }
         // The camp page's "Challenges": home, with the challenges open.
-        var openChallenges by remember { mutableIntStateOf(0) }
+        var campChallenges by remember { mutableStateOf(false) }
         var goodNightAcorns by remember { mutableIntStateOf(0) }
         val goToStep: (app.tend.core.Step) -> Unit = { step ->
             when (step) {
@@ -719,7 +722,7 @@ class MainActivity : ComponentActivity() {
                 screen = Screen.HOME
             }
 
-            p == "CLEARING" -> app.tend.ui.ClearingScreen(
+            p == "CLEARING" -> { app.tend.ui.ClearingScreen(
                 avatar = store.avatar,
                 placed = store.placed,
                 acorns = store.acorns,
@@ -750,7 +753,7 @@ class MainActivity : ComponentActivity() {
                 signpost = store.hasSignpost,
                 steps = remember(refresh) { firstSteps() },
                 onClaimStep = { store.claimStep(it); refresh++ },
-                onOpenChallenges = { screen = Screen.HOME; openChallenges++ },
+                onOpenChallenges = { campChallenges = true },
                 onUsed = { thing -> if (thing !in store.usedThings) { store.markUsed(thing); refresh++ } },
                 rest = store.restSpot,
                 onRest = { store.restSpot = it; refresh++ },
@@ -780,8 +783,27 @@ class MainActivity : ComponentActivity() {
                 },
                 mood = app.tend.core.Moods.atNight(app.tend.core.Moods.of(store.config, store.today()), app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour)),
                 openInvite = campInvite,
+                openFriends = campFriends,
+                onFriendsShown = { campFriends = false },
                 onStep = goToStep,
             )
+            // Challenges open right here over the camp, as on home.
+            if (campChallenges) { val hp = remember(refresh) { homeProgress() }; app.tend.ui.ChallengesSheet(
+                remember(refresh) { firstSteps() }, { store.claimStep(it); refresh++ }, { step -> campChallenges = false; goToStep(step) },
+                remember(refresh, LocalDate.now()) { app.tend.core.Quests.of(LocalDate.now(), store.selectedTasks, store.config.freeMinutes).takeIf { store.selectedTasks.isNotEmpty() } },
+                remember(refresh, LocalTime.now().hour) { app.tend.core.Quests.done(app.tend.core.Quests.of(LocalDate.now(), store.selectedTasks, store.config.freeMinutes), store.today(), store.notNowsToday, LocalTime.now().hour) },
+                store.questClaimedOn == LocalDate.now().toString(),
+                {
+                    if (store.questClaimedOn != LocalDate.now().toString()) {
+                        store.questClaimedOn = LocalDate.now().toString()
+                        store.addAcorns(app.tend.core.Quests.of(LocalDate.now(), store.selectedTasks, store.config.freeMinutes).acorns, "quest")
+                        app.tend.ui.Sounds.acorns(this@MainActivity); refresh++
+                    }
+                },
+                hp.level, hp.challenge,
+                { campChallenges = false; screen = Screen.INSIGHTS },
+            ) { campChallenges = false } }
+            }
 
             p == "RIVER" -> app.tend.ui.RiverScreen(
                 me = app.tend.data.Friends.me(this),
@@ -1000,7 +1022,6 @@ class MainActivity : ComponentActivity() {
                 onClaimStep = { store.claimStep(it); refresh++ },
                 onOpenRiver = { id -> riverFocus = id; screen = Screen.RIVER },
                 onFriendsChanged = { saveProfile(); refresh++ },
-                openChallenges = openChallenges,
                 timerMinutes = store.focusTimerMinutes,
                 onTimerMinutes = { store.focusTimerMinutes = it },
                 signedIn = app.tend.data.Account.user(this@MainActivity) != null,

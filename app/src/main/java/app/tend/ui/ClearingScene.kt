@@ -103,7 +103,7 @@ val SpotPositions: Map<Int, Offset> = mapOf(
     4 to Offset(0.8f, 0.62f), // shelter, right
     5 to Offset(0.925f, 0.75f), // trees, front right (between the birch and the oak)
     6 to Offset(0.43f, 0.62f), // trees, back left (by the pine)
-    7 to Offset(0.15f, 0.73f), // river
+    7 to Offset(0.215f, 0.79f), // river: moored by our bank
     8 to Offset(0.3f, 0.93f), // shore
     9 to Offset(0.7f, 0.44f), // overhead, between the trees
     10 to Offset(0.565f, 0.93f), // small: front, middle
@@ -301,7 +301,7 @@ fun DrawScope.drawClearing(
         fromBed -> useAnchor(InUse(bedSpot!!, placed.getValue(bedSpot), 100f), placed, layout = layout)
         restWas == null || restClock >= Uses.WALK -> restTo
         restClock <= 0f -> restWas
-        else -> { val k = (restClock / Uses.WALK).let { it * it * (3 - 2 * it) }; restWas + (restTo - restWas) * k }
+        else -> { val k = (restClock / Uses.WALK).let { it * it * (3 - 2 * it) }; val way = route(restWas, restTo, placed, layout); along(way, k) - Offset(0f, hop(way, k)) }
     }
     val target = act?.let { useAnchor(it.arrived(), placed, restAt, layout) }
     val walking = act?.walking == true
@@ -339,14 +339,14 @@ fun DrawScope.drawClearing(
         val up = if (big) 0f else u * 0.05f
         carryGhost = c.t < t3
         when {
-            c.t < t1 -> { carryAt = restAt + (b1 - restAt) * ease(c.t / t1); carryWalk = c.t; carryRight = b1.x >= restAt.x; carryThing = from }
+            c.t < t1 -> { carryAt = along(route(restAt, b1, placed, layout), ease(c.t / t1)); carryWalk = c.t; carryRight = b1.x >= restAt.x; carryThing = from }
             c.t < t2 -> {
                 val k = (c.t - t1) / Carry.PICK
                 carryAt = b1; carryCrouch = k; carryRight = side > 0f
                 carryThing = from + (held(b1) - from) * ease(k); carryLift = up * ease(k)
             }
             c.t < t3 -> {
-                val bo = b1 + (b2 - b1) * ease((c.t - t2) / c.move)
+                val bo = along(route(b1, b2, placed, layout), ease((c.t - t2) / c.move))
                 carryAt = bo; carryWalk = c.t; carryRight = side > 0f
                 carryThing = held(bo)
                 carryLift = up * (1f + 0.08f * kotlin.math.sin(c.t * 22f)) + if (big) kotlin.math.abs(kotlin.math.sin(c.t * 11f)) * u * 0.004f else 0f
@@ -385,7 +385,8 @@ fun DrawScope.drawClearing(
         target == null -> restAt
         walking -> {
             val k = (if (fromBed) ((act!!.t - Uses.YAWN) / (act.walk - Uses.YAWN).coerceAtLeast(0.01f)).coerceIn(0f, 1f) else act!!.t / act.walk).let { it * it * (3 - 2 * it) }
-            Offset(restAt.x + (target.x - restAt.x) * k, restAt.y + (target.y - restAt.y) * k)
+            val way = route(restAt, target, placed, layout)
+            along(way, k) - Offset(0f, hop(way, k))
         }
         // Out of the canoe: a hop onto the bank.
         stepTo != null -> target + (stepTo - target) * stepK.coerceAtMost(1f).let { it * it * (3 - 2 * it) } -
@@ -509,7 +510,7 @@ fun DrawScope.drawClearing(
     }
     // Milestones: a flag over the camp, lamps along the path, a garden between the tent and the cabin.
     if (app.tend.core.Milestone.FLAG in unlocked) Offset(w * 0.37f, h * 0.665f).let { p -> ground += p.y to { flag(p, u, ambient) } }
-    if (signpost) Offset(w * 0.415f, h * 0.715f).let { p -> ground += p.y to { signpost(p, u) } }
+    if (signpost) Offset(w * 0.36f, h * 0.625f).let { p -> ground += p.y to { signpost(p, u) } }
     if (app.tend.core.Milestone.PATH_LIGHTS in unlocked) for (f in listOf(Offset(0.345f, 0.69f), Offset(0.325f, 0.79f), Offset(0.305f, 0.885f))) {
         val p = Offset(f.x * w, f.y * h)
         ground += p.y to { pathLamp(p, u, lights) }
@@ -913,7 +914,8 @@ private fun DrawScope.ribbon(a: Offset, c1: Offset, c2: Offset, b: Offset, band:
         val len = kotlin.math.sqrt(d.x * d.x + d.y * d.y).coerceAtLeast(0.001f)
         val nx = -d.y / len; val ny = d.x / len
         val k = i / n.toFloat() * t
-        val wdt = band * (0.4f + 0.6f * kotlin.math.abs(kotlin.math.cos(k * twists * Math.PI.toFloat())))
+        // Twisting (narrower where it turns edge-on), and a torn, thinner loose end.
+        val wdt = band * (0.5f + 0.5f * kotlin.math.abs(kotlin.math.cos(k * twists * Math.PI.toFloat()))) * (1f - 0.35f * (k * k * k * k))
         widths += wdt
         left += Offset(pts[i].x + nx * wdt / 2, pts[i].y + ny * wdt / 2)
         right += Offset(pts[i].x - nx * wdt / 2, pts[i].y - ny * wdt / 2)
@@ -952,26 +954,22 @@ private fun DrawScope.toiletPaper(amount: Float) {
     val w = size.width
     val h = size.height
     fun o(x: Float, y: Float) = Offset(w * x, h * y)
-    val band = h * 0.019f
+    val band = h * 0.016f
     val a = amount.coerceIn(0f, 1f)
     val fade = (a * 1.6f).coerceAtMost(1f)
-    // Loops over the crowns (drawn first: they're behind the strands).
-    ribbon(o(0.845f, 0.27f), o(0.88f, 0.36f), o(0.93f, 0.36f), o(0.965f, 0.22f), band, 1.1f, a, fade)
-    ribbon(o(0.88f, 0.2f), o(0.92f, 0.3f), o(0.98f, 0.31f), o(1.02f, 0.2f), band, 0.9f, a, fade)
-    ribbon(o(0.86f, 0.36f), o(0.9f, 0.44f), o(0.97f, 0.45f), o(1.01f, 0.35f), band, 1.3f, a, fade)
-    // A long garland from the birch to the oak.
-    ribbon(o(0.875f, 0.31f), o(0.9f, 0.52f), o(0.95f, 0.53f), o(0.985f, 0.4f), band, 3f, a, fade)
-    // Strands hanging down, swaying; the longest nearly reach the grass.
-    ribbon(o(0.852f, 0.33f), o(0.86f, 0.42f), o(0.84f, 0.5f), o(0.855f, 0.6f), band, 1.7f, a, fade)
-    ribbon(o(0.905f, 0.42f), o(0.92f, 0.52f), o(0.895f, 0.6f), o(0.912f, 0.7f), band, 1.9f, a, fade)
-    ribbon(o(0.945f, 0.44f), o(0.93f, 0.5f), o(0.955f, 0.56f), o(0.94f, 0.63f), band, 1.3f, a, fade)
-    ribbon(o(0.99f, 0.4f), o(1.0f, 0.5f), o(0.975f, 0.6f), o(0.99f, 0.74f), band, 2.1f, a, fade)
-    // A roll caught in the oak, its tail fluttering.
-    if (a > 0.5f) paperRoll(o(0.93f, 0.25f), h * 0.022f, -25f)
+    // Two soft drapes sagging over the crown (behind the strands).
+    ribbon(o(0.85f, 0.25f), o(0.875f, 0.34f), o(0.93f, 0.35f), o(0.96f, 0.24f), band, 1.2f, a, fade)
+    ribbon(o(0.905f, 0.3f), o(0.935f, 0.42f), o(0.985f, 0.42f), o(1.01f, 0.31f), band, 1.4f, a, fade)
+    // Strands hanging from the branches, each with its own gentle S, longest nearly to the grass.
+    ribbon(o(0.858f, 0.32f), o(0.872f, 0.42f), o(0.848f, 0.5f), o(0.862f, 0.6f), band, 2.2f, a, fade)
+    ribbon(o(0.932f, 0.4f), o(0.92f, 0.5f), o(0.945f, 0.58f), o(0.93f, 0.69f), band, 2.6f, a, fade)
+    ribbon(o(0.985f, 0.41f), o(0.995f, 0.48f), o(0.975f, 0.53f), o(0.99f, 0.6f), band, 1.6f, a, fade)
+    // A roll caught in the crown.
+    if (a > 0.5f) paperRoll(o(0.935f, 0.27f), h * 0.016f, -25f)
     // And one that rolled away over the grass, unrolling as it went.
     if (a > 0.3f) {
-        ribbon(o(0.99f, 0.77f), o(0.98f, 0.8f), o(0.96f, 0.79f), o(0.945f, 0.815f), band * 0.9f, 1f, a, fade)
-        paperRoll(o(0.935f, 0.81f), h * 0.02f, 8f)
+        ribbon(o(0.985f, 0.775f), o(0.975f, 0.795f), o(0.955f, 0.79f), o(0.94f, 0.805f), band * 0.9f, 1f, a, fade)
+        paperRoll(o(0.93f, 0.8f), h * 0.015f, 8f)
     }
 }
 
@@ -1195,7 +1193,7 @@ private fun DrawScope.flag(p: Offset, u: Float, t: Float) {
 }
 
 /** A wooden signpost with two boards and a small heart: there since the first friend. */
-private fun DrawScope.signpost(p: Offset, u: Float) {
+private fun DrawScope.signpost(p: Offset, u: Float) = withTransform({ scale(1.6f, 1.6f, pivot = p) }) {
     val top = p + Offset(0f, -u * 0.085f)
     shadow(p, u * 0.012f, u)
     drawLine(Color(0xFF6B4A33), p, top, strokeWidth = u * 0.006f, cap = StrokeCap.Round)
