@@ -385,11 +385,18 @@ fun DrawScope.drawClearing(
         target == null -> restAt
         walking -> {
             val k = (if (fromBed) ((act!!.t - Uses.YAWN) / (act.walk - Uses.YAWN).coerceAtLeast(0.01f)).coerceIn(0f, 1f) else act!!.t / act.walk).let { it * it * (3 - 2 * it) }
-            walkAt(route(restAt, target, placed, layout), k)
+            // Up onto a seat, a swing, the hammock: walked to the ground under it, then a hop up.
+            val lift = mountLift(act.thing) * u
+            if (lift <= 0f) walkAt(route(restAt, target, placed, layout), k)
+            else {
+                val ground = target + Offset(0f, lift)
+                if (k < 0.78f) walkAt(route(restAt, ground, placed, layout), k / 0.78f)
+                else { val f = (k - 0.78f) / 0.22f; ground + (target - ground) * f.let { it * it * (3 - 2 * it) } - Offset(0f, jumpHeight(f, h) * 0.6f) }
+            }
         }
         // Out of the canoe: a hop onto the bank.
         stepTo != null -> target + (stepTo - target) * ((stepK.coerceAtMost(1f) - 0.18f) / 0.72f).coerceIn(0f, 1f).let { it * it * (3 - 2 * it) } -
-            Offset(0f, if (act.thing == "canoe" || act.thing == "raft") jumpHeight(stepK.coerceAtMost(1f), h) else 0f)
+            Offset(0f, if (act.thing == "canoe" || act.thing == "raft" || mountLift(act.thing) > 0f) jumpHeight(stepK.coerceAtMost(1f), h) else 0f)
         else -> target
     }
     var companionDrawn = false
@@ -1271,7 +1278,7 @@ private fun DrawScope.firePitStones(c: Offset, u: Float) {
 }
 
 /** How wide a thing is, in scene heights, for its shadow. */
-internal fun thingWidth(id: String): Float = when (id) {
+internal fun thingWidth(id: String): Float = (SIZE_FIX[id] ?: 1f) * when (id) {
     "leaf_pile", "sled", "deck_chair", "scarecrow" -> 0.05f
     "cabin", "cabin_porch", "cabin_cozy" -> 0.22f
     "bell_tent", "tent", "old_tent" -> 0.16f
@@ -1309,9 +1316,20 @@ private fun DrawScope.overhead(id: String, a: Offset, b: Offset, u: Float, light
  * Glowing parts are added to [lights] for the night. Overhead things are drawn by the scene.
  */
 /** The rocking chair, drawn this much bigger than its first sketch: a chair the companion fits in. */
-internal const val ROCKER = 1.45f
+internal const val ROCKER = 1.15f
+
+/** Things drawn a little bigger or smaller than first made, so they sit right next to the companion. */
+private val SIZE_FIX = mapOf(
+    "deck_chair" to 1.6f, "sunshade" to 1.5f, "scarecrow" to 1.35f, "pumpkins" to 1.3f, "apple_crate" to 1.3f,
+    "mushrooms" to 1.3f, "sandcastle" to 1.2f, "woodpile" to 1.3f, "watermelon" to 1.25f, "beach_ball" to 1.2f,
+)
 
 fun DrawScope.drawThing(id: String, p: Offset, u: Float, lights: MutableList<Light> = mutableListOf()) {
+    val fix = SIZE_FIX[id]
+    if (fix != null) scale(fix, pivot = p) { drawThingAsMade(id, p, u, lights) } else drawThingAsMade(id, p, u, lights)
+}
+
+private fun DrawScope.drawThingAsMade(id: String, p: Offset, u: Float, lights: MutableList<Light>) {
     when (id) {
         // ---- The events' own ----
         "jack_o_lantern" -> {
@@ -1407,6 +1425,31 @@ fun DrawScope.drawThing(id: String, p: Offset, u: Float, lights: MutableList<Lig
             drawRect(Color(0xFFB5895C), p + Offset(-u * 0.022f, -u * 0.022f), Size(u * 0.044f, u * 0.022f))
             drawLine(Color(0xFF8C6A4A), p + Offset(-u * 0.022f, -u * 0.011f), p + Offset(u * 0.022f, -u * 0.011f), strokeWidth = u * 0.0015f)
             for (i in 0 until 5) drawCircle(if (i % 2 == 0) Color(0xFFC0392B) else Color(0xFF9CC25B), u * 0.0055f, p + Offset(u * (-0.016f + i * 0.008f), -u * (0.024f + (i % 2) * 0.004f)))
+        }
+        "hay_bale" -> {
+            drawRoundRect(Color(0xFFE2C46B), p + Offset(-u * 0.03f, -u * 0.03f), Size(u * 0.06f, u * 0.03f), CornerRadius(u * 0.006f))
+            for (i in 0 until 4) drawLine(Color(0xFFC9A64E), p + Offset(-u * 0.026f, -u * (0.024f - i * 0.006f)), p + Offset(u * 0.026f, -u * (0.024f - i * 0.006f)), strokeWidth = u * 0.0012f)
+            for (dx in listOf(-0.012f, 0.012f)) drawLine(Color(0xFF9A7350), p + Offset(u * dx, -u * 0.03f), p + Offset(u * dx, 0f), strokeWidth = u * 0.0018f) // the twine
+        }
+        "chestnuts" -> {
+            // A little brazier on legs, a pan of chestnuts, glowing coals and a curl of smoke.
+            for (dx in listOf(-0.012f, 0.012f)) drawLine(Metal, p + Offset(u * dx, 0f), p + Offset(u * dx * 0.7f, -u * 0.022f), strokeWidth = u * 0.0025f)
+            drawArc(Color(0xFF3B3B3B), 0f, 180f, true, p + Offset(-u * 0.018f, -u * 0.032f), Size(u * 0.036f, u * 0.02f))
+            drawCircle(Color(0xFFF2A341), u * 0.004f, p + Offset(0f, -u * 0.024f))
+            drawOval(Color(0xFF2E2E2E), Offset(p.x - u * 0.02f, p.y - u * 0.034f), Size(u * 0.04f, u * 0.008f))
+            for (i in 0 until 4) drawCircle(Color(0xFF7A4A2A), u * 0.0035f, p + Offset(u * (-0.009f + i * 0.006f), -u * 0.034f))
+            lights += Light(p + Offset(0f, -u * 0.024f), u * 0.04f, 0.5f)
+        }
+        "rake" -> {
+            for (i in 0 until 9) drawCircle(listOf(Color(0xFFD9822B), Color(0xFFE0A341), Color(0xFFB5502E))[i % 3], u * 0.006f, p + Offset(u * (-0.02f + (i % 5) * 0.008f), -u * (0.004f + (i / 5) * 0.006f)))
+            drawLine(Wood, p + Offset(u * 0.012f, 0f), p + Offset(u * 0.03f, -u * 0.07f), strokeWidth = u * 0.0025f)
+            drawLine(Metal, p + Offset(u * 0.002f, -u * 0.002f), p + Offset(u * 0.022f, u * 0.002f), strokeWidth = u * 0.002f)
+        }
+        "cider_barrel" -> {
+            drawRoundRect(Color(0xFF9A6A3E), p + Offset(-u * 0.018f, -u * 0.04f), Size(u * 0.036f, u * 0.04f), CornerRadius(u * 0.01f))
+            for (y in listOf(0.01f, 0.03f)) drawLine(Color(0xFF4A3B2E), p + Offset(-u * 0.018f, -u * y), p + Offset(u * 0.018f, -u * y), strokeWidth = u * 0.0025f)
+            drawLine(Metal, p + Offset(u * 0.018f, -u * 0.012f), p + Offset(u * 0.026f, -u * 0.012f), strokeWidth = u * 0.002f) // the tap
+            drawRoundRect(Color(0xFFE3C48A), p + Offset(u * 0.022f, -u * 0.008f), Size(u * 0.008f, u * 0.008f), CornerRadius(u * 0.002f)) // a cup
         }
         "skis" -> {
             for ((dx, c) in listOf(-0.006f to Color(0xFFE07A5F), 0.006f to Color(0xFF5D8FB8))) {
@@ -1938,7 +1981,9 @@ fun noteBadge(sizePx: Int, duck: Boolean, emoji: String): android.graphics.Bitma
 }
 
 /** Rough size of each thing (width, height) in scene heights, to fit it into an icon. */
-private fun thingSize(id: String): Pair<Float, Float> = when (id) {
+private fun thingSize(id: String): Pair<Float, Float> = (SIZE_FIX[id] ?: 1f).let { f -> thingSizeAsMade(id).let { (w, h) -> w * f to h * f } }
+
+private fun thingSizeAsMade(id: String): Pair<Float, Float> = when (id) {
     "jack_o_lantern" -> 0.05f to 0.05f
     "paper_lanterns" -> 0.06f to 0.095f
     "xmas_tree" -> 0.07f to 0.1f

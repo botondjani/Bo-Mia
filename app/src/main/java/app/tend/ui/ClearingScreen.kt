@@ -679,7 +679,9 @@ fun ClearingScreen(
         val waiting = app.tend.core.FirstSteps.current(steps).filter { it.claimable }.sumOf { it.step.acorns }
         val density = androidx.compose.ui.platform.LocalDensity.current
         val free = with(density) { (pageH - hubTop - Space.xxl.toPx()).toDp() }
-        val tileH = ((free - 14.dp) / 2).coerceIn(84.dp, 240.dp)
+        val tileH = 68.dp
+        // What's left under the tiles: a quiet drawing, so the page ends calmly and still doesn't scroll.
+        val rest = (free - tileH * 2 - 10.dp - Space.m - 6.dp).coerceAtLeast(0.dp)
         // Where they start on the page (not on screen: scrolling doesn't change it).
         Column(Modifier.fillMaxWidth().onGloballyPositioned { hubTop = (it.positionInRoot().y - pageTop).toInt() + scroll.value }, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -691,6 +693,7 @@ fun ClearingScreen(
                 HubTile("achievements", tr("Achievements", "Eredmények"), totals?.let { t -> "${app.tend.core.Milestone.reached(t).size} / ${app.tend.core.Milestone.entries.size}" } ?: "", false, Modifier.weight(1f).height(tileH)) { milestonesOpen = true }
             }
         }
+        if (rest > 24.dp) CampFooter(Modifier.fillMaxWidth().height(rest))
     }
 
     }
@@ -700,8 +703,11 @@ fun ClearingScreen(
         val shopSheet = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
         fun closeShopThen(then: () -> Unit) = scope.launch { shopSheet.hide(); shopOpen = false; then() }
         androidx.compose.material3.ModalBottomSheet(onDismissRequest = { shopOpen = false }, sheetState = shopSheet, containerColor = Brand.Sage) {
-            Column(Modifier.sheetBody()) {
-            Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, plus = plus, onPlus = onPlus, level = level, outfits = outfits, outfitWorn = outfitWorn,
+            // Smaller than the other sheets; its tiles come a frame after the sheet, so it slides up smoothly.
+            Column(Modifier.sheetBody(0.62f)) {
+            var ready by remember { mutableStateOf(false) }
+            androidx.compose.runtime.LaunchedEffect(Unit) { androidx.compose.runtime.withFrameNanos { }; ready = true }
+            if (ready) Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, plus = plus, onPlus = onPlus, level = level, outfits = outfits, outfitWorn = outfitWorn,
                 onBuyOutfit = { a -> onBuyOutfit(a).also { if (it) { tick(firm = true); Sounds.chime(context); closeShopThen { scope.launch { scroll.animateScrollTo(0) } } } } },
                 onWearOutfit = { tick(); onWearOutfit(it) }, onBuy = { id ->
                 // Bought: a firm tick, a chime, and up to the camp to watch it pop in.
@@ -1053,7 +1059,7 @@ internal fun ShopTile(thing: app.tend.core.Thing, owned: Boolean, affordable: Bo
     horizontalAlignment = Alignment.CenterHorizontally,
 ) {
     Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.size(34.dp).graphicsLayer { alpha = if (lockedUntil != null) 0.4f else 1f }) { drawThingIcon(thing.id) }
+        androidx.compose.foundation.Image(thingIconBitmap(thing.id), null, Modifier.size(34.dp).graphicsLayer { alpha = if (lockedUntil != null) 0.4f else 1f })
     }
     Text(thing.name, style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1164,12 +1170,13 @@ private fun GreetedCard(v: app.tend.core.Visitor, book: Map<app.tend.core.Visito
 
 /** One of the camp's four tiles: a little animated picture, a name and what's there; filled when something's waiting. */
 @Composable
-private fun HubTile(icon: String, title: String, value: String, highlight: Boolean, modifier: Modifier, visitor: app.tend.core.Visitor? = null, onOpen: () -> Unit) = Column(
-    modifier.clip(RoundedCornerShape(22.dp)).background(if (highlight) Brand.Moss else Brand.Card).tappable(onClick = onOpen).padding(14.dp),
-    verticalArrangement = Arrangement.SpaceBetween,
+private fun HubTile(icon: String, title: String, value: String, highlight: Boolean, modifier: Modifier, visitor: app.tend.core.Visitor? = null, onOpen: () -> Unit) = Row(
+    modifier.clip(RoundedCornerShape(20.dp)).background(if (highlight) Brand.Moss else Brand.Card).tappable(onClick = onOpen).padding(horizontal = 12.dp),
+    verticalAlignment = Alignment.CenterVertically,
 ) {
-    HubIcon(icon, visitor, Modifier.size(52.dp))
-    Column {
+    HubIcon(icon, visitor, Modifier.size(40.dp))
+    Spacer(Modifier.width(10.dp))
+    Column(Modifier.weight(1f)) {
         Text(title, style = MaterialTheme.typography.labelLarge.copy(fontSize = 15.sp), color = if (highlight) Color.White else Brand.Ink, maxLines = 1)
         Text(value, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = if (highlight) Color.White.copy(alpha = 0.85f) else Brand.Moss, maxLines = 1)
     }
@@ -1277,5 +1284,43 @@ private fun OutfitTile(a: app.tend.core.Accessory, owned: Boolean, worn: Boolean
                 AcornIcon(12.dp)
             }
         }
+    }
+}
+
+/** Each thing's shop picture, drawn once and kept: scrolling and opening the shop only show them. */
+private val thingIcons = HashMap<String, androidx.compose.ui.graphics.ImageBitmap>()
+
+private fun thingIconBitmap(id: String): androidx.compose.ui.graphics.ImageBitmap = thingIcons.getOrPut(id) {
+    val px = 120
+    androidx.compose.ui.graphics.ImageBitmap(px, px).also { img ->
+        androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(
+            androidx.compose.ui.unit.Density(1f), androidx.compose.ui.unit.LayoutDirection.Ltr, androidx.compose.ui.graphics.Canvas(img), Size(px.toFloat(), px.toFloat()),
+        ) { drawThingIcon(id) }
+    }
+}
+
+/** The page's quiet end: a low line of hills with a few small pines, a path winding off, a moon. */
+@Composable
+private fun CampFooter(modifier: Modifier) = Canvas(modifier) {
+    val w = size.width
+    val h = size.height
+    val base = h * 0.78f
+    val ink = Brand.Moss.copy(alpha = 0.18f)
+    drawPath(Path().apply {
+        moveTo(0f, base)
+        cubicTo(w * 0.25f, base - h * 0.12f, w * 0.45f, base + h * 0.04f, w * 0.7f, base - h * 0.08f)
+        cubicTo(w * 0.85f, base - h * 0.14f, w * 0.95f, base - h * 0.02f, w, base - h * 0.04f)
+        lineTo(w, h); lineTo(0f, h); close()
+    }, androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Brand.Mint.copy(alpha = 0.28f), Brand.Sage.copy(alpha = 0f)), startY = base - h * 0.14f, endY = h))
+    for ((x, sc) in listOf(0.12f to 1f, 0.17f to 0.7f, 0.78f to 0.9f, 0.84f to 0.6f)) {
+        val bx = w * x; val by = base - h * 0.02f; val th = h * 0.22f * sc
+        drawPath(Path().apply { moveTo(bx, by - th); lineTo(bx + th * 0.35f, by); lineTo(bx - th * 0.35f, by); close() }, ink)
+    }
+    // A dotted path off into the hills.
+    for (i in 0 until 9) { val k = i / 8f; drawCircle(ink, h * 0.012f, Offset(w * (0.42f + 0.18f * k), base + h * (0.12f - 0.1f * k))) }
+    // Two birds far off.
+    for ((x, y) in listOf(0.55f to 0.3f, 0.6f to 0.36f)) {
+        val c = Offset(w * x, base - h * y); val r = h * 0.03f
+        drawPath(Path().apply { moveTo(c.x - r, c.y); quadraticTo(c.x - r / 2, c.y - r * 0.6f, c.x, c.y); quadraticTo(c.x + r / 2, c.y - r * 0.6f, c.x + r, c.y) }, ink, style = androidx.compose.ui.graphics.drawscope.Stroke(h * 0.008f))
     }
 }

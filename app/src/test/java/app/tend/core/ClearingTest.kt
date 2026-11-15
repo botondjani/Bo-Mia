@@ -101,7 +101,7 @@ class ClearingTest {
         assertEquals(Season.WINTER, Season.of(java.time.LocalDate.of(2027, 2, 28)))
         assertEquals(Season.SPRING, Season.of(java.time.LocalDate.of(2027, 3, 1)))
         assertEquals(Season.AUTUMN, Season.of(java.time.LocalDate.of(2026, 11, 8)))
-        Season.entries.forEach { s -> assertEquals(5, Things.forSeason(s).size) }
+        Season.entries.forEach { s -> assertTrue(Things.forSeason(s).size >= 5) }
         assertTrue(Things.forKind(SpotKind.SMALL).none { it.season != null })
         assertTrue(Things.forSeason(Season.WINTER).all { Clearing.movable(it) })
     }

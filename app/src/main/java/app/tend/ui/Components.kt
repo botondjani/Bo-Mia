@@ -202,4 +202,4 @@ fun HoldToConfirm(label: String, modifier: Modifier = Modifier, seconds: Float =
  * sheet with a few things and one with many open to the same size and nothing jumps.
  */
 @Composable
-fun Modifier.sheetBody(): Modifier = this.fillMaxHeight(0.82f).verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = Space.xl)
+fun Modifier.sheetBody(height: Float = 0.82f): Modifier = this.fillMaxHeight(height).verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = Space.xl)

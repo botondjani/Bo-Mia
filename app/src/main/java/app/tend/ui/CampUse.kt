@@ -70,6 +70,10 @@ object Uses {
         "apple_crate" -> tr("$name picks an apple.", "$name kivesz egy almát.")
         "skis" -> tr("$name waxes the skis.", "$name viaszolja a síléceket.")
         "snow_lantern" -> tr("$name lights the snow lantern.", "$name meggyújtja a hólámpást.")
+        "hay_bale" -> tr("$name sits on the hay bale.", "$name leül a szalmabálára.")
+        "chestnuts" -> tr("$name roasts chestnuts.", "$name gesztenyét süt.")
+        "rake" -> tr("$name rakes the leaves into a pile.", "$name kupacba gereblyézi a leveleket.")
+        "cider_barrel" -> tr("$name pours a cup of cider.", "$name tölt egy pohár mustot.")
         "watering_can" -> tr("$name waters the flowers.", "$name meglocsolja a virágokat.")
         "birdhouse" -> tr("$name watches a little bird move in.", "$name nézi, ahogy beköltözik egy kismadár.")
         "beach_ball" -> tr("$name plays with the beach ball.", "$name a strandlabdával játszik.")
@@ -233,7 +237,7 @@ internal fun depthScale(y: Float) = (0.55f + (y - 0.6f) * 1.6f).coerceIn(0.5f, 1
 /** Things used standing (or sitting at the fire): afterwards they stay right there. */
 private val STANDING = setOf(
     "guitar", "campfire", "kettle", "pizza_oven", "woodpile", "wildflowers", "lantern", "telescope", "fishing_rod", "wind_chimes", "bird_feeder",
-    "tulips", "watering_can", "birdhouse", "beach_ball", "watermelon", "leaf_pile", "pumpkins", "scarecrow", "gift_boxes", "sled", "snowman", "kite", "picnic_basket", "sandcastle", "sunshade", "mushrooms", "apple_crate", "skis", "snow_lantern",
+    "tulips", "watering_can", "birdhouse", "beach_ball", "watermelon", "leaf_pile", "pumpkins", "scarecrow", "gift_boxes", "sled", "snowman", "kite", "picnic_basket", "sandcastle", "sunshade", "mushrooms", "apple_crate", "skis", "snow_lantern", "hay_bale", "chestnuts", "rake", "cider_barrel",
     "jack_o_lantern", "paper_lanterns", "xmas_tree", "flower_arch",
 )
 
@@ -300,7 +304,7 @@ fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>, here: Offset? = nu
         // Fetched first: to the woodpile for a log, then over to the fire; to the rod, then to the bank.
         "woodpile" -> fetched(use.t, p + Offset(u * BESIDE * k, u * 0.004f), fire + Offset(-u * 0.21f, u * 0.03f))
         "fishing_rod" -> fetched(use.t, p + Offset(u * BESIDE * k, u * 0.004f), Offset(w * 0.335f, h * 0.84f))
-        "wildflowers", "lantern", "tulips", "watering_can", "birdhouse", "beach_ball", "watermelon", "pumpkins", "scarecrow", "gift_boxes", "snowman", "kite", "picnic_basket", "sandcastle", "sunshade", "mushrooms", "apple_crate", "skis", "snow_lantern",
+        "wildflowers", "lantern", "tulips", "watering_can", "birdhouse", "beach_ball", "watermelon", "pumpkins", "scarecrow", "gift_boxes", "snowman", "kite", "picnic_basket", "sandcastle", "sunshade", "mushrooms", "apple_crate", "skis", "snow_lantern", "hay_bale", "chestnuts", "rake", "cider_barrel",
         "jack_o_lantern", "paper_lanterns", "xmas_tree", "flower_arch" ->
             p + Offset(u * BESIDE * k, u * 0.004f)
         "leaf_pile", "sled", "deck_chair" -> p + Offset(0f, -u * 0.004f)
@@ -662,7 +666,7 @@ fun DrawScope.drawUse(
                 val chair = base + Offset(0f, u * 0.012f)
                 // The whole chair, the companion in it, then the near armrest and legs over them.
                 drawThing("rocking_chair", chair, u)
-                actor(avatar, mood, worn, base + Offset(-u * 0.004f, -u * 0.04f), s * 0.8f / k, look = -0.3f, sleepy = t > 4f) // on the seat
+                actor(avatar, mood, worn, base + Offset(-u * 0.004f, -u * 0.028f * ROCKER), s * 0.8f / k, look = -0.3f, sleepy = t > 4f) // on the seat
                 scale(ROCKER, pivot = chair) {
                     drawLine(Color(0xFF9C6B45), chair + Offset(-u * 0.022f, -u * 0.052f), chair + Offset(u * 0.022f, -u * 0.054f), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
                     for (dx in listOf(-0.018f, 0.018f)) drawLine(Color(0xFF9C6B45), chair + Offset(u * dx, -u * 0.01f), chair + Offset(u * dx, -u * 0.035f), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
@@ -747,7 +751,7 @@ fun DrawScope.drawUse(
             rising(t, base + Offset(0f, -s * 1f), u * 0.012f, every = 0.8f, drift = 2f) { at, a -> drawCircle(GlowWarm.copy(alpha = a), u * 0.005f, at) }
         }
         // The seasons' own: beside it, with a little something happening.
-        "tulips", "watering_can", "birdhouse", "watermelon", "pumpkins", "scarecrow", "gift_boxes", "snowman", "kite", "picnic_basket", "sandcastle", "sunshade", "mushrooms", "apple_crate", "skis", "snow_lantern",
+        "tulips", "watering_can", "birdhouse", "watermelon", "pumpkins", "scarecrow", "gift_boxes", "snowman", "kite", "picnic_basket", "sandcastle", "sunshade", "mushrooms", "apple_crate", "skis", "snow_lantern", "hay_bale", "chestnuts", "rake", "cider_barrel",
         "jack_o_lantern", "paper_lanterns", "xmas_tree", "flower_arch" -> {
             shadowAt(base, s * 0.45f)
             actor(avatar, mood, worn, base, s, look = -0.8f, bounce = sin(t * 1.8f) * 0.4f)
@@ -1186,4 +1190,13 @@ internal fun jumpHeight(f: Float, h: Float): Float = when {
     f < 0.18f -> -kotlin.math.sin(f / 0.18f * Math.PI.toFloat()) * h * 0.012f
     f < 0.9f -> kotlin.math.sin((f - 0.18f) / 0.72f * Math.PI.toFloat()) * h * 0.085f
     else -> -kotlin.math.sin((f - 0.9f) / 0.1f * Math.PI.toFloat()) * h * 0.01f
+}
+
+/** How far above the ground the companion sits on [thing] (scene heights): hopped up onto, and down from. */
+internal fun mountLift(thing: String): Float = when (thing) {
+    "hammock" -> 0.035f
+    "swing" -> 0.045f
+    "rocking_chair" -> 0.03f
+    "log_bench", "picnic_table" -> 0.015f
+    else -> 0f
 }

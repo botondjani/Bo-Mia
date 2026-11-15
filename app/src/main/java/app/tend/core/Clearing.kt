@@ -82,6 +82,10 @@ object Things {
         Thing("sunshade", tr("Sunshade", "Napernyő"), 40, SpotKind.SMALL, season = Season.SUMMER),
         Thing("mushrooms", tr("Mushrooms", "Gombák"), 20, SpotKind.SMALL, season = Season.AUTUMN),
         Thing("apple_crate", tr("Apple crate", "Almásláda"), 35, SpotKind.SMALL, season = Season.AUTUMN),
+        Thing("hay_bale", tr("Hay bale", "Szalmabála"), 25, SpotKind.SMALL, season = Season.AUTUMN),
+        Thing("chestnuts", tr("Chestnut roaster", "Gesztenyesütő"), 45, SpotKind.SMALL, season = Season.AUTUMN),
+        Thing("rake", tr("Rake and leaves", "Gereblye"), 20, SpotKind.SMALL, season = Season.AUTUMN),
+        Thing("cider_barrel", tr("Cider barrel", "Mustos hordó"), 50, SpotKind.SMALL, season = Season.AUTUMN),
         Thing("skis", tr("Skis", "Sílécek"), 35, SpotKind.SMALL, season = Season.WINTER),
         Thing("snow_lantern", tr("Snow lantern", "Hólámpás"), 30, SpotKind.SMALL, season = Season.WINTER),
         // A few days a year: each event's own, sold only then.
