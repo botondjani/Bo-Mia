@@ -306,9 +306,9 @@ fun Onboarding(
                         Says(avatar,
                             tr("Your camp", "A táborod"),
                             when {
-                                !lit -> tr("This is where ${avatar.displayName} will live. Start with a campfire.", "Itt fog élni ${avatar.displayName}. Kezdd egy tábortűzzel.")
+                                !lit -> tr("${avatar.displayName} will live here. Start with a campfire.", "Itt fog élni ${avatar.displayName}. Kezdd egy tábortűzzel.")
                                 !roasting -> tr("Lovely! Now tap the fire.", "Szép! Most koppints a tűzre.")
-                                else -> tr("${avatar.displayName} uses everything you get. Hold a thing to move it.", "${avatar.displayName} mindent használ, amit szerzel. Egy tárgyat nyomva tartva átteheted.")
+                                else -> tr("${avatar.displayName} uses everything you get.", "${avatar.displayName} mindent használ, amit szerzel.")
                             },
                             figure = 0.dp, smallLines = 2,
                         )
@@ -317,7 +317,8 @@ fun Onboarding(
                         val ambient = rememberAmbientClock()
                         Box(Modifier.fillMaxWidth().aspectRatio(1.35f).clip(RoundedCornerShape(26.dp)).campEntrance()) {
                             Canvas(
-                                Modifier.fillMaxSize().pointerInput(lit) {
+                                // When setup ends, this same camp glides up into home's.
+                                Modifier.fillMaxSize().then(sharedCamp() ?: Modifier).pointerInput(lit) {
                                     detectTapGestures { tap ->
                                         val p = SpotPositions.getValue(0)
                                         val near = kotlin.math.abs(tap.x / size.width - p.x) < 0.18f && kotlin.math.abs(tap.y / size.height - p.y + 0.05f) < 0.2f
@@ -339,16 +340,15 @@ fun Onboarding(
                             }
                             AcornBadge(acorns, Modifier.align(Alignment.TopEnd).padding(10.dp))
                         }
-                        if (!lit) {
-                            Text(tr("THE SHOP", "A BOLT"), style = MaterialTheme.typography.labelSmall)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                ShopTile(fire, owned = false, affordable = acorns >= fire.price, Modifier.weight(1f), background = Brand.Card) { onBuy(fire.id) }
-                                Text(
-                                    tr("You have $acorns acorns. The campfire is ${fire.price}: tap it to get it.", "$acorns makkod van. A tábortűz ${fire.price}: koppints rá, és a tiéd."),
-                                    style = MaterialTheme.typography.bodyMedium, color = Brand.Muted, modifier = Modifier.weight(2f).align(Alignment.CenterVertically),
-                                )
-                            }
-                        } else AcornWays()
+                        // What acorns are for and where they come from: there before the fire, and after.
+                        AcornWays()
+                        if (!lit) Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            ShopTile(fire, owned = false, affordable = acorns >= fire.price, Modifier.weight(1f), background = Brand.Card) { onBuy(fire.id) }
+                            Text(
+                                tr("Your first thing: the campfire. Tap it to buy it.", "Az első tárgyad: a tábortűz. Koppints rá a vásárláshoz."),
+                                style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(2f),
+                            )
+                        }
                         // Once the fire's going: the welcome gift, said plainly, with when it ends.
                         if (roasting) Row(
                             Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Brand.Coral.copy(alpha = 0.12f)).padding(14.dp),
@@ -881,23 +881,26 @@ private fun Says(avatar: Avatar, line: String, small: String? = null, figure: Dp
 @Composable
 private fun AcornWays() = Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        AcornIcon(14.dp)
-        Spacer(Modifier.width(6.dp))
-        Text(tr("ACORNS BUY THINGS FOR THE CAMP", "MAKKBÓL ÚJ TÁRGYAK A TÁBORBA"), style = MaterialTheme.typography.labelSmall)
+        AcornIcon(18.dp)
+        Spacer(Modifier.width(8.dp))
+        Text(tr("You collect acorns and buy things for the camp with them.", "Makkot gyűjtesz, és tárgyakat veszel belőle a táborba."), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         listOf(
-            Triple("workout", "+${app.tend.core.Acorns.PER_ACTIVITY}", tr("an activity", "tevékenység")),
-            Triple("hourglass", "+${app.tend.core.Acorns.WITHIN_BUDGET}", tr("within budget", "kereten belül")),
-            Triple("face_yes", "+${app.tend.core.Acorns.PER_NOT_NOW}", tr("\"Not now\"", "„Most nem”")),
+            Triple("workout", "+${app.tend.core.Acorns.PER_ACTIVITY}", tr("for an activity", "tevékenységért")),
+            Triple("hourglass", "+${app.tend.core.Acorns.WITHIN_BUDGET}", tr("a day within your minutes", "ha a kereten belül maradsz")),
+            Triple("face_yes", "+${app.tend.core.Acorns.PER_NOT_NOW}", tr("for each \"Not now\"", "minden „Most nem”-ért")),
         ).forEach { (icon, plus, what) ->
             Column(
                 Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(Brand.Card).padding(vertical = 10.dp, horizontal = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                TendIcons.Badge(icon, 30.dp)
-                Text(plus, style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
-                Text(what, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, textAlign = TextAlign.Center, maxLines = 1)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TendIcons.Badge(icon, 26.dp)
+                    Spacer(Modifier.width(6.dp))
+                    Text(plus, style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
+                }
+                Text(what, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp), color = Brand.Muted, textAlign = TextAlign.Center, minLines = 2, maxLines = 2)
             }
         }
     }

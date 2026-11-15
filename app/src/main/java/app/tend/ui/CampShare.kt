@@ -41,10 +41,10 @@ fun Modifier.pageBody(): Modifier {
     val s = LocalCampShare.current ?: return this
     return with(s.visibility) {
         this@pageBody.animateEnterExit(
-            enter = androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(420, delayMillis = 60, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it / 4 } +
-                androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(300, delayMillis = 90)),
-            exit = androidx.compose.animation.slideOutVertically(androidx.compose.animation.core.tween(220)) { it / 6 } +
-                androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(160)),
+            enter = androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(460, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it / 5 } +
+                androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(360)),
+            exit = androidx.compose.animation.slideOutVertically(androidx.compose.animation.core.tween(340, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it / 8 } +
+                androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(260)),
         )
     }
 }

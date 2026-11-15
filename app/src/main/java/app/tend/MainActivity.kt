@@ -35,6 +35,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import android.Manifest
 import androidx.activity.result.contract.ActivityResultContracts
 import app.tend.core.Budget
@@ -393,6 +397,8 @@ class MainActivity : ComponentActivity() {
         var settingsSection by remember { mutableStateOf<String?>(null) }
         // The town tip: the town search, right there.
         var townTip by remember { mutableStateOf(false) }
+        // Signing up from a tip or a next step: right there, in a popup.
+        var signUp by remember { mutableStateOf(false) }
         var goodNightAcorns by remember { mutableIntStateOf(0) }
         val goToStep: (app.tend.core.Step) -> Unit = { step ->
             when (step) {
@@ -965,7 +971,7 @@ class MainActivity : ComponentActivity() {
                         app.tend.core.Tip.WIDGET -> if (!pinWidget()) { settingsSection = "widget"; screen = Screen.SETTINGS }
                         app.tend.core.Tip.TOWN -> townTip = true
                         app.tend.core.Tip.PAUSE -> { settingsSection = "apps"; screen = Screen.SETTINGS }
-                        app.tend.core.Tip.ACCOUNT -> { settingsSection = "account"; screen = Screen.SETTINGS }
+                        app.tend.core.Tip.ACCOUNT -> signUp = true
                     }
                 },
                 camp = {
@@ -1050,7 +1056,7 @@ class MainActivity : ComponentActivity() {
                 timerMinutes = store.focusTimerMinutes,
                 onTimerMinutes = { store.focusTimerMinutes = it },
                 signedIn = app.tend.data.Account.user(this@MainActivity) != null,
-                onOpenAccount = { settingsSection = "account"; screen = Screen.SETTINGS },
+                onOpenAccount = { signUp = true },
                 pauseSuggested = store.pauseApps.isEmpty() && !store.isStrict,
                 onPauseSetup = { settingsSection = "apps"; screen = Screen.SETTINGS },
                 exerciseTracked = store.exerciseTracked,
@@ -1113,11 +1119,25 @@ class MainActivity : ComponentActivity() {
             androidx.compose.animation.AnimatedContent(
                 page, label = "page",
                 transitionSpec = {
-                    androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(320, delayMillis = 60)) togetherWith
-                        androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(220))
+                    // Overlapping, never a blank moment between the two pages.
+                    androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(360)) togetherWith
+                        androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(300))
                 },
             ) { p ->
                 androidx.compose.runtime.CompositionLocalProvider(app.tend.ui.LocalCampShare provides app.tend.ui.CampShare(this@SharedTransitionLayout, this@AnimatedContent)) { pageContent(p) }
+            }
+        }
+        if (signUp) androidx.compose.ui.window.Dialog(onDismissRequest = { signUp = false }) {
+            androidx.compose.foundation.layout.Column(
+                androidx.compose.ui.Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(28.dp)).background(app.tend.ui.Brand.Sage).padding(20.dp),
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
+            ) {
+                androidx.compose.material3.Text(tr("Sign up or log in", "Regisztráció vagy belépés"), style = androidx.compose.material3.MaterialTheme.typography.headlineSmall)
+                app.tend.ui.AccountCard(
+                    onChanged = { saveProfile(); refresh++; if (app.tend.data.Account.user(this@MainActivity) != null) signUp = false },
+                    onRestored = ::restartFresh,
+                    onSignedIn = { signUp = false },
+                )
             }
         }
         if (townTip) androidx.compose.material3.AlertDialog(

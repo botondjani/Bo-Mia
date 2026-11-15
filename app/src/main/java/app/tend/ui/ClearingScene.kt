@@ -380,6 +380,11 @@ fun DrawScope.drawClearing(
             }
         }
     }
+    // The campfire being made: over to a little pile of wood, the logs carried to the pit one by one,
+    // a crouch to light it, and back to where they were.
+    val fireAt = SpotPositions.getValue(0).let { Offset(it.x * w, it.y * h) }
+    val fire = if (fireBuild != null && carrying == null) fireChoreo(fireBuild * FIRE_BUILD_SECS, fireAt, restAt, u, placed, layout) else null
+    if (fire != null) { carryAt = fire.bo; carryWalk = fire.walk; carryCrouch = fire.crouch; carryRight = fire.right }
     val anchor = when {
         carryAt != null -> carryAt
         target == null -> restAt
@@ -447,6 +452,8 @@ fun DrawScope.drawClearing(
         if (carryAt != null) {
             if (carryWalk >= 0f) drawWalker(avatar, mood, worn, anchor, carryWalk, carryRight)
             else drawCrouch(avatar, mood, worn, anchor, carryCrouch, if (carryRight) 0.8f else -0.8f)
+            // A log in their hands, in front of them.
+            fire?.held?.let { (i, at) -> fireLog(i, at, u, 0f) }
             return
         }
         // Walking about: the umbrella comes along.
@@ -554,7 +561,7 @@ fun DrawScope.drawClearing(
         ground += p.y to {
             if (spot.kind == SpotKind.FIRE) firePitStones(p, u)
             val thing = placed[spot.id]
-            if (thing == "campfire" && fireBuild != null && fireBuild < 1f) buildFire(p, anchor, u, fireBuild, lights)
+            if (thing == "campfire" && fire != null) buildFire(p, u, fire, lights)
             else if (thing != null && spot.id != held && !(act?.spot == spot.id && !walking && stepTo == null && thing in Uses.redrawn)) {
                 val k = spotScale(spot.id, layout)
                 val a = appear[spot.id]
@@ -1889,66 +1896,112 @@ private fun DrawScope.drawThingAsMade(id: String, p: Offset, u: Float, lights: M
     }
 }
 
+/** How long making the campfire takes, from the first step to back in place. */
+const val FIRE_BUILD_SECS = 8.6f
+
+/** Where things are in the making of the campfire, [secs] in. */
+class FireChoreo(
+    val bo: Offset, val walk: Float, val crouch: Float, val right: Boolean,
+    /** Logs still on the pile, and laid in the pit (the last one maybe on its way down: [laying] 0..1). */
+    val pile: Int, val laid: Int, val laying: Float,
+    /** The log in their hands (which one, where). */
+    val held: Pair<Int, Offset>?,
+    val pileAt: Offset, val spark: Float, val flame: Float,
+)
+
+private const val FIRE_LOGS = 3
+
+private fun DrawScope.fireChoreo(secs: Float, fire: Offset, rest: Offset, u: Float, placed: Map<Int, String>, layout: Map<Int, Offset>): FireChoreo {
+    fun ease(k: Float) = k.coerceIn(0f, 1f).let { it * it * (3 - 2 * it) }
+    fun lerp(a: Offset, b: Offset, k: Float) = a + (b - a) * ease(k)
+    val pileAt = fire + Offset(u * 0.3f, u * 0.035f)
+    val atPile = pileAt + Offset(-u * 0.07f, u * 0.012f)
+    val atFire = fire + Offset(u * 0.1f, u * 0.018f)
+    // In front of the pit, never through it: there and back by a point just below it.
+    val below = fire + Offset(0f, u * 0.1f)
+    val toPile = route(rest, below, placed, layout) + listOf(atPile)
+    val back = listOf(atFire, below) + route(below, rest, placed, layout).drop(1)
+    val cs = u * 0.17f * depthScale(atFire.y / size.height)
+    fun hands(bo: Offset, right: Boolean) = bo + Offset((if (right) 1f else -1f) * cs * 0.34f, -cs * 0.28f)
+    // The timeline, in seconds.
+    val walkIn = 1.2f
+    val pick = 0.35f; val carry = 0.5f; val put = 0.4f; val ret = 0.4f
+    val round = pick + carry + put + ret
+    val lightAt = walkIn + round * FIRE_LOGS - ret // after the last log, no walk back
+    val light = 1.4f
+    val standUp = 0.3f
+    var bo = rest; var walk = -1f; var crouch = 0f; var right = true
+    var pile = FIRE_LOGS; var laid = 0; var laying = 0f; var held: Pair<Int, Offset>? = null
+    when {
+        secs < walkIn -> { bo = along(toPile, ease(secs / walkIn)); walk = secs; right = atPile.x >= rest.x }
+        secs < lightAt -> {
+            val i = ((secs - walkIn) / round).toInt().coerceAtMost(FIRE_LOGS - 1)
+            val k = secs - walkIn - i * round
+            laid = i; pile = FIRE_LOGS - i
+            when {
+                k < pick -> { bo = atPile; crouch = k / pick; right = true; if (k > pick / 2) { pile--; held = i to hands(bo, true) } }
+                k < pick + carry -> { pile--; bo = lerp(atPile, atFire, (k - pick) / carry); walk = secs; right = false; held = i to hands(bo, false) }
+                k < pick + carry + put -> {
+                    pile--; bo = atFire; right = false
+                    val q = (k - pick - carry) / put
+                    crouch = q
+                    if (q < 0.5f) held = i to hands(bo, false) else { laid = i + 1; laying = (q - 0.5f) / 0.5f }
+                }
+                else -> { pile--; laid = i + 1; bo = lerp(atFire, atPile, (k - pick - carry - put) / ret); walk = secs; right = true }
+            }
+        }
+        else -> {
+            pile = 0; laid = FIRE_LOGS
+            val k = secs - lightAt
+            when {
+                // Down by the pit, a hand to the kindling, and up again once it's caught.
+                k < light -> { bo = atFire; right = false; crouch = (k / 0.35f * 0.5f).coerceAtMost(0.5f) }
+                k < light + standUp -> { bo = atFire; right = false; crouch = 0.5f + 0.5f * (k - light) / standUp }
+                else -> { val q = ((k - light - standUp) / (FIRE_BUILD_SECS - lightAt - light - standUp)).coerceIn(0f, 1f); bo = along(back, ease(q)); walk = secs; right = rest.x >= atFire.x; if (q >= 1f) walk = -1f }
+            }
+        }
+    }
+    val spark = ((secs - lightAt - 0.3f) / 0.7f).coerceIn(0f, 1f)
+    val flame = ((secs - lightAt - 0.6f) / 1.2f).coerceIn(0f, 1f)
+    return FireChoreo(bo, walk, crouch, right, pile.coerceAtLeast(0), laid, laying, held, pileAt, spark, flame)
+}
+
+/** Log [i] of the campfire (two big ones, then a bundle of kindling), centred at [at], turned [turn] 0..1 into its place. */
+private fun DrawScope.fireLog(i: Int, at: Offset, u: Float, turn: Float) {
+    when (i) {
+        0, 1 -> {
+            val placedDir = if (i == 0) Offset(u * 0.035f, -u * 0.008f) else Offset(u * 0.035f, u * 0.008f)
+            val dir = Offset(u * 0.035f, 0f) + (placedDir - Offset(u * 0.035f, 0f)) * turn
+            drawLine(if (i == 0) BarkDark else Bark, at - dir, at + dir, strokeWidth = u * 0.012f, cap = StrokeCap.Round)
+            drawCircle(WoodLight, u * 0.004f, at + dir)
+        }
+        else -> for (j in -1..1) drawLine(BarkDark, at + Offset(j * u * 0.012f, u * 0.004f), at + Offset(j * u * 0.012f + u * 0.008f, -u * 0.01f), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
+    }
+}
+
 /**
- * The campfire being laid and lit: two logs fly in from the companion's hands one after the other,
- * kindling goes under them, a spark catches, and the flame grows ([t] 0..1).
+ * The campfire being made ([c]): the pile of wood beside the pit going down, logs laid in the pit,
+ * then a spark and the flame growing.
  */
-private fun DrawScope.buildFire(p: Offset, from: Offset, u: Float, t: Float, lights: MutableList<Light>) {
-    val c = p + Offset(0f, -u * 0.012f)
-    fun seg(a: Float, b: Float) = ((t - a) / (b - a)).coerceIn(0f, 1f)
-    fun ease(x: Float) = x * x * (3f - 2f * x)
-    val hand = from + Offset(u * 0.02f, -u * 0.06f)
-    // Each log: from the hands in an arc, turning, to its place in the pit.
-    fun log(a: Float, b: Float, color: Color, l0: Offset, l1: Offset) {
-        val k = seg(a, b)
-        if (k <= 0f) return
-        val mid = (l0 + l1) / 2f
-        val pos = if (k >= 1f) mid else {
-            val e = ease(k)
-            Offset(hand.x + (mid.x - hand.x) * e, hand.y + (mid.y - hand.y) * e - kotlin.math.sin(Math.PI.toFloat() * k) * u * 0.09f)
-        }
-        val half = (l1 - l0) / 2f
-        val turn = if (k >= 1f) 1f else ease(k)
-        val dir = Offset(half.x * (0.45f + 0.55f * turn), half.y * turn + (-u * 0.012f) * (1f - turn))
-        drawLine(color, pos - dir, pos + dir, strokeWidth = u * 0.012f, cap = StrokeCap.Round)
+private fun DrawScope.buildFire(p: Offset, u: Float, c: FireChoreo, lights: MutableList<Light>) {
+    val pit = p + Offset(0f, -u * 0.012f)
+    // The pile: logs stacked crosswise, one fewer each time.
+    for (k in 0 until c.pile) {
+        val at = c.pileAt + Offset(if (k == 1) u * 0.006f else 0f, -k * u * 0.011f)
+        drawLine(if (k % 2 == 0) Bark else BarkDark, at + Offset(-u * 0.03f, 0f), at + Offset(u * 0.03f, 0f), strokeWidth = u * 0.011f, cap = StrokeCap.Round)
+        drawCircle(WoodLight, u * 0.0042f, at + Offset(u * 0.03f, 0f))
     }
-    log(0.00f, 0.22f, BarkDark, c + Offset(-u * 0.035f, u * 0.006f), c + Offset(u * 0.035f, -u * 0.01f))
-    log(0.22f, 0.44f, Bark, c + Offset(-u * 0.035f, -u * 0.01f), c + Offset(u * 0.035f, u * 0.006f))
-    // Kindling tucked under the logs.
-    val tuck = seg(0.46f, 0.56f)
-    if (tuck > 0f) for (i in -1..1) drawLine(BarkDark.copy(alpha = tuck), c + Offset(i * u * 0.014f, -u * 0.002f), c + Offset(i * u * 0.014f + u * 0.008f, -u * 0.012f * tuck), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
-    // The spark, then the flame.
-    sparkles(c + Offset(0f, -u * 0.014f), u, seg(0.58f, 0.72f))
-    // It catches with a whoosh: a warm flash, a ring of light over the ground, embers flying up,
-    // and the flame shooting up taller before it settles.
-    val catchAt = seg(0.64f, 1f)
-    if (catchAt > 0f) {
-        val f = c + Offset(0f, -u * 0.02f)
-        val flash = (if (catchAt < 0.12f) catchAt / 0.12f else (1f - (catchAt - 0.12f) / 0.5f)).coerceIn(0f, 1f)
-        if (flash > 0f) drawCircle(
-            androidx.compose.ui.graphics.Brush.radialGradient(listOf(Color(0xFFFFF0C0).copy(alpha = 0.9f * flash), Color(0xFFFFB35C).copy(alpha = 0.4f * flash), Color.Transparent), f, u * 0.3f),
-            u * 0.3f, f,
-        )
-        val ring = seg(0.66f, 0.86f)
-        if (ring > 0f && ring < 1f) drawOval(
-            Color(0xFFFFD27A).copy(alpha = 0.8f * (1f - ring)),
-            Offset(c.x - u * 0.2f * ring, c.y - u * 0.06f * ring), Size(u * 0.4f * ring, u * 0.12f * ring),
-            style = Stroke(u * 0.012f * (1f - ring) + u * 0.002f),
-        )
-        val fly = seg(0.66f, 0.98f)
-        if (fly > 0f && fly < 1f) for (i in 0 until 22) {
-            val a = -Math.PI.toFloat() / 2 + ((i * 0.618f) % 1f - 0.5f) * 2.4f
-            val speed = u * (0.22f + 0.2f * ((i * 0.37f) % 1f))
-            val k = (fly * (1.1f - 0.2f * ((i * 0.53f) % 1f))).coerceAtMost(1f)
-            val e = Offset(f.x + kotlin.math.cos(a) * speed * k, f.y + kotlin.math.sin(a) * speed * k + u * 0.18f * k * k)
-            val col = if (i % 3 == 0) Color(0xFFFFE7A3) else Color(0xFFFF9A4A)
-            drawCircle(col.copy(alpha = (1f - k * k).coerceIn(0f, 1f)), u * (0.006f + 0.004f * (i % 2)) * (1f - 0.4f * k), e)
-        }
+    val spots = listOf(pit + Offset(0f, -u * 0.002f), pit + Offset(0f, -u * 0.002f), pit + Offset(0f, -u * 0.004f))
+    // Kindling first under the logs once it's there, then the logs.
+    if (c.laid >= 3) fireLog(2, spots[2], u, 1f)
+    for (i in 0 until minOf(c.laid, 2)) {
+        val last = i == c.laid - 1 && c.laying < 1f
+        val at = if (last) spots[i] + Offset(0f, -u * 0.03f * (1f - c.laying)) else spots[i]
+        fireLog(i, at, u, if (last) c.laying else 1f)
     }
-    val grow = seg(0.66f, 1f)
-    // Up past full size, then back: 0 → 1.4 → 1.
-    val flame = if (grow < 0.35f) ease(grow / 0.35f) * 1.4f else 1.4f - 0.4f * ease((grow - 0.35f) / 0.65f)
-    if (grow > 0f) campfire(p, u, lights, flame = flame, logs = false)
+    if (c.laid == 3 && c.laying < 1f) fireLog(2, spots[2] + Offset(0f, -u * 0.03f * (1f - c.laying)), u, 1f)
+    sparkles(pit + Offset(0f, -u * 0.014f), u, c.spark)
+    if (c.flame > 0f) campfire(p, u, lights, flame = c.flame * c.flame * (3 - 2 * c.flame), logs = false)
 }
 
 private fun DrawScope.campfire(p: Offset, u: Float, lights: MutableList<Light>, flame: Float = 1f, logs: Boolean = true) {
@@ -1958,7 +2011,7 @@ private fun DrawScope.campfire(p: Offset, u: Float, lights: MutableList<Light>, 
         drawLine(Bark, c + Offset(-u * 0.035f, -u * 0.01f), c + Offset(u * 0.035f, u * 0.006f), strokeWidth = u * 0.012f, cap = StrokeCap.Round)
     }
     val f = c + Offset(0f, -u * 0.006f)
-    if (flame != 1f) { scale(flame, pivot = f) { campfire(p, u, mutableListOf(), flame = 1f, logs = false) }; lights += Light(f + Offset(0f, -u * 0.02f), u * 0.16f * flame, flame.coerceAtMost(1f)); return }
+    if (flame < 1f) { scale(flame, pivot = f) { campfire(p, u, mutableListOf(), flame = 1f, logs = false) }; lights += Light(f + Offset(0f, -u * 0.02f), u * 0.16f * flame, flame); return }
     drawPath(Path().apply { moveTo(f.x - u * 0.022f, f.y); quadraticTo(f.x - u * 0.024f, f.y - u * 0.035f, f.x - u * 0.004f, f.y - u * 0.062f); quadraticTo(f.x + u * 0.004f, f.y - u * 0.04f, f.x + u * 0.01f, f.y - u * 0.05f); quadraticTo(f.x + u * 0.026f, f.y - u * 0.025f, f.x + u * 0.022f, f.y); close() }, Flame)
     drawPath(Path().apply { moveTo(f.x - u * 0.011f, f.y); quadraticTo(f.x - u * 0.01f, f.y - u * 0.022f, f.x, f.y - u * 0.036f); quadraticTo(f.x + u * 0.012f, f.y - u * 0.018f, f.x + u * 0.011f, f.y); close() }, FlameCore)
     // A wisp of smoke.
