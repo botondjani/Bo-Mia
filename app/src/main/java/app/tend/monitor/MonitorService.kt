@@ -272,8 +272,10 @@ class MonitorService : Service() {
         val minutes = ((now - streakStart) / 60_000L).toInt()
         val label = runCatching { packageManager.getApplicationInfo(pkg, 0).loadLabel(packageManager).toString() }.getOrDefault(tr("this app", "ez az app"))
         app.tend.data.Stats.log(this, "peek", mapOf("minutes" to minutes))
+        // Every half hour of it, today's minutes in the apps so far (all of today, not just this stretch).
+        val total = if (minutes >= 28 && (minutes + 2) / 30 != (minutes - 8) / 30) app.tend.core.Budget.usedMinutes(store.today()) else null
         peek.show(
-            store.avatar, store.accessories().first, minutes, label,
+            store.avatar, store.accessories().first, minutes, label, total,
             onCome = {
                 app.tend.data.Stats.log(this, "peek_come", mapOf("minutes" to minutes))
                 startActivity(Intent(this, app.tend.MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))

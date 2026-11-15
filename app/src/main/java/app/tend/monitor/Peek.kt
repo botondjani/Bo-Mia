@@ -36,37 +36,15 @@ class Peek(private val context: Context) {
 
     private fun dp(v: Float) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, context.resources.displayMetrics)
 
-    /** [minutes] in [label] so far: peek in, and go again after a few seconds unless tapped. */
-    fun show(avatar: Avatar, worn: Set<Accessory>, minutes: Int, label: String, onCome: () -> Unit, onMore: () -> Unit) {
+    /**
+     * Peek in after [minutes] in [label]: just a small face, tilted, half round the screen's edge. With
+     * [total] (every half hour), a little bubble beside it too: today's minutes in the apps so far.
+     * Gone again after a few seconds unless tapped.
+     */
+    fun show(avatar: Avatar, worn: Set<Accessory>, minutes: Int, label: String, total: Int? = null, onCome: () -> Unit, onMore: () -> Unit) {
         if (root != null) return
-        val mood = if (minutes >= 20) Mood.SLEEPY else Mood.HAPPY
-        val face = ImageView(context).apply {
-            setImageBitmap(CharacterPainter.bitmap(avatar, mood, dp(56f).toInt(), worn))
-            layoutParams = LinearLayout.LayoutParams(dp(56f).toInt(), dp(56f).toInt())
-        }
-        val line = TextView(context).apply {
-            text = tr("$minutes min", "$minutes perc")
-            setTextColor(INK)
-            textSize = 15f
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
-            setPadding(dp(4f).toInt(), 0, dp(14f).toInt(), 0)
-        }
-        val bubble = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            background = GradientDrawable().apply { setColor(CARD); cornerRadii = floatArrayOf(dp(32f), dp(32f), 0f, 0f, 0f, 0f, dp(32f), dp(32f)) }
-            elevation = dp(8f)
-            setPadding(dp(6f).toInt(), dp(4f).toInt(), 0, dp(4f).toInt())
-            addView(face)
-            addView(line)
-            contentDescription = tr("${avatar.displayName}: $minutes minutes in $label. Tap for a break.", "${avatar.displayName}: $minutes perce megy ez: $label. Koppints egy szünetért.")
-        }
-        val frame = FrameLayout(context).apply {
-            setPadding(dp(8f).toInt(), dp(8f).toInt(), 0, dp(8f).toInt())
-            clipToPadding = false
-            addView(bubble)
-        }
-        bubble.setOnClickListener { open(frame, avatar, minutes, label, onCome, onMore) }
+        val (frame, slide, face) = build(avatar, worn, minutes, label, total)
+        frame.getChildAt(0).setOnClickListener { open(frame, avatar, minutes, label, onCome, onMore) }
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
@@ -78,12 +56,57 @@ class Peek(private val context: Context) {
         }
         runCatching { wm.addView(frame, params) }.onFailure { return }
         root = frame
-        // In from the edge with a little bounce, and a nod once there.
-        bubble.translationX = dp(140f)
-        bubble.animate().translationX(0f).setDuration(520).setInterpolator(OvershootInterpolator(1.4f)).withEndAction {
-            face.animate().rotation(-12f).setDuration(160).withEndAction { face.animate().rotation(0f).setDuration(220).start() }.start()
+        // In from the edge, a curious lean further in, and back.
+        val rest = slide.translationX
+        slide.translationX = rest + dp(80f)
+        slide.animate().translationX(rest).setDuration(520).setInterpolator(OvershootInterpolator(1.2f)).withEndAction {
+            face.animate().rotation(face.rotation - 8f).setDuration(220).withEndAction { face.animate().rotation(face.rotation + 8f).setDuration(320).start() }.start()
         }.start()
         hideLater = Runnable { hide() }.also { handler.postDelayed(it, SHOW_MS) }
+    }
+
+    /** The peek itself, laid out: the frame, the part that slides in, and the face. */
+    internal fun build(avatar: Avatar, worn: Set<Accessory>, minutes: Int, label: String, total: Int?): Triple<FrameLayout, android.view.View, ImageView> {
+        val mood = if (minutes >= 20) Mood.SLEEPY else Mood.HAPPY
+        val size = dp(FACE_DP).toInt()
+        val face = ImageView(context).apply {
+            // No ground under it, eyes turned in towards the screen.
+            setImageBitmap(android.graphics.Bitmap.createBitmap(size * 2, size * 2, android.graphics.Bitmap.Config.ARGB_8888).also {
+                CharacterPainter.draw(android.graphics.Canvas(it), avatar, mood, size * 2f, CharacterPainter.Pose(look = -1f, shadow = false), worn)
+            })
+            layoutParams = LinearLayout.LayoutParams(size, size)
+            // Leaning in from the right edge, head tilted, looking in.
+            rotation = -32f
+            pivotX = size * 0.8f; pivotY = size * 0.9f
+            elevation = dp(3f)
+        }
+        val slide = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            clipChildren = false
+            if (total != null) addView(TextView(context).apply {
+                text = tr("$total min today", "Ma eddig $total perc")
+                setTextColor(INK)
+                textSize = 12f
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                background = GradientDrawable().apply { setColor(CARD); cornerRadius = dp(16f) }
+                elevation = dp(6f)
+                setPadding(dp(10f).toInt(), dp(5f).toInt(), dp(10f).toInt(), dp(5f).toInt())
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(2f).toInt() }
+            })
+            addView(face)
+            // Partly round the edge: only the face's left side shows.
+            translationX = size * 0.32f
+            contentDescription = (total?.let { tr("$it minutes in your apps today. ", "Ma eddig $it perc az appokban. ") } ?: "") +
+                tr("${avatar.displayName}: $minutes minutes in $label. Tap for a break.", "${avatar.displayName}: $minutes perce megy ez: $label. Koppints egy szünetért.")
+        }
+        val frame = FrameLayout(context).apply {
+            setPadding(dp(8f).toInt(), dp(10f).toInt(), 0, dp(10f).toInt())
+            clipToPadding = false
+            clipChildren = false
+            addView(slide)
+        }
+        return Triple(frame, slide, face)
     }
 
     /** Tapped: the little card, with the two ways on. */
@@ -144,6 +167,8 @@ class Peek(private val context: Context) {
 
     companion object {
         private const val SHOW_MS = 7_000L
+        /** The face's size: small, a glance in, not a card. */
+        private const val FACE_DP = 40f
         private const val OPEN_MS = 15_000L
         private const val INK = 0xFF1D2A23.toInt()
         private const val MOSS = 0xFF316849.toInt()

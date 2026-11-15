@@ -70,6 +70,8 @@ object CharacterPainter {
         val point: Float = 0f,
         /** Something to hold or wear during a timer: [Prop]. */
         val prop: Prop = Prop.NONE,
+        /** The shadow on the ground (off when peeking in from the screen's edge). */
+        val shadow: Boolean = true,
     )
 
     @Synchronized
@@ -82,7 +84,7 @@ object CharacterPainter {
         val belly = if (tired) TIRED_LIGHT else MINT_LIGHT
 
         // Ground shadow
-        fill.color = SHADOW; c.drawOval(RectF(26f, 90f, 74f, 97f), fill)
+        if (pose.shadow) { fill.color = SHADOW; c.drawOval(RectF(26f, 90f, 74f, 97f), fill) }
 
         // Hair / ears behind the body
         when (avatar) {
