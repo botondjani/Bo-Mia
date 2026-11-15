@@ -1266,8 +1266,8 @@ private fun DrawScope.firePitStones(c: Offset, u: Float) {
 /** How wide a thing is, in scene heights, for its shadow. */
 internal fun thingWidth(id: String): Float = when (id) {
     "leaf_pile", "sled", "deck_chair", "scarecrow" -> 0.05f
-    "cabin" -> 0.22f
-    "bell_tent", "tent" -> 0.16f
+    "cabin", "cabin_porch", "cabin_cozy" -> 0.22f
+    "bell_tent", "tent", "old_tent" -> 0.16f
     "picnic_table", "log_bench" -> 0.11f
     "rocking_chair" -> 0.07f * ROCKER
     "raft" -> 0.16f
@@ -1659,7 +1659,28 @@ fun DrawScope.drawThing(id: String, p: Offset, u: Float, lights: MutableList<Lig
             drawLine(Color(0xFF8A7F68), p + Offset(tw * 0.42f, -th * 0.35f), p + Offset(tw * 0.62f, 0f), strokeWidth = u * 0.0015f)
             lights += Light(p + Offset(0f, -th * 0.2f), u * 0.06f, 0.6f)
         }
-        "cabin" -> {
+        "old_tent" -> {
+            // Where it starts: a small, saggy tent, patched twice, one peg out and its rope loose.
+            val tw = u * 0.13f
+            val th = u * 0.085f
+            val apex = p + Offset(-tw * 0.05f, -th)
+            val mid = p + Offset(tw * 0.12f, -th * 0.84f) // the ridge sags
+            val back = p + Offset(tw * 0.36f, -th * 0.9f)
+            drawLine(Color(0xFFD8C7A6), apex, p + Offset(-tw * 0.6f, u * 0.004f), strokeWidth = u * 0.0015f)
+            drawLine(Color(0xFFD8C7A6), back, p + Offset(tw * 0.62f, u * 0.006f), strokeWidth = u * 0.0015f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(u * 0.006f, u * 0.004f)))
+            drawPath(Path().apply { moveTo(p.x - tw / 2, p.y); lineTo(apex.x, apex.y); quadraticTo(mid.x, mid.y + th * 0.06f, back.x, back.y); lineTo(p.x + tw * 0.56f, p.y); close() },
+                Brush.horizontalGradient(listOf(Color(0xFFA09A70), Color(0xFF7D7754)), startX = p.x - tw / 2, endX = p.x + tw * 0.6f))
+            drawPath(Path().apply { moveTo(p.x - tw / 2, p.y); lineTo(apex.x, apex.y); lineTo(p.x + tw * 0.3f, p.y); close() }, Color(0xFFA9A37A))
+            // Patches, stitched on.
+            drawRect(Color(0xFFB5895C), p + Offset(tw * 0.1f, -th * 0.55f), Size(tw * 0.14f, th * 0.18f))
+            drawRect(Color(0xFF6E8B8A), p + Offset(-tw * 0.3f, -th * 0.3f), Size(tw * 0.12f, th * 0.14f))
+            for (k in 0 until 3) drawLine(Color(0xFFF1E9D6), p + Offset(tw * (0.11f + k * 0.045f), -th * 0.56f), p + Offset(tw * (0.13f + k * 0.045f), -th * 0.53f), strokeWidth = u * 0.0012f)
+            // The doorway.
+            drawPath(Path().apply { moveTo(apex.x, apex.y + th * 0.12f); lineTo(p.x + tw * 0.04f, p.y); lineTo(p.x - tw * 0.2f, p.y); close() }, Color(0xFF2E2A1E))
+            drawLine(Wood, apex, p + Offset(-tw * 0.05f, 0f), strokeWidth = u * 0.0025f)
+            lights += Light(p + Offset(-tw * 0.05f, -th * 0.3f), u * 0.03f, 0.3f)
+        }
+        "cabin", "cabin_porch", "cabin_cozy" -> {
             val cw = u * 0.22f
             val ch = u * 0.14f
             val l = p.x - cw / 2
@@ -1676,6 +1697,22 @@ fun DrawScope.drawThing(id: String, p: Offset, u: Float, lights: MutableList<Lig
             drawLine(BarkDark, win + Offset(cw * 0.13f, 0f), win + Offset(cw * 0.13f, ch * 0.34f), strokeWidth = u * 0.003f)
             drawRect(BarkDark, win, Size(cw * 0.26f, ch * 0.34f), style = Stroke(u * 0.003f))
             lights += Light(win + Offset(cw * 0.13f, ch * 0.17f), u * 0.08f, 0.8f)
+            if (id != "cabin") {
+                // A porch: planks in front, two posts and a little roof over the door; smoke from the chimney.
+                drawRect(WoodLight, Offset(l + cw * 0.4f, p.y - u * 0.004f), Size(cw * 0.66f, u * 0.016f))
+                drawLine(Bark, Offset(l + cw * 0.4f, p.y + u * 0.012f), Offset(l + cw * 1.06f, p.y + u * 0.012f), strokeWidth = u * 0.002f)
+                for (x in listOf(0.48f, 0.9f)) drawLine(BarkDark, Offset(l + cw * x, p.y), Offset(l + cw * x, p.y - ch * 0.8f), strokeWidth = u * 0.003f)
+                drawPath(Path().apply { moveTo(l + cw * 0.42f, p.y - ch * 0.8f); lineTo(l + cw * 0.67f, p.y - ch * 0.98f); lineTo(l + cw * 0.96f, p.y - ch * 0.8f); close() }, Color(0xFF2E3B31))
+                for (k in 0 until 3) drawCircle(Color.White.copy(alpha = 0.6f - k * 0.15f), u * (0.01f + k * 0.005f), Offset(l + cw * 0.76f + k * u * 0.008f, p.y - ch - u * 0.1f - k * u * 0.018f))
+            }
+            if (id == "cabin_cozy") {
+                // A flower box under the window and a lantern by the door.
+                drawRect(Bark, Offset(win.x - cw * 0.03f, win.y + ch * 0.34f), Size(cw * 0.32f, ch * 0.12f))
+                for (k in 0 until 5) drawCircle(listOf(Color(0xFFE07A5F), Color(0xFFF2C94C), Color(0xFFD96C9C))[k % 3], u * 0.009f, Offset(win.x + cw * (0.01f + k * 0.06f), win.y + ch * 0.33f))
+                val lamp = Offset(l + cw * 0.53f, p.y - ch * 0.55f)
+                drawRoundRect(Glow, lamp - Offset(u * 0.005f, u * 0.008f), Size(u * 0.01f, u * 0.014f), CornerRadius(u * 0.002f))
+                lights += Light(lamp, u * 0.05f, 0.7f)
+            }
         }
         "swing" -> {
             // Hangs from the branch of the tree beside it (see the scene: 0.38 of a 0.42-high tree at 0.6).
@@ -1848,9 +1885,10 @@ private fun thingSize(id: String): Pair<Float, Float> = when (id) {
     "snowman" -> 0.06f to 0.09f
     "birdhouse" -> 0.05f to 0.11f
     "deck_chair", "sled", "watermelon", "leaf_pile", "gift_boxes" -> 0.08f to 0.06f
-    "cabin" -> 0.25f to 0.24f
+    "cabin", "cabin_porch", "cabin_cozy" -> 0.27f to 0.24f
     "bell_tent" -> 0.2f to 0.18f
     "tent" -> 0.17f to 0.12f
+    "old_tent" -> 0.15f to 0.1f
     "treehouse" -> 0.14f to 0.32f
     "swing" -> 0.07f to 0.13f
     "hammock" -> 0.15f to 0.1f

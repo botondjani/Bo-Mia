@@ -50,7 +50,7 @@ object Uses {
         "telescope" -> tr("$name looks at the sky.", "$name az eget kémleli.")
         "log_bench" -> tr("$name sits by the fire and hums.", "$name a tűz mellett ül és dúdol.")
         "picnic_table" -> tr("$name has a sandwich.", "$name megeszik egy szendvicset.")
-        "tent", "bell_tent", "cabin" -> tr("$name takes a nap.", "$name szundít egyet.")
+        "old_tent", "tent", "bell_tent", "cabin", "cabin_porch", "cabin_cozy" -> tr("$name takes a nap.", "$name szundít egyet.")
         "swing" -> tr("$name swings.", "$name hintázik.")
         "hammock" -> tr("$name naps in the hammock.", "$name a függőágyban szundít.")
         "treehouse" -> tr("$name waves from the treehouse.", "$name integet a lombházból.")
@@ -114,7 +114,7 @@ object Uses {
     fun seconds(thing: String): Float = when (thing) {
         "act_read", "act_run", "act_walk", "act_stretch", "act_hearts", "act_tidy", "act_cheer" -> 8f
         "guitar" -> 12f
-        "canoe", "raft", "hammock", "tent", "bell_tent", "cabin" -> 9f
+        "canoe", "raft", "hammock", "old_tent", "tent", "bell_tent", "cabin", "cabin_porch", "cabin_cozy" -> 9f
         // Fetched first (the log, the rod), then used where it's used.
         "fishing_rod" -> 9f + FETCH
         "woodpile" -> 7f + FETCH
@@ -296,7 +296,7 @@ fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>, here: Offset? = nu
         "leaf_pile", "sled", "deck_chair" -> p + Offset(0f, -u * 0.004f)
         "telescope" -> p + Offset(-u * BESIDE * k, u * 0.004f)
         "log_bench", "picnic_table" -> p + Offset(0f, -u * 0.012f * k)
-        "tent", "bell_tent", "cabin" -> p + Offset(0f, u * 0.01f * k)
+        "old_tent", "tent", "bell_tent", "cabin", "cabin_porch", "cabin_cozy" -> p + Offset(0f, u * 0.01f * k)
         "hammock" -> p + Offset(0f, -u * 0.03f)
         "swing" -> p + Offset(-u * 0.01f, -u * 0.04f)
         "treehouse" -> Offset(p.x + u * 0.062f, u * 0.6f - u * 0.42f * 0.4f - u * 0.004f) // on the platform, in the tree, beside the little house
@@ -587,7 +587,7 @@ fun DrawScope.drawUse(
                 drawRect(Color(0xFF7FA35B), hand + Offset(-u * 0.01f, -u * 0.001f), Size(u * 0.02f, u * 0.002f))
             }
         }
-        "tent", "bell_tent", "cabin" -> {
+        "old_tent", "tent", "bell_tent", "cabin", "cabin_porch", "cabin_cozy" -> {
             // Walks in and fades; then Zs drift out of the roof.
             if (t < 1.5f) actor(avatar, mood, worn, base, s * (1f - t / 4f), alpha = 1f - t / 1.5f)
             else rising(t, p + Offset(u * 0.03f, -u * 0.12f) * k, u * 0.014f, every = 1.5f) { at, a -> zee(at, u * 0.016f, a) }
@@ -883,7 +883,7 @@ private fun wanderAt(spot: Int?): Offset? = when {
 /** How much the companion likes using each thing on their own: favourites often, shelters and the lights now and then. */
 private fun idleWeight(thing: String) = when (thing) {
     "guitar", "campfire", "fishing_rod", "swing", "hammock", "woodpile", "canoe", "raft" -> 3
-    "tent", "bell_tent", "cabin", "treehouse", "wind_chimes", "bird_feeder", "string_lights" -> 1
+    "old_tent", "tent", "bell_tent", "cabin", "cabin_porch", "cabin_cozy", "treehouse", "wind_chimes", "bird_feeder", "string_lights" -> 1
     else -> 2
 }
 

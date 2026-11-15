@@ -727,10 +727,18 @@ private fun LevelUpDialog(avatar: Avatar, level: Int, onDone: () -> Unit) = andr
     ) {
         BobbingCharacter(avatar, app.tend.core.Mood.OUTSIDE, 120.dp)
         Text(tr("Level $level!", "$level. szint!"), style = MaterialTheme.typography.headlineMedium, color = Brand.Moss)
-        Text(
+        // What the level brings: a new home, things in the shop, a perk on round levels.
+        val news = app.tend.core.Perks.newAt(level)
+        if (news.isEmpty()) Text(
             tr("${avatar.displayName} levelled up. Every activity is XP for Body, Mind or Rest, and the weekly goal gives a bonus.", "${avatar.displayName} szintet lépett. Minden tevékenység XP a Testnek, az Elmének vagy a Pihenésnek, a heti cél pedig bónuszt ad."),
             style = MaterialTheme.typography.bodyMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
+        else Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Brand.Sage).padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            news.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium, color = Brand.Ink) }
+        }
+        app.tend.core.Home.TIERS.firstOrNull { it.first > level }?.let { (at, id) ->
+            Text(tr("Next home at level $at: ${app.tend.core.Things.byId(id)?.name?.lowercase()}", "Következő otthon a(z) $at. szinten: ${app.tend.core.Things.byId(id)?.name?.lowercase()}"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        }
         PrimaryButton(tr("Nice", "Szuper"), onDone)
     }
 }

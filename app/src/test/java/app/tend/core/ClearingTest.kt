@@ -14,7 +14,7 @@ class ClearingTest {
         SpotKind.entries.forEach { k -> assertTrue("$k has things", Things.forKind(k).isNotEmpty()) }
         assertTrue(Things.all.all { t -> Clearing.spots.any { it.kind == t.kind } })
         assertEquals(10, Clearing.spots.count { it.kind != SpotKind.SMALL })
-        assertEquals(Clearing.SMALL_SPOTS, Clearing.spots.count { it.kind == SpotKind.SMALL })
+        assertEquals(Clearing.SMALL_SPOTS + 1, Clearing.spots.count { it.kind == SpotKind.SMALL }) // + the level-10 spot
         assertEquals(Clearing.spots.size, Clearing.spots.map { it.id }.toSet().size)
     }
 
@@ -115,5 +115,25 @@ class ClearingTest {
         assertEquals(x to y, Clearing.keepOnMeadow(SpotKind.SMALL, x, y, 1.6f))
         // Room enough: left where it is.
         assertEquals(0.5f to 0.8f, Clearing.keepApart(SpotKind.SMALL, 0.02f, 0.5f, 0.8f, listOf(bench), 1.6f))
+    }
+
+    @Test
+    fun homesAndPerksComeWithLevels() {
+        assertEquals("old_tent", Home.forLevel(1))
+        assertEquals("tent", Home.forLevel(3))
+        assertEquals("cabin", Home.forLevel(12))
+        assertEquals("cabin_cozy", Home.forLevel(40))
+        assertTrue(Home.TIERS.all { Things.byId(it.second)?.kind == SpotKind.SHELTER })
+        assertEquals(10, Perks.perActivity(4)); assertEquals(11, Perks.perActivity(5)); assertEquals(12, Perks.perActivity(20))
+        assertEquals(55, Acorns.forActivities(9, 5)) // the daily cap grows with the perk
+        assertEquals(Acorns.CHALLENGE * 2, Perks.challenge(15))
+        // The campfire is there from the start; every level up to 15 opens something new in the shop.
+        assertEquals(1, Perks.unlockLevel(Things.byId("campfire")!!))
+        (2..15).forEach { l -> assertTrue("level $l opens something", Perks.newAt(l).isNotEmpty()) }
+        // The extra small spot only from level 10.
+        val small = Things.byId("wildflowers")!!
+        val full = (10 until 10 + Clearing.SMALL_SPOTS).associateWith { "lantern" }
+        assertTrue(Clearing.spotFor(full, small, 9) != Clearing.BONUS_SPOT)
+        assertEquals(Clearing.BONUS_SPOT, Clearing.spotFor(full, small, 10))
     }
 }

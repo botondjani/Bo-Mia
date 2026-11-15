@@ -38,7 +38,7 @@ fun MinutesDialog(cfg: BudgetConfig, tasks: List<TaskDef>, canClose: Boolean = t
 @Composable
 fun AcornsDialog(onDismiss: () -> Unit) = Sheet(tr("Acorns", "Makk"), onDismiss) {
     Para(tr("For the camp: spend them in the shop. They don't buy minutes, except one 5-minute emergency a day.", "A táborra való: a boltban költheted el. Percet nem lehet venni rajta, kivéve napi egy 5 perces vészhelyzetet."))
-    Line(tr("An activity", "Egy tevékenység"), tr("+${Acorns.PER_ACTIVITY} (up to ${Acorns.ACTIVITY_CAP} a day)", "+${Acorns.PER_ACTIVITY} (naponta legfeljebb ${Acorns.ACTIVITY_CAP})"))
+    Line(tr("An activity", "Egy tevékenység"), tr("+${Acorns.PER_ACTIVITY} (+1 from level 5, +2 from level 20; 5 a day)", "+${Acorns.PER_ACTIVITY} (5. szinttől +1, 20.-tól +2; naponta 5)"))
     Line(tr("\"Not now\" on a paused app", "„Most nem” egy szüneteltetett appnál"), tr("+${Acorns.PER_NOT_NOW} (up to ${Acorns.NOT_NOW_CAP})", "+${Acorns.PER_NOT_NOW} (legfeljebb ${Acorns.NOT_NOW_CAP})"))
     Line(tr("A day within your minutes", "Egy nap a perceiden belül"), "+${Acorns.WITHIN_BUDGET}")
     Line(tr("Below your normal", "A megszokottnál kevesebb"), tr("+1 per 10 min", "10 percenként +1"))

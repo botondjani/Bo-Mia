@@ -733,6 +733,7 @@ class MainActivity : ComponentActivity() {
                 onBuy = { thing -> store.buy(thing).also { if (it) { app.tend.data.Stats.log(this, "bought", mapOf("thing" to thing)); saveProfile(); refresh++ } } },
                 onSell = { thing -> store.sell(thing); saveProfile(); refresh++ },
                 chest = store.chest,
+                level = store.levelSeen,
                 onPutAway = { thing -> store.putAway(thing); saveProfile(); refresh++ },
                 onTakeOut = { thing -> store.takeOut(thing).also { if (it) { saveProfile(); refresh++ } } },
                 onGave = { thing -> store.gaveAway(thing); app.tend.data.Stats.log(this, "gave_thing"); refresh++ },
@@ -1157,7 +1158,7 @@ class MainActivity : ComponentActivity() {
         val challenge = app.tend.core.Progress.challenge(LocalDate.now(), store.selectedTasks.map { it.id }, days)
         if (challenge.done && challenge.weekKey !in store.challengesDone) {
             store.challengesDone = store.challengesDone + challenge.weekKey
-            store.addAcorns(app.tend.core.Acorns.CHALLENGE, "challenge")
+            store.addAcorns(app.tend.core.Perks.challenge(store.levelSeen), "challenge")
             app.tend.data.Stats.log(this, "challenge_done", mapOf("target" to challenge.target))
         }
         val skillXp = app.tend.core.Progress.skillXp(days)

@@ -302,6 +302,23 @@ class TendStore(private val context: Context) {
                 now = now - gone.keys
                 prefs.edit().putString("placed", app.tend.core.Clearing.format(now)).putString("chest", (chest + gone.values).distinct().joinToString(",")).apply()
             }
+            // The home comes with levels: once, bought tents and cabins go back for what they cost (the best
+            // stays if it beats the level's); then the level's home stands on its spot, never a worse one.
+            val home = app.tend.core.Home
+            if (!prefs.getBoolean("homes_v1", false)) {
+                val tier = home.forLevel(levelSeen)
+                val keep = now[home.SPOT]?.takeIf { home.rank(it) > home.rank(tier) }
+                val bought = (now.values + chest).filter { it in setOf("tent", "bell_tent", "cabin") } - listOfNotNull(keep)
+                now = now.filter { (_, id) -> app.tend.core.Things.byId(id)?.kind != app.tend.core.SpotKind.SHELTER || id == keep }
+                prefs.edit().putBoolean("homes_v1", true).putString("chest", chest.filterNot { it in bought }.joinToString(","))
+                    .putString("placed", app.tend.core.Clearing.format(now)).apply()
+                bought.sumOf { app.tend.core.Things.byId(it)?.price ?: 0 }.takeIf { it > 0 }?.let { addAcorns(it, "sold", refreshWidgets = false) }
+            }
+            val due = home.forLevel(levelSeen)
+            if (home.rank(now[home.SPOT]) < home.rank(due)) {
+                now = now + (home.SPOT to due)
+                prefs.edit().putString("placed", app.tend.core.Clearing.format(now)).apply()
+            }
             // Things with their own spot, placed elsewhere before: moved there when it's free.
             val moved = now.entries.fold(now) { acc, (spot, id) ->
                 val home = app.tend.core.Things.byId(id)?.spot
@@ -323,6 +340,7 @@ class TendStore(private val context: Context) {
     /** Puts [thingId] from the camp into the chest. */
     @Synchronized
     fun putAway(thingId: String) {
+        if (app.tend.core.Home.isHome(thingId)) return
         val spot = placed.entries.firstOrNull { it.value == thingId }?.key ?: return
         val l = layout
         placed = placed - spot
@@ -335,7 +353,7 @@ class TendStore(private val context: Context) {
     fun takeOut(thingId: String): Boolean {
         if (thingId !in chest) return false
         val thing = app.tend.core.Things.byId(thingId) ?: return false
-        val spot = app.tend.core.Clearing.spotFor(placed, thing) ?: return false
+        val spot = app.tend.core.Clearing.spotFor(placed, thing, levelSeen) ?: return false
         val l = layout
         val was = placed[spot]
         placed = placed + (spot to thingId)
@@ -356,7 +374,7 @@ class TendStore(private val context: Context) {
     /** Buys [thingId] from the shop: it goes to a free spot of its kind, or the cheapest one there goes into the chest. */
     fun buy(thingId: String): Boolean {
         val thing = app.tend.core.Things.byId(thingId) ?: return false
-        val spot = app.tend.core.Clearing.spotFor(placed, thing) ?: return false
+        val spot = app.tend.core.Clearing.spotFor(placed, thing, levelSeen) ?: return false
         return buy(spot, thingId)
     }
 
@@ -375,6 +393,7 @@ class TendStore(private val context: Context) {
 
     /** Sells [thingId] wherever it is: in the camp or in the chest. */
     fun sell(thingId: String) {
+        if (app.tend.core.Home.isHome(thingId)) return
         placed.entries.firstOrNull { it.value == thingId }?.let { sell(it.key); return }
         val thing = app.tend.core.Things.byId(thingId)?.takeIf { thingId in chest } ?: return
         chest = chest - thingId
@@ -388,7 +407,7 @@ class TendStore(private val context: Context) {
         val thing = app.tend.core.Things.byId(thingId) ?: return false
         if (thing.kind != spot.kind) return false
         // A season's things are sold only in that season.
-        if (owns(thingId)) return false
+        if (owns(thingId) || app.tend.core.Home.isHome(thingId) || app.tend.core.Perks.unlockLevel(thing) > levelSeen) return false
         if (thing.season != null && thing.season != app.tend.core.Season.of(LocalDate.now())) return false
         if (thing.season != null && !isPlus) return false // the season's own come with Plus
         // An event's things: only while it's on, and with Plus, like the seasons'.
@@ -405,7 +424,7 @@ class TendStore(private val context: Context) {
     /** Sells what stands on [spotId] for half its price. */
     @Synchronized
     fun sell(spotId: Int) {
-        val thing = placed[spotId]?.let(app.tend.core.Things::byId) ?: return
+        val thing = placed[spotId]?.let(app.tend.core.Things::byId)?.takeIf { !app.tend.core.Home.isHome(it.id) } ?: return
         addAcorns(app.tend.core.Clearing.sellValue(thing), "sold")
         val l = layout
         placed = placed - spotId
@@ -627,7 +646,8 @@ class TendStore(private val context: Context) {
         return change(before).also { after ->
             writeDay(after)
             // Acorns follow today's activities (an undo takes them back), up to the daily cap.
-            val delta = app.tend.core.Acorns.forActivities(after.completedTasks.size) - app.tend.core.Acorns.forActivities(before.completedTasks.size)
+            val level = levelSeen
+            val delta = app.tend.core.Acorns.forActivities(after.completedTasks.size, level) - app.tend.core.Acorns.forActivities(before.completedTasks.size, level)
             if (delta != 0) addAcorns(delta, "activities")
             (after.completedTasks - before.completedTasks).forEach { id ->
                 Stats.log(context, "activity_done", mapOf("task" to if (id.startsWith("custom:")) "custom" else id))

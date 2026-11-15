@@ -122,6 +122,8 @@ fun ClearingScreen(
     onPlace: (spot: Int, at: Offset) -> Unit = { _, _ -> },
     /** Plus is on: the season's own things can be bought; otherwise a tap on one shows Plus. */
     plus: Boolean = true,
+    /** The level (as seen): what the shop has open, and the extra small spot. */
+    level: Int = 1,
     onPlus: () -> Unit = {},
     /** The seasons' outfits bought, the one worn, and buying or putting one on (null: off). */
     outfits: Set<app.tend.core.Accessory> = emptySet(),
@@ -685,11 +687,11 @@ fun ClearingScreen(
         fun closeShopThen(then: () -> Unit) = scope.launch { shopSheet.hide(); shopOpen = false; then() }
         androidx.compose.material3.ModalBottomSheet(onDismissRequest = { shopOpen = false }, sheetState = shopSheet, containerColor = Brand.Sage) {
             Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = Space.xl)) {
-            Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, plus = plus, onPlus = onPlus, outfits = outfits, outfitWorn = outfitWorn,
+            Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, plus = plus, onPlus = onPlus, level = level, outfits = outfits, outfitWorn = outfitWorn,
                 onBuyOutfit = { a -> onBuyOutfit(a).also { if (it) { tick(firm = true); Sounds.chime(context); closeShopThen { scope.launch { scroll.animateScrollTo(0) } } } } },
                 onWearOutfit = { tick(); onWearOutfit(it) }, onBuy = { id ->
                 // Bought: a firm tick, a chime, and up to the camp to watch it pop in.
-                val spot = Things.byId(id)?.let { Clearing.spotFor(placed, it) }
+                val spot = Things.byId(id)?.let { Clearing.spotFor(placed, it, level) }
                 onBuy(id).also { ok -> if (ok) { tick(firm = true); Sounds.chime(context); closeShopThen { spot?.let { showSpot(it) } } } }
             }, onSell = onSell, chest = chest, onPutAway = { tick(); onPutAway(it) }, onGave = onGave, onTakeOut = { id ->
                 // Out of the chest: up to the camp to watch it pop in, like a new one.
@@ -772,6 +774,7 @@ private fun Shop(
     outfits: Set<app.tend.core.Accessory>, outfitWorn: app.tend.core.Accessory?, onBuyOutfit: (app.tend.core.Accessory) -> Boolean, onWearOutfit: (app.tend.core.Accessory?) -> Unit,
     onBuy: (String) -> Boolean, onSell: (String) -> Unit,
     chest: List<String> = emptyList(), onPutAway: (String) -> Unit = {}, onTakeOut: (String) -> Boolean = { false }, onGave: (String) -> Unit = {},
+    level: Int = 1,
 ) {
     val inCamp = placed.values.toSet()
     fun owns(id: String) = id in inCamp || id in chest
@@ -861,11 +864,15 @@ private fun Shop(
                 }
             }
         }
-        listOf(SpotKind.SMALL, SpotKind.FIRE, SpotKind.SEAT, SpotKind.SHELTER, SpotKind.TREES, SpotKind.WATER, SpotKind.ABOVE).forEach { kind ->
+        // The home isn't sold: it comes with levels.
+        listOf(SpotKind.SMALL, SpotKind.FIRE, SpotKind.SEAT, SpotKind.TREES, SpotKind.WATER, SpotKind.ABOVE).forEach { kind ->
             Text(kindTitle(kind).uppercase(), style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
             Things.forKind(kind).chunked(3).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-                    row.forEach { thing -> ShopTile(thing, owned = owns(thing.id), affordable = acorns >= thing.price, Modifier.weight(1f), inChest = thing.id in chest) { open = thing } }
+                    row.forEach { thing ->
+                        val at = app.tend.core.Perks.unlockLevel(thing)
+                        ShopTile(thing, owned = owns(thing.id), affordable = acorns >= thing.price, Modifier.weight(1f), inChest = thing.id in chest, lockedUntil = at.takeIf { it > level && !owns(thing.id) }) { open = thing }
+                    }
                     repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
@@ -889,7 +896,8 @@ private fun Shop(
     open?.let { t ->
         val stored = t.id in chest
         val owned = owns(t.id)
-        val swapped = if (owned && !stored) null else Clearing.spotFor(placed, t)?.let { placed[it] }?.let(Things::byId)
+        val swapped = if (owned && !stored) null else Clearing.spotFor(placed, t, level)?.let { placed[it] }?.let(Things::byId)
+        val lockedAt = app.tend.core.Perks.unlockLevel(t).takeIf { it > level && !owned }
         val cost = t.price
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { open = null },
@@ -910,6 +918,7 @@ private fun Shop(
                 when {
                     stored -> androidx.compose.material3.TextButton(onClick = { if (onTakeOut(t.id)) open = null }) { Text(tr("Put it out", "Kirakom"), color = Brand.Moss) }
                     owned -> androidx.compose.material3.TextButton(onClick = { onPutAway(t.id); open = null }) { Text(tr("Put away", "Elteszem"), color = Brand.Moss) }
+                    lockedAt != null -> androidx.compose.material3.TextButton(onClick = { open = null }) { Text(tr("Opens at level $lockedAt", "A(z) $lockedAt. szinten nyílik"), color = Brand.Muted) }
                     acorns >= cost -> androidx.compose.material3.TextButton(onClick = { if (onBuy(t.id)) open = null }) { Text(tr("Get it for ${t.price}", "Megveszem ${t.price} makkért"), color = Brand.Moss) }
                     else -> androidx.compose.material3.TextButton(onClick = { open = null }) { Text(tr("${cost - acorns} more acorns to go", "Még ${cost - acorns} makk kell hozzá"), color = Brand.Muted) }
                 }
@@ -967,16 +976,17 @@ private fun GiveDialog(thing: app.tend.core.Thing, onGave: () -> Unit, onClose: 
 
 /** One thing in the shop: its picture, name and price (a tick when it's in the camp). */
 @Composable
-internal fun ShopTile(thing: app.tend.core.Thing, owned: Boolean, affordable: Boolean, modifier: Modifier, background: Color = Brand.Sage, inChest: Boolean = false, onTap: () -> Unit) = Column(
+internal fun ShopTile(thing: app.tend.core.Thing, owned: Boolean, affordable: Boolean, modifier: Modifier, background: Color = Brand.Sage, inChest: Boolean = false, lockedUntil: Int? = null, onTap: () -> Unit) = Column(
     modifier.clip(RoundedCornerShape(16.dp)).background(if (owned) Brand.Picked else background).tappable(onClick = onTap).padding(vertical = 8.dp, horizontal = 4.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
 ) {
     Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.size(48.dp)) { drawThingIcon(thing.id) }
+        Canvas(Modifier.size(48.dp).graphicsLayer { alpha = if (lockedUntil != null) 0.4f else 1f }) { drawThingIcon(thing.id) }
     }
     Text(thing.name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     Row(Modifier.padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (owned) Text(if (inChest) tr("In chest", "A ládában") else tr("In camp", "A táborban"), style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = Brand.Moss)
+        if (lockedUntil != null) Text(tr("Level $lockedUntil", "$lockedUntil. szint"), style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = Brand.Muted)
+        else if (owned) Text(if (inChest) tr("In chest", "A ládában") else tr("In camp", "A táborban"), style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = Brand.Moss)
         else {
             Text("${thing.price}", style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), color = if (affordable) Brand.Moss else Brand.Muted)
             Spacer(Modifier.width(3.dp))

@@ -47,6 +47,10 @@ object Things {
         Thing("tent", tr("Tent", "Sátor"), 150, SpotKind.SHELTER),
         Thing("bell_tent", tr("Canvas tent", "Vászonsátor"), 300, SpotKind.SHELTER),
         Thing("cabin", tr("Cabin", "Faház"), 700, SpotKind.SHELTER),
+        // Homes that come with levels (never sold): see [Home].
+        Thing("old_tent", tr("Patched tent", "Foltozott sátor"), 0, SpotKind.SHELTER),
+        Thing("cabin_porch", tr("Cabin with a porch", "Tornácos faház"), 0, SpotKind.SHELTER),
+        Thing("cabin_cozy", tr("Cosy cabin", "Otthonos faház"), 0, SpotKind.SHELTER),
         // In the trees.
         Thing("swing", tr("Swing", "Hinta"), 70, SpotKind.TREES, spot = 6),
         Thing("hammock", tr("Hammock", "Függőágy"), 90, SpotKind.TREES, spot = 5),
@@ -100,6 +104,9 @@ object Clearing {
     /** Small things out at once: the rest wait in the chest, so the camp doesn't fill up. */
     const val SMALL_SPOTS = 5
 
+    /** One more small spot, from [Perks.EXTRA_SPOT_LEVEL]. */
+    const val BONUS_SPOT = 15
+
     /** 10 big spots and [SMALL_SPOTS] small ones around the camp. Ids never change: placements are saved by id (15-17 were small spots once). */
     val spots: List<Spot> = listOf(
         Spot(0, SpotKind.FIRE),
@@ -108,7 +115,7 @@ object Clearing {
         Spot(5, SpotKind.TREES), Spot(6, SpotKind.TREES),
         Spot(7, SpotKind.WATER), Spot(8, SpotKind.WATER),
         Spot(9, SpotKind.ABOVE),
-    ) + (0 until SMALL_SPOTS).map { Spot(10 + it, SpotKind.SMALL) }
+    ) + (0 until SMALL_SPOTS).map { Spot(10 + it, SpotKind.SMALL) } + Spot(BONUS_SPOT, SpotKind.SMALL)
 
     fun spot(id: Int): Spot? = spots.firstOrNull { it.id == id }
 
@@ -119,10 +126,10 @@ object Clearing {
      * Where a bought [thing] goes: a free spot of its kind, else the spot whose thing is cheapest
      * (that one goes into the chest). Null when it's already in the camp.
      */
-    fun spotFor(placed: Map<Int, String>, thing: Thing): Int? {
+    fun spotFor(placed: Map<Int, String>, thing: Thing, level: Int = 1): Int? {
         if (thing.id in placed.values) return null
         thing.spot?.let { return it }
-        val ofKind = spots.filter { it.kind == thing.kind }
+        val ofKind = spots.filter { it.kind == thing.kind && (it.id != BONUS_SPOT || level >= Perks.EXTRA_SPOT_LEVEL) }
         ofKind.firstOrNull { it.id !in placed }?.let { return it.id }
         return ofKind.minByOrNull { Things.byId(placed.getValue(it.id))?.price ?: 0 }?.id
     }
@@ -242,7 +249,7 @@ object Acorns {
     /** A phone-free activity done while a friend was phone-free too. */
     const val TOGETHER_FIRE = 10
 
-    fun forActivities(done: Int): Int = (done * PER_ACTIVITY).coerceIn(0, ACTIVITY_CAP)
+    fun forActivities(done: Int, level: Int = 1): Int = (done * Perks.perActivity(level)).coerceIn(0, ACTIVITY_CAP / PER_ACTIVITY * Perks.perActivity(level))
 
     fun forNotNows(count: Int): Int = (count * PER_NOT_NOW).coerceIn(0, NOT_NOW_CAP)
 
@@ -259,4 +266,58 @@ object Acorns {
     /** Your normal from days with tend, when nothing from before is known: needs a week. */
     fun normalFrom(usedMinutesPerDay: List<Int>): Int? =
         usedMinutesPerDay.takeIf { it.size >= 7 }?.take(7)?.average()?.toInt()
+}
+
+/**
+ * The home in the camp comes with levels, not from the shop: a patched tent to start with, and a
+ * better one as you go. It always stands on [SPOT].
+ */
+object Home {
+    const val SPOT = 3
+    val TIERS: List<Pair<Int, String>> = listOf(1 to "old_tent", 3 to "tent", 6 to "bell_tent", 10 to "cabin", 15 to "cabin_porch", 20 to "cabin_cozy")
+
+    fun forLevel(level: Int): String = TIERS.last { it.first <= level.coerceAtLeast(1) }.second
+    fun rank(id: String?): Int = TIERS.indexOfFirst { it.second == id }
+    fun isHome(id: String?): Boolean = rank(id) >= 0
+
+    /** The home that came at exactly [level], if one did. */
+    fun newAt(level: Int): String? = TIERS.firstOrNull { it.first == level && level > 1 }?.second
+}
+
+/** What levels bring besides the home: shop things to unlock, and on round levels a lasting perk. */
+object Perks {
+    const val ACORN_LEVEL = 5
+    const val EXTRA_SPOT_LEVEL = 10
+    const val CHALLENGE_LEVEL = 15
+    const val MORE_ACORNS_LEVEL = 20
+
+    /** Acorns for one activity: +1 from level 5, +2 from level 20. */
+    fun perActivity(level: Int) = Acorns.PER_ACTIVITY + (if (level >= MORE_ACORNS_LEVEL) 2 else if (level >= ACORN_LEVEL) 1 else 0)
+
+    /** The weekly challenge's acorns: double from level 15. */
+    fun challenge(level: Int) = Acorns.CHALLENGE * (if (level >= CHALLENGE_LEVEL) 2 else 1)
+
+    /** The level a shop thing opens at: the cheapest few from the start, then one more each level. */
+    fun unlockLevel(thing: Thing): Int {
+        if (thing.season != null || thing.event != null || Home.isHome(thing.id)) return 1
+        val i = ladder.indexOf(thing.id)
+        return if (i < START) 1 else 2 + (i - START)
+    }
+
+    private const val START = 7
+    private val ladder: List<String> by lazy {
+        Things.all.filter { it.season == null && it.event == null && it.kind != SpotKind.SHELTER }.sortedBy { it.price }.map { it.id }
+    }
+
+    /** What reaching [level] brings, in a few words each: the new home, things in the shop, a perk. */
+    fun newAt(level: Int): List<String> = buildList {
+        Home.newAt(level)?.let { id -> Things.byId(id)?.let { add(tr("A new home: ${it.name.lowercase()}", "Új otthon: ${it.name.lowercase()}")) } }
+        Things.all.filter { unlockLevel(it) == level && level > 1 }.forEach { add(tr("New in the shop: ${it.name.lowercase()}", "Új a boltban: ${it.name.lowercase()}")) }
+        when (level) {
+            ACORN_LEVEL -> add(tr("+1 acorn for every activity", "+1 makk minden tevékenységért"))
+            EXTRA_SPOT_LEVEL -> add(tr("Room for one more small thing in the camp", "Eggyel több apróság fér el a táborban"))
+            CHALLENGE_LEVEL -> add(tr("The weekly challenge gives double acorns", "A heti kihívás dupla makkot ér"))
+            MORE_ACORNS_LEVEL -> add(tr("+2 acorns for every activity", "+2 makk minden tevékenységért"))
+        }
+    }
 }

@@ -38,7 +38,7 @@ object Sounds {
 
     /** What kind of sound using [thing] makes. */
     private fun kindOf(thing: String) = when (thing) {
-        "guitar", "rocking_chair", "wind_chimes", "tent", "bell_tent", "cabin", "hammock", "string_lights", "log_bench" -> Kind.MUSIC
+        "guitar", "rocking_chair", "wind_chimes", "old_tent", "tent", "bell_tent", "cabin", "cabin_porch", "cabin_cozy", "hammock", "string_lights", "log_bench" -> Kind.MUSIC
         "campfire", "pizza_oven", "kettle", "woodpile", "canoe", "raft", "bird_feeder", "fishing_rod", "dock", "swing" -> Kind.CAMP
         else -> Kind.LITTLE
     }
@@ -61,7 +61,7 @@ object Sounds {
             "fishing_rod" -> play("fish", true) { mix(river(secs, 0.25f), splash(secs, 4f)) }
             "dock" -> play("dock", true) { river(secs, 0.4f) }
             "swing" -> play("swing", true) { creaks(secs) }
-            "tent", "bell_tent", "cabin", "hammock" -> play("lullaby", true) { musicBox(LULLABY, 0.55f, secs) }
+            "old_tent", "tent", "bell_tent", "cabin", "cabin_porch", "cabin_cozy", "hammock" -> play("lullaby", true) { musicBox(LULLABY, 0.55f, secs) }
             "string_lights" -> play("dance", true) { musicBox(DANCE, 0.22f, secs) }
             "log_bench" -> play("hum", true) { musicBox(HUM, 0.45f, secs) }
             // An activity done (acted out, acorns flying): the acorns dropping in.
