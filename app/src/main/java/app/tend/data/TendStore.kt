@@ -1067,7 +1067,9 @@ class TendStore(private val context: Context) {
     /** Accessories worn now that weren't seen before: for "Bo got a lucky leaf!". */
     fun takeNewAccessories(): Set<Accessory> {
         val before = prefs.getStringSet("acc_seen", emptySet())!!
-        return accessories().first.filter { it.name !in before }.toSet()
+        // Only what was earned by habits: an outfit bought in the shop is worn too, but it's never "new" here.
+        accessories()
+        return accessoriesEarned.filter { it.name !in before }.toSet()
     }
 
     fun accessories(): Pair<Set<Accessory>, Set<Accessory>> {

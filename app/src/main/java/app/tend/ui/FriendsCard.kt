@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -124,7 +125,11 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
                 if (offline) tr("Can't reach the server right now.", "Most nem érjük el a szervert.") else tr("No friends yet. Invite someone: when they accept, you'll see each other's camps.", "Még nincs barátod. Hívj meg valakit: ha elfogadja, látjátok egymás táborát."),
                 style = MaterialTheme.typography.bodyMedium,
             )
-            list.forEach { f ->
+            // Many friends: the ones who did something most recently first, five at a time.
+            var showAll by rememberSaveable { mutableStateOf(false) }
+            val sorted = list.sortedByDescending { it.lastDoneAt ?: 0L }
+            val shown = if (showAll || sorted.size <= FRIENDS_SHOWN) sorted else sorted.take(FRIENDS_SHOWN)
+            shown.forEach { f ->
                 FriendRow(
                     f, cheered = f.id in cheered, gifted = f.id in gifted, onVisit = { onOpenRiver(f.id) },
                     onGift = {
@@ -156,12 +161,38 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
                     },
                 ) { removing = f }
             }
+            if (sorted.size > FRIENDS_SHOWN) Text(
+                if (showAll) tr("Show fewer", "Kevesebb") else tr("All ${sorted.size} friends", "Mind a ${sorted.size} barát"),
+                style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tappable { showAll = !showAll }.padding(vertical = 8.dp),
+            )
             if (list.isNotEmpty()) TogetherWeek(Friends.week(Friends.me(context), list), app.tend.data.TendStore(context).togetherDone.size, claimed)
-            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
-                if (list.isNotEmpty()) ChipButton(tr("Along the river", "A folyó mentén"), { onOpenRiver(null) })
-                if (list.isNotEmpty()) ChipButton(tr("Trade things", "Tárgycsere"), { trading = true }, filled = false)
-                ChipButton(tr("Invite a friend", "Hívj meg egy barátot"), { inviting = true }, filled = list.isEmpty())
-                ChipButton(tr("Enter a code", "Kód megadása"), { typing = true }, filled = false)
+            // What to do, as an even grid: the river and trading once there are friends, then inviting.
+            val actions = buildList {
+                if (list.isNotEmpty()) add(Triple("wave", tr("Along the river", "A folyó mentén")) { onOpenRiver(null) })
+                if (list.isNotEmpty()) add(Triple("star", tr("Trade things", "Tárgycsere")) { trading = true })
+                add(Triple("friends", tr("Invite a friend", "Meghívás")) { inviting = true })
+                add(Triple("pen", tr("Enter a code", "Kód megadása")) { typing = true })
+            }
+            Column(Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                actions.chunked(2).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        row.forEach { (icon, label, go) ->
+                            // No friends yet: inviting is the one to do, filled.
+                            val main = list.isEmpty() && icon == "friends"
+                            Row(
+                                Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(14.dp)).background(if (main) Brand.Moss else Brand.Sage)
+                                    .tappable(onClick = go).padding(horizontal = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                TendIcons.Glyph(icon, 18.dp, tint = if (main) androidx.compose.ui.graphics.Color.White else Brand.Moss)
+                                Spacer(Modifier.width(8.dp))
+                                Text(label, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), color = if (main) androidx.compose.ui.graphics.Color.White else Brand.Moss, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            }
+                        }
+                        if (row.size == 1) Spacer(Modifier.weight(1f))
+                    }
+                }
             }
         }
         note?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Brand.Coral) }
@@ -199,6 +230,9 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
         )
     }
 }
+
+/** Friends listed before "All N friends". */
+private const val FRIENDS_SHOWN = 5
 
 @Composable
 private fun FriendRow(f: Friends.Friend, cheered: Boolean, gifted: Boolean, onVisit: () -> Unit, called: Boolean = false, onCall: () -> Unit = {}, onCheer: () -> Unit, onGift: () -> Unit, onRemove: () -> Unit) = Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).tappable(onClick = onVisit).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {

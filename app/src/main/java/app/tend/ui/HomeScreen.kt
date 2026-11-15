@@ -324,7 +324,7 @@ fun HomeScreen(
         else if (sleeping) {
             // Waking them takes a moment's thought: a dialog, and a button held for a few seconds.
             var waking by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
-            Notice("moon", tr("Good night: your apps rest until 7:00", "Jó éjt: az appjaid 7:00-ig pihennek"), if (strict) tr("Strict mode: they wake at 7:00", "Szigorú mód: 7:00-kor ébrednek") else tr("Need them? Tap", "Kellenek? Koppints"), { if (!strict) waking = true })
+            GoodNightCard(avatar, strict) { waking = true }
             if (waking) androidx.compose.material3.AlertDialog(
                 onDismissRequest = { waking = false },
                 icon = { CharacterView(avatar, app.tend.core.Mood.SLEEPING, 72.dp, lightweight = true) },
@@ -1119,6 +1119,42 @@ internal fun FaceDownPhone(modifier: Modifier = Modifier) {
             drawPath(androidx.compose.ui.graphics.Path().apply {
                 moveTo(zx - zs / 2, zy - zs / 2); lineTo(zx + zs / 2, zy - zs / 2); lineTo(zx - zs / 2, zy + zs / 2); lineTo(zx + zs / 2, zy + zs / 2)
             }, Brand.Moss.copy(alpha = 0.8f * a), style = androidx.compose.ui.graphics.drawscope.Stroke(2.4f * u, cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+        }
+    }
+}
+
+/**
+ * After "Good night": a small night sky (deep blue, a crescent and a few stars) with the companion
+ * asleep, the apps resting until 7:00, and (unless strict) a quiet way to wake them.
+ */
+@Composable
+private fun GoodNightCard(avatar: Avatar, strict: Boolean, onWake: () -> Unit) = Box(
+    Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
+        .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFF1E2A4A), Color(0xFF34406B)))),
+) {
+    // The sky: a crescent and stars, drawn behind.
+    androidx.compose.foundation.Canvas(Modifier.matchParentSize()) {
+        val stars = listOf(0.62f to 0.18f, 0.74f to 0.42f, 0.86f to 0.22f, 0.55f to 0.7f, 0.93f to 0.62f, 0.68f to 0.84f, 0.8f to 0.08f)
+        stars.forEachIndexed { i, (x, y) -> drawCircle(Color.White.copy(alpha = if (i % 2 == 0) 0.75f else 0.4f), (if (i % 3 == 0) 1.8f else 1.2f) * density, androidx.compose.ui.geometry.Offset(x * size.width, y * size.height)) }
+        val m = androidx.compose.ui.geometry.Offset(size.width - 26.dp.toPx(), 24.dp.toPx())
+        val r = 10.dp.toPx()
+        drawCircle(androidx.compose.ui.graphics.Brush.radialGradient(listOf(Color(0xFFF4E7B9).copy(alpha = 0.22f), Color.Transparent), m, r * 2.6f), r * 2.6f, m)
+        // A crescent: the moon with a bite of sky taken out of it.
+        val moon = androidx.compose.ui.graphics.Path().apply { addOval(androidx.compose.ui.geometry.Rect(m, r)) }
+        val bite = androidx.compose.ui.graphics.Path().apply { addOval(androidx.compose.ui.geometry.Rect(m + androidx.compose.ui.geometry.Offset(r * 0.5f, -r * 0.35f), r * 0.85f)) }
+        drawPath(androidx.compose.ui.graphics.Path.combine(androidx.compose.ui.graphics.PathOperation.Difference, moon, bite), Color(0xFFF4E7B9))
+    }
+    Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 16.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        CharacterView(avatar, app.tend.core.Mood.SLEEPING, 64.dp, lightweight = true)
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f).padding(end = 34.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(tr("Good night", "Jó éjt"), style = MaterialTheme.typography.titleMedium, color = Color.White)
+            Text(tr("Your apps rest until 7:00.", "Az appjaid reggel 7:00-ig pihennek."), style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f))
+            if (strict) Text(tr("Strict mode: they wake at 7:00", "Szigorú mód: 7:00-kor ébrednek"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Color.White.copy(alpha = 0.6f))
+            else Text(
+                tr("Need them?", "Kellenek?"), style = MaterialTheme.typography.labelLarge, color = Color.White,
+                modifier = Modifier.padding(top = 6.dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.16f)).tappable(onClick = onWake).padding(horizontal = 12.dp, vertical = 6.dp),
+            )
         }
     }
 }
