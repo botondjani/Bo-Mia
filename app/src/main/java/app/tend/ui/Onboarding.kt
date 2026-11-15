@@ -102,7 +102,7 @@ enum class PermissionLock { NONE, LOCKED, TRIPPED }
 // Short on purpose: the town is asked later in the camp, and an account is offered on home (or right here, for those who have one).
 private const val STEP_MS = 650L
 
-private enum class Step { WELCOME, USAGE, APPS, MINUTES, ACTIVITIES, PAUSE, CAMP }
+private enum class Step { WELCOME, USAGE, APPS, MINUTES, ACTIVITIES, SUMMARY, PAUSE, CAMP }
 
 @Composable
 fun Onboarding(
@@ -159,10 +159,13 @@ fun Onboarding(
                 // One page to say hello: what tend does, in two lines, and who keeps you company.
                 Step.WELCOME -> StepPage(cta = tr("Continue with ${avatar.displayName}", "Tovább, ${avatar.displayName} jön velem"), onCta = next) {
                     LanguagePicker()
-                    Title(
-                        tr("Hi! I'm ${avatar.displayName}.", "Szia! ${avatar.displayName} vagyok."),
-                        tr("When you open an app you picked, I pop up for a breath first. Walks, workouts and books win your minutes back, and acorns for our camp by the river, where friends can join us at the fire.", "Amikor megnyitsz egy appot, amit kiválasztottál, előbb felbukkanok egy lélegzetvételnyi szünetre. A séták, az edzések és a könyvek visszahozzák a perceidet, és makkot is adnak a folyóparti táborunkra, ahol a barátaid is odaülhetnek a tűzhöz."),
-                    )
+                    Title(tr("Hi! I'm ${avatar.displayName}.", "Szia! ${avatar.displayName} vagyok."), tr("Here's how it works:", "Így működik:"))
+                    // How it works, in three short lines.
+                    HowItWorks(listOf(
+                        tr("You pick the apps that take your time.", "Kiválasztod, mely appok viszik el az idődet."),
+                        tr("They get a few minutes a day, and a short pause before each open.", "Ezekre napi néhány perc jár, és minden megnyitás előtt egy rövid szünet."),
+                        tr("A walk, a book or a workout wins minutes back, and acorns for our camp.", "Egy séta, egy könyv vagy egy edzés perceket ad vissza, és makkot a táborunkra."),
+                    ))
                     Text(tr("WHO KEEPS YOU COMPANY?", "KI TARTSON VELED?"), style = MaterialTheme.typography.labelSmall)
                     CompanionPicker(avatar, onAvatar)
                     Text(tr("Same heart, different hair. You can switch any time.", "Ugyanaz a szív, más frizura. Bármikor válthatsz."), style = MaterialTheme.typography.bodyMedium, color = Brand.Muted)
@@ -195,8 +198,7 @@ fun Onboarding(
                 ) {
                     Title(
                         tr("Which apps pull you in?", "Mely appok szippantanak be?"),
-                        if (catalog.dailyMinutes.isNotEmpty()) tr("Picked for you: social apps and everything you use ${AppCatalog.HEAVY_MINUTES}+ minutes a day. Tap to change.", "Ezeket választottuk neked: a közösségi appok és minden, amit napi ${AppCatalog.HEAVY_MINUTES}+ percet használsz. Koppintással változtathatsz.")
-                        else tr("We picked the usual suspects. Tap to change.", "A szokásos gyanúsítottakat választottuk. Koppintással változtathatsz."),
+                        tr("When you open one of these, ${avatar.displayName} pauses it for a few seconds, and its time comes off your daily minutes. Tap to change.", "Ha ezek közül megnyitsz egyet, ${avatar.displayName} pár másodpercre megállít, és az ideje a napi keretedből fogy. Koppintással változtathatsz."),
                     )
                     AppPicker(catalog, blocked, onToggleApp)
                 }
@@ -206,10 +208,22 @@ fun Onboarding(
                     val now = blocked.sumOf { catalog.dailyMinutes[it] ?: 0 }
                     Title(
                         tr("How much time a day?", "Mennyi idő jár naponta?"),
-                        if (now > 0) tr("These apps take about $now minutes a day now. Start a little below that: you can change it any time.", "Ezek az appok most nagyjából napi $now percet visznek el. Kezdd egy kicsit kevesebbel: bármikor módosíthatod.")
-                        else tr("Pick what feels fair: you can change it any time in Settings.", "Válaszd, ami fair: a Beállításokban bármikor módosíthatod."),
+                        if (now > 0) tr("These apps take about $now minutes a day now. Start a little below that.", "Ezek az appok most nagyjából napi $now percet visznek el. Kezdd egy kicsit kevesebbel.")
+                        else tr("Pick what feels fair. You can change it any time.", "Válaszd, ami fair. Bármikor módosíthatod."),
                     )
-                    BudgetPicker(cfg, onConfig)
+                    Card {
+                        Stepper(tr("Every day", "Minden nap"), tr("Free, for the picked apps", "Ingyen, a kiválasztott appokra"), listOf(15, 30, 45, 60), cfg.freeMinutes) {
+                            onConfig(cfg.copy(freeMinutes = it, totalMinutes = maxOf(cfg.totalMinutes, it)))
+                        }
+                        Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp).background(Brand.Sage))
+                        Stepper(tr("At most", "Legfeljebb"), tr("With minutes won back", "Visszanyert percekkel együtt"), listOf(90, 120, 180, 240), cfg.totalMinutes) {
+                            onConfig(cfg.copy(totalMinutes = it, freeMinutes = minOf(cfg.freeMinutes, it)))
+                        }
+                    }
+                    HowItWorks(listOf(
+                        tr("Run out, and the picked apps stay closed until you win some back. Midnight starts afresh.", "Ha elfogy, a kiválasztott appok zárva maradnak, amíg nem nyersz vissza perceket. Éjfélkor újraindul."),
+                        tr("Other social, video and game apps count too, with no pause (you can turn this off in Settings).", "A többi közösségi, videós és játékapp ideje is beleszámít, szünet nélkül (a Beállításokban kikapcsolható)."),
+                    ), numbered = false)
                 }
 
                 Step.ACTIVITIES -> {
@@ -219,10 +233,24 @@ fun Onboarding(
                         ctaEnabled = tasks.isNotEmpty(),
                         onCta = next,
                     ) {
-                        Title(tr("What would you rather do?", "Mit csinálnál szívesebben?"), tr("We picked three to start. Tap to change them, or add your own. Each one gives screen time back.", "Kezdésnek kiválasztottunk hármat. Koppintással cserélheted őket, vagy adj hozzá sajátot. Mindegyik képernyőidőt ad vissza."))
+                        Title(tr("What would you rather do?", "Mit csinálnál szívesebben?"), tr("Do one and win minutes back (each shows how many), plus acorns for the camp. We picked three; tap to change.", "Ha megcsinálsz egyet, perceket nyersz vissza (mindegyiken látod, mennyit), és makkot a táborra. Hármat kiválasztottunk; koppintással cserélheted."))
                         LinkText(tr("Skip, use the defaults", "Kihagyom, jók az alapok"), { onDefaultTasks(true); next() })
                         ActivityPicker(tasks, onToggleTask)
                     }
+                }
+
+                // Before the switches: what's been set, in plain words, with the real numbers.
+                Step.SUMMARY -> StepPage(cta = tr("Sounds good", "Rendben"), onCta = next) {
+                    val names = blocked.map(catalog::label)
+                    val apps = names.take(2).joinToString(", ") + if (names.size > 2) tr(" and ${names.size - 2} more", " és még ${names.size - 2}") else ""
+                    Title(tr("What happens now", "Így fog működni"), tr("You can change any of it in Settings.", "Bármit módosíthatsz a Beállításokban."))
+                    HowItWorks(listOf(
+                        tr("Opening $apps: a ${cfg.baseDelaySeconds}-second pause first.", "Ha megnyitod: $apps, előbb egy ${cfg.baseDelaySeconds} másodperces szünet jön."),
+                        tr("${cfg.freeMinutes} minutes a day for them, free.", "Naponta ${cfg.freeMinutes} perc jár rájuk, ingyen."),
+                        tr("Activities win more, up to ${cfg.totalMinutes} a day: ", "Tevékenységekkel többet nyersz, legfeljebb napi ${cfg.totalMinutes} percig: ") +
+                            tasks.take(3).joinToString(", ") { "${it.title.lowercase()} +${it.rewardMinutes}" } + ".",
+                        tr("Run out: they stay closed until you win some back. Midnight starts afresh.", "Ha elfogy: zárva maradnak, amíg nem nyersz vissza. Éjfélkor újraindul."),
+                    ))
                 }
 
                 Step.PAUSE -> StepPage(
@@ -548,9 +576,6 @@ private fun AppIcon(catalog: AppCatalog, pkg: String, size: Dp, modifier: Modifi
     else Box(modifier.size(size).clip(RoundedCornerShape(10.dp)).background(Brand.Mint))
 }
 
-/** Free and maximum minutes in one card, each a compact stepper. */
-@Composable
-fun BudgetPicker(cfg: BudgetConfig, onConfig: (BudgetConfig) -> Unit) = Card { BudgetSteppers(cfg, onConfig) }
 
 /** The two steppers on their own, for a card that holds more. */
 @Composable
@@ -837,3 +862,17 @@ fun LimitedModeDialog(p: Permissions, onConfirm: () -> Unit, onDismiss: () -> Un
             SecondaryButton(tr("Set it up now", "Beállítom most"), onDismiss)
         }
     }
+
+/** A few short lines with a number (or a dot) in front: how something works, at a glance. */
+@Composable
+private fun HowItWorks(lines: List<String>, numbered: Boolean = true) = Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    lines.forEachIndexed { i, line ->
+        Row(verticalAlignment = Alignment.Top) {
+            Box(Modifier.size(24.dp).clip(CircleShape).background(if (numbered) Brand.Moss else Brand.Mint.copy(alpha = 0.4f)), contentAlignment = Alignment.Center) {
+                Text(if (numbered) "${i + 1}" else "•", style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), color = if (numbered) Color.White else Brand.Moss)
+            }
+            Spacer(Modifier.width(10.dp))
+            Text(line, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).padding(top = 1.dp))
+        }
+    }
+}
