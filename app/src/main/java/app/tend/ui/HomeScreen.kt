@@ -341,7 +341,9 @@ fun HomeScreen(
                 if (remaining <= 0) tr("tend can only notify you, not close them. Tap to fix.", "A tend csak értesíteni tud, bezárni nem. Koppints, és megjavítjuk.") else tr("Only a notification for now. Tap to fix.", "Egyelőre csak értesítés jön. Koppints, és megjavítjuk."), onFixPermissions,
             )
         }
-        if (weekendExtra) Notice("sun", tr("It's the weekend: one more hour?", "Hétvége van: kérsz még egy órát?"), tr("Today's minutes are gone. Tap for ${BudgetConfig.WEEKEND_PLUS} more, for today only.", "A mai keret elfogyott. Koppints, és kapsz még ${BudgetConfig.WEEKEND_PLUS} percet, csak mára."), onWeekendExtra)
+        var weekendAsk by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+        if (weekendExtra) Notice("sun", tr("It's the weekend: one more hour?", "Hétvége van: kérsz még egy órát?"), tr("Today's minutes are gone. Tap to see how it works.", "A mai keret elfogyott. Koppints, és megnézheted, hogy működik."), { weekendAsk = true })
+        if (weekendAsk) WeekendExtraDialog(onTake = { weekendAsk = false; onWeekendExtra() }, onDismiss = { weekendAsk = false })
         val needsHealth = tasks.any { it.verification == Verification.AUTOMATIC } &&
             (health == HealthConnect.Status.NEEDS_PERMISSION || health == HealthConnect.Status.NEEDS_INSTALL)
         if (monitorSlept && batteryRisk) Notice("alert", tr("${avatar.displayName} fell asleep in the background", "${avatar.displayName} elaludt a háttérben"), tr("Your phone paused tend for a while. Tap to keep ${avatar.displayName} awake.", "A telefonod egy időre leállította a tendet. Koppints, hogy ${avatar.displayName} ébren maradjon."), onKeepAwake)
@@ -433,10 +435,11 @@ fun HomeScreen(
                 ChipButton(tr("Start", "Indítás"), { onStartFocus(Tasks.timer(minutes)) })
             }
         }
-        // Friends today: what they did, and a cheer for it, one tap each.
-        if (friendsToday.isNotEmpty()) Column(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Friends today: what they did, and a cheer for it, one tap each. Cheered: gone from here (still in Friends).
+        val toCheer = friendsToday.filter { it.id !in cheered }
+        if (toCheer.isNotEmpty()) Column(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(tr("FRIENDS TODAY", "A BARÁTAID MA"), style = MaterialTheme.typography.labelSmall)
-            friendsToday.take(3).forEach { f ->
+            toCheer.take(3).forEach { f ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Face(f.companion, 32)
                     Spacer(Modifier.width(10.dp))
@@ -1044,3 +1047,22 @@ fun MinutesSummary(remaining: Int, available: Int, toEarn: Int, modifier: Modifi
         }
         Text(tr("+$toEarn to earn", "+$toEarn szerezhető"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted)
     }
+
+/** What the weekend's extra hour is, before taking it. */
+@Composable
+fun WeekendExtraDialog(onTake: () -> Unit, onDismiss: () -> Unit) = androidx.compose.material3.AlertDialog(
+    onDismissRequest = onDismiss,
+    title = { Text(tr("Weekend hour", "Hétvégi óra")) },
+    text = {
+        Text(
+            tr(
+                "Weekends have more free time, so on Saturday and Sunday, once today's minutes are gone, you can take one more hour: +${BudgetConfig.WEEKEND_PLUS} minutes now, and the day's max goes up as much.\n\nIt's for today only, once a day: tomorrow starts with your usual minutes. Not in strict mode.",
+                "Hétvégén több a szabadidő, ezért szombaton és vasárnap, ha elfogyott a mai keret, kérhetsz még egy órát: most +${BudgetConfig.WEEKEND_PLUS} perc, és a napi maximum is ennyivel nő.\n\nCsak mára szól, naponta egyszer: holnap a szokásos kerettel indulsz. Szigorú módban nem kérhető.",
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    },
+    confirmButton = { androidx.compose.material3.TextButton(onClick = onTake) { Text(tr("Take the hour", "Kérem az órát"), color = Brand.Moss) } },
+    dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text(tr("Not now", "Most nem")) } },
+    containerColor = Brand.Card,
+)
