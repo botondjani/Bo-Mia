@@ -871,6 +871,11 @@ class MainActivity : ComponentActivity() {
                 },
                 questClaimed = store.questClaimedOn == LocalDate.now().toString(),
                 // The week's story: from Sunday 17:00 through Monday, until shared or put away.
+                screenTime = androidx.compose.runtime.produceState<Pair<Int, Int?>?>(null, refresh) {
+                    value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        app.tend.monitor.ScreenTime.minutes(this@MainActivity, LocalDate.now())?.let { it to app.tend.monitor.ScreenTime.minutes(this@MainActivity, LocalDate.now().minusDays(1)) }
+                    }
+                }.value,
                 weekStory = remember(refresh, LocalTime.now().hour) {
                     val today = LocalDate.now()
                     val sunday = when (today.dayOfWeek) {

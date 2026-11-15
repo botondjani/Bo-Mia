@@ -152,6 +152,8 @@ fun HomeScreen(
     onClaimQuest: () -> Unit = {},
     /** Sunday evening and Monday: the week (minutes got back, active days, scrolls let go), to share or put away. */
     weekStory: Triple<Int, Int, Int>? = null,
+    /** The phone's whole screen time in minutes, today and yesterday (null without usage access). */
+    screenTime: Pair<Int, Int?>? = null,
     onShareWeek: () -> Unit = {},
     onWeekStoryDone: () -> Unit = {},
     onStep: (app.tend.core.Step) -> Unit = {},
@@ -498,6 +500,7 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) { done.forEach { DoneRow(it, day, onUndo) } }
         }
+        screenTime?.let { (now, before) -> ScreenTimeRow(now, before) }
         val today = app.tend.core.DaySummary(day.date, Budget.usedMinutes(day), remaining.coerceAtLeast(0), day.completedTasks.size)
         val week = app.tend.core.WeekOverview.of(history.filter { it.date != day.date } + today, day.date)
         if (week.days.count { it != null } >= 2) Box(Modifier.padding(bottom = Space.xl)) { WeekCard(week, onOpenInsights) }
@@ -1006,6 +1009,23 @@ private fun FocusTimerContent(
     SecondaryButton(tr("Stop for now", "Most abbahagyom"), onCancel, modifier = Modifier.padding(horizontal = Space.xxl))
 }
 
+
+/** The phone's whole screen time today, every app, next to yesterday's. */
+@Composable
+private fun ScreenTimeRow(today: Int, yesterday: Int?) = Row(
+    Modifier.fillMaxWidth().padding(bottom = Space.xl).surface(radius = 16.dp).padding(horizontal = 14.dp, vertical = 12.dp),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    fun hm(m: Int) = if (m >= 60) tr("${m / 60} h ${m % 60} min", "${m / 60} ó ${m % 60} p") else tr("$m min", "$m perc")
+    Column(Modifier.weight(1f)) {
+        Text(tr("Screen time today", "Képernyőidő ma"), style = MaterialTheme.typography.bodyMedium)
+        Text(tr("All apps", "Az összes app"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted)
+    }
+    Column(horizontalAlignment = Alignment.End) {
+        Text(hm(today), style = MaterialTheme.typography.titleMedium, color = Brand.Ink)
+        if (yesterday != null) Text(tr("yesterday ${hm(yesterday)}", "tegnap ${hm(yesterday)}"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted)
+    }
+}
 
 /** Today's minutes in a header: what's left, a small bar of it, and what's still to earn. Home and the camp. */
 @Composable
