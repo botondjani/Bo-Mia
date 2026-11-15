@@ -1897,7 +1897,25 @@ private fun DrawScope.drawThingAsMade(id: String, p: Offset, u: Float, lights: M
 }
 
 /** How long making the campfire takes, from the first step to back in place. */
-const val FIRE_BUILD_SECS = 8.6f
+const val FIRE_BUILD_SECS = 12f
+
+/** The fire's timeline, in seconds: walking over, each log (picked, carried, laid, back), the lighting. */
+object FireTimes {
+    const val WALK_IN = 1.6f
+    const val PICK = 0.5f
+    const val CARRY = 0.75f
+    const val PUT = 0.55f
+    const val BACK = 0.6f
+    const val ROUND = PICK + CARRY + PUT + BACK
+    /** After the last log (no walk back), down by the pit. */
+    const val LIGHT_AT = WALK_IN + ROUND * 3 - BACK
+    const val LIGHT = 2.2f
+    const val STAND_UP = 0.4f
+    /** When log [i] touches down. */
+    fun logDown(i: Int) = WALK_IN + i * ROUND + PICK + CARRY + PUT * 0.8f
+    /** When the first small flame shows. */
+    const val CATCH = LIGHT_AT + 1.0f
+}
 
 /** Where things are in the making of the campfire, [secs] in. */
 class FireChoreo(
@@ -1924,12 +1942,12 @@ private fun DrawScope.fireChoreo(secs: Float, fire: Offset, rest: Offset, u: Flo
     val cs = u * 0.17f * depthScale(atFire.y / size.height)
     fun hands(bo: Offset, right: Boolean) = bo + Offset((if (right) 1f else -1f) * cs * 0.34f, -cs * 0.28f)
     // The timeline, in seconds.
-    val walkIn = 1.2f
-    val pick = 0.35f; val carry = 0.5f; val put = 0.4f; val ret = 0.4f
-    val round = pick + carry + put + ret
-    val lightAt = walkIn + round * FIRE_LOGS - ret // after the last log, no walk back
-    val light = 1.4f
-    val standUp = 0.3f
+    val walkIn = FireTimes.WALK_IN
+    val pick = FireTimes.PICK; val carry = FireTimes.CARRY; val put = FireTimes.PUT; val ret = FireTimes.BACK
+    val round = FireTimes.ROUND
+    val lightAt = FireTimes.LIGHT_AT
+    val light = FireTimes.LIGHT
+    val standUp = FireTimes.STAND_UP
     var bo = rest; var walk = -1f; var crouch = 0f; var right = true
     var pile = FIRE_LOGS; var laid = 0; var laying = 0f; var held: Pair<Int, Offset>? = null
     when {
@@ -1955,14 +1973,15 @@ private fun DrawScope.fireChoreo(secs: Float, fire: Offset, rest: Offset, u: Flo
             val k = secs - lightAt
             when {
                 // Down by the pit, a hand to the kindling, and up again once it's caught.
-                k < light -> { bo = atFire; right = false; crouch = (k / 0.35f * 0.5f).coerceAtMost(0.5f) }
+                k < light -> { bo = atFire; right = false; crouch = (k / 0.5f * 0.5f).coerceAtMost(0.5f) }
                 k < light + standUp -> { bo = atFire; right = false; crouch = 0.5f + 0.5f * (k - light) / standUp }
                 else -> { val q = ((k - light - standUp) / (FIRE_BUILD_SECS - lightAt - light - standUp)).coerceIn(0f, 1f); bo = along(back, ease(q)); walk = secs; right = rest.x >= atFire.x; if (q >= 1f) walk = -1f }
             }
         }
     }
-    val spark = ((secs - lightAt - 0.3f) / 0.7f).coerceIn(0f, 1f)
-    val flame = ((secs - lightAt - 0.6f) / 1.2f).coerceIn(0f, 1f)
+    // An ember glowing up in the kindling, then the flame growing slowly out of it.
+    val spark = ((secs - lightAt - 0.4f) / (FireTimes.CATCH - lightAt - 0.4f)).coerceIn(0f, 1f)
+    val flame = ((secs - FireTimes.CATCH) / 2.4f).coerceIn(0f, 1f)
     return FireChoreo(bo, walk, crouch, right, pile.coerceAtLeast(0), laid, laying, held, pileAt, spark, flame)
 }
 
@@ -2000,7 +2019,14 @@ private fun DrawScope.buildFire(p: Offset, u: Float, c: FireChoreo, lights: Muta
         fireLog(i, at, u, if (last) c.laying else 1f)
     }
     if (c.laid == 3 && c.laying < 1f) fireLog(2, spots[2] + Offset(0f, -u * 0.03f * (1f - c.laying)), u, 1f)
-    sparkles(pit + Offset(0f, -u * 0.014f), u, c.spark)
+    // The ember: a small warm glow in the kindling, steady (no flashing), fading into the flame.
+    if (c.spark > 0f && c.flame < 1f) {
+        val e = c.spark * (1f - c.flame)
+        val at = pit + Offset(0f, -u * 0.006f)
+        drawCircle(Color(0xFFFF9A4A).copy(alpha = 0.35f * e), u * 0.016f * c.spark, at)
+        drawCircle(Color(0xFFFFC46B).copy(alpha = 0.9f * e), u * 0.005f * c.spark, at)
+        lights += Light(at, u * 0.06f * c.spark, 0.5f * e)
+    }
     if (c.flame > 0f) campfire(p, u, lights, flame = c.flame * c.flame * (3 - 2 * c.flame), logs = false)
 }
 

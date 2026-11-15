@@ -301,7 +301,6 @@ fun Onboarding(
                         if (!roasting) return@LaunchedEffect
                         while (true) androidx.compose.runtime.withFrameNanos { frame = it; if (roastStart == 0L) roastStart = it }
                     }
-                    val pulse by rememberInfiniteTransition(label = "hint").animateFloat(0f, 1f, infiniteRepeatable(tween(1100), RepeatMode.Restart), label = "pulse")
                     StepPage(cta = if (!lit) tr("Get the campfire first", "Előbb szerezd meg a tábortüzet") else tr("Start", "Indítás"), ctaEnabled = lit, onCta = onFinish) {
                         Says(avatar,
                             tr("Your camp", "A táborod"),
@@ -332,16 +331,11 @@ fun Onboarding(
                             ) {
                                 val use = if (roasting && roastStart > 0) InUse(0, "campfire", (frame - roastStart) / 1e9f, Uses.WALK) else null
                                 drawClearing(avatar, placed, Mood.HAPPY, appear = appear, use = use, ambient = ambient.value, fireBuild = fireBuild)
-                                // Where to tap: a soft ring pulsing around the fire.
-                                if (lit && !roasting && appear.isEmpty() && fireBuild == null) {
-                                    val c = SpotPositions.getValue(0).let { Offset(it.x * size.width, it.y * size.height - size.height * 0.04f) }
-                                    drawCircle(Color.White.copy(alpha = 0.7f * (1f - pulse)), size.height * (0.06f + 0.08f * pulse), c, style = androidx.compose.ui.graphics.drawscope.Stroke(size.height * 0.008f))
-                                }
                             }
                             AcornBadge(acorns, Modifier.align(Alignment.TopEnd).padding(10.dp))
                         }
-                        // What acorns are for and where they come from: there before the fire, and after.
-                        AcornWays()
+                        // What acorns are for and where they come from: shown once Bo starts on the fire (something to read while it's made).
+                        androidx.compose.animation.AnimatedVisibility(lit, enter = androidx.compose.animation.fadeIn(tween(700)) + androidx.compose.animation.expandVertically(tween(500))) { AcornWays() }
                         if (!lit) Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                             ShopTile(fire, owned = false, affordable = acorns >= fire.price, Modifier.weight(1f), background = Brand.Card) { onBuy(fire.id) }
                             Text(

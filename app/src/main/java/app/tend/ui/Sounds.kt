@@ -87,9 +87,6 @@ object Sounds {
     /** Acorns claimed: a few soft wooden taps, like acorns dropping into a pouch. */
     fun acorns(c: Context) { if (on(c, Kind.LITTLE)) play("acorns", false) { acornDrops() } }
 
-    /** The campfire catching. */
-    fun ignite(c: Context) { if (on(c, Kind.LITTLE)) play("whoosh", false) { whoosh() } }
-
     fun stop() = worker.execute { main?.runCatching { stop(); release() }; main = null }
 
     private fun play(key: String, isMain: Boolean, make: () -> ShortArray) = worker.execute {
@@ -285,22 +282,6 @@ object Sounds {
         hit(0.075, 659.25, 0.26, 0.09)
         hit(0.15, 783.99, 0.26, 0.1)
         hit(0.25, 1046.5, 0.2, 0.28)
-        return toPcm(out)
-    }
-
-    /** The fire catching: a soft rush of air rising, with a low thump under it. */
-    private fun whoosh(): ShortArray {
-        val out = buffer(0.9f)
-        val rnd = java.util.Random(5)
-        var lp = 0.0
-        for (k in out.indices) {
-            val t = k.toDouble() / RATE
-            val env = if (t < 0.18) t / 0.18 else exp(-(t - 0.18) / 0.22)
-            val cut = 0.04 + 0.12 * minOf(1.0, t / 0.2) // opens up as it rises
-            lp += (rnd.nextDouble() * 2 - 1 - lp) * cut
-            val thump = sin(2 * PI * 85 * t) * exp(-t / 0.12) * minOf(1.0, t / 0.01)
-            out[k] = ((lp * 1.6 * env) + thump * 0.35).toFloat() * 0.6f
-        }
         return toPcm(out)
     }
 

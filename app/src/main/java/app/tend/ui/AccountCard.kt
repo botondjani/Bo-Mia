@@ -106,7 +106,9 @@ fun AccountCard(onChanged: () -> Unit, onRestored: () -> Unit = {}, onSignedIn: 
             Text(tr("Back up your camp, and visit your friends' camps. Optional: tend works fully without it.", "Mentsd el a táborod, és látogasd meg a barátaidét. Nem kötelező: a tend enélkül is teljes."), style = MaterialTheme.typography.bodyMedium)
             if (!useEmail) {
                 PrimaryButton(if (busy) tr("Opening Google…", "Google megnyitása…") else tr("Continue with Google", "Folytatás Google-lel"), {
-                    (context as? android.app.Activity)?.let { a -> run { Account.signInWithGoogle(a) } }
+                    // Inside a popup the context is a wrapper: the activity is found under it.
+                    generateSequence(context) { (it as? android.content.ContextWrapper)?.baseContext }.filterIsInstance<android.app.Activity>().firstOrNull()
+                        ?.let { a -> run { Account.signInWithGoogle(a) } }
                 }, enabled = !busy, modifier = Modifier.padding(top = 6.dp))
                 Text(
                     tr("Log in with e-mail instead", "Inkább e-maillel lépek be"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = TextAlign.Center,
