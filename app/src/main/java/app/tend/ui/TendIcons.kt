@@ -27,6 +27,8 @@ object TendIcons {
         "star" to R.drawable.ic_t_star, "moon" to R.drawable.ic_t_moon, "alert" to R.drawable.ic_t_alert,
         "heart" to R.drawable.ic_t_heart, "sparkle" to R.drawable.ic_t_sparkle, "sun" to R.drawable.ic_t_sun,
         "flower" to R.drawable.ic_t_flower, "hourglass" to R.drawable.ic_t_hourglass, "bench" to R.drawable.ic_t_bench,
+        "cup" to R.drawable.ic_t_cup, "dice" to R.drawable.ic_t_dice, "camera" to R.drawable.ic_t_camera, "brush" to R.drawable.ic_t_brush,
+        "wave" to R.drawable.ic_t_wave, "puzzle" to R.drawable.ic_t_puzzle,
         "face_yes" to R.drawable.ic_t_face_yes, "face_meh" to R.drawable.ic_t_face_meh, "face_no" to R.drawable.ic_t_face_no,
     )
 
@@ -35,7 +37,7 @@ object TendIcons {
     fun painterFor(key: String): androidx.compose.ui.graphics.painter.Painter? = res[key]?.let { painterResource(it) }
 
     /** Icons offered for the user's own activities. */
-    val ownChoices = listOf("music", "pen", "paw", "sprout", "bike", "star", "heart", "sun")
+    val ownChoices = listOf("pen", "music", "paw", "sprout", "bike", "wave", "cup", "brush", "camera", "dice", "puzzle", "star", "heart", "sun", "flower", "moon")
 
     @Composable
     fun Glyph(key: String, size: Dp = 24.dp, tint: Color = Brand.Moss) {

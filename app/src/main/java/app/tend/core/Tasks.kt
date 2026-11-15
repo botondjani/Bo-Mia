@@ -45,6 +45,9 @@ object Tasks {
     const val TIMER_ID = "timer"
 
     /** Just a timer, no activity: no minutes, but every app waits until it ends, the same as on an activity's timer. */
+    /** The longest name for an own activity: it still reads whole on a tile. */
+    const val OWN_NAME_MAX = 22
+
     fun timer(minutes: Int) = TaskDef(TIMER_ID, tr("Phone down", "Telefon le"), tr("Phone down · $minutes min", "Telefon le · $minutes perc"), 0, Verification.FOCUS_TIMER, minutes, "sparkle")
 
     const val TIMER_MIN = 15

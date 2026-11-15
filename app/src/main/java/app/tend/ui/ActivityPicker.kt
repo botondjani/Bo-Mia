@@ -205,7 +205,9 @@ internal fun OwnActivityDialog(onDismiss: () -> Unit, onAdd: (TaskDef) -> Unit) 
         ) {
             Text(tr("Your own activity", "Saját tevékenység"), style = MaterialTheme.typography.titleLarge)
             OutlinedTextField(
-                value = name, onValueChange = { name = it.take(40) },
+                // Short enough to read whole on a tile and in a list.
+                value = name, onValueChange = { name = it.take(Tasks.OWN_NAME_MAX) },
+                supportingText = { Text("${name.length} / ${Tasks.OWN_NAME_MAX}") },
                 placeholder = { Text(tr("e.g. Play guitar", "pl. Gitározás")) }, singleLine = true,
                 shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(),
             )

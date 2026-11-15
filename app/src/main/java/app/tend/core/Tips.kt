@@ -5,13 +5,14 @@ package app.tend.core
  * moved yet), a different one each time, and not often: every other day, each a few days in all.
  */
 enum class Tip {
-    MOVE, WIDGET, TOWN, PAUSE;
+    MOVE, WIDGET, TOWN, PAUSE, ACCOUNT;
 
     fun text(name: String) = when (this) {
         MOVE -> tr("Tip: you can move things around", "Tipp: a tárgyakat átrendezheted")
         WIDGET -> tr("Tip: put $name on your home screen", "Tipp: tedd ki a widgetet")
         TOWN -> tr("Tip: add your town for real weather", "Tipp: állítsd be a városod")
         PAUSE -> tr("Tip: ask for a pause before an app opens", "Tipp: kérj szünetet egy app megnyitása előtt")
+        ACCOUNT -> tr("Tip: sign up to keep your camp safe", "Tipp: regisztrálj, hogy megmaradjon a táborod")
     }
 
     companion object {

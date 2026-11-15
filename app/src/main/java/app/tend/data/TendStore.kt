@@ -66,6 +66,9 @@ class TendStore(private val context: Context) {
     val tasksChosen: Boolean get() = prefs.contains("tasks")
 
     /** The three to start with: a workout, a walk, reading. */
+    /** Setup ended with no daily tasks picked: Phone down only (and not the old defaults). */
+    fun chooseNoTasks() { if (!tasksChosen) edit { putString("tasks", "") } }
+
     fun useDefaultTasks() = edit { putString("tasks", Tasks.legacyDefault.joinToString(",") { it.id }) }
 
     /** Adds or removes a preset or custom activity; adding is refused beyond the limit. */

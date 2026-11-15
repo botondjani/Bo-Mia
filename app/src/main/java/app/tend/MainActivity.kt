@@ -571,6 +571,7 @@ class MainActivity : ComponentActivity() {
         when {
             p == "setup" -> {
                 val finish: () -> Unit = {
+                    store.chooseNoTasks()
                     store.onboarded = true
                     store.onboardedAt = System.currentTimeMillis()
                     store.tourDone = true // the camp was shown at the end of setup
@@ -953,6 +954,7 @@ class MainActivity : ComponentActivity() {
                         if (widgetPlaced() == false) add(app.tend.core.Tip.WIDGET)
                         if (store.weatherPlace == null) add(app.tend.core.Tip.TOWN)
                         if (store.pauseApps.isEmpty() && !store.isStrict) add(app.tend.core.Tip.PAUSE)
+                        if (app.tend.data.Account.user(this@MainActivity) == null) add(app.tend.core.Tip.ACCOUNT)
                     })
                 },
                 onCampTip = { tip ->
@@ -961,6 +963,7 @@ class MainActivity : ComponentActivity() {
                         app.tend.core.Tip.WIDGET -> if (!pinWidget()) screen = Screen.SETTINGS
                         app.tend.core.Tip.TOWN -> screen = Screen.SETTINGS
                         app.tend.core.Tip.PAUSE -> { settingsSection = "apps"; screen = Screen.SETTINGS }
+                        app.tend.core.Tip.ACCOUNT -> { settingsSection = "account"; screen = Screen.SETTINGS }
                     }
                 },
                 camp = {
@@ -1045,7 +1048,7 @@ class MainActivity : ComponentActivity() {
                 timerMinutes = store.focusTimerMinutes,
                 onTimerMinutes = { store.focusTimerMinutes = it },
                 signedIn = app.tend.data.Account.user(this@MainActivity) != null,
-                onOpenAccount = { screen = Screen.SETTINGS },
+                onOpenAccount = { settingsSection = "account"; screen = Screen.SETTINGS },
                 pauseSuggested = store.pauseApps.isEmpty() && !store.isStrict,
                 onPauseSetup = { settingsSection = "apps"; screen = Screen.SETTINGS },
                 exerciseTracked = store.exerciseTracked,

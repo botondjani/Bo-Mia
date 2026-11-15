@@ -352,14 +352,15 @@ fun HomeScreen(
         if (monitorSlept && batteryRisk) Notice("alert", tr("${avatar.displayName} fell asleep in the background", "${avatar.displayName} elaludt a háttérben"), tr("Your phone paused tend for a while. Tap to keep ${avatar.displayName} awake.", "A telefonod egy időre leállította a tendet. Koppints, hogy ${avatar.displayName} ébren maradjon."), onKeepAwake)
         // In the first days the first steps ask for the widget; here only what can't wait.
         val importantOnly = nextStepsImportantOnly || firstDays
-        val nextSteps = showNextSteps && (needsHealth || batteryRisk || (!importantOnly && (!widgetPlaced || notesOff || !signedIn || pauseSuggested)))
+        // Signing up counts from day one (a new phone shouldn't lose the camp); the rest waits for the first days to pass.
+        val nextSteps = showNextSteps && (needsHealth || batteryRisk || !signedIn || (!importantOnly && (!widgetPlaced || notesOff || pauseSuggested)))
         if (nextSteps) NextSteps(
             avatar,
             widget = !widgetPlaced && !importantOnly, onWidget = { if (!onAddWidget()) widgetGuide = true },
             health = if (needsHealth) health else null, onHealth = onConnectHealth,
             notes = notesOff && !importantOnly, onNotes = onAllowNotes,
             battery = batteryRisk && !monitorSlept, onBattery = onKeepAwake,
-            account = !signedIn && !importantOnly, onAccount = onOpenAccount,
+            account = !signedIn, onAccount = onOpenAccount,
             pause = pauseSuggested && !importantOnly, onPause = onPauseSetup,
             onDismiss = onNextStepsDone,
         ) else if (needsHealth) {
