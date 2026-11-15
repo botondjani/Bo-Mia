@@ -152,8 +152,8 @@ fun HomeScreen(
     onClaimQuest: () -> Unit = {},
     /** Sunday evening and Monday: the week (minutes got back, active days, scrolls let go), to share or put away. */
     weekStory: Triple<Int, Int, Int>? = null,
-    /** The phone's whole screen time in minutes, today and yesterday (null without usage access). */
-    screenTime: Pair<Int, Int?>? = null,
+    /** The phone's whole screen time in minutes, the last 7 days, today last (empty without usage access). */
+    screenTime: List<Int?> = emptyList(),
     onShareWeek: () -> Unit = {},
     onWeekStoryDone: () -> Unit = {},
     onStep: (app.tend.core.Step) -> Unit = {},
@@ -500,10 +500,10 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) { done.forEach { DoneRow(it, day, onUndo) } }
         }
-        screenTime?.let { (now, before) -> ScreenTimeRow(now, before) }
+        screenTime.lastOrNull()?.let { ScreenTimeRow(it, screenTime.getOrNull(screenTime.size - 2)) }
         val today = app.tend.core.DaySummary(day.date, Budget.usedMinutes(day), remaining.coerceAtLeast(0), day.completedTasks.size)
         val week = app.tend.core.WeekOverview.of(history.filter { it.date != day.date } + today, day.date)
-        if (week.days.count { it != null } >= 2) Box(Modifier.padding(bottom = Space.xl)) { WeekCard(week, onOpenInsights) }
+        if (week.days.count { it != null } >= 2) Box(Modifier.padding(bottom = Space.xl)) { WeekCard(week, onOpenInsights, screenTime) }
         }
     }
     }

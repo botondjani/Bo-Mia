@@ -143,7 +143,7 @@ fun SettingsScreen(
         // Minutes: the day's budget, strict mode and a break, together.
         "minutes" -> {
             Card {
-                BudgetSteppers(cfg, onConfig)
+                BudgetSteppers(cfg, onConfig, weekend = true)
                 Divider()
                 if (plus) StrictRow(strict, strictEndsAt, onStrict)
                 else Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tappable { onPlus(PlusFrom.STRICT) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -274,7 +274,7 @@ fun SettingsScreen(
         val summaries = mapOf(
             "companion" to avatar.displayName,
             "apps" to if (blocked.isEmpty()) tr("None yet", "Még egy sincs") else tr("${blocked.size} app${if (blocked.size == 1) "" else "s"}", "${blocked.size} app") + if (appLimits.isNotEmpty()) tr(" · ${appLimits.size} with a limit", " · ${appLimits.size} saját limittel") else "",
-            "minutes" to tr("${cfg.freeMinutes} free a day", "napi ${cfg.freeMinutes} perc jár") + if (strict) tr(" · strict", " · szigorú") else "",
+            "minutes" to tr("${cfg.freeMinutes} free a day", "napi ${cfg.freeMinutes} perc jár") + (if (cfg.weekendPlus) tr(" · +${BudgetConfig.WEEKEND_PLUS} at weekends", " · hétvégén +${BudgetConfig.WEEKEND_PLUS}") else "") + if (strict) tr(" · strict", " · szigorú") else "",
             "activities" to tr("${tasks.size} picked", "${tasks.size} kiválasztva"),
             "evening" to tr("From %d:00", "%d:00-tól").format(eveningFrom) + if (lockSchedules.any { it.on }) tr(" · a lock on", " · zár bekapcsolva") else "",
             "sounds" to when (soundsOff.size) { 0 -> tr("All on", "Mind bekapcsolva"); Sounds.Kind.entries.size -> tr("Off", "Kikapcsolva"); else -> soundsOff.joinToString(", ") { it.title } + " off" },

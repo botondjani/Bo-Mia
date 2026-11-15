@@ -580,11 +580,11 @@ class MainActivity : ComponentActivity() {
                 Onboarding(
                     catalog = catalog,
                     avatar = store.avatar,
-                    cfg = store.config,
+                    cfg = store.baseConfig,
                     blocked = store.blockedPackages,
                     perms = permissionActions(),
                     onAvatar = { store.avatar = it; refresh++ },
-                    onConfig = { store.config = it; refresh++ },
+                    onConfig = { store.baseConfig = it; refresh++ },
                     onToggleApp = toggleApp,
                     signedIn = app.tend.data.Account.user(this) != null,
                     tasks = store.selectedTasks,
@@ -604,14 +604,14 @@ class MainActivity : ComponentActivity() {
             p == "SETTINGS" -> SettingsScreen(
                 catalog = catalog,
                 avatar = store.avatar,
-                cfg = store.config,
+                cfg = store.baseConfig,
                 blocked = store.blockedPackages,
                 onAvatar = { store.avatar = it; saveProfile(); refresh++ },
                 onAccountChanged = { saveProfile(); refresh++ },
                 onRestored = ::restartFresh,
                 onConfig = {
-                    val now = store.config
-                    if (store.isStrict && (it.freeMinutes > now.freeMinutes || it.totalMinutes > now.totalMinutes)) strictNo() else { store.config = it; refresh++ }
+                    val now = store.baseConfig
+                    if (store.isStrict && (it.freeMinutes > now.freeMinutes || it.totalMinutes > now.totalMinutes || it.weekendPlus && !now.weekendPlus)) strictNo() else { store.baseConfig = it; refresh++ }
                 },
                 onToggleApp = toggleApp,
                 tasks = store.selectedTasks,
@@ -871,9 +871,11 @@ class MainActivity : ComponentActivity() {
                 },
                 questClaimed = store.questClaimedOn == LocalDate.now().toString(),
                 // The week's story: from Sunday 17:00 through Monday, until shared or put away.
-                screenTime = androidx.compose.runtime.produceState<Pair<Int, Int?>?>(null, refresh) {
+                screenTime = androidx.compose.runtime.produceState(emptyList<Int?>(), refresh) {
                     value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        app.tend.monitor.ScreenTime.minutes(this@MainActivity, LocalDate.now())?.let { it to app.tend.monitor.ScreenTime.minutes(this@MainActivity, LocalDate.now().minusDays(1)) }
+                        val today = LocalDate.now()
+                        if (app.tend.monitor.ScreenTime.minutes(this@MainActivity, today) == null) emptyList()
+                        else (6 downTo 0).map { app.tend.monitor.ScreenTime.minutes(this@MainActivity, today.minusDays(it.toLong())) }
                     }
                 }.value,
                 weekStory = remember(refresh, LocalTime.now().hour) {

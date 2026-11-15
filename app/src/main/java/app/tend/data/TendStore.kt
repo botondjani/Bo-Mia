@@ -495,13 +495,18 @@ class TendStore(private val context: Context) {
         get() = prefs.getStringSet("blocked", emptySet())!!
         set(v) = edit { putStringSet("blocked", v) }
 
-    var config: BudgetConfig
+    /** The day's budget: [baseConfig] with the weekend's extra on Saturday and Sunday, when it's on. */
+    val config: BudgetConfig get() = baseConfig.forDay(LocalDate.now(), isStrict)
+
+    /** The budget as set in Settings, without the weekend's extra. */
+    var baseConfig: BudgetConfig
         get() = BudgetConfig(
             totalMinutes = prefs.getInt("cfg_total", BudgetConfig().totalMinutes),
             freeMinutes = prefs.getInt("cfg_free", BudgetConfig().freeMinutes),
             counted = prefs.getStringSet("cfg_counted", null) ?: BudgetConfig().counted,
+            weekendPlus = prefs.getBoolean("cfg_weekend", false),
         )
-        set(v) = edit { putInt("cfg_total", v.totalMinutes); putInt("cfg_free", v.freeMinutes); putStringSet("cfg_counted", v.counted) }
+        set(v) = edit { putInt("cfg_total", v.totalMinutes); putInt("cfg_free", v.freeMinutes); putStringSet("cfg_counted", v.counted); putBoolean("cfg_weekend", v.weekendPlus) }
 
     /** Start of the running reading session (wall clock), 0 when none. Survives the app being closed. */
     var focusStartedAt: Long

@@ -20,7 +20,15 @@ data class BudgetConfig(
     val eveningDelaySeconds: Int = 10,
     /** Kinds of app ([AppKinds]) whose time also counts toward the day's minutes, with no pause. */
     val counted: Set<String> = AppKinds.ALL,
-)
+    /** Saturday and Sunday: [WEEKEND_PLUS] more free minutes, and as many more at most. */
+    val weekendPlus: Boolean = false,
+) {
+    /** The day's own budget: the weekend's extra on Saturday and Sunday, when it's on (never in strict mode). */
+    fun forDay(date: java.time.LocalDate, strict: Boolean): BudgetConfig =
+        if (weekendPlus && !strict && date.dayOfWeek.value >= 6) copy(freeMinutes = freeMinutes + WEEKEND_PLUS, totalMinutes = totalMinutes + WEEKEND_PLUS) else this
+
+    companion object { const val WEEKEND_PLUS = 60 }
+}
 
 /** Kinds of app that count toward the day's minutes without a pause: only the picked apps get one. */
 object AppKinds {
