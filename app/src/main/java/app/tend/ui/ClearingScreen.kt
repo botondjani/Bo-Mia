@@ -685,7 +685,11 @@ fun ClearingScreen(
         // Where they start on the page (not on screen: scrolling doesn't change it).
         Column(Modifier.fillMaxWidth().onGloballyPositioned { hubTop = (it.positionInRoot().y - pageTop).toInt() + scroll.value }, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                HubTile("challenges", tr("Challenges", "Kihívások"), if (waiting > 0) tr("$waiting acorns waiting", "$waiting makk vár") else tr("Quests and goals", "Küldetések, célok"), waiting > 0, Modifier.weight(1f).height(tileH), onOpen = onOpenChallenges)
+                HubTile("challenges", tr("Challenges", "Kihívások"), if (waiting > 0) tr("$waiting acorns waiting", "$waiting makk vár") else tr("Quests and goals", "Küldetések, célok"), waiting > 0, Modifier.weight(1f).height(tileH)) {
+                    // Acorns waiting: tapped, they're taken at once (the list opens when there's nothing to take).
+                    val ready = app.tend.core.FirstSteps.current(steps).filter { it.claimable }
+                    if (ready.isEmpty()) onOpenChallenges() else { ready.forEach { onClaimStep(it.step) }; Sounds.acorns(context) }
+                }
                 HubTile("guestbook", tr("Guestbook", "Vendégkönyv"), "${guestbook.size} / ${app.tend.core.Visitor.entries.size}", false, Modifier.weight(1f).height(tileH), visitor = guestbook.keys.firstOrNull()) { bookOpen = true }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

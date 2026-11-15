@@ -46,6 +46,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.border
 import androidx.compose.ui.draw.drawBehind
@@ -372,6 +375,29 @@ fun HomeScreen(
 
         if (askStats && !nextSteps && !firstDays) StatsAsk(onStats)
 
+        // Phone down for as long as you like (15 to 120 minutes), and every app waits: first, as a card of its own.
+        if (focusSecondsLeft == null) {
+            var minutes by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(Tasks.clampTimer(timerMinutes)) }
+            fun nudge(d: Int) { minutes = Tasks.clampTimer(minutes + d); onTimerMinutes(minutes) }
+            Row(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text(tr("Phone down", "Telefon le"), style = MaterialTheme.typography.titleSmall)
+                    Text(tr("Earns minutes too", "Perceket is ad"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+                }
+                for ((label, d) in listOf("\u2212" to -Tasks.TIMER_STEP)) {
+                    val on = minutes > Tasks.TIMER_MIN
+                    Text(label, style = MaterialTheme.typography.titleLarge, color = if (on) Brand.Moss else Brand.Muted.copy(alpha = 0.4f), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.size(36.dp).clip(CircleShape).background(Brand.Mint.copy(alpha = if (on) 0.25f else 0.1f)).then(if (on) Modifier.tappable { nudge(d) } else Modifier).padding(top = 1.dp))
+                }
+                Text(tr("$minutes min", "$minutes perc"), style = MaterialTheme.typography.titleMedium, color = Brand.Moss, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.width(64.dp))
+                run {
+                    val on = minutes < Tasks.TIMER_MAX
+                    Text("+", style = MaterialTheme.typography.titleLarge, color = if (on) Brand.Moss else Brand.Muted.copy(alpha = 0.4f), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.size(36.dp).clip(CircleShape).background(Brand.Mint.copy(alpha = if (on) 0.25f else 0.1f)).then(if (on) Modifier.tappable { nudge(Tasks.TIMER_STEP) } else Modifier).padding(top = 1.dp))
+                }
+                ChipButton(tr("Start", "Indítás"), { onStartFocus(Tasks.timer(minutes)) })
+            }
+        }
         val active = tasks.filter { it.id !in day.completedTasks }
         val done = tasks.filter { it.id in day.completedTasks }
         SectionHeader(tr("Instead of scrolling", "Görgetés helyett"), tr("${done.size} of ${tasks.size} done", "${done.size} / ${tasks.size} megvan"))
@@ -417,29 +443,6 @@ fun HomeScreen(
                 Text(tr("Everything done today. ${avatar.displayName} is proud of you.", "Mára minden megvan. ${avatar.displayName} büszke rád."), style = MaterialTheme.typography.titleMedium)
             }
         }
-        // Or no activity at all: phone down for as long as you like (15 to 120 minutes), and every app waits.
-        if (focusSecondsLeft == null) {
-            var minutes by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(Tasks.clampTimer(timerMinutes)) }
-            fun nudge(d: Int) { minutes = Tasks.clampTimer(minutes + d); onTimerMinutes(minutes) }
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Column(Modifier.weight(1f)) {
-                    Text(tr("Phone down", "Telefon le"), style = MaterialTheme.typography.titleSmall)
-                    Text(tr("Earns minutes too", "Perceket is ad"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
-                }
-                for ((label, d) in listOf("\u2212" to -Tasks.TIMER_STEP)) {
-                    val on = minutes > Tasks.TIMER_MIN
-                    Text(label, style = MaterialTheme.typography.titleLarge, color = if (on) Brand.Moss else Brand.Muted.copy(alpha = 0.4f), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        modifier = Modifier.size(36.dp).clip(CircleShape).background(Brand.Mint.copy(alpha = if (on) 0.25f else 0.1f)).then(if (on) Modifier.tappable { nudge(d) } else Modifier).padding(top = 1.dp))
-                }
-                Text(tr("$minutes min", "$minutes perc"), style = MaterialTheme.typography.titleMedium, color = Brand.Moss, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.width(64.dp))
-                run {
-                    val on = minutes < Tasks.TIMER_MAX
-                    Text("+", style = MaterialTheme.typography.titleLarge, color = if (on) Brand.Moss else Brand.Muted.copy(alpha = 0.4f), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        modifier = Modifier.size(36.dp).clip(CircleShape).background(Brand.Mint.copy(alpha = if (on) 0.25f else 0.1f)).then(if (on) Modifier.tappable { nudge(Tasks.TIMER_STEP) } else Modifier).padding(top = 1.dp))
-                }
-                ChipButton(tr("Start", "Indítás"), { onStartFocus(Tasks.timer(minutes)) })
-            }
-        }
         // Friends today: what they did, and a cheer for it, one tap each. Cheered: gone from here (still in Friends).
         val toCheer = friendsToday.filter { it.id !in cheered }
         if (toCheer.isNotEmpty()) Column(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -467,7 +470,15 @@ fun HomeScreen(
         var hubOpen by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
         var friendsOpen by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
         val waiting = app.tend.core.FirstSteps.current(steps).filter { it.claimable }.sumOf { it.step.acorns } + (quest?.takeIf { questDone && !questClaimed }?.acorns ?: 0)
-        HubButtons(waiting, friendsToday.size, onChallenges = { hubOpen = true }, onFriends = { friendsOpen = true })
+        HubButtons(waiting, friendsToday.size, onChallenges = {
+            // Acorns waiting: tapped, they're taken at once (the list opens when there's nothing to take).
+            if (waiting == 0) hubOpen = true
+            else {
+                app.tend.core.FirstSteps.current(steps).filter { it.claimable }.forEach { onClaimStep(it.step) }
+                if (quest != null && questDone && !questClaimed) onClaimQuest()
+                app.tend.ui.Sounds.acorns(context)
+            }
+        }, onFriends = { friendsOpen = true })
         if (hubOpen) ChallengesSheet(
             steps, onClaimStep, { step -> hubOpen = false; onStep(step) }, quest, questDone, questClaimed, onClaimQuest,
             level, challenge, { hubOpen = false; onOpenInsights() },
@@ -820,49 +831,43 @@ internal fun TaskRow(
                 task.title, style = MaterialTheme.typography.bodyLarge, color = if (done) Brand.Muted else Brand.Ink,
                 textDecoration = if (done) androidx.compose.ui.text.style.TextDecoration.LineThrough else null,
             )
+            // One short line: what to do (how long, how many steps); what it gives sits on the right, apart.
+            val needsHealth = task.verification == Verification.AUTOMATIC && !measured && task.id != Tasks.SLEEP.id && !workoutTimer
             Text(
                 when {
                     done -> day.grants[task.id]?.takeIf { it > 0 }?.let { tr("+$it min earned", "+$it perc megszerezve") } ?: tr("Done for today", "Mára megvan")
-                    workoutTimer && !(measured && progress != null) -> tr("+${task.rewardMinutes} min · ${task.target} min, phone off", "+${task.rewardMinutes} perc · ${task.target} perc, telefon nélkül")
-                    task.verification != Verification.AUTOMATIC -> tr("+${task.rewardMinutes} min", "+${task.rewardMinutes} perc") + " · ${task.subtitle.substringAfter("· ")}"
-                    // Estimated from the screen at night: said so, in each language's own order.
                     estimated && progress != null -> tr(
                         "About " + progressLabel(task, progress).replace(" sleep last night", ", from your screen"),
                         "Kb. " + progressLabel(task, progress).replace(" tegnap éjjel", ", a képernyőd alapján"),
                     )
                     measured && progress != null -> progressLabel(task, progress)
-                    task.id == Tasks.SLEEP.id -> tr("+${task.rewardMinutes} min · from your tracker or your screen at night", "+${task.rewardMinutes} perc · az órádból vagy az éjszakai képernyőhasználatból")
-                    health == HealthConnect.Status.UNSUPPORTED -> tr("Health Connect isn't available on this phone", "A Health Connect ezen a telefonon nem érhető el")
-                    else -> tr("+${task.rewardMinutes} min", "+${task.rewardMinutes} perc")
+                    workoutTimer || task.verification.timed -> tr("${task.target} min, phone down", "${task.target} perc, telefon nélkül")
+                    task.manual -> tr("Tick it off when done", "Pipáld ki, ha megvan")
+                    task.id == Tasks.SLEEP.id -> tr("${task.target / 60} h of sleep", "${task.target / 60} óra alvás")
+                    health == HealthConnect.Status.UNSUPPORTED -> tr("Not available on this phone", "Ezen a telefonon nem elérhető")
+                    needsHealth -> tr("Needs Health Connect", "Health Connect kell hozzá")
+                    else -> task.subtitle.substringAfter("· ")
                 },
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            // How it counts, said once and plainly: a tracker, a timer, or a tick.
-            val auto = task.verification == Verification.AUTOMATIC
-            val needsHealth = auto && !measured && task.id != Tasks.SLEEP.id && !workoutTimer
-            if (!done && !(task.id == Tasks.SLEEP.id && !measured)) Text(
-                when {
-                    workoutTimer && exerciseTracked && health == HealthConnect.Status.READY -> tr("Counted by Health Connect, or use the timer", "A Health Connect számolja, vagy használd az időzítőt")
-                    workoutTimer || task.verification.timed -> tr("A timer: keep the phone down", "Időzítő: tedd le a telefont")
-                    task.manual -> tr("You tick it off", "Te pipálod ki")
-                    estimated -> tr("Estimated from your screen at night", "Az éjszakai képernyőhasználatból becsülve")
-                    needsHealth -> tr("Needs Health Connect to count", "Health Connect kell a számoláshoz")
-                    else -> tr("Counted by Health Connect, nothing to do", "A Health Connect számolja, nincs vele dolgod")
-                },
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, letterSpacing = 0.sp),
-                color = if (needsHealth) Brand.Coral else Brand.Muted, modifier = Modifier.padding(top = 2.dp),
+                style = MaterialTheme.typography.bodyMedium, color = if (needsHealth && !done) Brand.Coral else Brand.Muted,
             )
         }
-        when {
-            done && task.manual -> Text(
-                tr("Undo", "Visszavonás"), style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
-                modifier = Modifier.tappable { onUndo(task) }.padding(8.dp),
+        Spacer(Modifier.width(8.dp))
+        // What it gives, then the button: the reward always in the same place, in the same words.
+        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (!done && task.rewardMinutes > 0) Text(
+                tr("+${task.rewardMinutes} min", "+${task.rewardMinutes} perc"),
+                style = MaterialTheme.typography.titleSmall, color = Brand.Moss,
             )
-            done -> Unit
-            task.verification.timed || workoutTimer ->
-                ChipButton(focusSecondsLeft?.let { "%d:%02d".format(it / 60, it % 60) } ?: tr("Start", "Indítás"), { onStartFocus(task) })
-            task.manual -> ChipButton(tr("Done", "Kész"), { onCheckOff(task) })
-            else -> Pill("+${task.rewardMinutes}")
+            when {
+                done && task.manual -> Text(
+                    tr("Undo", "Visszavonás"), style = MaterialTheme.typography.labelLarge, color = Brand.Muted,
+                    modifier = Modifier.tappable { onUndo(task) }.padding(8.dp),
+                )
+                done -> Unit
+                task.verification.timed || workoutTimer ->
+                    ChipButton(focusSecondsLeft?.let { "%d:%02d".format(it / 60, it % 60) } ?: tr("Start", "Indítás"), { onStartFocus(task) })
+                task.manual -> ChipButton(tr("Done", "Kész"), { onCheckOff(task) })
+            }
         }
     }
     if (measured && progress != null && !done) {
@@ -1011,8 +1016,10 @@ private fun FocusTimerContent(
                 // Activities without a prop of their own (like your own ones) get their icon floating around.
                 if (prop == Prop.NONE && phoneFree) FloatingIcons(task.icon)
                 androidx.compose.runtime.CompositionLocalProvider(LocalAccessories provides LocalAccessories.current + extra) {
-                    CharacterView(avatar, app.tend.core.Mood.HAPPY, 128.dp, reading = !phoneFree, prop = prop)
+                    CharacterView(avatar, app.tend.core.Mood.HAPPY, 128.dp, reading = !phoneFree && task.id != Tasks.TIMER_ID, prop = prop)
                 }
+                // Phone down: the phone lies face down next to the companion, asleep.
+                if (task.id == Tasks.TIMER_ID) FaceDownPhone(Modifier.align(Alignment.BottomEnd).offset(x = 70.dp, y = 2.dp))
             }
             Text("%d:%02d".format(secondsLeft / 60, secondsLeft % 60), style = MaterialTheme.typography.headlineLarge, color = Brand.Moss)
         }
@@ -1039,6 +1046,71 @@ private fun FocusTimerContent(
     SecondaryButton(tr("Stop for now", "Most abbahagyom"), onCancel, modifier = Modifier.padding(horizontal = Space.xxl))
 }
 
+
+/**
+ * A phone lying face down on the ground, seen from a little above: the back up (camera bump, lenses,
+ * flash, a soft sheen), its thickness showing below, a shadow under it, and two small z's rising.
+ */
+@Composable
+internal fun FaceDownPhone(modifier: Modifier = Modifier) {
+    val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "zz")
+    val phase by t.animateFloat(0f, 1f, androidx.compose.animation.core.infiniteRepeatable(tween(2600, easing = androidx.compose.animation.core.LinearEasing)), label = "z")
+    androidx.compose.foundation.Canvas(modifier.size(92.dp, 70.dp)) {
+        val u = size.width / 120f // one unit of the phone's own measure (it's 100 long, 48 wide)
+        val cx = size.width * 0.46f
+        val cy = size.height * 0.72f
+        val tilt = -16f
+        val squash = 0.42f
+        val thick = 5.5f * u
+        val body = androidx.compose.ui.geometry.RoundRect(-50f * u, -24f * u, 50f * u, 24f * u, androidx.compose.ui.geometry.CornerRadius(10f * u))
+        fun flat(dy: Float = 0f, block: androidx.compose.ui.graphics.drawscope.DrawScope.() -> Unit) =
+            withTransform({ translate(cx, cy + dy); scale(1f, squash, androidx.compose.ui.geometry.Offset.Zero); rotate(tilt, androidx.compose.ui.geometry.Offset.Zero) }, block)
+        val path = androidx.compose.ui.graphics.Path().apply { addRoundRect(body) }
+        // The shadow, soft and a little to the right.
+        flat(thick + 2f * u) {
+            drawPath(androidx.compose.ui.graphics.Path().apply { addRoundRect(body.copy(left = body.left - 1f * u, right = body.right + 5f * u, top = body.top + 1f * u, bottom = body.bottom + 5f * u)) }, Color.Black.copy(alpha = 0.10f))
+        }
+        // The side: the same outline, stacked down, darker toward the bottom.
+        val steps = 8
+        for (i in steps downTo 1) flat(thick * i / steps) { drawPath(path, androidx.compose.ui.graphics.lerp(Color(0xFF3C434B), Color(0xFF1C2024), i / steps.toFloat())) }
+        // A side button, a sliver on the near edge.
+        flat(thick * 0.5f) { drawRoundRect(Color(0xFF59626C), androidx.compose.ui.geometry.Offset(8f * u, 22.5f * u), androidx.compose.ui.geometry.Size(16f * u, 2.2f * u), androidx.compose.ui.geometry.CornerRadius(1f * u)) }
+        flat {
+            // The back: graphite, a touch lighter at the far end.
+            drawPath(path, androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF4A525B), Color(0xFF2E343A)), androidx.compose.ui.geometry.Offset(-50f * u, -24f * u), androidx.compose.ui.geometry.Offset(50f * u, 24f * u)))
+            drawPath(path, Color(0xFF6B747E), style = androidx.compose.ui.graphics.drawscope.Stroke(1.4f * u))
+            // A soft sheen across it.
+            clipPath(path) {
+                drawPath(androidx.compose.ui.graphics.Path().apply {
+                    moveTo(-8f * u, -30f * u); lineTo(10f * u, -30f * u); lineTo(-10f * u, 30f * u); lineTo(-28f * u, 30f * u); close()
+                }, Color.White.copy(alpha = 0.10f))
+            }
+            // The camera bump in the far corner: lenses with a glint, and the flash.
+            val bump = androidx.compose.ui.geometry.RoundRect(-44f * u, -19f * u, -18f * u, 7f * u, androidx.compose.ui.geometry.CornerRadius(7f * u))
+            drawPath(androidx.compose.ui.graphics.Path().apply { addRoundRect(bump.copy(top = bump.top + 1.5f * u, bottom = bump.bottom + 1.5f * u)) }, Color.Black.copy(alpha = 0.25f))
+            drawPath(androidx.compose.ui.graphics.Path().apply { addRoundRect(bump) }, Color(0xFF23282D))
+            drawPath(androidx.compose.ui.graphics.Path().apply { addRoundRect(bump) }, Color(0xFF59626C), style = androidx.compose.ui.graphics.drawscope.Stroke(1.1f * u))
+            for (c in listOf(androidx.compose.ui.geometry.Offset(-37f * u, -12f * u), androidx.compose.ui.geometry.Offset(-37f * u, 0f), androidx.compose.ui.geometry.Offset(-25f * u, -12f * u))) {
+                drawCircle(Color(0xFF7A848F), 5f * u, c)
+                drawCircle(Color(0xFF0D0F12), 4f * u, c)
+                drawCircle(Color(0xFF2B3A55), 2.2f * u, c)
+                drawCircle(Color.White.copy(alpha = 0.75f), 0.9f * u, c + androidx.compose.ui.geometry.Offset(-1.2f * u, -1.2f * u))
+            }
+            drawCircle(Color(0xFFF4E7B9), 2f * u, androidx.compose.ui.geometry.Offset(-25f * u, 0f))
+        }
+        // Two z's rising from it, one after the other: it's asleep.
+        for (k in 0..1) {
+            val p = (phase + k * 0.5f) % 1f
+            val zs = (5f + 3f * k) * u * (0.7f + 0.3f * p)
+            val zx = cx + 22f * u + 10f * u * p + k * 8f * u
+            val zy = cy - 12f * u - 34f * u * p
+            val a = kotlin.math.sin(p * kotlin.math.PI.toFloat()).coerceAtLeast(0f)
+            drawPath(androidx.compose.ui.graphics.Path().apply {
+                moveTo(zx - zs / 2, zy - zs / 2); lineTo(zx + zs / 2, zy - zs / 2); lineTo(zx - zs / 2, zy + zs / 2); lineTo(zx + zs / 2, zy + zs / 2)
+            }, Brand.Moss.copy(alpha = 0.8f * a), style = androidx.compose.ui.graphics.drawscope.Stroke(2.4f * u, cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+        }
+    }
+}
 
 /** The phone's whole screen time today, every app, next to yesterday's. */
 @Composable

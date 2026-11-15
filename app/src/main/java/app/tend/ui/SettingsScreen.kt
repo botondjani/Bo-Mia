@@ -130,10 +130,15 @@ fun SettingsScreen(
     openSection: String? = null,
 ) {
     // One short list; each part opens in place, below its row (one at a time; back closes it).
-    var page by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(openSection) }
+    // "widget": the account part, scrolled down to the widget button.
+    var page by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(if (openSection == "widget") "account" else openSection) }
     androidx.activity.compose.BackHandler(enabled = page != null) { page = null }
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val scroll = rememberScrollState()
+    if (openSection == "widget") androidx.compose.runtime.LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(300)
+        scroll.animateScrollTo(scroll.maxValue)
+    }
 
     @Composable
     fun Section(key: String) {

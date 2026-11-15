@@ -349,7 +349,10 @@ fun Onboarding(
                                 )
                             }
                         } else Text(
-                            tr("$acorns acorns left. Every activity adds 10; a \"Not now\" adds 2.", "$acorns makkod maradt. Minden tevékenység 10-et ad, egy „Most nem” 2-t."),
+                            tr(
+                                "$acorns acorns left. Acorns buy new things for the camp in the shop. You get them for every activity (${app.tend.core.Acorns.PER_ACTIVITY}), a day within your minutes (${app.tend.core.Acorns.WITHIN_BUDGET}), challenges, and each \"Not now\" (${app.tend.core.Acorns.PER_NOT_NOW}).",
+                                "$acorns makkod maradt. Makkból új tárgyakat veszel a táborba a boltban. Kapsz minden tevékenységért (${app.tend.core.Acorns.PER_ACTIVITY}), ha a kereteden belül maradsz egy nap (${app.tend.core.Acorns.WITHIN_BUDGET}), a kihívásokért és minden „Most nem”-ért (${app.tend.core.Acorns.PER_NOT_NOW}).",
+                            ),
                             style = MaterialTheme.typography.bodyMedium, color = Brand.Muted,
                         )
                         // Once the fire's going: the welcome gift, said plainly, with when it ends.

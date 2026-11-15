@@ -391,6 +391,8 @@ class MainActivity : ComponentActivity() {
         // The camp page's "Challenges": home, with the challenges open.
         var campChallenges by remember { mutableStateOf(false) }
         var settingsSection by remember { mutableStateOf<String?>(null) }
+        // The town tip: the town search, right there.
+        var townTip by remember { mutableStateOf(false) }
         var goodNightAcorns by remember { mutableIntStateOf(0) }
         val goToStep: (app.tend.core.Step) -> Unit = { step ->
             when (step) {
@@ -403,7 +405,7 @@ class MainActivity : ComponentActivity() {
                     if (launch != null && permissions().allGranted) startActivity(launch)
                     else Toast.makeText(this, tr("Open one of your paused apps, then tap \"Not now\".", "Nyisd meg az egyik szüneteltetett appodat, aztán koppints a „Most nem” gombra."), Toast.LENGTH_LONG).show()
                 }
-                app.tend.core.Step.WIDGET -> if (!pinWidget()) screen = Screen.SETTINGS
+                app.tend.core.Step.WIDGET -> if (!pinWidget()) { settingsSection = "widget"; screen = Screen.SETTINGS }
                 app.tend.core.Step.FRIEND, app.tend.core.Step.TOGETHER -> { campInvite = step == app.tend.core.Step.FRIEND; screen = Screen.CLEARING }
                 app.tend.core.Step.THREE_DAYS, app.tend.core.Step.TEN_ACTIVITIES -> { screen = Screen.HOME; activitiesFocus++ }
                 app.tend.core.Step.EARLY_NIGHT -> if (app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour)) screen = Screen.RECAP
@@ -960,8 +962,8 @@ class MainActivity : ComponentActivity() {
                 onCampTip = { tip ->
                     when (tip) {
                         app.tend.core.Tip.MOVE -> screen = Screen.CLEARING
-                        app.tend.core.Tip.WIDGET -> if (!pinWidget()) screen = Screen.SETTINGS
-                        app.tend.core.Tip.TOWN -> screen = Screen.SETTINGS
+                        app.tend.core.Tip.WIDGET -> if (!pinWidget()) { settingsSection = "widget"; screen = Screen.SETTINGS }
+                        app.tend.core.Tip.TOWN -> townTip = true
                         app.tend.core.Tip.PAUSE -> { settingsSection = "apps"; screen = Screen.SETTINGS }
                         app.tend.core.Tip.ACCOUNT -> { settingsSection = "account"; screen = Screen.SETTINGS }
                     }
@@ -1118,6 +1120,13 @@ class MainActivity : ComponentActivity() {
                 androidx.compose.runtime.CompositionLocalProvider(app.tend.ui.LocalCampShare provides app.tend.ui.CampShare(this@SharedTransitionLayout, this@AnimatedContent)) { pageContent(p) }
             }
         }
+        if (townTip) androidx.compose.material3.AlertDialog(
+            onDismissRequest = { townTip = false },
+            title = { androidx.compose.material3.Text(tr("Your town", "A városod")) },
+            text = { androidx.compose.foundation.layout.Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(androidx.compose.ui.unit.Dp(10f))) { app.tend.ui.TownPicker(store.weatherPlace) { onTown(it); townTip = false } } },
+            confirmButton = {},
+            dismissButton = { androidx.compose.material3.TextButton({ townTip = false }) { androidx.compose.material3.Text(tr("Later", "Később")) } },
+        )
     }
 
     private fun strictNo() =
