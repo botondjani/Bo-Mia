@@ -384,17 +384,22 @@ fun HomeScreen(
                     Text(tr("Phone down", "Telefon le"), style = MaterialTheme.typography.titleSmall)
                     Text(tr("Earns minutes too", "Perceket is ad"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
                 }
-                for ((label, d) in listOf("\u2212" to -Tasks.TIMER_STEP)) {
-                    val on = minutes > Tasks.TIMER_MIN
-                    Text(label, style = MaterialTheme.typography.titleLarge, color = if (on) Brand.Moss else Brand.Muted.copy(alpha = 0.4f), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        modifier = Modifier.size(36.dp).clip(CircleShape).background(Brand.Mint.copy(alpha = if (on) 0.25f else 0.1f)).then(if (on) Modifier.tappable { nudge(d) } else Modifier).padding(top = 1.dp))
+                // Minus and plus drawn, not typed: a font's glyphs sit off-centre in a circle.
+                @Composable
+                fun Nudge(plus: Boolean, on: Boolean, onTap: () -> Unit) = Box(
+                    Modifier.size(34.dp).clip(CircleShape).background(Brand.Mint.copy(alpha = if (on) 0.25f else 0.1f)).then(if (on) Modifier.tappable(onClick = onTap) else Modifier),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    androidx.compose.foundation.Canvas(Modifier.size(12.dp)) {
+                        val col = if (on) Brand.Moss else Brand.Muted.copy(alpha = 0.4f)
+                        val w = 2.2.dp.toPx()
+                        drawLine(col, androidx.compose.ui.geometry.Offset(0f, size.height / 2), androidx.compose.ui.geometry.Offset(size.width, size.height / 2), w, androidx.compose.ui.graphics.StrokeCap.Round)
+                        if (plus) drawLine(col, androidx.compose.ui.geometry.Offset(size.width / 2, 0f), androidx.compose.ui.geometry.Offset(size.width / 2, size.height), w, androidx.compose.ui.graphics.StrokeCap.Round)
+                    }
                 }
-                Text(tr("$minutes min", "$minutes perc"), style = MaterialTheme.typography.titleMedium, color = Brand.Moss, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.width(64.dp))
-                run {
-                    val on = minutes < Tasks.TIMER_MAX
-                    Text("+", style = MaterialTheme.typography.titleLarge, color = if (on) Brand.Moss else Brand.Muted.copy(alpha = 0.4f), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        modifier = Modifier.size(36.dp).clip(CircleShape).background(Brand.Mint.copy(alpha = if (on) 0.25f else 0.1f)).then(if (on) Modifier.tappable { nudge(Tasks.TIMER_STEP) } else Modifier).padding(top = 1.dp))
-                }
+                Nudge(false, minutes > Tasks.TIMER_MIN) { nudge(-Tasks.TIMER_STEP) }
+                Text(tr("$minutes min", "$minutes perc"), style = MaterialTheme.typography.titleMedium, color = Brand.Moss, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.width(60.dp))
+                Nudge(true, minutes < Tasks.TIMER_MAX) { nudge(Tasks.TIMER_STEP) }
                 ChipButton(tr("Start", "Indítás"), { onStartFocus(Tasks.timer(minutes)) })
             }
         }
@@ -470,15 +475,21 @@ fun HomeScreen(
         var hubOpen by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
         var friendsOpen by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
         val waiting = app.tend.core.FirstSteps.current(steps).filter { it.claimable }.sumOf { it.step.acorns } + (quest?.takeIf { questDone && !questClaimed }?.acorns ?: 0)
-        HubButtons(waiting, friendsToday.size, onChallenges = {
-            // Acorns waiting: tapped, they're taken at once (the list opens when there's nothing to take).
-            if (waiting == 0) hubOpen = true
-            else {
-                app.tend.core.FirstSteps.current(steps).filter { it.claimable }.forEach { onClaimStep(it.step) }
-                if (quest != null && questDone && !questClaimed) onClaimQuest()
-                app.tend.ui.Sounds.acorns(context)
-            }
-        }, onFriends = { friendsOpen = true })
+        var claimed by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
+        var claimKey by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
+        Box(Modifier.fillMaxWidth()) {
+            HubButtons(waiting, friendsToday.size, onChallenges = {
+                // Acorns waiting: tapped, they're taken at once (the list opens when there's nothing to take).
+                if (waiting == 0) hubOpen = true
+                else {
+                    app.tend.core.FirstSteps.current(steps).filter { it.claimable }.forEach { onClaimStep(it.step) }
+                    if (quest != null && questDone && !questClaimed) onClaimQuest()
+                    app.tend.ui.Sounds.acorns(context)
+                    claimed = waiting; claimKey++
+                }
+            }, onFriends = { friendsOpen = true })
+            AcornsClaimed(claimed, claimKey, Modifier.align(Alignment.CenterStart).fillMaxWidth(0.5f))
+        }
         if (hubOpen) ChallengesSheet(
             steps, onClaimStep, { step -> hubOpen = false; onStep(step) }, quest, questDone, questClaimed, onClaimQuest,
             level, challenge, { hubOpen = false; onOpenInsights() },
@@ -811,7 +822,7 @@ internal fun TaskRow(
     modifier: Modifier = Modifier,
 ) = Column(
     modifier.fillMaxWidth().graphicsLayer { alpha = if (task.id in day.completedTasks) 0.55f else 1f }
-        .surface().padding(horizontal = 16.dp, vertical = 14.dp),
+        .surface().padding(horizontal = 14.dp, vertical = 10.dp),
     verticalArrangement = Arrangement.Center,
 ) {
     val done = task.id in day.completedTasks
@@ -822,10 +833,10 @@ internal fun TaskRow(
     val estimated = task.id == Tasks.SLEEP.id && sleepEstimated
     val measured = !(workoutTimer && !exerciseTracked) && task.verification == Verification.AUTOMATIC && (health == HealthConnect.Status.READY || estimated)
     Row(verticalAlignment = Alignment.CenterVertically) {
-        if (done) Box(Modifier.size(44.dp).clip(CircleShape).background(Brand.Moss), contentAlignment = Alignment.Center) {
-            Icon(Icons.Filled.Check, tr("Done", "Kész"), tint = Color.White, modifier = Modifier.size(22.dp))
-        } else TendIcons.Badge(task.icon)
-        Spacer(Modifier.width(14.dp))
+        if (done) Box(Modifier.size(38.dp).clip(CircleShape).background(Brand.Moss), contentAlignment = Alignment.Center) {
+            Icon(Icons.Filled.Check, tr("Done", "Kész"), tint = Color.White, modifier = Modifier.size(20.dp))
+        } else TendIcons.Badge(task.icon, 38.dp)
+        Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 task.title, style = MaterialTheme.typography.bodyLarge, color = if (done) Brand.Muted else Brand.Ink,
@@ -853,7 +864,7 @@ internal fun TaskRow(
         }
         Spacer(Modifier.width(8.dp))
         // What it gives, then the button: the reward always in the same place, in the same words.
-        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             if (!done && task.rewardMinutes > 0) Text(
                 tr("+${task.rewardMinutes} min", "+${task.rewardMinutes} perc"),
                 style = MaterialTheme.typography.titleSmall, color = Brand.Moss,

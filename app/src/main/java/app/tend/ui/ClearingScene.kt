@@ -1919,8 +1919,36 @@ private fun DrawScope.buildFire(p: Offset, from: Offset, u: Float, t: Float, lig
     if (tuck > 0f) for (i in -1..1) drawLine(BarkDark.copy(alpha = tuck), c + Offset(i * u * 0.014f, -u * 0.002f), c + Offset(i * u * 0.014f + u * 0.008f, -u * 0.012f * tuck), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
     // The spark, then the flame.
     sparkles(c + Offset(0f, -u * 0.014f), u, seg(0.58f, 0.72f))
-    val flame = ease(seg(0.66f, 1f))
-    if (flame > 0f) campfire(p, u, lights, flame = flame, logs = false)
+    // It catches with a whoosh: a warm flash, a ring of light over the ground, embers flying up,
+    // and the flame shooting up taller before it settles.
+    val catchAt = seg(0.64f, 1f)
+    if (catchAt > 0f) {
+        val f = c + Offset(0f, -u * 0.02f)
+        val flash = (if (catchAt < 0.12f) catchAt / 0.12f else (1f - (catchAt - 0.12f) / 0.5f)).coerceIn(0f, 1f)
+        if (flash > 0f) drawCircle(
+            androidx.compose.ui.graphics.Brush.radialGradient(listOf(Color(0xFFFFF0C0).copy(alpha = 0.9f * flash), Color(0xFFFFB35C).copy(alpha = 0.4f * flash), Color.Transparent), f, u * 0.3f),
+            u * 0.3f, f,
+        )
+        val ring = seg(0.66f, 0.86f)
+        if (ring > 0f && ring < 1f) drawOval(
+            Color(0xFFFFD27A).copy(alpha = 0.8f * (1f - ring)),
+            Offset(c.x - u * 0.2f * ring, c.y - u * 0.06f * ring), Size(u * 0.4f * ring, u * 0.12f * ring),
+            style = Stroke(u * 0.012f * (1f - ring) + u * 0.002f),
+        )
+        val fly = seg(0.66f, 0.98f)
+        if (fly > 0f && fly < 1f) for (i in 0 until 22) {
+            val a = -Math.PI.toFloat() / 2 + ((i * 0.618f) % 1f - 0.5f) * 2.4f
+            val speed = u * (0.22f + 0.2f * ((i * 0.37f) % 1f))
+            val k = (fly * (1.1f - 0.2f * ((i * 0.53f) % 1f))).coerceAtMost(1f)
+            val e = Offset(f.x + kotlin.math.cos(a) * speed * k, f.y + kotlin.math.sin(a) * speed * k + u * 0.18f * k * k)
+            val col = if (i % 3 == 0) Color(0xFFFFE7A3) else Color(0xFFFF9A4A)
+            drawCircle(col.copy(alpha = (1f - k * k).coerceIn(0f, 1f)), u * (0.006f + 0.004f * (i % 2)) * (1f - 0.4f * k), e)
+        }
+    }
+    val grow = seg(0.66f, 1f)
+    // Up past full size, then back: 0 → 1.4 → 1.
+    val flame = if (grow < 0.35f) ease(grow / 0.35f) * 1.4f else 1.4f - 0.4f * ease((grow - 0.35f) / 0.65f)
+    if (grow > 0f) campfire(p, u, lights, flame = flame, logs = false)
 }
 
 private fun DrawScope.campfire(p: Offset, u: Float, lights: MutableList<Light>, flame: Float = 1f, logs: Boolean = true) {
@@ -1930,7 +1958,7 @@ private fun DrawScope.campfire(p: Offset, u: Float, lights: MutableList<Light>, 
         drawLine(Bark, c + Offset(-u * 0.035f, -u * 0.01f), c + Offset(u * 0.035f, u * 0.006f), strokeWidth = u * 0.012f, cap = StrokeCap.Round)
     }
     val f = c + Offset(0f, -u * 0.006f)
-    if (flame < 1f) { scale(flame, pivot = f) { campfire(p, u, mutableListOf(), flame = 1f, logs = false) }; lights += Light(f + Offset(0f, -u * 0.02f), u * 0.16f * flame, flame); return }
+    if (flame != 1f) { scale(flame, pivot = f) { campfire(p, u, mutableListOf(), flame = 1f, logs = false) }; lights += Light(f + Offset(0f, -u * 0.02f), u * 0.16f * flame, flame.coerceAtMost(1f)); return }
     drawPath(Path().apply { moveTo(f.x - u * 0.022f, f.y); quadraticTo(f.x - u * 0.024f, f.y - u * 0.035f, f.x - u * 0.004f, f.y - u * 0.062f); quadraticTo(f.x + u * 0.004f, f.y - u * 0.04f, f.x + u * 0.01f, f.y - u * 0.05f); quadraticTo(f.x + u * 0.026f, f.y - u * 0.025f, f.x + u * 0.022f, f.y); close() }, Flame)
     drawPath(Path().apply { moveTo(f.x - u * 0.011f, f.y); quadraticTo(f.x - u * 0.01f, f.y - u * 0.022f, f.x, f.y - u * 0.036f); quadraticTo(f.x + u * 0.012f, f.y - u * 0.018f, f.x + u * 0.011f, f.y); close() }, FlameCore)
     // A wisp of smoke.

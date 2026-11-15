@@ -87,6 +87,9 @@ object Sounds {
     /** Acorns claimed: a few soft wooden taps, like acorns dropping into a pouch. */
     fun acorns(c: Context) { if (on(c, Kind.LITTLE)) play("acorns", false) { acornDrops() } }
 
+    /** The campfire catching. */
+    fun ignite(c: Context) { if (on(c, Kind.LITTLE)) play("whoosh", false) { whoosh() } }
+
     fun stop() = worker.execute { main?.runCatching { stop(); release() }; main = null }
 
     private fun play(key: String, isMain: Boolean, make: () -> ShortArray) = worker.execute {
@@ -266,15 +269,37 @@ object Sounds {
     }
 
     /** Three small wooden taps, quick and soft, rising and falling a little. */
+    /** Acorns into the pouch: three soft wooden notes going up (a marimba's C, E, G), then a small bell on top. */
     private fun acornDrops(): ShortArray {
-        val out = buffer(0.42f)
-        for ((at, f) in listOf(0.0 to 1250.0, 0.085 to 1480.0, 0.16 to 1180.0)) {
+        val out = buffer(0.9f)
+        fun hit(at: Double, f: Double, amp: Double, decay: Double) {
             val start = (at * RATE).toInt()
-            for (k in 0 until (RATE * 0.12f).toInt()) {
+            for (k in 0 until (RATE * 0.6f).toInt()) {
                 if (start + k >= out.size) break
                 val t = k.toDouble() / RATE
-                out[start + k] += ((sin(2 * PI * f * t) * exp(-t / 0.016) + sin(2 * PI * f * 0.5 * t) * exp(-t / 0.03) * 0.4) * 0.28).toFloat()
+                val attack = minOf(1.0, t / 0.003)
+                out[start + k] += (attack * (sin(2 * PI * f * t) * exp(-t / decay) + sin(2 * PI * f * 4 * t) * exp(-t / 0.012) * 0.25 + sin(2 * PI * f * 2.76 * t) * exp(-t / (decay * 0.3)) * 0.12) * amp).toFloat()
             }
+        }
+        hit(0.0, 523.25, 0.26, 0.09)
+        hit(0.075, 659.25, 0.26, 0.09)
+        hit(0.15, 783.99, 0.26, 0.1)
+        hit(0.25, 1046.5, 0.2, 0.28)
+        return toPcm(out)
+    }
+
+    /** The fire catching: a soft rush of air rising, with a low thump under it. */
+    private fun whoosh(): ShortArray {
+        val out = buffer(0.9f)
+        val rnd = java.util.Random(5)
+        var lp = 0.0
+        for (k in out.indices) {
+            val t = k.toDouble() / RATE
+            val env = if (t < 0.18) t / 0.18 else exp(-(t - 0.18) / 0.22)
+            val cut = 0.04 + 0.12 * minOf(1.0, t / 0.2) // opens up as it rises
+            lp += (rnd.nextDouble() * 2 - 1 - lp) * cut
+            val thump = sin(2 * PI * 85 * t) * exp(-t / 0.12) * minOf(1.0, t / 0.01)
+            out[k] = ((lp * 1.6 * env) + thump * 0.35).toFloat() * 0.6f
         }
         return toPcm(out)
     }

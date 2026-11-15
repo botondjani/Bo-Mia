@@ -203,3 +203,42 @@ fun HoldToConfirm(label: String, modifier: Modifier = Modifier, seconds: Float =
  */
 @Composable
 fun Modifier.sheetBody(height: Float = 0.82f): Modifier = this.fillMaxHeight(height).verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = Space.xl)
+
+/**
+ * Acorns just taken: a small "+N acorns" pill popping up over where it was tapped, with a few acorns
+ * hopping out, then fading away. Shown again each time [key] changes (with [amount] > 0).
+ */
+@Composable
+fun AcornsClaimed(amount: Int, key: Int, modifier: Modifier = Modifier) {
+    if (amount <= 0 || key == 0) return
+    val t = remember(key) { androidx.compose.animation.core.Animatable(0f) }
+    androidx.compose.runtime.LaunchedEffect(key) { t.animateTo(1f, androidx.compose.animation.core.tween(1800, easing = androidx.compose.animation.core.LinearEasing)) }
+    val p = t.value
+    if (p >= 1f) return
+    Box(modifier, contentAlignment = Alignment.Center) {
+        // The acorns hop out in arcs and fall away.
+        for (i in 0 until 5) {
+            val k = (p / 0.6f).coerceIn(0f, 1f)
+            val dx = (i - 2) * 26f * k
+            val dy = -70f * k + 90f * k * k
+            Box(Modifier.graphicsLayer {
+                translationX = dx * density; translationY = dy * density
+                alpha = (1f - k); rotationZ = (i - 2) * 30f * k
+            }) { AcornIcon(18.dp) }
+        }
+        val pop = if (p < 0.15f) 0.6f + 0.5f * (p / 0.15f) else if (p < 0.25f) 1.1f - 0.1f * ((p - 0.15f) / 0.1f) else 1f
+        Row(
+            Modifier.graphicsLayer {
+                scaleX = pop; scaleY = pop
+                translationY = -34f * density * kotlin.math.min(1f, p / 0.25f) - 10f * density * p
+                alpha = if (p > 0.75f) 1f - (p - 0.75f) / 0.25f else 1f
+            }.shadow(6.dp, RoundedCornerShape(50)).clip(RoundedCornerShape(50)).background(Brand.Card).padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AcornIcon(16.dp)
+            Spacer(Modifier.width(6.dp))
+            Text(tr("+$amount acorns", "+$amount makk"), style = MaterialTheme.typography.titleSmall, color = Brand.Moss)
+            Text(" ✓", style = MaterialTheme.typography.titleSmall, color = Brand.Moss)
+        }
+    }
+}

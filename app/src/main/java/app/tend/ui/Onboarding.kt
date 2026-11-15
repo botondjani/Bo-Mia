@@ -306,11 +306,11 @@ fun Onboarding(
                         Says(avatar,
                             tr("Your camp", "A táborod"),
                             when {
-                                !lit -> tr("This is where ${avatar.displayName} will live. It's empty for now: start with a campfire.", "Itt fog élni ${avatar.displayName}. Egyelőre üres: kezdd egy tábortűzzel.")
-                                !roasting -> tr("Lovely. Now tap the fire.", "Szép. Most koppints a tűzre.")
-                                else -> tr("${avatar.displayName} uses everything you get, even when you're away. Activities and \"Not now\" earn acorns for more; hold a thing to move it anywhere.", "${avatar.displayName} mindent használ, amit szerzel, akkor is, ha nem vagy itt. A tevékenységek és a „Most nem” makkot hoznak újabb dolgokra; ha nyomva tartasz egy tárgyat, bárhová átteheted.")
+                                !lit -> tr("This is where ${avatar.displayName} will live. Start with a campfire.", "Itt fog élni ${avatar.displayName}. Kezdd egy tábortűzzel.")
+                                !roasting -> tr("Lovely! Now tap the fire.", "Szép! Most koppints a tűzre.")
+                                else -> tr("${avatar.displayName} uses everything you get. Hold a thing to move it.", "${avatar.displayName} mindent használ, amit szerzel. Egy tárgyat nyomva tartva átteheted.")
                             },
-                            figure = 0.dp,
+                            figure = 0.dp, smallLines = 2,
                         )
                         val appear = rememberAppear(placed)
                         val fireBuild = rememberFireBuild(placed)
@@ -348,13 +348,7 @@ fun Onboarding(
                                     style = MaterialTheme.typography.bodyMedium, color = Brand.Muted, modifier = Modifier.weight(2f).align(Alignment.CenterVertically),
                                 )
                             }
-                        } else Text(
-                            tr(
-                                "$acorns acorns left. Acorns buy new things for the camp in the shop. You get them for every activity (${app.tend.core.Acorns.PER_ACTIVITY}), a day within your minutes (${app.tend.core.Acorns.WITHIN_BUDGET}), challenges, and each \"Not now\" (${app.tend.core.Acorns.PER_NOT_NOW}).",
-                                "$acorns makkod maradt. Makkból új tárgyakat veszel a táborba a boltban. Kapsz minden tevékenységért (${app.tend.core.Acorns.PER_ACTIVITY}), ha a kereteden belül maradsz egy nap (${app.tend.core.Acorns.WITHIN_BUDGET}), a kihívásokért és minden „Most nem”-ért (${app.tend.core.Acorns.PER_NOT_NOW}).",
-                            ),
-                            style = MaterialTheme.typography.bodyMedium, color = Brand.Muted,
-                        )
+                        } else AcornWays()
                         // Once the fire's going: the welcome gift, said plainly, with when it ends.
                         if (roasting) Row(
                             Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Brand.Coral.copy(alpha = 0.12f)).padding(14.dp),
@@ -868,7 +862,7 @@ fun LimitedModeDialog(p: Permissions, onConfirm: () -> Unit, onDismiss: () -> Un
 
 /** The companion, big, saying it: a line (and a smaller one under it) in a speech bubble. */
 @Composable
-private fun Says(avatar: Avatar, line: String, small: String? = null, figure: Dp = 110.dp) = Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+private fun Says(avatar: Avatar, line: String, small: String? = null, figure: Dp = 110.dp, smallLines: Int = 1) = Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
     // No figure (the camp shows the companion itself): just the bubble.
     if (figure > 0.dp) {
         BobbingCharacter(avatar, Mood.HAPPY, figure)
@@ -879,7 +873,33 @@ private fun Says(avatar: Avatar, line: String, small: String? = null, figure: Dp
     }
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Brand.Card).padding(horizontal = 18.dp, vertical = 14.dp)) {
         Text(line, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-        small?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Brand.Muted, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) }
+        small?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Brand.Muted, textAlign = TextAlign.Center, minLines = smallLines, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) }
+    }
+}
+
+/** Where acorns come from, at a glance: three small tiles, each a picture and what it gives. */
+@Composable
+private fun AcornWays() = Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        AcornIcon(14.dp)
+        Spacer(Modifier.width(6.dp))
+        Text(tr("ACORNS BUY THINGS FOR THE CAMP", "MAKKBÓL ÚJ TÁRGYAK A TÁBORBA"), style = MaterialTheme.typography.labelSmall)
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf(
+            Triple("workout", "+${app.tend.core.Acorns.PER_ACTIVITY}", tr("an activity", "tevékenység")),
+            Triple("hourglass", "+${app.tend.core.Acorns.WITHIN_BUDGET}", tr("within budget", "kereten belül")),
+            Triple("face_yes", "+${app.tend.core.Acorns.PER_NOT_NOW}", tr("\"Not now\"", "„Most nem”")),
+        ).forEach { (icon, plus, what) ->
+            Column(
+                Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(Brand.Card).padding(vertical = 10.dp, horizontal = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                TendIcons.Badge(icon, 30.dp)
+                Text(plus, style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
+                Text(what, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, textAlign = TextAlign.Center, maxLines = 1)
+            }
+        }
     }
 }
 

@@ -677,6 +677,8 @@ fun ClearingScreen(
     // animation; they take whatever height is left, so the page fills the screen without scrolling.
     run {
         val waiting = app.tend.core.FirstSteps.current(steps).filter { it.claimable }.sumOf { it.step.acorns }
+        var claimed by remember { mutableIntStateOf(0) }
+        var claimKey by remember { mutableIntStateOf(0) }
         val density = androidx.compose.ui.platform.LocalDensity.current
         val free = with(density) { (pageH - hubTop - Space.xxl.toPx()).toDp() }
         val tileH = 68.dp
@@ -684,13 +686,15 @@ fun ClearingScreen(
         val rest = (free - tileH * 2 - 10.dp - Space.m * 2 - 14.dp - 6.dp).coerceAtLeast(0.dp)
         // Where they start on the page (not on screen: scrolling doesn't change it).
         Column(Modifier.fillMaxWidth().onGloballyPositioned { hubTop = (it.positionInRoot().y - pageTop).toInt() + scroll.value }, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box { Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 HubTile("challenges", tr("Challenges", "Kihívások"), if (waiting > 0) tr("$waiting acorns waiting", "$waiting makk vár") else tr("Quests and goals", "Küldetések, célok"), waiting > 0, Modifier.weight(1f).height(tileH)) {
                     // Acorns waiting: tapped, they're taken at once (the list opens when there's nothing to take).
                     val ready = app.tend.core.FirstSteps.current(steps).filter { it.claimable }
-                    if (ready.isEmpty()) onOpenChallenges() else { ready.forEach { onClaimStep(it.step) }; Sounds.acorns(context) }
+                    if (ready.isEmpty()) onOpenChallenges() else { ready.forEach { onClaimStep(it.step) }; Sounds.acorns(context); claimed = waiting; claimKey++ }
                 }
                 HubTile("guestbook", tr("Guestbook", "Vendégkönyv"), "${guestbook.size} / ${app.tend.core.Visitor.entries.size}", false, Modifier.weight(1f).height(tileH), visitor = guestbook.keys.firstOrNull()) { bookOpen = true }
+            }
+                AcornsClaimed(claimed, claimKey, Modifier.align(Alignment.CenterStart).fillMaxWidth(0.5f))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 HubTile("things", tr("Things", "Holmik"), tr("${placed.size + chest.size} things", "${placed.size + chest.size} tárgy"), false, Modifier.weight(1f).height(tileH)) { chestOpen = true }

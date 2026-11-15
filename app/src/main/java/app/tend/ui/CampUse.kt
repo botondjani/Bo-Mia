@@ -1025,7 +1025,7 @@ fun rememberFireBuild(placed: Map<Int, String>): Float? {
         kotlinx.coroutines.delay(500)
         Sounds.place(context)
         launch { kotlinx.coroutines.delay(950); Sounds.place(context) }
-        launch { kotlinx.coroutines.delay(2300); Sounds.forUse(context, "campfire") }
+        launch { kotlinx.coroutines.delay(2780); Sounds.ignite(context); kotlinx.coroutines.delay(500); Sounds.forUse(context, "campfire") }
         anim.animateTo(1f, androidx.compose.animation.core.tween(3600, easing = androidx.compose.animation.core.LinearEasing))
         building = false
     }
