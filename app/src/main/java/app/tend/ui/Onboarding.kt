@@ -215,8 +215,23 @@ fun Onboarding(
                     // The most used, in that order, and nothing else: picking doesn't move them (ones found by search are counted below).
                     val tiles = catalog.suggested.take(8)
                     if (tiles.isNotEmpty()) AppGrid(catalog, tiles, blocked, onToggleApp)
-                    val hidden = blocked.count { b -> tiles.none { it.pkg == b } }
-                    if (hidden > 0) Text(tr("And $hidden more picked", "És még $hidden kiválasztva"), style = MaterialTheme.typography.bodyMedium, color = Brand.Muted)
+                    // Picked from the search: shown under the tiles with their icons (tap to take one off).
+                    val hidden = blocked.filter { b -> tiles.none { it.pkg == b } }
+                    if (hidden.isNotEmpty()) androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        hidden.forEach { pkg ->
+                            Row(
+                                Modifier.clip(RoundedCornerShape(50)).background(Brand.Mint.copy(alpha = 0.35f)).border(1.5.dp, Brand.Moss, RoundedCornerShape(50))
+                                    .clickable { onToggleApp(pkg) }.padding(start = 6.dp, end = 10.dp, top = 5.dp, bottom = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                AppIcon(catalog, pkg, 24.dp)
+                                Spacer(Modifier.width(6.dp))
+                                Text(catalog.label(pkg), style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), maxLines = 1)
+                                Spacer(Modifier.width(6.dp))
+                                Text("\u00D7", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
+                            }
+                        }
+                    }
                     var searching by rememberSaveable { mutableStateOf(false) }
                     LinkText(tr("Another app…", "Másik app…"), { searching = true })
                     if (searching) AppSearch(catalog, blocked, onToggleApp) { searching = false }

@@ -146,10 +146,21 @@ fun AccountCard(onChanged: () -> Unit, onRestored: () -> Unit = {}, onSignedIn: 
 
     found?.let { saved ->
         val date = runCatching { java.time.OffsetDateTime.parse(saved.updatedAt).toLocalDate().toString() }.getOrDefault("")
+        // What's in the backup, so it's clear what "Keep this phone's" would throw away.
+        val prefs = saved.data.optJSONObject("prefs")
+        fun pref(key: String) = prefs?.optJSONObject(key)?.opt("v")
+        val things = (pref("placed") as? String).orEmpty().split(',').count { it.contains(':') } + (pref("chest") as? String).orEmpty().split(',').count { it.isNotBlank() }
+        val acorns = (pref("acorns") as? Number)?.toInt() ?: 0
+        var sure by androidx.compose.runtime.remember { mutableStateOf(false) }
         androidx.compose.material3.AlertDialog(
             onDismissRequest = {},
-            title = { Text(tr("Restore your camp?", "Visszaállítod a táborod?")) },
-            text = { Text(tr("There's a backup from $date. Restoring replaces what's on this phone with it. Keeping this phone's data replaces the backup instead.", "Van egy mentés ekkorról: $date. A visszaállítás lecseréli vele azt, ami ezen a telefonon van. Ha a telefon adatait tartod meg, az írja felül a mentést.")) },
+            title = { Text(if (sure) tr("Replace the backup?", "Felülírod a mentést?") else tr("Restore your camp?", "Visszaállítod a táborod?")) },
+            text = {
+                Text(
+                    if (sure) tr("The camp in the backup ($things things, $acorns acorns) will be gone for good.", "A mentett tábor ($things tárgy, $acorns makk) végleg elvész.")
+                    else tr("There's a backup from $date: $things things, $acorns acorns. Restoring brings it to this phone.", "Van egy mentésed ($date): $things tárgy, $acorns makk. A visszaállítás ezt hozza vissza erre a telefonra."),
+                )
+            },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     found = null
@@ -159,9 +170,11 @@ fun AccountCard(onChanged: () -> Unit, onRestored: () -> Unit = {}, onSignedIn: 
             },
             dismissButton = {
                 androidx.compose.material3.TextButton(onClick = {
+                    // Twice: the first tap only asks again.
+                    if (!sure) { sure = true; return@TextButton }
                     found = null
                     scope.launch { if (app.tend.data.Backup.upload(context)) lastBackup = app.tend.data.Backup.lastBackupAt(context); onSignedIn() }
-                }) { Text(tr("Keep this phone's", "A telefoné marad")) }
+                }) { Text(if (sure) tr("Yes, replace it", "Igen, felülírom") else tr("Keep this phone's", "A telefoné marad"), color = if (sure) Brand.Coral else Brand.Muted) }
             },
             containerColor = Brand.Card,
         )
