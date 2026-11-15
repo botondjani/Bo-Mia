@@ -105,6 +105,9 @@ fun SettingsScreen(
     appSecondsToday: Map<String, Long> = emptyMap(),
     /** Sets or (null) removes an app's own limit. */
     onAppLimit: (String, Int?) -> Unit = { _, _ -> },
+    /** Apps with a pause before they open (the rest just count), and turning it on or off for one. */
+    pauseApps: Set<String> = emptySet(),
+    onPauseApp: (String, Boolean) -> Unit = { _, _ -> },
     strict: Boolean = false,
     /** Strict mode was turned off and ends then (epoch ms); 0 = it isn't ending. */
     strictEndsAt: Long = 0,
@@ -123,9 +126,11 @@ fun SettingsScreen(
     aboutYou: @Composable () -> Unit = {},
     townName: String? = null,
     onDone: () -> Unit,
+    /** Open on this part (e.g. "apps"), not the list. */
+    openSection: String? = null,
 ) {
     // One short list; each part opens in place, below its row (one at a time; back closes it).
-    var page by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    var page by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(openSection) }
     androidx.activity.compose.BackHandler(enabled = page != null) { page = null }
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val scroll = rememberScrollState()
@@ -136,7 +141,7 @@ fun SettingsScreen(
         "companion" -> CompanionPicker(avatar, onAvatar, compact = true)
         // The apps, each with its own limit, in one list; the full picker opens below it.
         "apps" -> {
-            AppsCard(catalog, blocked, onToggleApp, appLimits, appSecondsToday, strict, plus, onAppLimit) { onPlus(PlusFrom.APP_LIMITS) }
+            AppsCard(catalog, blocked, onToggleApp, appLimits, appSecondsToday, strict, plus, onAppLimit, pauseApps, onPauseApp) { onPlus(PlusFrom.APP_LIMITS) }
             // The accessibility service ships in the Play build only (Play Protect blocks side-loaded apps that have one).
             if (app.tend.BuildConfig.PLAY) ShortsGuardCard(plus) { onPlus(PlusFrom.SETTINGS) }
         }
@@ -494,16 +499,16 @@ fun breakEnd(until: Long): String {
 @Composable
 private fun AppsCard(
     catalog: AppCatalog, blocked: Set<String>, onToggleApp: (String) -> Unit, limits: Map<String, Int>, secondsToday: Map<String, Long>, strict: Boolean,
-    plus: Boolean, onAppLimit: (String, Int?) -> Unit, onPlus: () -> Unit,
+    plus: Boolean, onAppLimit: (String, Int?) -> Unit, pauseApps: Set<String>, onPauseApp: (String, Boolean) -> Unit, onPlus: () -> Unit,
 ) = Card {
     var editing by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf<String?>(null) }
     var picking by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(blocked.isEmpty()) }
-    if (blocked.isNotEmpty()) Text(tr("Tap one to give it its own minutes a day.", "Koppints egyre, és saját napi perceket adhatsz neki."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+    if (blocked.isNotEmpty()) Text(tr("Their time comes off your daily minutes. Tap one for a pause before it opens, or its own minutes a day.", "Az idejük a napi keretedből fogy. Koppints egyre: kérhetsz szünetet megnyitás előtt, vagy saját napi perceket."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
     blocked.sortedBy { catalog.label(it).lowercase() }.forEach { pkg ->
         val limit = limits[pkg]
         val used = ((secondsToday[pkg] ?: 0L) / 60).toInt()
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tappable { if (plus) editing = pkg else onPlus() }.padding(vertical = 4.dp),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tappable { editing = pkg }.padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val icon = remember(pkg) { catalog.icon(pkg) }
@@ -512,13 +517,13 @@ private fun AppsCard(
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(catalog.label(pkg), style = MaterialTheme.typography.bodyLarge, maxLines = 1)
+                if (strict || pkg in pauseApps) Text(tr("Pause before it opens", "Szünet megnyitás előtt"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Moss)
                 if (limit != null) Text(
                     if (used >= limit) tr("Used up today", "Mára elfogyott") else tr("${limit - used} of $limit min left today", "Ma még ${limit - used} perc a $limit percből"),
                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = if (used >= limit) Brand.Coral else Brand.Muted,
                 )
             }
-            if (!plus) PlusMark()
-            else Text(
+            if (plus || limit != null) Text(
                 limit?.let { tr("$it min", "$it perc") } ?: tr("No limit", "Nincs limit"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), color = if (limit != null) Color.White else Brand.Moss,
                 modifier = Modifier.clip(RoundedCornerShape(50)).background(if (limit != null) Brand.Moss else Brand.Sage).padding(horizontal = 10.dp, vertical = 4.dp),
             )
@@ -539,7 +544,17 @@ private fun AppsCard(
             title = { Text(catalog.label(pkg)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // A short pause before each open: asked for app by app (always on in strict mode).
+                    SwitchRow(
+                        tr("Pause before it opens", "Szünet megnyitás előtt"),
+                        if (strict) tr("Always on in strict mode.", "Szigorú módban mindig be van kapcsolva.") else tr("A few seconds first: often enough to change your mind.", "Előtte pár másodperc szünet: sokszor ennyi is elég, hogy meggondold."),
+                        strict || pkg in pauseApps,
+                    ) { on -> if (!strict) onPauseApp(pkg, on) }
                     Text(tr("Minutes a day, at most:", "Naponta legfeljebb ennyi perc:"), style = MaterialTheme.typography.bodyMedium)
+                    if (!plus) Row(Modifier.clip(RoundedCornerShape(12.dp)).tappable { editing = null; onPlus() }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(tr("Own limits for each app come with Plus ", "Appok saját limitje a Plusszal "), style = MaterialTheme.typography.bodyMedium); PlusMark()
+                    }
+                    else {
                     // Strict mode: only tighter.
                     val options = listOf<Int?>(null, 10, 15, 20, 30, 45, 60, 90)
                     options.chunked(4).forEach { row ->
@@ -557,6 +572,7 @@ private fun AppsCard(
                         }
                     }
                     if (strict) Text(tr("Strict mode is on: a limit can only get tighter.", "Szigorú mód van: a limitet csak szigorítani lehet."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+                    }
                 }
             },
             confirmButton = { androidx.compose.material3.TextButton(onClick = { editing = null }) { Text(tr("Done", "Kész"), color = Brand.Moss) } },
@@ -573,7 +589,7 @@ private fun StrictRow(strict: Boolean, endsAt: Long, onStrict: (Boolean) -> Unit
         when {
             endsAt > 0 -> tr("Turned off: it ends at midnight.", "Kikapcsoltad: éjfélkor ér véget.")
             strict -> tr("On. Turning it off takes effect tomorrow.", "Bekapcsolva. Ha kikapcsolod, holnaptól érvényes.")
-            else -> tr("No skipping the wait to reply, no 5 minutes for acorns, no waking the apps, no breaks; limits only get tighter.", "Nincs várakozás nélküli válaszolás, nincs 5 perc makkért, nincs appébresztés, nincs szünet; a limitek csak szigorodhatnak.")
+            else -> tr("A pause before every picked app; no quick looks, no 5 minutes for acorns, no waking the apps, no breaks; limits only get tighter.", "Szünet minden kiválasztott app előtt; nincs gyors belesés, nincs 5 perc makkért, nincs appébresztés, nincs szünetnap; a limitek csak szigorodhatnak.")
         },
         strict && endsAt == 0L, onStrict,
     )

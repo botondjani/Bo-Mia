@@ -390,6 +390,7 @@ class MainActivity : ComponentActivity() {
         var activitiesFocus by remember { mutableIntStateOf(0) }
         // The camp page's "Challenges": home, with the challenges open.
         var campChallenges by remember { mutableStateOf(false) }
+        var settingsSection by remember { mutableStateOf<String?>(null) }
         var goodNightAcorns by remember { mutableIntStateOf(0) }
         val goToStep: (app.tend.core.Step) -> Unit = { step ->
             when (step) {
@@ -661,6 +662,8 @@ class MainActivity : ComponentActivity() {
                 appLimits = store.appLimits,
                 appSecondsToday = store.appSecondsToday(),
                 onAppLimit = { pkg, m -> if (store.setAppLimit(pkg, m)) refresh++ else strictNo() },
+                pauseApps = store.pauseApps,
+                onPauseApp = { pkg, on -> store.pauseApps = if (on) store.pauseApps + pkg else store.pauseApps - pkg; refresh++ },
                 strict = store.isStrict,
                 strictEndsAt = store.strictEndsAt,
                 onStrict = { store.setStrict(it); refresh++ },
@@ -673,7 +676,8 @@ class MainActivity : ComponentActivity() {
                 aboutYou = aboutYou,
                 townName = store.weatherPlace?.name,
                 onPeek = { store.peekOn = it; refresh++ },
-                onDone = { screen = Screen.HOME },
+                onDone = { settingsSection = null; screen = Screen.HOME },
+                openSection = settingsSection,
             )
 
             p == "PLUS" -> app.tend.ui.PlusScreen(
@@ -948,6 +952,7 @@ class MainActivity : ComponentActivity() {
                         if (store.layout.isEmpty() && store.placed.values.any { id -> app.tend.core.Things.byId(id)?.let(app.tend.core.Clearing::movable) == true }) add(app.tend.core.Tip.MOVE)
                         if (widgetPlaced() == false) add(app.tend.core.Tip.WIDGET)
                         if (store.weatherPlace == null) add(app.tend.core.Tip.TOWN)
+                        if (store.pauseApps.isEmpty() && !store.isStrict) add(app.tend.core.Tip.PAUSE)
                     })
                 },
                 onCampTip = { tip ->
@@ -955,6 +960,7 @@ class MainActivity : ComponentActivity() {
                         app.tend.core.Tip.MOVE -> screen = Screen.CLEARING
                         app.tend.core.Tip.WIDGET -> if (!pinWidget()) screen = Screen.SETTINGS
                         app.tend.core.Tip.TOWN -> screen = Screen.SETTINGS
+                        app.tend.core.Tip.PAUSE -> { settingsSection = "apps"; screen = Screen.SETTINGS }
                     }
                 },
                 camp = {
@@ -1040,6 +1046,8 @@ class MainActivity : ComponentActivity() {
                 onTimerMinutes = { store.focusTimerMinutes = it },
                 signedIn = app.tend.data.Account.user(this@MainActivity) != null,
                 onOpenAccount = { screen = Screen.SETTINGS },
+                pauseSuggested = store.pauseApps.isEmpty() && !store.isStrict,
+                onPauseSetup = { settingsSection = "apps"; screen = Screen.SETTINGS },
                 exerciseTracked = store.exerciseTracked,
                 sleepEstimated = store.sleepEstimatedOn == LocalDate.now().toString(),
                 brokenTimer = Tasks.presets.firstOrNull { it.id == store.timerBroken },

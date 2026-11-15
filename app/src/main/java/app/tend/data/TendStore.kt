@@ -330,6 +330,14 @@ class TendStore(private val context: Context) {
         }
         set(v) = edit { putString("placed", app.tend.core.Clearing.format(v)) }
 
+    /** Picked apps that get a short pause before each open (the rest just count against the minutes). */
+    var pauseApps: Set<String>
+        get() = prefs.getStringSet("pause_apps", emptySet())!!.toSet()
+        set(v) = edit { putStringSet("pause_apps", v) }
+
+    /** Whether opening [pkg] waits on the pause screen first: asked for it, or strict mode (every picked app). */
+    fun pausesOnOpen(pkg: String) = isStrict || pkg in pauseApps
+
     /** Things bought and put away: not in the camp, kept to take out again or give a friend. */
     var chest: List<String>
         get() = prefs.getString("chest", "")!!.split(',').filter { it.isNotEmpty() && app.tend.core.Things.byId(it) != null }
@@ -605,9 +613,10 @@ class TendStore(private val context: Context) {
         get() = BudgetConfig(
             totalMinutes = prefs.getInt("cfg_total", BudgetConfig().totalMinutes),
             freeMinutes = prefs.getInt("cfg_free", BudgetConfig().freeMinutes),
-            counted = prefs.getStringSet("cfg_counted", null) ?: BudgetConfig().counted,
+            // Only the picked apps count, unless other kinds were turned on (after this change) in Settings.
+            counted = (if (prefs.getBoolean("counted_v2", false)) prefs.getStringSet("cfg_counted", null) else null) ?: BudgetConfig().counted,
         )
-        set(v) = edit { putInt("cfg_total", v.totalMinutes); putInt("cfg_free", v.freeMinutes); putStringSet("cfg_counted", v.counted) }
+        set(v) = edit { putInt("cfg_total", v.totalMinutes); putInt("cfg_free", v.freeMinutes); putStringSet("cfg_counted", v.counted); putBoolean("counted_v2", true) }
 
     /** Start of the running reading session (wall clock), 0 when none. Survives the app being closed. */
     var focusStartedAt: Long

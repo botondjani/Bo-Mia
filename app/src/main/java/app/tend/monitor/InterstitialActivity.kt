@@ -263,7 +263,7 @@ class InterstitialActivity : ComponentActivity() {
         // Just answering someone: in at once, for a few minutes, a few times a day (not in strict mode).
         val quick = store.quickLooksLeft()
         if (quick > 0) Text(
-            tr("Just replying to a message · $REPLY_MINUTES min, now", "Csak válaszolok egy üzenetre · $REPLY_MINUTES perc, most") +
+            tr("I just need to check something · $REPLY_MINUTES min, now", "Csak megnézek valamit · $REPLY_MINUTES perc, most") +
                 if (quick <= 2) tr(" ($quick left today)", " (ma még $quick)") else "",
             style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {

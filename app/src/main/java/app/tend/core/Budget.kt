@@ -19,7 +19,7 @@ data class BudgetConfig(
     /** In evening mode every open waits this long: late scrolls are the ones we regret most. */
     val eveningDelaySeconds: Int = 10,
     /** Kinds of app ([AppKinds]) whose time also counts toward the day's minutes, with no pause. */
-    val counted: Set<String> = AppKinds.ALL,
+    val counted: Set<String> = emptySet(),
 ) {
     /** With the weekend's extra hour taken today: [WEEKEND_PLUS] more free minutes, and as many more at most. */
     fun withWeekendExtra(): BudgetConfig = copy(freeMinutes = freeMinutes + WEEKEND_PLUS, totalMinutes = totalMinutes + WEEKEND_PLUS)

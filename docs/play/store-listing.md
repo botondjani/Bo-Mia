@@ -52,7 +52,7 @@ YOUR CAMP BY THE RIVER
 Walks, books and every "Not now" earn acorns. Spend them on a camp in a clearing by the river: a campfire, a hammock, a canvas tent, a canoe, string lights between the trees. A little something every day, a cabin or a boat to save for. Friends can drop by, wave, cheer you on, and sit at each other's fire: putting the phone down is easier together.
 
 A KIND PAUSE, NOT A BLOCK
-When you open TikTok, Instagram or another app you picked, Bo pops up for a breath. Often that's all it takes to stop doomscrolling. Still want in? Take a quick look, or open it for 5 or 15 minutes; Bo checks in when the time is up. No guilt, no shame. Time in other social, video and game apps comes off the same daily minutes too, with no pause.
+Pick the apps that take your time, like TikTok or Instagram: they share a few minutes a day, and close when they're gone until a walk or a book wins some back. Want more help? Ask for a pause before the ones that pull hardest: Bo pops up for a breath, and often that's all it takes. Still want in? Open it for 5 or 15 minutes; Bo checks in when the time is up. No guilt, no shame.
 
 CALM BY DESIGN
 • Evening mode: a sleepy Bo and a longer pause at night, for better sleep

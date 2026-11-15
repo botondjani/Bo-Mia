@@ -233,7 +233,14 @@ class MonitorService : Service() {
             // Back in the same app within a few minutes, with its chosen time not up yet: no second
             // pause, the same minutes carry on (not in strict mode).
             val back = !closed && pass == null && !store.isStrict && new == leftPkg && now - lastLeft < REENTRY_MS && now < leftEnds
-            if (pass != null || back) {
+            // No pause asked for this app (only the minutes count): straight in, time running, until they're gone.
+            val free = !closed && pass == null && !back && !store.pausesOnOpen(new)
+            if (free) {
+                sessionPkg = new
+                sessionStart = now
+                sessionEnds = Long.MAX_VALUE
+                if (now - lastLeft > STREAK_GAP_MS || streakStart == 0L) { streakStart = now; nextPeekAt = now + Peek.EVERY_MS }
+            } else if (pass != null || back) {
                 sessionPkg = new
                 sessionStart = now
                 sessionEnds = if (back) leftEnds else app.tend.core.TimeBox.endsAt(now, pass!!)

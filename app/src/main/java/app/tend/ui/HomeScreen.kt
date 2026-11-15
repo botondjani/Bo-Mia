@@ -166,6 +166,9 @@ fun HomeScreen(
     onOpenRecap: () -> Unit,
     /** Show the one-time widget tip; called with true when it was handled. */
     showNextSteps: Boolean = false,
+    /** No app asks for a pause yet: suggested among the next steps, after the account. */
+    pauseSuggested: Boolean = false,
+    onPauseSetup: () -> Unit = {},
     widgetPlaced: Boolean = false,
     /** A phone-free session the phone interrupted, shown once. */
     brokenTimer: TaskDef? = null,
@@ -349,7 +352,7 @@ fun HomeScreen(
         if (monitorSlept && batteryRisk) Notice("alert", tr("${avatar.displayName} fell asleep in the background", "${avatar.displayName} elaludt a háttérben"), tr("Your phone paused tend for a while. Tap to keep ${avatar.displayName} awake.", "A telefonod egy időre leállította a tendet. Koppints, hogy ${avatar.displayName} ébren maradjon."), onKeepAwake)
         // In the first days the first steps ask for the widget; here only what can't wait.
         val importantOnly = nextStepsImportantOnly || firstDays
-        val nextSteps = showNextSteps && (needsHealth || batteryRisk || (!importantOnly && (!widgetPlaced || notesOff || !signedIn)))
+        val nextSteps = showNextSteps && (needsHealth || batteryRisk || (!importantOnly && (!widgetPlaced || notesOff || !signedIn || pauseSuggested)))
         if (nextSteps) NextSteps(
             avatar,
             widget = !widgetPlaced && !importantOnly, onWidget = { if (!onAddWidget()) widgetGuide = true },
@@ -357,6 +360,7 @@ fun HomeScreen(
             notes = notesOff && !importantOnly, onNotes = onAllowNotes,
             battery = batteryRisk && !monitorSlept, onBattery = onKeepAwake,
             account = !signedIn && !importantOnly, onAccount = onOpenAccount,
+            pause = pauseSuggested && !importantOnly, onPause = onPauseSetup,
             onDismiss = onNextStepsDone,
         ) else if (needsHealth) {
             Notice(
@@ -566,6 +570,7 @@ private fun NextSteps(
     notes: Boolean, onNotes: () -> Unit,
     battery: Boolean, onBattery: () -> Unit,
     account: Boolean = false, onAccount: () -> Unit = {},
+    pause: Boolean = false, onPause: () -> Unit = {},
     onDismiss: () -> Unit,
 ) = Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     class Step(val icon: String, val title: String, val body: String, val cta: String, val action: () -> Unit)
@@ -583,6 +588,8 @@ private fun NextSteps(
         if (notes) Step("moon", tr("Calm evenings", "Nyugodt esték"), tr("An evening recap, sleepy pauses at night and a Sunday letter.", "Esti összefoglaló, álmos szünetek éjjel és egy vasárnapi levél."), tr("Turn on", "Bekapcsolom"), onNotes) else null,
         // Last: an account keeps the camp safe and lets friends in (setup doesn't ask for one).
         if (account) Step("friends", tr("Keep your camp safe", "Tartsd biztonságban a táborod"), tr("A backup, and friends at your fire.", "Mentés, és barátok a tüzednél."), tr("Log in", "Belépés"), onAccount) else null,
+        // Then: a pause before the apps that pull hardest (only the minutes count until then).
+        if (pause) Step("sparkle", tr("A pause before an app", "Szünet egy app előtt"), tr("A few seconds before, say, Instagram opens.", "Pár másodperc, mielőtt mondjuk az Instagram megnyílik."), tr("Set up", "Beállítom"), onPause) else null,
     )
     val pager = androidx.compose.foundation.pager.rememberPagerState { steps.size }
     Row(verticalAlignment = Alignment.CenterVertically) {

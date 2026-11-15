@@ -34,7 +34,7 @@ TÁBOR A FOLYÓPARTON
 A sétákért, a könyvekért és minden „Most nem”-ért makk jár. Ebből építed a tábort a folyóparti tisztáson: tábortűz, függőágy, vászonsátor, kenu, fényfüzér a fák között. Minden nap jut valami apróság, és van mire gyűjteni is. A barátaid átjöhetnek, integethetnek, megtapsolhatnak, és odaülhettek egymás tábortüzéhez: együtt letenni a telefont könnyebb.
 
 KEDVES SZÜNET, NEM TILTÁS
-Amikor megnyitod a TikTokot, az Instagramot vagy bármelyik appot, amit kiválasztottál, Bo felbukkan egy lélegzetvételnyi szünetre. Gyakran ennyi is elég, hogy ne ragadj bele a görgetésbe. Mégis kell? Nézz be egy percre, vagy nyisd meg 5 vagy 15 percre; Bo szól, ha letelt. Nincs bűntudat, nincs szégyen. A többi közösségi, videós és játékapp ideje is ugyanabból a napi keretből fogy, szünet nélkül.
+Kiválasztod az appokat, amik elviszik az idődet, például a TikTokot vagy az Instagramot: ezekre naponta néhány perc jár, és ha elfogy, bezárnak, amíg egy séta vagy egy könyv vissza nem nyer pár percet. Több segítség kell? Kérj szünetet a legerősebbek előtt: Bo felbukkan egy lélegzetvételnyi időre, és gyakran ennyi is elég. Mégis kell? Nyisd meg 5 vagy 15 percre; Bo szól, ha letelt. Nincs bűntudat, nincs szégyen.
 
 NYUGALOMRA TERVEZVE
 • Esti mód: álmos Bo és hosszabb szünet éjjel, a jobb alvásért

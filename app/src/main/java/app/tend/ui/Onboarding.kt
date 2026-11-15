@@ -102,7 +102,7 @@ enum class PermissionLock { NONE, LOCKED, TRIPPED }
 // Short on purpose: the town is asked later in the camp, and an account is offered on home (or right here, for those who have one).
 private const val STEP_MS = 650L
 
-private enum class Step { WELCOME, USAGE, APPS, MINUTES, ACTIVITIES, SUMMARY, PAUSE, CAMP }
+private enum class Step { WELCOME, USAGE, APPS, MINUTES, ACTIVITIES, PAUSE, CAMP }
 
 @Composable
 fun Onboarding(
@@ -159,14 +159,7 @@ fun Onboarding(
                 // One page to say hello: what tend does, in two lines, and who keeps you company.
                 Step.WELCOME -> StepPage(cta = tr("Continue with ${avatar.displayName}", "Tovább, ${avatar.displayName} jön velem"), onCta = next) {
                     LanguagePicker()
-                    Title(tr("Hi! I'm ${avatar.displayName}.", "Szia! ${avatar.displayName} vagyok."), tr("Here's how it works:", "Így működik:"))
-                    // How it works, in three short lines.
-                    HowItWorks(listOf(
-                        tr("You pick the apps that take your time.", "Kiválasztod, mely appok viszik el az idődet."),
-                        tr("They get a few minutes a day, and a short pause before each open.", "Ezekre napi néhány perc jár, és minden megnyitás előtt egy rövid szünet."),
-                        tr("A walk, a book or a workout wins minutes back, and acorns for our camp.", "Egy séta, egy könyv vagy egy edzés perceket ad vissza, és makkot a táborunkra."),
-                    ))
-                    Text(tr("WHO KEEPS YOU COMPANY?", "KI TARTSON VELED?"), style = MaterialTheme.typography.labelSmall)
+                    Title(tr("Who keeps you company?", "Ki legyen veled?"), tr("A little friend who helps you scroll less.", "Egy kis barát, aki segít kevesebbet görgetni."))
                     CompanionPicker(avatar, onAvatar)
                     Text(tr("Same heart, different hair. You can switch any time.", "Ugyanaz a szív, más frizura. Bármikor válthatsz."), style = MaterialTheme.typography.bodyMedium, color = Brand.Muted)
                     // Coming back with an account (a new phone): log in here and the camp is restored.
@@ -178,10 +171,7 @@ fun Onboarding(
                 }
 
                 Step.USAGE -> StepPage(cta = tr("Continue", "Tovább"), ctaEnabled = perms.permissions.usageAccess, onCta = next) {
-                    Title(
-                        tr("Which apps take your time?", "Mely appok viszik el az idődet?"),
-                        tr("Allow usage access and ${avatar.displayName} will suggest the apps you use most, with minutes a day. It's read on your phone and never leaves it.", "Engedélyezd a használati hozzáférést, és ${avatar.displayName} megmutatja a legtöbbet használt appjaidat, napi percekkel. Mindezt a telefonod olvassa ki, és ott is marad."),
-                    )
+                    Says(avatar, tr("Hi, I'm ${avatar.displayName}! Let me see which apps take most of your time.", "Szia, ${avatar.displayName} vagyok! Megnézem, mely appok viszik el a legtöbb idődet."), tr("It stays on your phone.", "Ez a telefonodon marad."))
                     if (perms.lock != PermissionLock.NONE && !perms.permissions.usageAccess) UnlockCard(perms)
                     PermissionCard(
                         number = if (perms.lock != PermissionLock.NONE) 2 else 1, title = tr("Usage access", "Használati hozzáférés"), why = tr("Minutes a day for each app, from the last two weeks.", "Napi percek appokra bontva, az elmúlt két hétből."),
@@ -196,9 +186,9 @@ fun Onboarding(
                     ctaEnabled = blocked.isNotEmpty(),
                     onCta = next,
                 ) {
-                    Title(
-                        tr("Which apps pull you in?", "Mely appok szippantanak be?"),
-                        tr("When you open one of these, ${avatar.displayName} pauses it for a few seconds, and its time comes off your daily minutes. Tap to change.", "Ha ezek közül megnyitsz egyet, ${avatar.displayName} pár másodpercre megállít, és az ideje a napi keretedből fogy. Koppintással változtathatsz."),
+                    Says(avatar,
+                        tr("Which apps should I keep an eye on?", "Melyik appokra figyeljek?"),
+                        tr("Their time comes off your daily minutes. Tap to change.", "Az idejük a napi keretedből fogy. Koppintással változtathatsz."),
                     )
                     AppPicker(catalog, blocked, onToggleApp)
                 }
@@ -206,24 +196,16 @@ fun Onboarding(
                 // How much a day: the free minutes and the most there can be, next to what those apps take now.
                 Step.MINUTES -> StepPage(cta = tr("Continue", "Tovább"), onCta = next) {
                     val now = blocked.sumOf { catalog.dailyMinutes[it] ?: 0 }
-                    Title(
-                        tr("How much time a day?", "Mennyi idő jár naponta?"),
-                        if (now > 0) tr("These apps take about $now minutes a day now. Start a little below that.", "Ezek az appok most nagyjából napi $now percet visznek el. Kezdd egy kicsit kevesebbel.")
-                        else tr("Pick what feels fair. You can change it any time.", "Válaszd, ami fair. Bármikor módosíthatod."),
+                    Says(avatar,
+                        tr("How much time a day for them?", "Mennyi idő jár rájuk naponta?"),
+                        (if (now > 0) tr("They take about $now min a day now. ", "Most nagyjából napi $now percet visznek el. ") else "") +
+                            tr("Run out, and they close until you win minutes back with an activity.", "Ha elfogy, bezárnak, amíg egy tevékenységgel vissza nem nyersz perceket."),
                     )
                     Card {
-                        Stepper(tr("Every day", "Minden nap"), tr("Free, for the picked apps", "Ingyen, a kiválasztott appokra"), listOf(15, 30, 45, 60), cfg.freeMinutes) {
+                        Stepper(tr("Every day", "Naponta"), tr("Free, for the picked apps", "Ingyen, a kiválasztott appokra"), listOf(15, 30, 45, 60), cfg.freeMinutes) {
                             onConfig(cfg.copy(freeMinutes = it, totalMinutes = maxOf(cfg.totalMinutes, it)))
                         }
-                        Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp).background(Brand.Sage))
-                        Stepper(tr("At most", "Legfeljebb"), tr("With minutes won back", "Visszanyert percekkel együtt"), listOf(90, 120, 180, 240), cfg.totalMinutes) {
-                            onConfig(cfg.copy(totalMinutes = it, freeMinutes = minOf(cfg.freeMinutes, it)))
-                        }
                     }
-                    HowItWorks(listOf(
-                        tr("Run out, and the picked apps stay closed until you win some back. Midnight starts afresh.", "Ha elfogy, a kiválasztott appok zárva maradnak, amíg nem nyersz vissza perceket. Éjfélkor újraindul."),
-                        tr("Other social, video and game apps count too, with no pause (you can turn this off in Settings).", "A többi közösségi, videós és játékapp ideje is beleszámít, szünet nélkül (a Beállításokban kikapcsolható)."),
-                    ), numbered = false)
                 }
 
                 Step.ACTIVITIES -> {
@@ -233,24 +215,10 @@ fun Onboarding(
                         ctaEnabled = tasks.isNotEmpty(),
                         onCta = next,
                     ) {
-                        Title(tr("What would you rather do?", "Mit csinálnál szívesebben?"), tr("Do one and win minutes back (each shows how many), plus acorns for the camp. We picked three; tap to change.", "Ha megcsinálsz egyet, perceket nyersz vissza (mindegyiken látod, mennyit), és makkot a táborra. Hármat kiválasztottunk; koppintással cserélheted."))
+                        Says(avatar, tr("What would you rather do?", "Mit csinálnál helyette?"), tr("Each one wins minutes back, and acorns for our camp.", "Mindegyik perceket nyer vissza, és makkot a táborunkra."))
                         LinkText(tr("Skip, use the defaults", "Kihagyom, jók az alapok"), { onDefaultTasks(true); next() })
                         ActivityPicker(tasks, onToggleTask)
                     }
-                }
-
-                // Before the switches: what's been set, in plain words, with the real numbers.
-                Step.SUMMARY -> StepPage(cta = tr("Sounds good", "Rendben"), onCta = next) {
-                    val names = blocked.map(catalog::label)
-                    val apps = names.take(2).joinToString(", ") + if (names.size > 2) tr(" and ${names.size - 2} more", " és még ${names.size - 2}") else ""
-                    Title(tr("What happens now", "Így fog működni"), tr("You can change any of it in Settings.", "Bármit módosíthatsz a Beállításokban."))
-                    HowItWorks(listOf(
-                        tr("Opening $apps: a ${cfg.baseDelaySeconds}-second pause first.", "Ha megnyitod: $apps, előbb egy ${cfg.baseDelaySeconds} másodperces szünet jön."),
-                        tr("${cfg.freeMinutes} minutes a day for them, free.", "Naponta ${cfg.freeMinutes} perc jár rájuk, ingyen."),
-                        tr("Activities win more, up to ${cfg.totalMinutes} a day: ", "Tevékenységekkel többet nyersz, legfeljebb napi ${cfg.totalMinutes} percig: ") +
-                            tasks.take(3).joinToString(", ") { "${it.title.lowercase()} +${it.rewardMinutes}" } + ".",
-                        tr("Run out: they stay closed until you win some back. Midnight starts afresh.", "Ha elfogy: zárva maradnak, amíg nem nyersz vissza. Éjfélkor újraindul."),
-                    ))
                 }
 
                 Step.PAUSE -> StepPage(
@@ -261,9 +229,9 @@ fun Onboarding(
                     var askSkip by rememberSaveable { mutableStateOf(false) }
                     if (askSkip) LimitedModeDialog(perms.permissions, onConfirm = { askSkip = false; next() }, onDismiss = { askSkip = false })
                     val first = blocked.firstOrNull()?.let(catalog::label) ?: tr("an app", "egy app")
-                    Title(
-                        tr("Let ${avatar.displayName} notice", "Hadd figyeljen ${avatar.displayName}"),
-                        tr("${if (perms.permissions.usageAccess) "One more switch" else "Two quick switches"} so ${avatar.displayName} can see when you open $first, give you a breath, and peek in after a long scroll. Nothing leaves your phone.", "${if (perms.permissions.usageAccess) "Még egy kapcsoló" else "Két gyors kapcsoló"}, hogy ${avatar.displayName} észrevegye, amikor megnyitod ezt: $first, adjon egy lélegzetvételnyi szünetet, és benézzen egy hosszú görgetés után. Semmi nem hagyja el a telefonod."),
+                    Says(avatar,
+                        tr("Last thing: let me notice when you open $first.", "Utolsó lépés: hadd vegyem észre, ha megnyitod ezt: $first."),
+                        tr("${if (perms.permissions.usageAccess) "One switch" else "Two switches"}. Nothing leaves your phone.", "${if (perms.permissions.usageAccess) "Egy kapcsoló" else "Két kapcsoló"}. Semmi nem hagyja el a telefonod."),
                     )
                     PermissionSteps(perms)
                     if (!perms.permissions.allGranted) LinkText(tr("Continue without", "Folytatom nélküle"), { askSkip = true })
@@ -636,7 +604,7 @@ fun PermissionSteps(perms: PermissionActions) {
     val n = if (unlock) 1 else 0
     // Overlay first: once it's granted, tend can bring itself back to the front after each switch.
     PermissionCard(
-        number = n + 1, title = tr("Display over other apps", "Megjelenítés más appok fölött"), why = tr("So the little pause can appear when you open a picked app.", "Hogy a rövid szünet megjelenhessen, amikor megnyitsz egy kiválasztott appot."),
+        number = n + 1, title = tr("Display over other apps", "Megjelenítés más appok fölött"), why = tr("So the apps can close when your minutes run out (and a pause can show, if you ask for one).", "Hogy az appok bezárhassanak, ha elfogyott a perced (és szünet jöhessen, ha kérsz)."),
         granted = p.overlay, active = !unlock && !p.overlay, blocked = perms.overlayBlocked,
         onAllow = perms.requestOverlay, onAppInfo = perms.openAppInfo,
     )
@@ -863,16 +831,16 @@ fun LimitedModeDialog(p: Permissions, onConfirm: () -> Unit, onDismiss: () -> Un
         }
     }
 
-/** A few short lines with a number (or a dot) in front: how something works, at a glance. */
+/** The companion, big, saying it: a line (and a smaller one under it) in a speech bubble. */
 @Composable
-private fun HowItWorks(lines: List<String>, numbered: Boolean = true) = Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-    lines.forEachIndexed { i, line ->
-        Row(verticalAlignment = Alignment.Top) {
-            Box(Modifier.size(24.dp).clip(CircleShape).background(if (numbered) Brand.Moss else Brand.Mint.copy(alpha = 0.4f)), contentAlignment = Alignment.Center) {
-                Text(if (numbered) "${i + 1}" else "•", style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), color = if (numbered) Color.White else Brand.Moss)
-            }
-            Spacer(Modifier.width(10.dp))
-            Text(line, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).padding(top = 1.dp))
-        }
+private fun Says(avatar: Avatar, line: String, small: String? = null) = Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+    BobbingCharacter(avatar, Mood.HAPPY, 110.dp)
+    // The bubble's little point, up towards the companion.
+    androidx.compose.foundation.Canvas(Modifier.size(18.dp, 9.dp)) {
+        drawPath(androidx.compose.ui.graphics.Path().apply { moveTo(0f, size.height); lineTo(size.width / 2, 0f); lineTo(size.width, size.height); close() }, Brand.Card)
+    }
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Brand.Card).padding(horizontal = 18.dp, vertical = 14.dp)) {
+        Text(line, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        small?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Brand.Muted, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) }
     }
 }
