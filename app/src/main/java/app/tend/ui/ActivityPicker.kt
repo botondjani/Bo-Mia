@@ -194,7 +194,7 @@ private fun PickCounter(count: Int) = Column(
 }
 
 @Composable
-private fun OwnActivityDialog(onDismiss: () -> Unit, onAdd: (TaskDef) -> Unit) {
+internal fun OwnActivityDialog(onDismiss: () -> Unit, onAdd: (TaskDef) -> Unit) {
     var name by rememberSaveable { mutableStateOf("") }
     var icon by rememberSaveable { mutableStateOf(TendIcons.ownChoices.first()) }
     var minutes by rememberSaveable { mutableIntStateOf(0) }

@@ -174,8 +174,8 @@ fun Onboarding(
                 Step.HOW -> StepPage(cta = tr("Got it", "Értem"), onCta = next, scroll = false) {
                     Says(avatar, tr("How it works", "Így működik"), figure = 110.dp)
                     Point("sparkle", tr("You pick the apps that take your time.", "Kiválasztod az appokat, amik elviszik az idődet."))
-                    Point("sun", tr("They get a few minutes a day. When they're gone, those apps close.", "Ezekre naponta néhány perc jár. Ha elfogy, bezárnak."))
-                    Point("heart", tr("Win minutes back: put the phone down, or do something from your day.", "Perceket nyersz vissza: tedd le a telefont, vagy csinálj meg egy napi feladatot."))
+                    Point("sun", tr("A few minutes a day come free. When they're gone, those apps close.", "Naponta egy kevés idő ingyen jár rájuk. Ha elfogy, bezárnak."))
+                    Point("heart", tr("Most minutes you win yourself: with Phone down, or by doing your daily tasks.", "A percek nagy részét te szerzed meg: a Telefon le funkcióval, vagy a napi feladataid elvégzésével."))
                 }
 
                 Step.WELCOME -> StepPage(cta = tr("Continue with ${avatar.displayName}", "Tovább, ${avatar.displayName} jön velem"), onCta = next, scroll = false) {
@@ -210,8 +210,12 @@ fun Onboarding(
                     ctaEnabled = blocked.isNotEmpty(), onCta = next, scroll = false,
                 ) {
                     Says(avatar, tr("Which apps take your time?", "Mely appok viszik el az idődet?"), tr("Their time comes off your daily minutes.", "Ezek ideje fogy a napi keretedből."), figure = 90.dp)
-                    val tiles = (catalog.suggested.take(6) + catalog.others.filter { it.pkg in blocked }).distinctBy { it.pkg }.take(6)
+                    // The ones picked from the search come first, so they're always seen; then the most used.
+                    val extra = catalog.all.filter { it.pkg in blocked && catalog.suggested.take(6).none { s -> s.pkg == it.pkg } }
+                    val tiles = (extra + catalog.suggested).distinctBy { it.pkg }.take(6)
                     if (tiles.isNotEmpty()) AppGrid(catalog, tiles, blocked, onToggleApp)
+                    val hidden = blocked.count { b -> tiles.none { it.pkg == b } }
+                    if (hidden > 0) Text(tr("And $hidden more picked", "És még $hidden kiválasztva"), style = MaterialTheme.typography.bodyMedium, color = Brand.Muted)
                     var searching by rememberSaveable { mutableStateOf(false) }
                     LinkText(tr("Another app…", "Másik app…"), { searching = true })
                     if (searching) AppSearch(catalog, blocked, onToggleApp) { searching = false }
@@ -223,12 +227,16 @@ fun Onboarding(
                     Says(avatar,
                         tr("How much time a day for them?", "Mennyi idő jár rájuk naponta?"),
                         (if (now > 0) tr("They take about $now min a day now. ", "Most nagyjából napi $now percet visznek el. ") else "") +
-                            tr("You can win more back.", "Ennél többet is visszanyerhetsz."),
+                            tr("A little comes free; the rest you win.", "Egy kevés ingyen jár, a többit megszerzed."),
                         figure = 110.dp,
                     )
                     Card {
-                        Stepper(tr("Every day", "Naponta"), tr("For the picked apps", "A kiválasztott appokra"), listOf(15, 30, 45, 60), cfg.freeMinutes) {
+                        Stepper(tr("Free every day", "Ingyen naponta"), tr("For the picked apps", "A kiválasztott appokra"), listOf(15, 30, 45, 60), cfg.freeMinutes) {
                             onConfig(cfg.copy(freeMinutes = it, totalMinutes = maxOf(cfg.totalMinutes, it)))
+                        }
+                        Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp).background(Brand.Sage))
+                        Stepper(tr("At most a day", "Naponta legfeljebb"), tr("With the minutes you win", "A megszerzett percekkel együtt"), listOf(90, 120, 180, 240), cfg.totalMinutes) {
+                            onConfig(cfg.copy(totalMinutes = it, freeMinutes = minOf(cfg.freeMinutes, it)))
                         }
                     }
                 }
@@ -250,25 +258,20 @@ fun Onboarding(
                                 Text(tr("Set a timer and put it away: every minute comes back.", "Indíts egy időzítőt, és tedd félre: minden perc visszajár."), style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.9f))
                             }
                         }
-                        // 2: things from the day, a few ideas to pick from.
-                        Text(tr("…or something from your day:", "…vagy egy napi feladat:"), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 4.dp))
-                        app.tend.core.Tasks.presets.take(6).chunked(2).forEach { row ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                row.forEach { t ->
-                                    val on = tasks.any { it.id == t.id }
-                                    Row(
-                                        Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(if (on) Brand.Mint.copy(alpha = 0.35f) else Brand.Card)
-                                            .border(2.dp, if (on) Brand.Moss else Color.Transparent, RoundedCornerShape(16.dp)).clickable { onToggleTask(t) }.padding(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        TendIcons.Badge(t.icon, 28.dp)
-                                        Spacer(Modifier.width(8.dp))
-                                        Column(Modifier.weight(1f)) {
-                                            Text(t.title, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                                            Text(if (t.rewardMinutes > 0) tr("+${t.rewardMinutes} min", "+${t.rewardMinutes} perc") else tr("automatic", "automatikus"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted)
-                                        }
-                                    }
-                                }
+                        // 2: your daily tasks (remove with a tap, or add your own), and ideas at the bottom.
+                        var adding by rememberSaveable { mutableStateOf(false) }
+                        if (adding) OwnActivityDialog(onDismiss = { adding = false }) { t -> adding = false; onToggleTask(t) }
+                        Text(tr("…or your daily tasks:", "…vagy a napi feladataid:"), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 4.dp))
+                        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            tasks.forEach { t -> TaskPill(t.title, t.icon, picked = true) { onToggleTask(t) } }
+                            TaskPill(tr("Your own", "Saját"), "pen", picked = false, plus = true) { adding = true }
+                        }
+                        Spacer(Modifier.weight(1f))
+                        val ideas = app.tend.core.Tasks.presets.filter { p -> tasks.none { it.id == p.id } }.take(6)
+                        if (ideas.isNotEmpty()) {
+                            Text(tr("Ideas", "Ötletek"), style = MaterialTheme.typography.labelSmall, color = Brand.Muted)
+                            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                ideas.forEach { t -> TaskPill(t.title, t.icon, picked = false) { onToggleTask(t) } }
                             }
                         }
                     }
@@ -895,4 +898,17 @@ private fun AppSearch(catalog: AppCatalog, blocked: Set<String>, onToggle: (Stri
         }
         PrimaryButton(tr("Done", "Kész"), onClose)
     }
+}
+
+/** A task as a pill: picked ones filled (a tap takes them off), ideas plain (a tap adds them). */
+@Composable
+private fun TaskPill(label: String, icon: String, picked: Boolean, plus: Boolean = false, onClick: () -> Unit) = Row(
+    Modifier.clip(RoundedCornerShape(50)).background(if (picked) Brand.Mint.copy(alpha = 0.4f) else Brand.Card)
+        .border(1.5.dp, if (picked) Brand.Moss else Brand.Mint, RoundedCornerShape(50)).clickable(onClick = onClick).padding(start = 6.dp, end = 12.dp, top = 5.dp, bottom = 5.dp),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    TendIcons.Badge(icon, 24.dp)
+    Spacer(Modifier.width(6.dp))
+    Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+    if (picked || plus) { Spacer(Modifier.width(6.dp)); Text(if (plus) "+" else "×", style = MaterialTheme.typography.labelLarge, color = Brand.Moss) }
 }
