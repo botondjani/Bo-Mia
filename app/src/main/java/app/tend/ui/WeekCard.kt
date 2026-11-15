@@ -3,6 +3,10 @@ package app.tend.ui
 import app.tend.core.tr
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,14 +35,27 @@ import kotlin.math.abs
  */
 @Composable
 fun WeekCard(view: WeekView, onOpen: (() -> Unit)? = null, total: List<Int?> = emptyList()) = Card(if (onOpen != null) Modifier.tappable(onClick = onOpen) else Modifier) {
+    // A day tapped: its own minutes in the corner instead of the average (tapped again: back).
+    var picked by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<Int?>(null) }
+    val all = view.days.indices.map { total.getOrNull(it - view.days.size + total.size) }
     Row {
         Text(tr("YOUR WEEK", "A HETED"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
-        view.average?.let { Text(tr("avg $it min a day", "átlag napi $it perc"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss) }
+        val p = picked
+        if (p != null) {
+            val day = if (p == 6) tr("Today", "Ma") else java.time.LocalDate.now().minusDays((6 - p).toLong()).dayOfWeek.getDisplayName(TextStyle.FULL, app.tend.core.Lang.locale).replaceFirstChar { it.uppercase() }
+            val used = view.days[p]?.usedMinutes
+            val whole = all[p]
+            Text(
+                "$day: " + (used?.let { tr("$it min", "$it perc") } ?: "–") + (whole?.let { tr(" · all $it", " · összesen $it") } ?: ""),
+                style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+            )
+        } else view.average?.let { Text(tr("avg $it min a day", "átlag napi $it perc"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss) }
     }
     // A little headroom above the tallest bar or mark.
-    val all = view.days.indices.map { total.getOrNull(it - view.days.size + total.size) }
     val top = 1.15f * (view.days.indices.maxOfOrNull { i -> maxOf(all[i] ?: 0, view.days[i]?.let { it.usedMinutes + it.unusedMinutes } ?: 0) }?.coerceAtLeast(30) ?: 30)
-    Canvas(Modifier.fillMaxWidth().height(96.dp)) {
+    Canvas(Modifier.fillMaxWidth().height(96.dp).pointerInput(Unit) {
+        detectTapGestures { o -> val i = (o.x / (size.width / 7f)).toInt().coerceIn(0, 6); picked = if (picked == i) null else i }
+    }) {
         val slot = size.width / 7
         val bar = slot * 0.46f
         view.days.forEachIndexed { i, d ->
@@ -57,7 +74,7 @@ fun WeekCard(view: WeekView, onOpen: (() -> Unit)? = null, total: List<Int?> = e
             val over = d.unusedMinutes == 0 && d.usedMinutes > 0
             val h = (size.height * d.usedMinutes / top).coerceAtLeast(3.dp.toPx())
             drawRoundRect(
-                (if (over) Brand.Coral else Brand.Moss).copy(alpha = if (i == 6) 1f else 0.8f),
+                (if (over) Brand.Coral else Brand.Moss).copy(alpha = if (i == (picked ?: 6)) 1f else 0.7f),
                 Offset(x, size.height - h), Size(bar, h), CornerRadius(4.dp.toPx()),
             )
             if (!over) {

@@ -58,8 +58,9 @@ class AppTime(val label: String, val icon: ImageBitmap?, val before: Int, val no
  */
 @Composable
 fun InsightsScreen(insights: Insights, apps: List<AppTime>, plus: Boolean = true, onPlus: () -> Unit = {}, onBack: () -> Unit) = Column(
-    Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(top = Space.xs, bottom = Space.xxl),
-    verticalArrangement = Arrangement.spacedBy(Space.m),
+    // Compact enough to fit one screen (it scrolls only on small phones).
+    Modifier.fillMaxSize().background(Brand.Sage).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(top = Space.xs, bottom = Space.m),
+    verticalArrangement = Arrangement.spacedBy(Space.s),
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, tr("Back", "Vissza"), onBack)
@@ -189,7 +190,7 @@ private fun WeeksChart(insights: Insights) {
     val moss = Brand.Moss
     val faint = Brand.Mint
     Canvas(
-        Modifier.fillMaxWidth().height(150.dp).pointerInput(weeks.size) {
+        Modifier.fillMaxWidth().height(120.dp).pointerInput(weeks.size) {
             detectTapGestures { at -> picked = (at.x / (size.width / weeks.size)).toInt().coerceIn(0, weeks.lastIndex) }
         },
     ) {

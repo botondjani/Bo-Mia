@@ -284,7 +284,9 @@ fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>, here: Offset? = nu
         "act_read", "act_stretch", "act_hearts", "act_tidy", "act_cheer" -> home
         "guitar", "campfire" -> if (use.spot < 0) (if (use.thing == "campfire") fire + Offset(-u * 0.21f, u * 0.03f) else home) else
             if (use.thing == "campfire" && bench) seat + Offset(0f, -u * 0.012f) else if (use.thing == "campfire") fire + Offset(-u * 0.21f, u * 0.03f) else p
-        "kettle", "pizza_oven" ->
+        // Tea: right up to the fire, within reach of the kettle over it.
+        "kettle" -> fire + Offset(-u * 0.09f, u * 0.025f)
+        "pizza_oven" ->
             // Beside the fire pit, clear of the stones and the flames (or on the bench, if there is one).
             if (bench) seat + Offset(0f, -u * 0.012f) else fire + Offset(-u * 0.21f, u * 0.03f)
         // Fetched first: to the woodpile for a log, then over to the fire; to the rod, then to the bank.
@@ -302,7 +304,9 @@ fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>, here: Offset? = nu
         "treehouse" -> Offset(p.x + u * 0.062f, u * 0.6f - u * 0.42f * 0.4f - u * 0.004f) // on the platform, in the tree, beside the little house
         // Out on the water, and drifting back to the mooring before stepping off.
         // Pushing off from the bank, out a little and back.
-        "canoe", "raft" -> p + Offset(-(1f - kotlin.math.cos(use.t * 0.7f)) / 2f * w * 0.08f * (if (use.end > 0f) ((use.end - Uses.STEP - use.t) / 1.5f).coerceIn(0f, 1f) else 1f), -u * 0.02f)
+        // Landing on it rocks it a little (down, up, settling).
+        "canoe", "raft" -> p + Offset(-(1f - kotlin.math.cos(use.t * 0.7f)) / 2f * w * 0.08f * (if (use.end > 0f) ((use.end - Uses.STEP - use.t) / 1.5f).coerceIn(0f, 1f) else 1f),
+            -u * 0.02f + u * 0.012f * kotlin.math.exp(-use.t * 2.5f) * kotlin.math.sin(use.t * 11f))
         "rocking_chair" -> p + Offset(0f, -u * 0.012f * k)
         "wind_chimes", "bird_feeder" -> Offset(w * 0.64f, h * 0.71f)
         "dock" -> p + Offset(-u * 0.04f, u * 0.014f) // on the planks, near the end
@@ -481,9 +485,20 @@ fun DrawScope.drawUse(
                     }
                 }
                 "kettle" -> {
-                    drawRoundRect(Color(0xFF2A6F6B), hand + Offset(-u * 0.008f, -u * 0.014f), Size(u * 0.016f, u * 0.016f), CornerRadius(u * 0.003f))
-                    drawArc(Color(0xFF2A6F6B), -90f, 180f, false, hand + Offset(u * 0.005f, -u * 0.01f), Size(u * 0.01f, u * 0.008f), style = Stroke(u * 0.002f))
-                    rising(t, hand + Offset(0f, -u * 0.02f), u * 0.006f, every = 1.1f) { at, a -> drawCircle(Color.White.copy(alpha = 0.45f * a), u * 0.005f, at) }
+                    // The mug out to the kettle over the fire, dipped (tipped in, a puff of steam), back, then sipped.
+                    val mouth = fire + Offset(-u * 0.004f, -u * 0.072f)
+                    fun ease(k: Float) = k.coerceIn(0f, 1f).let { it * it * (3 - 2 * it) }
+                    val out = ease(t / 1.1f) - ease((t - 2.1f) / 0.9f)
+                    val mug = hand + (mouth - hand) * out
+                    val tip = if (t in 1.1f..2.1f) sin((t - 1.1f) * PI.toFloat()) * 55f else 0f
+                    drawLine(Color(0xFF8FD1B0), hand + Offset(-u * 0.006f, 0f), mug + Offset(-u * 0.006f, u * 0.004f), strokeWidth = u * 0.006f, cap = StrokeCap.Round) // the arm
+                    rotate(tip, mug) {
+                        drawRoundRect(Color(0xFF2A6F6B), mug + Offset(-u * 0.008f, -u * 0.014f), Size(u * 0.016f, u * 0.016f), CornerRadius(u * 0.003f))
+                        drawArc(Color(0xFF2A6F6B), -90f, 180f, false, mug + Offset(u * 0.005f, -u * 0.01f), Size(u * 0.01f, u * 0.008f), style = Stroke(u * 0.002f))
+                    }
+                    if (t in 1.3f..2.4f) for (i in 0 until 3) drawCircle(Color.White.copy(alpha = 0.5f * (1f - (t - 1.3f) / 1.1f)), u * (0.006f + i * 0.003f), mouth + Offset(u * 0.004f * i, -u * (0.02f + 0.012f * i + (t - 1.3f) * 0.02f)))
+                    if (t > 3f) rising(t, hand + Offset(0f, -u * 0.02f), u * 0.006f, every = 1.1f) { at, a -> drawCircle(Color.White.copy(alpha = 0.45f * a), u * 0.005f, at) }
+                    lights += Light(fire + Offset(0f, -u * 0.05f), u * 0.16f, 0.7f)
                 }
                 "pizza_oven" -> {
                     drawPath(Path().apply { moveTo(hand.x - u * 0.01f, hand.y); lineTo(hand.x + u * 0.018f, hand.y - u * 0.008f); lineTo(hand.x + u * 0.006f, hand.y + u * 0.016f); close() }, Color(0xFFF2C14E))
@@ -1136,18 +1151,30 @@ internal fun along(pts: List<Offset>, k: Float): Offset {
     return pts.last()
 }
 
-/** How high a hop is at [k] of the way along [pts]: on the last stretch onto the water, or the first one off it. */
-internal fun DrawScope.hop(pts: List<Offset>, k: Float): Float {
-    if (pts.size < 3) return 0f
+/**
+ * Where they are at [k] of the way along [pts], on foot: by distance, except the jump onto the water
+ * (or off it), which waits through the crouch, flies, and lands; its height taken off.
+ */
+internal fun DrawScope.walkAt(pts: List<Offset>, k: Float): Offset {
+    if (pts.size < 3) return along(pts, k)
     val lens = pts.zipWithNext { p, q -> (q - p).getDistance() }
     val total = lens.sum().coerceAtLeast(1f)
     val at = total * k.coerceIn(0f, 1f)
-    val onto = inWater(pts.last())
-    val off = inWater(pts.first())
-    val (from, len) = when {
-        onto && at >= total - lens.last() -> (total - lens.last()) to lens.last()
-        off && at <= lens.first() -> 0f to lens.first()
-        else -> return 0f
-    }
-    return kotlin.math.sin(((at - from) / len.coerceAtLeast(1f)).coerceIn(0f, 1f) * Math.PI.toFloat()) * size.height * 0.05f
+    val onto = inWater(pts.last()) && at >= total - lens.last()
+    val off = inWater(pts.first()) && at <= lens.first()
+    if (!onto && !off) return along(pts, k)
+    val (i, from) = if (onto) pts.size - 2 to total - lens.last() else 0 to 0f
+    val f = ((at - from) / lens[i].coerceAtLeast(1f)).coerceIn(0f, 1f)
+    val move = ((f - 0.18f) / 0.72f).coerceIn(0f, 1f).let { it * it * (3 - 2 * it) }
+    return pts[i] + (pts[i + 1] - pts[i]) * move - Offset(0f, jumpHeight(f, size.height))
+}
+
+/**
+ * A jump at [f] (0..1) of the way: a little crouch first (below 0: lower), then up in a high arc,
+ * and a dip as they land.
+ */
+internal fun jumpHeight(f: Float, h: Float): Float = when {
+    f < 0.18f -> -kotlin.math.sin(f / 0.18f * Math.PI.toFloat()) * h * 0.012f
+    f < 0.9f -> kotlin.math.sin((f - 0.18f) / 0.72f * Math.PI.toFloat()) * h * 0.085f
+    else -> -kotlin.math.sin((f - 0.9f) / 0.1f * Math.PI.toFloat()) * h * 0.01f
 }

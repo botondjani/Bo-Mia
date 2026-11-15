@@ -301,7 +301,7 @@ fun DrawScope.drawClearing(
         fromBed -> useAnchor(InUse(bedSpot!!, placed.getValue(bedSpot), 100f), placed, layout = layout)
         restWas == null || restClock >= Uses.WALK -> restTo
         restClock <= 0f -> restWas
-        else -> { val k = (restClock / Uses.WALK).let { it * it * (3 - 2 * it) }; val way = route(restWas, restTo, placed, layout); along(way, k) - Offset(0f, hop(way, k)) }
+        else -> { val k = (restClock / Uses.WALK).let { it * it * (3 - 2 * it) }; walkAt(route(restWas, restTo, placed, layout), k) }
     }
     val target = act?.let { useAnchor(it.arrived(), placed, restAt, layout) }
     val walking = act?.walking == true
@@ -385,12 +385,11 @@ fun DrawScope.drawClearing(
         target == null -> restAt
         walking -> {
             val k = (if (fromBed) ((act!!.t - Uses.YAWN) / (act.walk - Uses.YAWN).coerceAtLeast(0.01f)).coerceIn(0f, 1f) else act!!.t / act.walk).let { it * it * (3 - 2 * it) }
-            val way = route(restAt, target, placed, layout)
-            along(way, k) - Offset(0f, hop(way, k))
+            walkAt(route(restAt, target, placed, layout), k)
         }
         // Out of the canoe: a hop onto the bank.
-        stepTo != null -> target + (stepTo - target) * stepK.coerceAtMost(1f).let { it * it * (3 - 2 * it) } -
-            Offset(0f, if (act.thing == "canoe" || act.thing == "raft") kotlin.math.sin(stepK.coerceAtMost(1f) * Math.PI.toFloat()) * u * 0.07f else 0f)
+        stepTo != null -> target + (stepTo - target) * ((stepK.coerceAtMost(1f) - 0.18f) / 0.72f).coerceIn(0f, 1f).let { it * it * (3 - 2 * it) } -
+            Offset(0f, if (act.thing == "canoe" || act.thing == "raft") jumpHeight(stepK.coerceAtMost(1f), h) else 0f)
         else -> target
     }
     var companionDrawn = false
@@ -953,23 +952,31 @@ private fun DrawScope.paperRoll(c: Offset, r: Float, angle: Float) {
 private fun DrawScope.toiletPaper(amount: Float) {
     val w = size.width
     val h = size.height
-    fun o(x: Float, y: Float) = Offset(w * x, h * y)
     val band = h * 0.016f
     val a = amount.coerceIn(0f, 1f)
     val fade = (a * 1.6f).coerceAtMost(1f)
-    // Two soft drapes sagging over the crown (behind the strands).
-    ribbon(o(0.85f, 0.25f), o(0.875f, 0.34f), o(0.93f, 0.35f), o(0.96f, 0.24f), band, 1.2f, a, fade)
-    ribbon(o(0.905f, 0.3f), o(0.935f, 0.42f), o(0.985f, 0.42f), o(1.01f, 0.31f), band, 1.4f, a, fade)
-    // Strands hanging from the branches, each with its own gentle S, longest nearly to the grass.
-    ribbon(o(0.858f, 0.32f), o(0.872f, 0.42f), o(0.848f, 0.5f), o(0.862f, 0.6f), band, 2.2f, a, fade)
-    ribbon(o(0.932f, 0.4f), o(0.92f, 0.5f), o(0.945f, 0.58f), o(0.93f, 0.69f), band, 2.6f, a, fade)
-    ribbon(o(0.985f, 0.41f), o(0.995f, 0.48f), o(0.975f, 0.53f), o(0.99f, 0.6f), band, 1.6f, a, fade)
+    // Laid on the crowns themselves (the round tree and the broadleaf on the right), in scene heights
+    // from their middles, so it stays on the trees whatever the screen's shape.
+    val c1 = Offset(w * 0.875f, h * 0.4f); val r1 = h * 0.14f
+    val c2 = Offset(w * 0.975f, h * 0.3f); val r2 = h * 0.15f
+    fun at(c: Offset, r: Float, x: Float, y: Float) = c + Offset(r * x, r * y)
+    fun strand(top: Offset, len: Float, sway: Float, twists: Float) =
+        ribbon(top, top + Offset(sway, len / 3), top + Offset(-sway, len * 2 / 3), top + Offset(sway * 0.3f, len), band, twists, a, fade)
+    // Drapes over each crown, and a garland from one to the other.
+    ribbon(at(c1, r1, -0.8f, -0.45f), at(c1, r1, -0.35f, 0.15f), at(c1, r1, 0.35f, 0.1f), at(c1, r1, 0.75f, -0.55f), band, 1.2f, a, fade)
+    ribbon(at(c2, r2, -0.8f, -0.2f), at(c2, r2, -0.4f, 0.35f), at(c2, r2, 0.1f, 0.3f), at(c2, r2, 0.45f, -0.45f), band, 1.4f, a, fade)
+    ribbon(at(c1, r1, 0.55f, 0.25f), at(c1, r1, 0.9f, 0.85f), at(c2, r2, -0.7f, 0.95f), at(c2, r2, -0.45f, 0.5f), band, 2f, a, fade)
+    // Strands from under the crowns, not past their edges.
+    strand(at(c1, r1, -0.45f, 0.55f), h * 0.13f, h * 0.012f, 2.2f)
+    strand(at(c1, r1, 0.3f, 0.65f), h * 0.18f, h * 0.01f, 2.6f)
+    strand(at(c2, r2, -0.2f, 0.7f), h * 0.15f, h * 0.012f, 1.8f)
     // A roll caught in the crown.
-    if (a > 0.5f) paperRoll(o(0.935f, 0.27f), h * 0.016f, -25f)
+    if (a > 0.5f) paperRoll(at(c2, r2, 0.05f, -0.25f), h * 0.016f, -25f)
     // And one that rolled away over the grass, unrolling as it went.
     if (a > 0.3f) {
-        ribbon(o(0.985f, 0.775f), o(0.975f, 0.795f), o(0.955f, 0.79f), o(0.94f, 0.805f), band * 0.9f, 1f, a, fade)
-        paperRoll(o(0.93f, 0.8f), h * 0.015f, 8f)
+        val g = Offset(w * 0.93f, h * 0.8f)
+        ribbon(g + Offset(h * 0.07f, -h * 0.025f), g + Offset(h * 0.06f, -h * 0.005f), g + Offset(h * 0.035f, -h * 0.01f), g + Offset(h * 0.012f, h * 0.005f), band * 0.9f, 1f, a, fade)
+        paperRoll(g, h * 0.015f, 8f)
     }
 }
 

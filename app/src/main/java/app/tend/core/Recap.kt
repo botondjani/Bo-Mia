@@ -34,7 +34,8 @@ data class Recap(
                 gotBackMinutes = unused,
                 tonightAcorns = Budget.usedMinutes(day).let { used -> Acorns.atDayClose(used, Budget.remainingMinutes(cfg, day) + used, normalMinutes) },
                 steps = day.steps,
-                exerciseMinutes = day.exerciseMinutes,
+                // A workout done on the timer counts too, not only what Health Connect recorded.
+                exerciseMinutes = if (Tasks.MOVE.id in day.completedTasks) maxOf(day.exerciseMinutes, Tasks.MOVE.target) else day.exerciseMinutes,
                 readingMinutes = listOf(Tasks.READ, Tasks.LEARN).filter { it.id in day.completedTasks }.sumOf { it.target },
                 worthItAnswers = answers.size,
                 notWorthIt = not.size,

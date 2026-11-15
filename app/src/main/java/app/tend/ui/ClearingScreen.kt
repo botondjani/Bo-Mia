@@ -173,6 +173,7 @@ fun ClearingScreen(
     }
     var shopOpen by rememberSaveable { mutableStateOf(false) }
     var bookOpen by rememberSaveable { mutableStateOf(false) }
+    var milestonesOpen by rememberSaveable { mutableStateOf(false) }
     var collectionAt by remember { androidx.compose.runtime.mutableIntStateOf(0) }
 
     // The same header as home, settings and all (nothing moves going between them).
@@ -251,6 +252,8 @@ fun ClearingScreen(
         // Asleep in the shelter: a yawn first, on the way out.
         if (nightNow && using == null && restNow != null && restNow == bedOf(placedNow) && hit != restNow) w += Uses.YAWN
         walk = w
+        // The clock starts on the next frame: not a frame drawn on the last use's clock (they'd show up there, arrived).
+        useStart = -1L
         using = hit to thing; caught = null; Sounds.forUse(context, thing, (w * 1000).toLong()); onUsed(thing)
     }
 
@@ -658,26 +661,24 @@ fun ClearingScreen(
         Text(tr("Not now", "Most nem"), style = MaterialTheme.typography.labelLarge, color = Brand.Muted, modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onTownLater).padding(vertical = 6.dp))
     }
 
-    // The challenges live in one place (home's "Challenges"): here a button there, with what's waiting.
+    // Challenges, the guestbook and the milestones: one compact card, a row each; each opens over the page.
     run {
         val waiting = app.tend.core.FirstSteps.current(steps).filter { it.claimable }.sumOf { it.step.acorns }
-        Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(if (waiting > 0) Brand.Moss else Brand.Card).tappable(onClick = onOpenChallenges)
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            TendIcons.Badge("star", 34.dp)
-            Spacer(Modifier.width(10.dp))
-            Text(tr("Challenges", "Kihívások"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp), color = if (waiting > 0) Color.White else Brand.Ink, modifier = Modifier.weight(1f))
-            Text(if (waiting > 0) tr("$waiting acorns waiting", "$waiting makk vár") else "\u203A", style = MaterialTheme.typography.labelLarge, color = if (waiting > 0) Color.White else Brand.Muted)
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Brand.Card)) {
+            HubRow({ TendIcons.Badge("star", 30.dp) }, tr("Challenges", "Kihívások"), if (waiting > 0) tr("$waiting acorns waiting", "$waiting makk vár") else null, waiting > 0, onOpenChallenges)
+            HubDivider()
+            HubRow({ Canvas(Modifier.size(30.dp)) { drawVisitorIcon(guestbook.keys.firstOrNull() ?: app.tend.core.Visitor.RABBIT, seen = guestbook.isNotEmpty()) } },
+                tr("Guestbook", "Vendégkönyv"), "${guestbook.size} / ${app.tend.core.Visitor.entries.size}", false) { bookOpen = true }
+            totals?.let { t ->
+                HubDivider()
+                HubRow({ TendIcons.Badge("sparkle", 30.dp) }, tr("Milestones", "Mérföldkövek"), "${app.tend.core.Milestone.reached(t).size} / ${app.tend.core.Milestone.entries.size}", false) { milestonesOpen = true }
+            }
         }
     }
 
     }
 
     Column(Modifier.onGloballyPositioned { collectionAt = it.positionInParent().y.toInt() }.pageBody(), verticalArrangement = Arrangement.spacedBy(Space.m)) {
-        GuestbookRow(guestbook) { bookOpen = true }
-        totals?.let { MilestonesCard(it) }
         Things(avatar, worn, onShelf, earned, onToggleAccessory)
     }
 
@@ -702,6 +703,11 @@ fun ClearingScreen(
     }
 
     // Friends: over the page, from the bottom.
+    if (milestonesOpen) totals?.let { t ->
+        androidx.compose.material3.ModalBottomSheet(onDismissRequest = { milestonesOpen = false }, containerColor = Brand.Sage) {
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = Space.xl)) { MilestonesCard(t) }
+        }
+    }
     if (bookOpen) androidx.compose.material3.ModalBottomSheet(onDismissRequest = { bookOpen = false }, containerColor = Brand.Sage) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = Space.xl)) { Guestbook(guestbook) }
     }
@@ -1079,17 +1085,21 @@ private fun GreetedCard(v: app.tend.core.Visitor, book: Map<app.tend.core.Visito
     }
 }
 
-/** The guestbook, closed: how many animals came, the ones met as small icons; tap to open. */
+/** One row of the camp's compact card: an icon, a name, what's there (highlighted when something's waiting), and an arrow. */
 @Composable
-private fun GuestbookRow(book: Map<app.tend.core.Visitor, Int>, onOpen: () -> Unit) = Row(
-    Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Brand.Card).tappable(onClick = onOpen).padding(horizontal = 14.dp, vertical = 12.dp),
+private fun HubRow(icon: @Composable () -> Unit, title: String, value: String?, highlight: Boolean, onOpen: () -> Unit) = Row(
+    Modifier.fillMaxWidth().background(if (highlight) Brand.Moss else Color.Transparent).tappable(onClick = onOpen).padding(horizontal = 14.dp, vertical = 10.dp),
     verticalAlignment = Alignment.CenterVertically,
 ) {
-    Text(tr("Guestbook", "Vendégkönyv"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp), modifier = Modifier.weight(1f))
-    app.tend.core.Visitor.entries.filter { it in book }.take(4).forEach { v -> Canvas(Modifier.size(26.dp)) { drawVisitorIcon(v) } }
-    Spacer(Modifier.width(8.dp))
-    Text("${book.size} / ${app.tend.core.Visitor.entries.size}  \u203A", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+    icon()
+    Spacer(Modifier.width(10.dp))
+    Text(title, style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp), color = if (highlight) Color.White else Brand.Ink, modifier = Modifier.weight(1f))
+    value?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = if (highlight) Color.White else Brand.Moss) }
+    Text("  \u203A", style = MaterialTheme.typography.labelLarge, color = if (highlight) Color.White else Brand.Muted)
 }
+
+@Composable
+private fun HubDivider() = Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp).height(1.dp).background(Brand.Sage))
 
 /** The animals that came to the camp: seen ones in colour, the rest as shadows, four to a row. */
 @Composable
