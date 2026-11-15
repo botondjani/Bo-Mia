@@ -174,7 +174,6 @@ fun ClearingScreen(
     var bookOpen by rememberSaveable { mutableStateOf(false) }
     var milestonesOpen by rememberSaveable { mutableStateOf(false) }
     var chestOpen by rememberSaveable { mutableStateOf(false) }
-    var collectionAt by remember { androidx.compose.runtime.mutableIntStateOf(0) }
 
     // The same header as home, settings and all (nothing moves going between them).
     TodayHeader(java.time.LocalDate.now(), minutes, {}) {
@@ -671,8 +670,8 @@ fun ClearingScreen(
             HubRow({ Canvas(Modifier.size(30.dp)) { drawVisitorIcon(guestbook.keys.firstOrNull() ?: app.tend.core.Visitor.RABBIT, seen = guestbook.isNotEmpty()) } },
                 tr("Guestbook", "Vendégkönyv"), "${guestbook.size} / ${app.tend.core.Visitor.entries.size}", false) { bookOpen = true }
             HubDivider()
-            HubRow({ Canvas(Modifier.size(30.dp)) { drawThingIcon("gift_boxes") } }, tr("Chest", "Láda"),
-                if (chest.isEmpty()) tr("empty", "üres") else tr("${chest.size} things", "${chest.size} tárgy"), false) { chestOpen = true }
+            HubRow({ Canvas(Modifier.size(30.dp)) { drawThingIcon("gift_boxes") } }, tr("Things", "Holmik"),
+                tr("${placed.size + chest.size} things", "${placed.size + chest.size} tárgy"), false) { chestOpen = true }
             totals?.let { t ->
                 HubDivider()
                 HubRow({ TendIcons.Badge("sparkle", 30.dp) }, tr("Milestones", "Mérföldkövek"), "${app.tend.core.Milestone.reached(t).size} / ${app.tend.core.Milestone.entries.size}", false) { milestonesOpen = true }
@@ -680,10 +679,6 @@ fun ClearingScreen(
         }
     }
 
-    }
-
-    Column(Modifier.onGloballyPositioned { collectionAt = it.positionInParent().y.toInt() }.pageBody(), verticalArrangement = Arrangement.spacedBy(Space.m)) {
-        Things(avatar, worn, onShelf, earned, onToggleAccessory)
     }
 
     // The shop: over the page, all the way up. Bought: it closes, and up to the camp to watch it pop in.
@@ -710,9 +705,10 @@ fun ClearingScreen(
     if (chestOpen) androidx.compose.material3.ModalBottomSheet(onDismissRequest = { chestOpen = false }, containerColor = Brand.Sage,
         sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = Space.xl)) {
-            ChestCard(placed, chest, onPutAway = { tick(); onPutAway(it) }, onSell = onSell, onTakeOut = { id ->
+            Inventory(avatar, placed, chest, onPutAway = { tick(); onPutAway(it) }, onSell = onSell, onTakeOut = { id ->
                 onTakeOut(id).also { ok -> if (ok) { tick(firm = true); chestOpen = false; scope.launch { scroll.animateScrollTo(0) } } }
-            })
+            }, onTraded = onFriendsChanged, worn = worn, onShelf = onShelf, earned = earned, onToggleAccessory = onToggleAccessory,
+                outfits = outfits, outfitWorn = outfitWorn, onWearOutfit = { tick(); onWearOutfit(it) })
         }
     }
     if (milestonesOpen) totals?.let { t ->
@@ -798,6 +794,26 @@ private fun Shop(
     fun owns(id: String) = id in inCamp || id in chest
     var outfitOpen by remember { mutableStateOf<app.tend.core.Accessory?>(null) }
     var open by remember { mutableStateOf<app.tend.core.Thing?>(null) }
+    // Three tabs: things for the camp, things for the companion to wear, and the season's own.
+    var tab by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
+    val season = app.tend.core.Season.of(java.time.LocalDate.now())
+    @Composable
+    fun tiles(things: List<app.tend.core.Thing>, background: Color = Brand.Sage, paid: Boolean = false) = things.chunked(4).forEach { row ->
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
+            row.forEach { thing ->
+                val owned = owns(thing.id)
+                val at = app.tend.core.Perks.unlockLevel(thing)
+                ShopTile(thing, owned = owned, affordable = (!paid || plus) && acorns >= thing.price, modifier = Modifier.weight(1f), background = background, inChest = thing.id in chest,
+                    lockedUntil = at.takeIf { it > level && !owned }) { if (!paid || plus || owned) open = thing else onPlus() }
+            }
+            repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+        }
+    }
+    @Composable
+    fun heading(text: String, coral: Boolean = false, plusMark: Boolean = false) = Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 10.dp)) {
+        Text(text, style = MaterialTheme.typography.labelSmall, color = if (coral) Brand.Coral else Brand.Muted, modifier = Modifier.weight(1f))
+        if (plusMark) { Text(tr("Yours to keep ", "Örökre a tiéd "), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted); PlusMark() }
+    }
     Card {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -809,78 +825,56 @@ private fun Shop(
             }
             AcornBadge(acorns)
         }
-        // An event's own, first, while it's on (a few days): then the season's.
-        app.tend.core.CampEvent.on(java.time.LocalDate.now())?.let { event ->
-            val left = event.daysLeft(java.time.LocalDate.now())
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)) {
-                Text(tr("${event.title.uppercase()} · ${if (left == 1) "LAST DAY" else "$left DAYS LEFT"}", "${event.title.uppercase()} · ${if (left == 1) "UTOLSÓ NAP" else "MÉG $left NAP"}"), style = MaterialTheme.typography.labelSmall, color = Brand.Coral, modifier = Modifier.weight(1f))
-                Text(tr("Yours to keep ", "Örökre a tiéd "), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted)
-                PlusMark()
-            }
-            Text(event.line, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-                Things.forEvent(event).forEach { thing ->
-                    val owned = owns(thing.id)
-                    ShopTile(thing, owned = owned, affordable = plus && acorns >= thing.price, modifier = Modifier.weight(1f), inChest = thing.id in chest, background = Brand.Coral.copy(alpha = 0.12f)) { if (plus || owned) open = thing else onPlus() }
-                }
-                repeat(2) { Spacer(Modifier.weight(1f)) }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 8.dp)) {
+            listOf(tr("Things", "Tárgyak"), tr("For $name", "Kiegészítők"), tr("Seasonal", "Szezonális")).forEachIndexed { i, label ->
+                Text(
+                    label, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), textAlign = TextAlign.Center, maxLines = 1,
+                    color = if (tab == i) Color.White else Brand.Moss,
+                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if (tab == i) Brand.Moss else Brand.Sage).tappable { tab = i }.padding(vertical = 8.dp),
+                )
             }
         }
-        // The season's own: sold only while it lasts.
-        val season = app.tend.core.Season.of(java.time.LocalDate.now())
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)) {
-            Text(tr("THIS ${season.title.uppercase()} ONLY", "CSAK EBBEN AZ ÉVSZAKBAN: ${season.title.uppercase()}"), style = MaterialTheme.typography.labelSmall, color = Brand.Coral, modifier = Modifier.weight(1f))
-            Text(tr("Yours to keep ", "Örökre a tiéd "), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted)
-            PlusMark()
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-            Things.forSeason(season).forEach { thing ->
-                val owned = owns(thing.id)
-                ShopTile(thing, owned = owned, affordable = plus && acorns >= thing.price, modifier = Modifier.weight(1f), inChest = thing.id in chest, background = Brand.Coral.copy(alpha = 0.12f)) { if (plus || owned) open = thing else onPlus() }
+        when (tab) {
+            // Things for the camp, by where they go. The home isn't sold: it comes with levels.
+            0 -> listOf(SpotKind.SMALL, SpotKind.FIRE, SpotKind.SEAT, SpotKind.TREES, SpotKind.WATER, SpotKind.ABOVE).forEach { kind ->
+                heading(kindTitle(kind).uppercase())
+                tiles(Things.forKind(kind))
             }
-        }
-        // Something to wear: this season's outfit, and any bought before (tap to put on or take off).
-        val wardrobe = (outfits + app.tend.core.Accessory.outfitFor(season)).sortedBy { it.ordinal }
-        Text(tr("FOR ${name.uppercase()} TO WEAR", "${name.uppercase()} VISELHETI"), style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
-        wardrobe.chunked(3).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-                row.forEach { a ->
-                    val owned = a in outfits
-                    OutfitTile(a, owned, worn = a == outfitWorn, affordable = plus && acorns >= app.tend.core.Accessory.OUTFIT_PRICE, Modifier.weight(1f)) {
-                        when {
-                            owned -> onWearOutfit(if (a == outfitWorn) null else a)
-                            plus -> outfitOpen = a
-                            else -> onPlus()
+            // To wear: this season's outfit and any bought before (tap to put on or take off).
+            1 -> {
+                val wardrobe = (outfits + app.tend.core.Accessory.outfitFor(season)).sortedBy { it.ordinal }
+                heading(tr("OUTFITS", "RUHÁK"), plusMark = true)
+                wardrobe.chunked(4).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
+                        row.forEach { a ->
+                            val owned = a in outfits
+                            OutfitTile(a, owned, worn = a == outfitWorn, affordable = plus && acorns >= app.tend.core.Accessory.OUTFIT_PRICE, Modifier.weight(1f)) {
+                                when {
+                                    owned -> onWearOutfit(if (a == outfitWorn) null else a)
+                                    plus -> outfitOpen = a
+                                    else -> onPlus()
+                                }
+                            }
                         }
+                        repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
-                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                Text(tr("The rest $name earns by doing: see Things in the camp.", "A többit $name tettekkel szerzi: lásd a Holmik a táborban."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, modifier = Modifier.padding(top = 8.dp))
             }
-        }
-        // Bought in other seasons: still here, to sell if wanted.
-        val nowEvent = app.tend.core.CampEvent.on(java.time.LocalDate.now())
-        val earlier = (app.tend.core.Season.entries.filter { it != season }.flatMap { Things.forSeason(it) } +
-            app.tend.core.CampEvent.entries.filter { it != nowEvent }.flatMap { Things.forEvent(it) }).filter { it.id in inCamp }
-        if (earlier.isNotEmpty()) {
-            Text(tr("FROM OTHER SEASONS AND NIGHTS", "MÁS ÉVSZAKOKBÓL ÉS ESTÉKRŐL"), style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
-            earlier.chunked(3).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-                    row.forEach { thing -> ShopTile(thing, owned = true, affordable = true, Modifier.weight(1f)) { open = thing } }
-                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+            // The season's and an event's own, sold only while they last; and those bought before.
+            else -> {
+                app.tend.core.CampEvent.on(java.time.LocalDate.now())?.let { event ->
+                    val left = event.daysLeft(java.time.LocalDate.now())
+                    heading(tr("${event.title.uppercase()} · ${if (left == 1) "LAST DAY" else "$left DAYS LEFT"}", "${event.title.uppercase()} · ${if (left == 1) "UTOLSÓ NAP" else "MÉG $left NAP"}"), coral = true, plusMark = true)
+                    Text(event.line, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+                    tiles(Things.forEvent(event), Brand.Coral.copy(alpha = 0.12f), paid = true)
                 }
-            }
-        }
-        // The home isn't sold: it comes with levels.
-        listOf(SpotKind.SMALL, SpotKind.FIRE, SpotKind.SEAT, SpotKind.TREES, SpotKind.WATER, SpotKind.ABOVE).forEach { kind ->
-            Text(kindTitle(kind).uppercase(), style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
-            Things.forKind(kind).chunked(3).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-                    row.forEach { thing ->
-                        val at = app.tend.core.Perks.unlockLevel(thing)
-                        ShopTile(thing, owned = owns(thing.id), affordable = acorns >= thing.price, Modifier.weight(1f), inChest = thing.id in chest, lockedUntil = at.takeIf { it > level && !owns(thing.id) }) { open = thing }
-                    }
-                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
-                }
+                heading(tr("THIS ${season.title.uppercase()} ONLY", "CSAK EBBEN AZ ÉVSZAKBAN: ${season.title.uppercase()}"), coral = true, plusMark = true)
+                tiles(Things.forSeason(season), Brand.Coral.copy(alpha = 0.12f), paid = true)
+                val nowEvent = app.tend.core.CampEvent.on(java.time.LocalDate.now())
+                val earlier = (app.tend.core.Season.entries.filter { it != season }.flatMap { Things.forSeason(it) } +
+                    app.tend.core.CampEvent.entries.filter { it != nowEvent }.flatMap { Things.forEvent(it) }).filter { owns(it.id) }
+                if (earlier.isNotEmpty()) { heading(tr("FROM OTHER SEASONS AND NIGHTS", "MÁS ÉVSZAKOKBÓL ÉS ESTÉKRŐL")); tiles(earlier) }
             }
         }
     }
@@ -940,34 +934,69 @@ private fun Shop(
     }
 }
 
-/** The chest: what's put away (tap: out into the camp, or sell), and what's out (tap: put away). */
+/**
+ * Everything that's yours, in one place: what's out in the camp, what's in the chest, and what the
+ * companion has to wear. A thing: put away or out, sell, or offer a friend; a thing to wear: on or off.
+ */
 @Composable
-private fun ChestCard(placed: Map<Int, String>, chest: List<String>, onPutAway: (String) -> Unit, onSell: (String) -> Unit, onTakeOut: (String) -> Boolean) = Card {
+private fun Inventory(
+    avatar: Avatar, placed: Map<Int, String>, chest: List<String>, onPutAway: (String) -> Unit, onSell: (String) -> Unit, onTakeOut: (String) -> Boolean, onTraded: () -> Unit,
+    worn: Set<Accessory>, onShelf: Set<Accessory>, earned: Set<Accessory>, onToggleAccessory: ((Accessory) -> Unit)?,
+    outfits: Set<Accessory>, outfitWorn: Accessory?, onWearOutfit: (Accessory?) -> Unit,
+) = Column(verticalArrangement = Arrangement.spacedBy(Space.s)) {
+    var tab by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
     var open by remember { mutableStateOf<app.tend.core.Thing?>(null) }
-    Text(tr("CHEST", "LÁDA"), style = MaterialTheme.typography.labelSmall)
-    Text(tr("Put things away to make room; take them out again any time. To give one to a friend: Friends → Trade.", "Tedd el, amit most nem szeretnél kint látni; bármikor kiveheted. Barátnak adni: Barátok → Csere."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
-    fun grid(ids: List<String>, inChest: Boolean) = ids.mapNotNull(Things::byId).chunked(3)
-    if (chest.isEmpty()) Text(tr("Nothing in it yet.", "Még üres."), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
-    grid(chest, true).forEach { row ->
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-            row.forEach { t -> ShopTile(t, owned = true, affordable = true, Modifier.weight(1f), inChest = true) { open = t } }
-            repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+    var trading by remember { mutableStateOf<app.tend.core.Thing?>(null) }
+    val signedIn = app.tend.data.Account.user(androidx.compose.ui.platform.LocalContext.current) != null
+    Text(tr("Things", "Holmik"), style = MaterialTheme.typography.headlineSmall)
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        listOf(tr("In camp", "Táborban"), tr("Chest (${chest.size})", "Láda (${chest.size})"), avatar.displayName).forEachIndexed { i, label ->
+            Text(
+                label, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), textAlign = TextAlign.Center, maxLines = 1,
+                color = if (tab == i) Color.White else Brand.Moss,
+                modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if (tab == i) Brand.Moss else Brand.Card).tappable { tab = i }.padding(vertical = 8.dp),
+            )
         }
     }
-    Text(tr("OUT IN THE CAMP", "KINT A TÁBORBAN"), style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.padding(top = 12.dp))
-    grid(placed.values.filterNot(app.tend.core.Home::isHome), false).forEach { row ->
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-            row.forEach { t -> ShopTile(t, owned = true, affordable = true, Modifier.weight(1f)) { open = t } }
-            repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+    @Composable
+    fun grid(ids: List<String>, inChest: Boolean) = ids.mapNotNull(Things::byId).chunked(4).forEach { row ->
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            row.forEach { t -> ShopTile(t, owned = true, affordable = true, Modifier.weight(1f), background = Brand.Card, inChest = inChest) { open = t } }
+            repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+        }
+    }
+    when (tab) {
+        0 -> grid(placed.values.filterNot(app.tend.core.Home::isHome), false)
+        1 -> if (chest.isEmpty()) Text(tr("Empty. Put things away here to make room in the camp; friends' gifts land here too.", "Üres. Ide teheted el, amit most nem szeretnél kint látni; a barátaidtól kapott tárgyak is ide érkeznek."), style = MaterialTheme.typography.bodyMedium)
+            else grid(chest, true)
+        else -> {
+            if (outfits.isNotEmpty()) {
+                Text(tr("OUTFITS", "RUHÁK"), style = MaterialTheme.typography.labelSmall, color = Brand.Muted)
+                outfits.sortedBy { it.ordinal }.chunked(4).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        row.forEach { a -> OutfitTile(a, owned = true, worn = a == outfitWorn, affordable = true, Modifier.weight(1f)) { onWearOutfit(if (a == outfitWorn) null else a) } }
+                        repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+                    }
+                }
+            }
+            Things(avatar, worn, onShelf, earned, onToggleAccessory)
         }
     }
     open?.let { t ->
         val stored = t.id in chest
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { open = null },
-            icon = { Canvas(Modifier.size(84.dp)) { drawThingIcon(t.id) } },
+            icon = { Canvas(Modifier.size(72.dp)) { drawThingIcon(t.id) } },
             title = { Text(t.name) },
-            text = { Text(if (stored) tr("In your chest. Put it out, and what stands on its spot goes in.", "A ládádban van. Ha kirakod, ami a helyén áll, a ládába kerül.") else tr("Out in the camp. Put it away to make room.", "Kint van a táborban. Tedd el, ha helyet csinálnál.")) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(if (stored) tr("In your chest.", "A ládádban van.") else tr("Out in the camp.", "Kint van a táborban."), style = MaterialTheme.typography.bodyMedium)
+                    if (signedIn) Text(
+                        tr("Offer it to a friend", "Felajánlom cserére egy barátnak"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable { trading = t; open = null }.padding(vertical = 6.dp),
+                    )
+                }
+            },
             confirmButton = {
                 if (stored) androidx.compose.material3.TextButton(onClick = { if (onTakeOut(t.id)) open = null }) { Text(tr("Put it out", "Kirakom"), color = Brand.Moss) }
                 else androidx.compose.material3.TextButton(onClick = { onPutAway(t.id); open = null }) { Text(tr("Put away", "Elteszem"), color = Brand.Moss) }
@@ -976,19 +1005,20 @@ private fun ChestCard(placed: Map<Int, String>, chest: List<String>, onPutAway: 
             containerColor = Brand.Card,
         )
     }
+    trading?.let { t -> TradeDialog(null, preset = t, onGave = onTraded) { trading = null } }
 }
 
 /** One thing in the shop: its picture, name and price (a tick when it's in the camp). */
 @Composable
 internal fun ShopTile(thing: app.tend.core.Thing, owned: Boolean, affordable: Boolean, modifier: Modifier, background: Color = Brand.Sage, inChest: Boolean = false, lockedUntil: Int? = null, onTap: () -> Unit) = Column(
-    modifier.clip(RoundedCornerShape(16.dp)).background(if (owned) Brand.Picked else background).tappable(onClick = onTap).padding(vertical = 8.dp, horizontal = 4.dp),
+    modifier.clip(RoundedCornerShape(14.dp)).background(if (owned) Brand.Picked else background).tappable(onClick = onTap).padding(vertical = 6.dp, horizontal = 2.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
 ) {
-    Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.size(48.dp).graphicsLayer { alpha = if (lockedUntil != null) 0.4f else 1f }) { drawThingIcon(thing.id) }
+    Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.size(34.dp).graphicsLayer { alpha = if (lockedUntil != null) 0.4f else 1f }) { drawThingIcon(thing.id) }
     }
-    Text(thing.name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-    Row(Modifier.padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+    Text(thing.name, style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         if (lockedUntil != null) Text(tr("Level $lockedUntil", "$lockedUntil. szint"), style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = Brand.Muted)
         else if (owned) Text(if (inChest) tr("In chest", "A ládában") else tr("In camp", "A táborban"), style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = Brand.Moss)
         else {
@@ -1128,12 +1158,12 @@ private fun Guestbook(book: Map<app.tend.core.Visitor, Int>) {
 /** One of the seasons' outfits in the shop: its price, or (bought) whether it's on. */
 @Composable
 private fun OutfitTile(a: app.tend.core.Accessory, owned: Boolean, worn: Boolean, affordable: Boolean, modifier: Modifier, onTap: () -> Unit) = Column(
-    modifier.clip(RoundedCornerShape(16.dp)).background(if (worn) Brand.Picked else Brand.Coral.copy(alpha = 0.12f)).tappable(onClick = onTap).padding(vertical = 8.dp, horizontal = 4.dp),
+    modifier.clip(RoundedCornerShape(14.dp)).background(if (worn) Brand.Picked else Brand.Coral.copy(alpha = 0.12f)).tappable(onClick = onTap).padding(vertical = 6.dp, horizontal = 2.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
 ) {
     val icon = remember(a) { CharacterPainter.accessoryIcon(a, 144).asImageBitmap() }
-    Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) { androidx.compose.foundation.Image(icon, null, Modifier.size(44.dp)) }
-    Text(a.title, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) { androidx.compose.foundation.Image(icon, null, Modifier.size(34.dp)) }
+    Text(a.title, style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     Row(Modifier.padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically) {
         when {
             worn -> Text(tr("Wearing", "Rajta van"), style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = Brand.Moss)

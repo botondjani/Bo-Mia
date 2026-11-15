@@ -375,14 +375,16 @@ fun qrBitmap(text: String, size: Int): Bitmap {
  * into their chest. What friends gave you lately is listed too (it's in your chest: Camp → Chest).
  */
 @Composable
-private fun TradeDialog(friends: List<Friends.Friend>, onGave: () -> Unit, onClose: () -> Unit) {
+internal fun TradeDialog(friendsKnown: List<Friends.Friend>?, preset: app.tend.core.Thing? = null, onGave: () -> Unit, onClose: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val store = remember { app.tend.data.TendStore(context) }
-    var to by remember { mutableStateOf(friends.singleOrNull()) }
+    var friends by remember { mutableStateOf(friendsKnown.orEmpty()) }
+    androidx.compose.runtime.LaunchedEffect(Unit) { if (friendsKnown == null) friends = Friends.list(context).orEmpty() }
+    var to by remember(friends) { mutableStateOf(friends.singleOrNull()) }
     var sending by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf<String?>(null) }
-    var mine by remember { mutableStateOf((store.chest + store.placed.values).distinct().filterNot(app.tend.core.Home::isHome).mapNotNull(app.tend.core.Things::byId)) }
+    var mine by remember { mutableStateOf(preset?.let { listOf(it) } ?: (store.chest + store.placed.values).distinct().filterNot(app.tend.core.Home::isHome).mapNotNull(app.tend.core.Things::byId)) }
     val got = remember { Friends.notes(context).filter { it.kind == Friends.Kind.THING && it.thing != null }.take(3) }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onClose,
@@ -396,7 +398,8 @@ private fun TradeDialog(friends: List<Friends.Friend>, onGave: () -> Unit, onClo
                     friends.forEach { f -> ChipButton(f.name, { to = f }, filled = to?.id == f.id) }
                 }
                 Text(tr("What (it leaves your camp for theirs)", "Mit (a te táborodból az övébe kerül)"), style = MaterialTheme.typography.labelSmall, color = Brand.Muted)
-                if (mine.isEmpty()) Text(tr("Nothing to give yet: buy something in the shop first.", "Még nincs mit adnod: előbb vegyél valamit a boltban."), style = MaterialTheme.typography.bodyMedium)
+                if (friends.isEmpty()) Text(tr("Add a friend first: then you can trade things for your camps.", "Előbb vegyél fel egy barátot: utána cserélhettek tárgyakat."), style = MaterialTheme.typography.bodyMedium)
+                if (mine.isEmpty()) Text(if (preset != null) tr("Sent.", "Elküldve.") else tr("Nothing to give yet: buy something in the shop first.", "Még nincs mit adnod: előbb vegyél valamit a boltban."), style = MaterialTheme.typography.bodyMedium)
                 mine.chunked(3).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         row.forEach { t ->

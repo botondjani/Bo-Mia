@@ -285,7 +285,7 @@ fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>, here: Offset? = nu
         "guitar", "campfire" -> if (use.spot < 0) (if (use.thing == "campfire") fire + Offset(-u * 0.21f, u * 0.03f) else home) else
             if (use.thing == "campfire" && bench) seat + Offset(0f, -u * 0.012f) else if (use.thing == "campfire") fire + Offset(-u * 0.21f, u * 0.03f) else p
         // Tea: right up to the fire, within reach of the kettle over it.
-        "kettle" -> fire + Offset(-u * 0.09f, u * 0.025f)
+        "kettle" -> fire + Offset(-u * 0.08f, u * 0.025f)
         "pizza_oven" ->
             // Beside the fire pit, clear of the stones and the flames (or on the bench, if there is one).
             if (bench) seat + Offset(0f, -u * 0.012f) else fire + Offset(-u * 0.21f, u * 0.03f)
@@ -467,7 +467,9 @@ fun DrawScope.drawUse(
         }
         "campfire", "kettle", "pizza_oven" -> {
             shadowAt(base, s * 0.45f)
-            actor(avatar, mood, worn, base, s, bounce = sin(t * 2f) * 0.3f, look = 0.8f)
+            // Dipping the mug: a lean in towards the kettle, and back.
+            val lean = if (use.thing == "kettle") (sin((t / 3f).coerceIn(0f, 1f) * PI.toFloat()) * 10f) else 0f
+            actor(avatar, mood, worn, base, s, rotation = lean, bounce = sin(t * 2f) * 0.3f, look = 0.8f)
             val hand = base + Offset(s * 0.38f, -s * 0.4f)
             when (use.thing) {
                 "campfire" -> {
@@ -491,7 +493,6 @@ fun DrawScope.drawUse(
                     val out = ease(t / 1.1f) - ease((t - 2.1f) / 0.9f)
                     val mug = hand + (mouth - hand) * out
                     val tip = if (t in 1.1f..2.1f) sin((t - 1.1f) * PI.toFloat()) * 55f else 0f
-                    drawLine(Color(0xFF8FD1B0), hand + Offset(-u * 0.006f, 0f), mug + Offset(-u * 0.006f, u * 0.004f), strokeWidth = u * 0.006f, cap = StrokeCap.Round) // the arm
                     rotate(tip, mug) {
                         drawRoundRect(Color(0xFF2A6F6B), mug + Offset(-u * 0.008f, -u * 0.014f), Size(u * 0.016f, u * 0.016f), CornerRadius(u * 0.003f))
                         drawArc(Color(0xFF2A6F6B), -90f, 180f, false, mug + Offset(u * 0.005f, -u * 0.01f), Size(u * 0.01f, u * 0.008f), style = Stroke(u * 0.002f))
