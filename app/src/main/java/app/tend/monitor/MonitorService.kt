@@ -79,8 +79,30 @@ class MonitorService : Service() {
     private var lastEventAt = 0L
     private var lastEventPkg: String? = null
 
+    /**
+     * Android 15 and later only let an app with "display over other apps" start a screen from the
+     * background while one of its overlay windows is visible: without it the pause is silently not
+     * shown. So a 1-pixel window that can't be seen or touched stays up while the service runs.
+     */
+    private var anchor: android.view.View? = null
+    private fun keepAnchor() {
+        if (anchor != null || !android.provider.Settings.canDrawOverlays(this)) return
+        val wm = getSystemService(android.view.WindowManager::class.java)
+        val view = android.view.View(this)
+        val params = android.view.WindowManager.LayoutParams(
+            1, 1, android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            android.graphics.PixelFormat.TRANSPARENT,
+        ).apply { gravity = android.view.Gravity.TOP or android.view.Gravity.START }
+        if (runCatching { wm.addView(view, params) }.isSuccess) anchor = view
+    }
+    /** A pause that didn't show: tried again once. */
+    private var retried = false
+
     private val tick = object : Runnable {
         override fun run() {
+            keepAnchor()
             poll()
             handler.postDelayed(this, POLL_MS)
         }
@@ -103,6 +125,8 @@ class MonitorService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
 
     override fun onDestroy() {
+        anchor?.let { v -> runCatching { getSystemService(android.view.WindowManager::class.java).removeView(v) } }
+        anchor = null
         peek.hide()
         scope.cancel()
         handler.removeCallbacks(tick)
@@ -200,9 +224,9 @@ class MonitorService : Service() {
         } else if (fg != null && fg in blocked && fg == interceptedPkg &&
             now - interceptedAt > MISS_AFTER_MS
         ) {
-            // The delay screen should have covered the app by now.
-            store.logMiss("open_not_caught", fg)
-            interceptedPkg = null
+            // The delay screen should have covered the app by now: once more, then it's logged.
+            if (!retried) { retried = true; store.logMiss("open_retry", fg); intercept(fg, now) }
+            else { store.logMiss("open_not_caught", fg); interceptedPkg = null }
         }
         lastTick = now - (now - lastTick) % 1000
     }
@@ -211,6 +235,7 @@ class MonitorService : Service() {
         foreground = new
         if (new == packageName) {
             interceptedPkg = null // our delay screen is showing
+            retried = false
             return
         }
         if (sessionPkg != null && new == sessionPkg && awaySince > 0) {
@@ -325,6 +350,8 @@ class MonitorService : Service() {
 
     private fun intercept(pkg: String, now: Long, timeUp: Boolean = false) {
         if (!android.provider.Settings.canDrawOverlays(this)) return nudge(pkg)
+        keepAnchor()
+        if (pkg != interceptedPkg) retried = false
         peek.hide()
         interceptedPkg = pkg
         interceptedAt = now
@@ -445,7 +472,7 @@ class MonitorService : Service() {
         private const val NUDGE_CHANNEL = "nudge"
         /** How often the foreground app is checked: fast enough that the pause beats the app's first scroll. */
         private const val POLL_MS = 300L
-        private const val MISS_AFTER_MS = 3000L
+        private const val MISS_AFTER_MS = 1500L
         private const val GAP_LOG_SECONDS = 120
         private const val WORTH_IT_DELAY_MS = 1500L
         private const val SYNC_EVERY_MS = 15 * 60_000L

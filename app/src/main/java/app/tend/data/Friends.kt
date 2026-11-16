@@ -332,8 +332,8 @@ object Friends {
             things.forEach { store.received(it.thing!!) }
             p.edit().putLong("things_taken", things.maxOf { it.id }).apply()
         }
-        // Calls already over aren't news any more.
-        val news = fresh.filter { it.kind != Kind.FIRE || System.currentTimeMillis() - it.at < FIRE_CALL_MS }
+        // Calls already over aren't news any more. A cheer isn't worth a buzz on its own: it waits in the camp.
+        val news = fresh.filter { (it.kind != Kind.FIRE || System.currentTimeMillis() - it.at < FIRE_CALL_MS) && it.kind != Kind.CHEER }
         if (news.isNotEmpty()) notify(c, news)
         return notes.any { it.id > known }
     }

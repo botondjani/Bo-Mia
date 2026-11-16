@@ -449,10 +449,22 @@ fun HomeScreen(
             }
         }
         // Friends today: what they did, and a cheer for it, one tap each. Cheered: gone from here (still in Friends).
-        val toCheer = friendsToday.filter { it.id !in cheered }
+        // Kept small: only what they did in the last few hours, two at a time, and no more once you've
+        // cheered three today or put the card away for the day.
+        val uiPrefs = context.getSharedPreferences("tend_ui", android.content.Context.MODE_PRIVATE)
+        val todayKey = java.time.LocalDate.now().toString()
+        var cheerHidden by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(uiPrefs.getString("cheer_hidden", "") == todayKey) }
+        val fresh = System.currentTimeMillis() - CHEER_FRESH_MS
+        val toCheer = if (cheerHidden || cheered.size >= CHEERS_A_DAY) emptyList() else friendsToday.filter { it.id !in cheered && (it.lastDoneAt ?: 0) > fresh }
         if (toCheer.isNotEmpty()) Column(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(tr("FRIENDS TODAY", "A BARÁTAID MA"), style = MaterialTheme.typography.labelSmall)
-            toCheer.take(3).forEach { f ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(tr("FRIENDS TODAY", "A BARÁTAID MA"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+                Text(
+                    "\u00D7", style = MaterialTheme.typography.titleMedium, color = Brand.Muted,
+                    modifier = Modifier.clip(CircleShape).tappable { cheerHidden = true; uiPrefs.edit().putString("cheer_hidden", todayKey).apply() }.padding(horizontal = 8.dp),
+                )
+            }
+            toCheer.take(2).forEach { f ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Face(f.companion, 32)
                     Spacer(Modifier.width(10.dp))
@@ -1158,6 +1170,12 @@ private fun GoodNightCard(avatar: Avatar, strict: Boolean, onWake: () -> Unit) =
         }
     }
 }
+
+/** What friends did in the last this-many hours is offered for a cheer on home. */
+private const val CHEER_FRESH_MS = 4 * 3_600_000L
+
+/** After this many cheers sent in a day, home stops offering more (the friends list still can). */
+private const val CHEERS_A_DAY = 3
 
 /** The phone's whole screen time today, every app, next to yesterday's. */
 @Composable
