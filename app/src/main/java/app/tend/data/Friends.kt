@@ -30,7 +30,7 @@ object Friends {
     data class AtFire(val id: String, val name: String, val companion: String, val started: Long, val until: Long, val task: String)
 
     /** The web page that opens tend on an invite (and sends people without tend to Google Play). */
-    fun inviteLink(code: String) = "https://botondjani.github.io/Bo-Mia/i/?c=$code"
+    fun inviteLink(code: String) = "https://tend.hu/i/?c=$code"
 
     /** A code from a link (tend://invite?c=…, or the web page's ?c=…) or as typed; null when it isn't one. */
     fun codeFrom(text: String?): String? {

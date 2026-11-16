@@ -25,7 +25,7 @@ Why this way: cozy habit trackers with a campfire theme exist (e.g. Tendcamp, iO
 - **Category**: Productivity
 - **Tags** (Play Console → Store settings): Digital wellbeing, Productivity, Focus, Self care
 - **Contact e-mail**: botondjani@gmail.com (same as `support_email` in `app/src/main/res/values/strings.xml`)
-- **Privacy policy URL**: where `docs/privacy/index.html` is published
+- **Privacy policy URL**: `https://tend.hu/privacy/` (terms: `https://tend.hu/terms/`; `docs/` is served by Firebase Hosting, see `firebase.json`)
 
 ## Short description (max 80)
 
@@ -149,7 +149,7 @@ Optional feature "Close only Reels & Shorts". When the user turns it on, tend's 
 
 1. `versionCode` in `app/build.gradle.kts` (1 for the first upload, +1 for each one after).
 2. `keystore.properties` in place, then `./gradlew bundlePlayRelease`; back up the upload keystore somewhere safe (it can't be recreated).
-3. Publish `docs/` (GitHub Pages): privacy policy at `/privacy/`, terms at `/terms/`, invite page at `/i/`.
+3. Publish `docs/` to https://tend.hu (`firebase deploy --only hosting`): privacy policy at `/privacy/`, terms at `/terms/`, invite page at `/i/`, app links at `/.well-known/assetlinks.json` (add the Play app signing SHA-256 there next to the upload key's).
 4. Google Cloud → OAuth consent screen → **Publish app** (in "Testing" only the listed test users can sign in with Google). Add the Play **app signing** SHA-1 (Play Console → Setup → App signing) as an Android OAuth client, or Google sign-in fails for Play installs.
 5. Play Console forms, from the sections above: Data safety, Content rating, Target audience, Ads, App access, Foreground service, Accessibility API, Health Connect / Health apps.
 6. New screenshots if the look changed since `docs/play/screenshot-*.png` were made.
