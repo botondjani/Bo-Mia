@@ -75,6 +75,9 @@ class MonitorService : Service() {
     private var leftEnds = 0L
     private var focusCaughtAt = 0L
     private var interceptedAt = 0L
+    /** The last foreground event handled (time stamp and app), so a look back never handles one twice. */
+    private var lastEventAt = 0L
+    private var lastEventPkg: String? = null
 
     private val tick = object : Runnable {
         override fun run() {
@@ -132,16 +135,23 @@ class MonitorService : Service() {
         getSharedPreferences("tend_monitor", MODE_PRIVATE).edit().putLong("heartbeat", now).apply()
 
         // Null when the system won't answer (usage access just taken away): nothing new, try again next time.
-        val events = runCatching { usm.queryEvents(lastQuery, now) }.getOrNull()
+        // Android sometimes hands an event over a moment late, stamped with an earlier time: the window
+        // looks a few seconds back, and what was already handled is skipped by its time stamp.
+        val events = runCatching { usm.queryEvents(lastQuery - EVENT_LAG_MS, now) }.getOrNull()
         val e = UsageEvents.Event()
-        var latest: String? = null
+        // Every switch in order, not only the last one: home and back into an app within one poll is still an opening.
+        val opened = ArrayList<String>()
         while (events?.hasNextEvent() == true) {
             events.getNextEvent(e)
             @Suppress("DEPRECATION")
-            if (e.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) latest = e.packageName
+            if (e.eventType != UsageEvents.Event.MOVE_TO_FOREGROUND) continue
+            if (e.timeStamp < lastEventAt || (e.timeStamp == lastEventAt && e.packageName == lastEventPkg)) continue
+            lastEventAt = e.timeStamp
+            lastEventPkg = e.packageName
+            if (opened.lastOrNull() != e.packageName) opened += e.packageName
         }
         lastQuery = now
-        if (latest != null && latest != foreground) onForegroundChanged(foreground, latest, now)
+        for (pkg in opened) if (pkg != foreground) onForegroundChanged(foreground, pkg, now)
 
         val blocked = store.blockedPackages
         val fg = foreground
@@ -230,9 +240,11 @@ class MonitorService : Service() {
             if (sessionPkg != null) endSession(now, askWorthIt = false) // another paused app: the pause takes over
             val closed = ((store.isLocked() || store.appLocked(new)) && !store.borrowing(new)) || scheduledLock() != null
             val pass = if (closed) null else store.consumePass(new)
-            // Back in the same app within a few minutes, with its chosen time not up yet: no second
-            // pause, the same minutes carry on (not in strict mode).
-            val back = !closed && pass == null && !store.isStrict && new == leftPkg && now - lastLeft < REENTRY_MS && now < leftEnds
+            // Back in the same app within a few seconds (slipped out by mistake, a quick look elsewhere),
+            // or within a few minutes with its chosen time not up yet (not in strict mode): no second
+            // pause, the same minutes carry on. Never when it's closed.
+            val back = !closed && pass == null && new == leftPkg && now < leftEnds &&
+                (now - lastLeft < QUICK_BACK_MS || (!store.isStrict && now - lastLeft < REENTRY_MS))
             // No pause asked for this app (only the minutes count): straight in, time running, until they're gone.
             val free = !closed && pass == null && !back && !store.pausesOnOpen(new)
             if (free) {
@@ -441,6 +453,10 @@ class MonitorService : Service() {
         private const val STREAK_GAP_MS = 3 * 60_000L
         /** Back in the same app within this long (and within its chosen time): no second pause. */
         private const val REENTRY_MS = 5 * 60_000L
+        /** Back in the same app within this long: no pause, whatever was chosen (strict too), unless it's closed. */
+        const val QUICK_BACK_MS = 5_000L
+        /** How far back each poll looks for events Android hands over late. */
+        private const val EVENT_LAG_MS = 3_000L
         private const val PLUS_CHANNEL = "plus"
         private const val AWAY_CONFIRM_MS = 8_000L
         private const val HELPER_MAX_MS = 10 * 60_000L
