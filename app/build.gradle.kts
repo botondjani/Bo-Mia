@@ -14,7 +14,8 @@ android {
         applicationId = "app.tend"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
+        // Raised by the Play workflow on each upload (-PversionCode=…); 1 for local builds.
+        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 1
         versionName = "1.0.0"
         // Rive ships native code per CPU; phones only need ARM. (x86 emulators are left out.)
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }

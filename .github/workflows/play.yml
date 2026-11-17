@@ -1,0 +1,46 @@
+# Builds the Play bundle (hu.tend) and uploads it to Google Play as a new release, by hand from the
+# Actions tab ("Run workflow", pick the track). Each run gets its own versionCode (100 + run number).
+# Needs these repository secrets:
+#   TEND_UPLOAD_KEYSTORE_B64   the upload keystore (tend-upload.jks), base64
+#   TEND_KEYSTORE_PASSWORD     its store password
+#   TEND_KEY_PASSWORD          the key's password (alias: tend-upload)
+#   PLAY_SERVICE_ACCOUNT_JSON  a Google Cloud service account key, invited in Play Console with "Release" rights
+name: Release to Google Play
+on:
+  workflow_dispatch:
+    inputs:
+      track:
+        description: "Play track"
+        type: choice
+        options: [internal, alpha, production]
+        default: internal
+      notes:
+        description: "What's new (Hungarian; English is the same text)"
+        default: "Javítások és apró fejlesztések."
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - name: Keystore
+        run: |
+          echo "${{ secrets.TEND_UPLOAD_KEYSTORE_B64 }}" | base64 -d > "$RUNNER_TEMP/tend-upload.jks"
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=tend-upload\nkeyPassword=%s\n' \
+            "$RUNNER_TEMP/tend-upload.jks" "${{ secrets.TEND_KEYSTORE_PASSWORD }}" "${{ secrets.TEND_KEY_PASSWORD }}" > keystore.properties
+      - name: Build
+        run: ./gradlew --no-daemon bundlePlayRelease -PversionCode=$((100 + ${{ github.run_number }}))
+      - name: Release notes
+        run: |
+          mkdir -p whatsnew
+          echo "${{ inputs.notes }}" > whatsnew/whatsnew-hu-HU
+          echo "${{ inputs.notes }}" > whatsnew/whatsnew-en-US
+      - uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: hu.tend
+          releaseFiles: app/build/outputs/bundle/playRelease/app-play-release.aab
+          track: ${{ inputs.track }}
+          status: completed
+          whatsNewDirectory: whatsnew
