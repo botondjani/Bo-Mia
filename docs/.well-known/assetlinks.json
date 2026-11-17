@@ -5,6 +5,18 @@
     ],
     "target": {
       "namespace": "android_app",
+      "package_name": "hu.tend",
+      "sha256_cert_fingerprints": [
+        "5B:DF:B7:98:74:37:99:FE:05:EC:F7:5C:3A:05:79:5F:72:1C:DC:ED:FB:4C:B5:70:AA:6D:F7:0B:E9:8B:AF:3B"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
       "package_name": "app.tend",
       "sha256_cert_fingerprints": [
         "5B:DF:B7:98:74:37:99:FE:05:EC:F7:5C:3A:05:79:5F:72:1C:DC:ED:FB:4C:B5:70:AA:6D:F7:0B:E9:8B:AF:3B"

@@ -21,7 +21,7 @@ Why this way: cozy habit trackers with a campfire theme exist (e.g. Tendcamp, iO
 ## App
 
 - **App name** (max 30): `tend: Screen Time & App Limit`
-- **Package**: `app.tend` (if Play says it's taken, change `applicationId` in `app/build.gradle.kts` before the first upload; it can't change later)
+- **Package**: `hu.tend` (the play flavor's `applicationId`; side-loaded test builds are `app.tend`). It can't change after the first upload.
 - **Category**: Productivity
 - **Tags** (Play Console → Store settings): Digital wellbeing, Productivity, Focus, Self care
 - **Contact e-mail**: botondjani@gmail.com (same as `support_email` in `app/src/main/res/values/strings.xml`)

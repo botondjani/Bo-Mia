@@ -49,7 +49,9 @@ android {
     flavorDimensions += "store"
     productFlavors {
         create("sideload") { dimension = "store"; buildConfigField("boolean", "PLAY", "false") }
-        create("play") { dimension = "store"; buildConfigField("boolean", "PLAY", "true") }
+        // On Google Play the app is hu.tend (app.tend was taken there); side-loaded test builds stay app.tend, so
+        // installs on testers' phones keep their data.
+        create("play") { dimension = "store"; applicationId = "hu.tend"; buildConfigField("boolean", "PLAY", "true") }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
