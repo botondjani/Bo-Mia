@@ -102,6 +102,9 @@ enum class PermissionLock { NONE, LOCKED, TRIPPED }
 // Short on purpose: the town is asked later in the camp, and an account is offered on home (or right here, for those who have one).
 private const val STEP_MS = 650L
 
+/** How big the companion is at the top of setup (the same on every page). */
+private val COMPANION_SIZE = 130.dp
+
 private enum class Step { WELCOME, INTRO, HOW, PERMS, APPS, MINUTES, EARN, CAMP }
 
 @Composable
@@ -145,6 +148,21 @@ fun Onboarding(
 
     Column(Modifier.fillMaxSize().background(Brand.Sage)) {
         Progress(stepIndex + 1, Step.entries.size + 1) { if (stepIndex > 0) { movedAt = android.os.SystemClock.uptimeMillis(); stepIndex-- } }
+        // The companion stays put at the top, big, while only what's under them changes (not on the first
+        // page, where they're being picked, nor at the camp, where they live in the picture).
+        androidx.compose.animation.AnimatedVisibility(
+            step != Step.WELCOME && step != Step.CAMP,
+            enter = androidx.compose.animation.expandVertically(tween(420)) + androidx.compose.animation.fadeIn(tween(420)),
+            exit = androidx.compose.animation.shrinkVertically(tween(380)) + androidx.compose.animation.fadeOut(tween(260)),
+        ) {
+            Column(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                BobbingCharacter(avatar, Mood.HAPPY, COMPANION_SIZE)
+                // The speech bubble's point, up towards them: it stays, the bubble under it changes.
+                androidx.compose.foundation.Canvas(Modifier.size(18.dp, 9.dp)) {
+                    drawPath(androidx.compose.ui.graphics.Path().apply { moveTo(0f, size.height); lineTo(size.width / 2, 0f); lineTo(size.width, size.height); close() }, Brand.Card)
+                }
+            }
+        }
         AnimatedContent(
             targetState = step,
             transitionSpec = {
@@ -161,14 +179,13 @@ fun Onboarding(
             when (s) {
                 // The chosen companion says hello, big: what tend is, in a sentence.
                 Step.INTRO -> StepPage(cta = tr("Continue", "Tovább"), onCta = next, scroll = false) {
-                    Spacer(Modifier.weight(0.3f))
-                    Says(avatar, tr("Hi, I'm ${avatar.displayName}!", "Szia, ${avatar.displayName} vagyok!"), tr("I'll help you scroll less, and win your time back for what you'd rather do.", "Segítek kevesebbet görgetni, és visszanyerni az idődet arra, amit szívesebben csinálnál."), figure = 200.dp)
+                    Says(avatar, tr("Hi, I'm ${avatar.displayName}!", "Szia, ${avatar.displayName} vagyok!"), tr("I'll help you scroll less, and win your time back for what you'd rather do.", "Segítek kevesebbet görgetni, és visszanyerni az idődet arra, amit szívesebben csinálnál."), figure = 0.dp)
                     Spacer(Modifier.weight(1f))
                 }
 
                 // How it works: three lines, nothing to set.
                 Step.HOW -> StepPage(cta = tr("Got it", "Értem"), onCta = next, scroll = false) {
-                    Says(avatar, tr("How it works", "Így működik"), figure = 150.dp)
+                    Says(avatar, tr("How it works", "Így működik"), figure = 0.dp)
                     Point("sparkle", tr("You pick the apps that take your time.", "Kiválasztod az appokat, amik elviszik az idődet."))
                     Point("sun", tr("A few minutes a day come free. When they're gone, those apps close.", "Naponta egy kevés idő ingyen jár rájuk. Ha elfogy, bezárnak."))
                     Point("heart", tr("Most minutes you unlock yourself: with Phone down, or by doing your daily tasks.", "A percek nagy részét te oldod fel: a Telefon le funkcióval, vagy a napi feladataid elvégzésével."))
@@ -196,7 +213,9 @@ fun Onboarding(
                     var askSkip by rememberSaveable { mutableStateOf(false) }
                     if (askSkip) LimitedModeDialog(perms.permissions, onConfirm = { askSkip = false; next() }, onDismiss = { askSkip = false })
                     val p = perms.permissions
-                    Says(avatar, tr("I need two switches to work.", "Két engedély kell, hogy működjek."), if (p.allGranted) tr("All set, thank you!", "Megvan, köszönöm!") else tr("Both on this page. It all stays on your phone.", "Mindkettő itt van. Minden a telefonodon marad."), figure = 110.dp)
+                    Says(avatar, tr("I need two switches to work.", "Két engedély kell, hogy működjek."), if (p.allGranted) tr("All set, thank you!", "Megvan, köszönöm!") else tr("Both on this page. It all stays on your phone.", "Mindkettő itt van. Minden a telefonodon marad."), figure = 0.dp)
+                    // Both on: a moment to see the two ticks, then on by itself.
+                    LaunchedEffect(p.allGranted) { if (p.allGranted) { kotlinx.coroutines.delay(900); next() } }
                     if (perms.lock != PermissionLock.NONE && !p.allGranted) UnlockCard(perms)
                     else {
                         // Both at once, in order: the one to do next is the green one; done ones say so.
@@ -209,6 +228,15 @@ fun Onboarding(
                             done = p.usageAccess, next = p.overlay && !p.usageAccess, blocked = perms.usageBlocked, onAllow = perms.requestUsage, onAppInfo = perms.openAppInfo,
                         )
                     }
+                    // What a tap does, said once: where it goes, what to switch, and that it comes back by itself.
+                    if (!p.allGranted && perms.lock == PermissionLock.NONE) Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(horizontal = 4.dp)) {
+                        TendIcons.Glyph("sparkle", 16.dp, tint = Brand.Muted)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            tr("A tap opens Android's settings: switch tend on there, and you're brought straight back.", "Egy koppintás megnyitja az Android beállítását: ott kapcsold be a tendet, és utána magától visszahoz."),
+                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp), color = Brand.Muted,
+                        )
+                    }
                     Spacer(Modifier.weight(1f))
                     if (!p.allGranted) LinkText(tr("Continue without", "Folytatom nélküle"), { askSkip = true })
                 }
@@ -218,7 +246,7 @@ fun Onboarding(
                     cta = if (blocked.isEmpty()) tr("Pick at least one", "Válassz legalább egyet") else tr("Continue with ${blocked.size} app${if (blocked.size == 1) "" else "s"}", "Tovább ${blocked.size} appal"),
                     ctaEnabled = blocked.isNotEmpty(), onCta = next, scroll = false,
                 ) {
-                    Says(avatar, tr("Which apps take your time?", "Mely appok viszik el az idődet?"), tr("Their time comes off your daily minutes.", "Ezek ideje fogy a napi keretedből."), figure = 120.dp)
+                    Says(avatar, tr("Which apps take your time?", "Mely appok viszik el az idődet?"), tr("Their time comes off your daily minutes.", "Ezek ideje fogy a napi keretedből."), figure = 0.dp)
                     // The most used, in that order, and nothing else: picking doesn't move them (ones found by search are counted below).
                     val tiles = catalog.suggested.take(8)
                     if (tiles.isNotEmpty()) AppGrid(catalog, tiles, blocked, onToggleApp)
@@ -251,7 +279,7 @@ fun Onboarding(
                         tr("How much time a day for them?", "Mennyi idő jár rájuk naponta?"),
                         (if (now > 0) tr("They take about $now min a day now. ", "Most nagyjából napi $now percet visznek el. ") else "") +
                             tr("A little comes free; the rest you unlock.", "Egy kevés ingyen jár, a többit te oldod fel."),
-                        figure = 150.dp,
+                        figure = 0.dp,
                     )
                     Card {
                         Stepper(tr("Free every day", "Ingyen naponta"), tr("For the picked apps", "A kiválasztott appokra"), listOf(15, 30, 45, 60), cfg.freeMinutes) {
@@ -265,11 +293,11 @@ fun Onboarding(
                 }
 
                 // Two ways to unlock minutes: putting the phone down (always there), and tasks of your own choosing.
-                Step.EARN -> StepPage(cta = if (tasks.isEmpty()) tr("Just Phone down for now", "Most csak a Telefon le") else tr("Continue", "Tovább"), onCta = next, scroll = false) {
+                Step.EARN -> StepPage(cta = if (tasks.isEmpty()) tr("Just Phone down for now", "Most csak a Telefon le") else tr("Continue", "Tovább"), onCta = next, scroll = tasks.size > 4) {
                     var adding by rememberSaveable { mutableStateOf(false) }
                     if (adding) OwnActivityDialog(onDismiss = { adding = false }) { t -> adding = false; onToggleTask(t) }
                     // The more tasks, the smaller the companion (gone from 5 on), so the page fits without scrolling.
-                    Says(avatar, tr("Two ways to unlock minutes", "Két módon oldhatsz fel perceket"), figure = when { tasks.size <= 2 -> 100.dp; tasks.size <= 4 -> 64.dp; else -> 0.dp })
+                    Says(avatar, tr("Two ways to unlock minutes", "Két módon oldhatsz fel perceket"), figure = 0.dp)
                     // 1: phone down, the big one.
                     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Brand.Moss).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(40.dp).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) { TendIcons.Badge("hourglass", 36.dp) }
