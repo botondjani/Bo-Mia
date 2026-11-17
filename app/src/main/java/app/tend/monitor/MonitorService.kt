@@ -177,6 +177,14 @@ class MonitorService : Service() {
         lastQuery = now
         for (pkg in opened) if (pkg != foreground) onForegroundChanged(foreground, pkg, now)
 
+        // Screen off or locked: nothing is in use. The session ends (coming back is an opening again, with
+        // the usual few seconds' grace), and the time the phone lay there doesn't count.
+        if (!getSystemService(android.os.PowerManager::class.java).isInteractive) {
+            if (sessionPkg != null) endSession(now, askWorthIt = false)
+            foreground = null
+            lastTick = now
+            return
+        }
         val blocked = store.blockedPackages
         val fg = foreground
         // On a break: nothing is paused, counted or closed.
@@ -200,7 +208,7 @@ class MonitorService : Service() {
         } else if (fg != null && fg == sessionPkg && store.borrowing(fg)) {
             // Borrowed minutes: not counted, and the session's own end checks in again.
         } else if (fg != null && fg == sessionPkg) {
-            val seconds = (now - lastTick) / 1000
+            val seconds = ((now - lastTick) / 1000).coerceAtMost(MAX_TICK_SECONDS) // a gap (the phone asleep) never counts as use
             // Once a whole second has passed, not on every poll: each write also redraws the widgets.
             if (seconds > 0) {
                 store.update { it.copy(usedSeconds = it.usedSeconds + seconds) }
@@ -215,7 +223,7 @@ class MonitorService : Service() {
             }
         } else if (fg != null && sessionPkg == null && fg !in blocked && fg != packageName && countsToo(fg) && !store.isLocked()) {
             // Social, video and games that weren't picked: their time counts too, with no pause.
-            val seconds = (now - lastTick) / 1000
+            val seconds = ((now - lastTick) / 1000).coerceAtMost(MAX_TICK_SECONDS) // a gap (the phone asleep) never counts as use
             if (seconds > 0) {
                 store.update { it.copy(usedSeconds = it.usedSeconds + seconds) }
                 store.addAppSeconds(fg, seconds)
@@ -484,6 +492,8 @@ class MonitorService : Service() {
         private const val REENTRY_MS = 5 * 60_000L
         /** Back in the same app within this long: no pause, whatever was chosen (strict too), unless it's closed. */
         const val QUICK_BACK_MS = 5_000L
+        /** The most one poll can count: polls are 0.3 s apart, so anything longer was the phone asleep. */
+        private const val MAX_TICK_SECONDS = 3L
         /** How far back each poll looks for events Android hands over late. */
         private const val EVENT_LAG_MS = 3_000L
         private const val PLUS_CHANNEL = "plus"

@@ -102,6 +102,8 @@ class MainActivity : ComponentActivity() {
     private var openActivities by mutableStateOf(false)
     /** Opened from "Anna put her phone down": join her at the fire. */
     private var joinFire by mutableStateOf(false)
+    /** A sheet to open on the camp page ("shop", "shop:TREES", "things"); see ClearingScreen's openSheet. */
+    private var campSheet by mutableStateOf<String?>(null)
 
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (store.reminderPrompted) store.reminderEnabled = granted // asked for the evening reminder, not for nudges
@@ -147,6 +149,7 @@ class MainActivity : ComponentActivity() {
             app.tend.reminder.WeeklyLetter.OPEN_CLEARING -> openClearing = true
             app.tend.data.Friends.OPEN_JOIN -> joinFire = true
             app.tend.data.Friends.OPEN_NOTES -> { campFriends = true; openClearing = true }
+            app.tend.data.Friends.OPEN_THINGS -> { campSheet = "things"; openClearing = true }
             RecapReminder.OPEN_ACTIVITIES -> openActivities = true
         }
         // A friend's invite: keep the code (it waits through onboarding or logging in) and open the clearing.
@@ -400,7 +403,12 @@ class MainActivity : ComponentActivity() {
         val goToStep: (app.tend.core.Step) -> Unit = { step ->
             when (step) {
                 app.tend.core.Step.ACTIVITY -> { screen = Screen.HOME; activitiesFocus++ }
-                app.tend.core.Step.PLACE -> screen = Screen.CLEARING
+                // Getting something: straight into the shop, on the right shelf.
+                app.tend.core.Step.PLACE -> { campSheet = "shop"; screen = Screen.CLEARING }
+                app.tend.core.Step.TREES -> { campSheet = "shop:TREES"; screen = Screen.CLEARING }
+                app.tend.core.Step.BETTER_FIRE -> { campSheet = "shop:FIRE"; screen = Screen.CLEARING }
+                app.tend.core.Step.SHELTER -> { campSheet = "shop:SHELTER"; screen = Screen.CLEARING }
+                app.tend.core.Step.ON_THE_RIVER -> { campSheet = "shop:WATER"; screen = Screen.CLEARING }
                 app.tend.core.Step.USE, app.tend.core.Step.MOVE -> screen = Screen.CLEARING
                 app.tend.core.Step.NOT_NOW -> {
                     // Open a paused app: the pause comes up, and "Not now" is right there.
@@ -539,12 +547,10 @@ class MainActivity : ComponentActivity() {
             val timed = store.selectedTasks.filter { it.verification.timed }
             val open = timed.filter { it.id !in store.today().completedTasks }
             val task = open.firstOrNull { it.id == f.task } ?: open.firstOrNull() ?: timed.firstOrNull { it.id == f.task } ?: timed.firstOrNull()
-            if (task == null) {
-                android.widget.Toast.makeText(this, tr("Pick a phone-free activity first (like a hobby or reading), then join ${f.name}.", "Előbb válassz egy telefonmentes tevékenységet (például hobbit vagy olvasást), aztán csatlakozhatsz: ${f.name} vár."), android.widget.Toast.LENGTH_LONG).show()
-                screen = Screen.SETTINGS
-            } else if (store.focusStartedAt == 0L) {
+            if (store.focusStartedAt == 0L) {
                 app.tend.data.Stats.log(this, "fire_join")
-                TaskSync.startTimer(this, task)
+                // No phone-free activity of your own: "Phone down" is always there.
+                TaskSync.startTimer(this, task ?: app.tend.core.Tasks.timer(store.focusTimerMinutes))
                 screen = Screen.HOME
                 refresh++
             }
@@ -802,6 +808,8 @@ class MainActivity : ComponentActivity() {
                 openInvite = campInvite,
                 openFriends = campFriends,
                 onFriendsShown = { campFriends = false },
+                openSheet = campSheet,
+                onSheetShown = { campSheet = null },
                 onStep = goToStep,
             )
             // Challenges open right here over the camp, as on home.

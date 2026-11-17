@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Settings → Account. Signed out: one big "Continue with Google", and a small "Log in with e-mail
- * instead" that asks for the address, then the 6-digit code. Signed in: who, sign out, delete.
+ * instead" that asks for the address, then the code from the e-mail (6 to 8 digits, as Supabase is set). Signed in: who, sign out, delete.
  * [onChanged] runs after signing in or out, so the app can save the profile and redraw.
  */
 @Composable
@@ -121,21 +121,21 @@ fun AccountCard(onChanged: () -> Unit, onRestored: () -> Unit = {}, onSignedIn: 
                     modifier = Modifier.fillMaxWidth(),
                 )
                 if (codeSent) OutlinedTextField(
-                    code, { code = it.filter(Char::isDigit).take(6) }, placeholder = { Text(tr("6-digit code", "6 jegyű kód")) }, singleLine = true,
+                    code, { code = it.filter(Char::isDigit).take(8) }, placeholder = { Text(tr("Code from the e-mail", "Kód a levélből")) }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 if (!codeSent) PrimaryButton(if (busy) tr("Sending…", "Küldés…") else tr("Send me a code", "Kérek egy kódot"), {
-                    run { Account.sendEmailCode(email).also { if (it == Account.Result.Ok) { codeSent = true; message = tr("Check your inbox for a 6-digit code.", "Nézd meg a postaládád: küldtünk egy 6 jegyű kódot.") } } }
+                    run { Account.sendEmailCode(email).also { if (it == Account.Result.Ok) { codeSent = true; message = tr("Check your inbox for the code.", "Nézd meg a postaládád: küldtünk egy kódot.") } } }
                 }, enabled = !busy && "@" in email && "." in email.substringAfter('@'))
-                else PrimaryButton(if (busy) tr("Logging in…", "Belépés…") else tr("Log in", "Belépés"), { run { Account.verifyEmailCode(context, email, code) } }, enabled = !busy && code.length == 6)
+                else PrimaryButton(if (busy) tr("Logging in…", "Belépés…") else tr("Log in", "Belépés"), { run { Account.verifyEmailCode(context, email, code) } }, enabled = !busy && code.length >= 6)
                 Text(
                     tr("Use Google instead", "Inkább Google-lel"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tappable { useEmail = false; codeSent = false; message = null }.padding(vertical = 8.dp),
                 )
             }
         }
-        message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = if (it == tr("Check your inbox for a 6-digit code.", "Nézd meg a postaládád: küldtünk egy 6 jegyű kódot.")) Brand.Moss else Brand.Coral) }
+        message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = if (it == tr("Check your inbox for the code.", "Nézd meg a postaládád: küldtünk egy kódot.")) Brand.Moss else Brand.Coral) }
         onStartOver?.let { start ->
             Text(
                 tr("Start over from scratch", "Előről kezdem"), style = MaterialTheme.typography.labelLarge, color = Brand.Coral, textAlign = TextAlign.Center,

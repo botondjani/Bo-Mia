@@ -393,10 +393,12 @@ object Friends {
     fun openFor(kind: Kind): String = when (kind) {
         Kind.FIRE -> OPEN_JOIN
         Kind.WAVE, Kind.CHEER -> OPEN_NOTES
+        Kind.THING -> OPEN_THINGS // into the chest, where it is
         else -> app.tend.reminder.WeeklyLetter.OPEN_CLEARING
     }
 
     const val OPEN_NOTES = "friend_notes"
+    const val OPEN_THINGS = "friend_things"
 
     /** Who cheered you since the camp last showed it (names, newest first). */
     fun cheersToShow(c: Context): List<String> {

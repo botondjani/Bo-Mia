@@ -12,7 +12,7 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 
 /**
- * The optional tend account: Google sign-in, or a 6-digit code by e-mail. Without it the app works
+ * The optional tend account: Google sign-in, or a one-time code by e-mail. Without it the app works
  * the same; with it the camp can be backed up (and, later, friends see it). Sessions live in the
  * app's private storage; tokens are refreshed when they're about to expire.
  */
@@ -68,7 +68,7 @@ object Account {
 
     // ---- E-mail code ----
 
-    /** Sends a 6-digit code to [email]; a new address gets an account on the first code. */
+    /** Sends a one-time code (6 to 8 digits) to [email]; a new address gets an account on the first code. */
     suspend fun sendEmailCode(email: String): Result {
         val body = JSONObject().put("email", email.trim()).put("create_user", true).toString()
         val reply = withContext(Dispatchers.IO) { Supabase.post("/auth/v1/otp", body) }

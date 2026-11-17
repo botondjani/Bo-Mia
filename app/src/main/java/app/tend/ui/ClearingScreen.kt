@@ -116,6 +116,12 @@ fun ClearingScreen(
     /** Open with the friends list up (once: [onFriendsShown] then). */
     openFriends: Boolean = false,
     onFriendsShown: () -> Unit = {},
+    /**
+     * Open with a sheet up, once ([onSheetShown] then): "shop", "shop:" plus a spot kind for the
+     * shop on that filter (e.g. "shop:TREES"), or "things" for the chest.
+     */
+    openSheet: String? = null,
+    onSheetShown: () -> Unit = {},
     onStep: (app.tend.core.Step) -> Unit = {},
     visitor: app.tend.core.Visitor? = null,
     guestbook: Map<app.tend.core.Visitor, Int> = emptyMap(),
@@ -186,6 +192,15 @@ fun ClearingScreen(
     var bookOpen by rememberSaveable { mutableStateOf(false) }
     var milestonesOpen by rememberSaveable { mutableStateOf(false) }
     var chestOpen by rememberSaveable { mutableStateOf(false) }
+    var shopStart by remember { mutableStateOf<SpotKind?>(null) }
+    androidx.compose.runtime.LaunchedEffect(openSheet) {
+        val sheet = openSheet ?: return@LaunchedEffect
+        when {
+            sheet == "things" -> chestOpen = true
+            sheet.startsWith("shop") -> { shopStart = sheet.substringAfter(':', "").takeIf { it.isNotEmpty() }?.let { k -> runCatching { SpotKind.valueOf(k) }.getOrNull() }; shopOpen = true }
+        }
+        onSheetShown()
+    }
 
     // The same header as home, settings and all (nothing moves going between them).
     TodayHeader(java.time.LocalDate.now(), minutes, {}) {
@@ -733,7 +748,7 @@ fun ClearingScreen(
             Column(Modifier.sheetBody(0.62f)) {
             var ready by remember { mutableStateOf(false) }
             androidx.compose.runtime.LaunchedEffect(Unit) { androidx.compose.runtime.withFrameNanos { }; ready = true }
-            if (ready) Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, plus = plus, onPlus = onPlus, level = level, outfits = outfits, outfitWorn = outfitWorn,
+            if (ready) Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, plus = plus, onPlus = onPlus, level = level, startFilter = shopStart, outfits = outfits, outfitWorn = outfitWorn,
                 onBuyOutfit = { a -> onBuyOutfit(a).also { if (it) { tick(firm = true); Sounds.chime(context) } } },
                 onWearOutfit = { tick(); onWearOutfit(it) }, onBuy = { id ->
                 // Bought: a firm tick, a chime, and up to the camp to watch it pop in.
@@ -839,6 +854,8 @@ private fun Shop(
     onBuy: (String) -> Boolean, onSell: (String) -> Unit,
     chest: List<String> = emptyList(), onPutAway: (String) -> Unit = {}, onTakeOut: (String) -> Boolean = { false },
     level: Int = 1,
+    /** The filter the shop opens on (from a challenge like "something for the trees"). */
+    startFilter: SpotKind? = null,
 ) {
     val inCamp = placed.values.toSet()
     fun owns(id: String) = id in inCamp || id in chest
@@ -847,7 +864,7 @@ private fun Shop(
     // Three tabs: things for the camp, things for the companion to wear, and the season's own.
     var tab by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
     val season = app.tend.core.Season.of(java.time.LocalDate.now())
-    var filter by remember { mutableStateOf<SpotKind?>(null) }
+    var filter by remember { mutableStateOf(startFilter) }
     @Composable
     fun tiles(things: List<app.tend.core.Thing>, background: Color = Brand.Sage, paid: Boolean = false) = things.chunked(4).forEach { row ->
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
