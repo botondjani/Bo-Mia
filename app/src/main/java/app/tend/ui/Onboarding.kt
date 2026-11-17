@@ -105,7 +105,7 @@ private const val STEP_MS = 650L
 /** How big the companion is at the top of setup (the same on every page). */
 private val COMPANION_SIZE = 130.dp
 
-private enum class Step { SIGN_IN, WELCOME, INTRO, HOW, PERMS, APPS, MINUTES, EARN, CAMP }
+private enum class Step { SIGN_IN, WELCOME, INTRO, PERMS, APPS, MINUTES, EARN, CAMP }
 
 @Composable
 fun Onboarding(
@@ -149,10 +149,10 @@ fun Onboarding(
 
     Column(Modifier.fillMaxSize().background(Brand.Sage)) {
         Progress(stepIndex + 1, Step.entries.size + 1) { if (stepIndex > 0) { movedAt = android.os.SystemClock.uptimeMillis(); stepIndex-- } }
-        // The companion stays put at the top, big, while only what's under them changes: the one being picked,
-        // live, on the picking page; gone only at the camp, where they live in the picture.
+        // Once picked, the companion stays put at the top, big, while only what's under them changes. Not
+        // before (no Bo or Mia until one is chosen), and not at the camp, where they live in the picture.
         androidx.compose.animation.AnimatedVisibility(
-            step != Step.CAMP,
+            step != Step.SIGN_IN && step != Step.WELCOME && step != Step.CAMP,
             enter = androidx.compose.animation.expandVertically(tween(420)) + androidx.compose.animation.fadeIn(tween(420)),
             exit = androidx.compose.animation.shrinkVertically(tween(380)) + androidx.compose.animation.fadeOut(tween(260)),
         ) {
@@ -179,14 +179,9 @@ fun Onboarding(
         ) { s ->
             when (s) {
                 // The chosen companion says hello, big: what tend is, in a sentence.
-                Step.INTRO -> StepPage(cta = tr("Continue", "Tovább"), onCta = next, scroll = false) {
-                    Says(avatar, tr("Hi, I'm ${avatar.displayName}!", "Szia, ${avatar.displayName} vagyok!"), tr("I'll help you scroll less, and win your time back for what you'd rather do.", "Segítek kevesebbet görgetni, és visszanyerni az idődet arra, amit szívesebben csinálnál."), figure = 0.dp)
-                    Spacer(Modifier.weight(1f))
-                }
-
-                // How it works: three lines, nothing to set.
-                Step.HOW -> StepPage(cta = tr("Got it", "Értem"), onCta = next, scroll = false) {
-                    Says(avatar, tr("How it works", "Így működik"), figure = 0.dp)
+                // Hello, and how it works, on one page: who they are, then three lines, nothing to set.
+                Step.INTRO -> StepPage(cta = tr("Got it", "Értem"), onCta = next, scroll = false) {
+                    Says(avatar, tr("Hi, I'm ${avatar.displayName}!", "Szia, ${avatar.displayName} vagyok!"), tr("I'll help you scroll less. Here's how:", "Segítek kevesebbet görgetni. Így működik:"), figure = 0.dp)
                     Point("sparkle", tr("You pick the apps that take your time.", "Kiválasztod az appokat, amik elviszik az idődet."))
                     Point("sun", tr("A few minutes a day come free. When they're gone, those apps close.", "Naponta egy kevés idő ingyen jár rájuk. Ha elfogy, bezárnak."))
                     Point("heart", tr("Most minutes you unlock yourself: with Phone down, or by doing your daily tasks.", "A percek nagy részét te oldod fel: a Telefon le funkcióval, vagy a napi feladataid elvégzésével."))
@@ -195,7 +190,7 @@ fun Onboarding(
                 // The very first page: sign in (an old camp comes back by itself) or start without an account.
                 Step.SIGN_IN -> Column(Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
                     Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Says(avatar, tr("Welcome to tend", "Üdv a tendben"), tr("Less scrolling, more of your day. An account is optional.", "Kevesebb görgetés, több a napodból. Fiók nem kötelező."), figure = 0.dp)
+                        Title(tr("Welcome to tend", "Üdv a tendben"), tr("Less scrolling, more of your day. An account is optional.", "Kevesebb görgetés, több a napodból. Fiók nem kötelező."))
                         // Google or an e-mail code; with a backup on this account, the old camp is restored and setup ends there.
                         account { next() }
                         LanguagePicker()
@@ -216,9 +211,8 @@ fun Onboarding(
                 // First: the language, and who keeps you company.
                 Step.WELCOME -> StepPage(cta = tr("Continue with ${avatar.displayName}", "Tovább, ${avatar.displayName} jön velem"), onCta = next, scroll = false) {
                     // The language is on the sign-in page; here only when that page was skipped (signed in already).
-                    Says(avatar, tr("Who keeps you company?", "Ki legyen veled?"), tr("You can switch any time.", "Bármikor válthatsz."), figure = 0.dp)
-                    // Small choices: the one big companion is the one at the top, and it turns into whoever is picked.
-                    CompanionPicker(avatar, onAvatar, compact = true)
+                    Title(tr("Who keeps you company?", "Ki legyen veled?"), tr("You can switch any time.", "Bármikor válthatsz."))
+                    CompanionPicker(avatar, onAvatar)
                     if (signedIn) LanguagePicker()
                     Spacer(Modifier.weight(1f))
                 }
