@@ -573,6 +573,7 @@ class MainActivity : ComponentActivity() {
         }
         // Each page (as a function, so `this` inside stays the activity).
         val pageContent: @Composable (String) -> Unit = { p ->
+        @Suppress("UNUSED_VARIABLE") val changed = refresh // every page reads the store again after each change
         when {
             p == "setup" -> {
                 val finish: () -> Unit = {

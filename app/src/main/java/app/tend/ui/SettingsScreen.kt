@@ -508,6 +508,8 @@ private fun AppsCard(
 ) = Card {
     var editing by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf<String?>(null) }
     var picking by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(blocked.isEmpty()) }
+    // The switch flips at once, whatever the screen around it does; saved through [onPauseApp].
+    var paused by remember(pauseApps) { androidx.compose.runtime.mutableStateOf(pauseApps) }
     if (blocked.isNotEmpty()) Text(tr("Their time comes off your daily minutes. Tap one for a pause before it opens, or its own minutes a day.", "Az idejük a napi keretedből fogy. Koppints egyre: kérhetsz szünetet megnyitás előtt, vagy saját napi perceket."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
     blocked.sortedBy { catalog.label(it).lowercase() }.forEach { pkg ->
         val limit = limits[pkg]
@@ -522,7 +524,7 @@ private fun AppsCard(
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(catalog.label(pkg), style = MaterialTheme.typography.bodyLarge, maxLines = 1)
-                if (strict || pkg in pauseApps) Text(tr("Pause before it opens", "Szünet megnyitás előtt"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Moss)
+                if (strict || pkg in paused) Text(tr("Pause before it opens", "Szünet megnyitás előtt"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Moss)
                 if (limit != null) Text(
                     if (used >= limit) tr("Used up today", "Mára elfogyott") else tr("${limit - used} of $limit min left today", "Ma még ${limit - used} perc a $limit percből"),
                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = if (used >= limit) Brand.Coral else Brand.Muted,
@@ -553,8 +555,8 @@ private fun AppsCard(
                     SwitchRow(
                         tr("Pause before it opens", "Szünet megnyitás előtt"),
                         if (strict) tr("Always on in strict mode.", "Szigorú módban mindig be van kapcsolva.") else tr("A few seconds first: often enough to change your mind.", "Előtte pár másodperc szünet: sokszor ennyi is elég, hogy meggondold."),
-                        strict || pkg in pauseApps,
-                    ) { on -> if (!strict) onPauseApp(pkg, on) }
+                        strict || pkg in paused,
+                    ) { on -> if (!strict) { paused = if (on) paused + pkg else paused - pkg; onPauseApp(pkg, on) } }
                     Text(tr("Minutes a day, at most:", "Naponta legfeljebb ennyi perc:"), style = MaterialTheme.typography.bodyMedium)
                     if (!plus) Row(Modifier.clip(RoundedCornerShape(12.dp)).tappable { editing = null; onPlus() }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(tr("Own limits for each app come with Plus ", "Appok saját limitje a Plusszal "), style = MaterialTheme.typography.bodyMedium); PlusMark()

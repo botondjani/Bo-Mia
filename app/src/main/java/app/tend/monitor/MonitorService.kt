@@ -268,8 +268,10 @@ class MonitorService : Service() {
             // Back in the same app within a few seconds (slipped out by mistake, a quick look elsewhere),
             // or within a few minutes with its chosen time not up yet (not in strict mode): no second
             // pause, the same minutes carry on. Never when it's closed.
+            // (The few minutes only after a time chosen on the pause screen: an app that was let in without
+            // a pause, then had its pause turned on, gets it on the very next open.)
             val back = !closed && pass == null && new == leftPkg && now < leftEnds &&
-                (now - lastLeft < QUICK_BACK_MS || (!store.isStrict && now - lastLeft < REENTRY_MS))
+                (now - lastLeft < QUICK_BACK_MS || (!store.isStrict && leftEnds != Long.MAX_VALUE && now - lastLeft < REENTRY_MS))
             // No pause asked for this app (only the minutes count): straight in, time running, until they're gone.
             val free = !closed && pass == null && !back && !store.pausesOnOpen(new)
             if (free) {
