@@ -4,67 +4,66 @@ Everything to paste into Play Console, in the order Play asks for it.
 
 ## Positioning
 
-Most screen-time apps sell restriction ("block apps", "limit social media") and compete in Productivity / Tools for the same few keywords. tend is positioned as a **cozy habit pet**: a companion you care for by living well (walks, sleep, reading, friends), where less scrolling is the reward, not the punishment. That puts it next to self-care and habit apps, a different shelf and a different set of searches, and it still catches the screen-time ones through the description.
+tend is a **screen-time app**: it limits the apps that take your time and lets you win minutes back by living your day. That is the promise, the category and the first words of the listing. The companion (Bo or Mia) and the place by the river are how it feels, not what it is.
 
-- **Primary promise:** "Care for Bo by caring for yourself."
-- **Your own camp:** activities earn acorns; spend them on a camp by the river (a fire, a tent, a canoe, string lights). Something new every day, a long goal every few weeks.
-- **Shelf:** Health & Fitness (self-care, habits, wellbeing), not Productivity.
+Why this way: cozy habit trackers with a campfire theme exist (e.g. Tendcamp, iOS, a habit tracker with no app limits). tend competes on what they don't do: real limits on chosen apps, a pause before them, minutes unlocked offline, and friends doing it together. So: no "habit pet", no "habit tracker" in the title or short description, and "camp" stays in the body, not the headline.
+
+- **Primary promise:** "Limit the apps that take your time, and win minutes back offline."
+- **What only tend does:** a daily allowance for the apps you pick; a pause before them; minutes unlocked by a walk, a book or putting the phone down; Reels & Shorts closed while the rest of the app works; friends at the same fire.
+- **Shelf:** Productivity (where people look for app limits and screen time).
 - **Keyword clusters** (woven into title, short and full description, not stuffed):
-  - Companion / cozy: habit pet, virtual pet, cozy, self care, wellbeing, cute
-  - Progress: level up, habit RPG, XP, weekly challenge, self improvement
-  - Habits: habit tracker, daily goals, walk, steps, sleep goal, reading timer, focus timer
-  - The problem, in people's words: doomscrolling, phone addiction, social media detox, dopamine detox, touch grass
-  - The classic ones: screen time, app limits, digital wellbeing
-- **Custom store listings later:** Play lets you show a different listing per search intent (e.g. "dopamine detox" vs "habit pet"); worth it once there's traffic to compare.
+  - The classic ones: screen time, app limits, app blocker, digital wellbeing, focus
+  - The problem, in people's words: doomscrolling, phone addiction, social media detox, dopamine detox, stop scrolling, touch grass
+  - The apps: TikTok, Instagram, YouTube Shorts, Reels (named only as examples)
+  - The way out: phone down timer, walk, steps, sleep, reading, friends
+- **Custom store listings later:** e.g. one for "dopamine detox", one for "app blocker"; worth it once there's traffic to compare.
 
 ## App
 
-- **App name** (max 30): `tend: Habit Pet & Screen Time`
+- **App name** (max 30): `tend: Screen Time & App Limit`
 - **Package**: `app.tend` (if Play says it's taken, change `applicationId` in `app/build.gradle.kts` before the first upload; it can't change later)
-- **Category**: Health & Fitness
-- **Tags** (Play Console → Store settings): Habit tracker, Self care, Mindfulness, Digital wellbeing
+- **Category**: Productivity
+- **Tags** (Play Console → Store settings): Digital wellbeing, Productivity, Focus, Self care
 - **Contact e-mail**: botondjani@gmail.com (same as `support_email` in `app/src/main/res/values/strings.xml`)
-- **Privacy policy URL**: where `docs/privacy/index.html` is published
+- **Privacy policy URL**: `https://tend.hu/privacy/` (terms: `https://tend.hu/terms/`; `docs/` is served by Firebase Hosting, see `firebase.json`)
 
 ## Short description (max 80)
 
 ```
-A cozy habit pet: walk, sleep, read, and earn your screen time back.
+Limit TikTok & Instagram kindly. Walk, read or put the phone down to unlock more
 ```
 
 ## Full description (max 4000)
 
 ```
-Meet Bo, a little habit pet who grows when you live your real day.
+Less scrolling, without fighting yourself.
 
-Go for a walk, sleep well, read, learn, meet friends, cook, or add your own habits. Every one you do makes Bo happy, levels you up, and earns back screen time. Scroll less without trying harder: tend makes the offline part the fun part.
+Pick the apps that take your time, like TikTok, Instagram or YouTube. They get a few free minutes a day. When those are gone, they stay closed until you unlock more: go for a walk, read, meet a friend, or simply put the phone down for a while. Bo, a small companion, keeps you company the whole way.
 
-CARE FOR BO BY CARING FOR YOURSELF
-• Daily goals you pick: steps, workouts, sleep, reading, learning, friends, hobbies, tidying, cooking, or your own
-• Walks, workouts and sleep count by themselves with Health Connect (great with a smartwatch)
-• Focus timers and phone-free timers for everything else: while one runs, every app waits
-• Or just "Phone down": a timer from 15 to 120 minutes, one tap
-• Level up Body, Mind and Rest: every activity is XP
-• A weekly challenge picked from your habits, with bonus XP
-• Bo earns little things for good habits: a lucky leaf, a sun hat, a nightcap
+APP LIMITS THAT MAKE SENSE
+• Only the apps you pick count: the rest of your phone is yours
+• Free minutes every day, and a daily maximum you set
+• Unlock more with real life: a walk, a workout, a good night's sleep, reading, learning, friends, cooking, tidying, or your own activities
+• "Phone down": a timer from 15 to 120 minutes; every minute away unlocks a minute
+• Walks, workouts and sleep count by themselves with Health Connect
+• At the weekend, one extra hour when you run out (you choose, it never stays on)
 
-YOUR CAMP BY THE RIVER
-Walks, books and every "Not now" earn acorns. Spend them on a camp in a clearing by the river: a campfire, a hammock, a canvas tent, a canoe, string lights between the trees. A little something every day, a cabin or a boat to save for. Friends can drop by, wave, cheer you on, and sit at each other's fire: putting the phone down is easier together.
+A PAUSE BEFORE THE APPS THAT PULL HARDEST
+Ask for a short pause before any app: Bo pops up for a breath, and often that's all it takes. "Not now" earns you something. Need it anyway? "Just checking something" opens it for a few minutes, and Bo lets you know when the time is up.
+• Close only Reels & Shorts: messages, search and normal videos keep working
+• Good night: your apps rest until 7:00, Bo sleeps too
+• Your week at a glance: all your screen time, what counted, and the days you ran over
 
-A KIND PAUSE, NOT A BLOCK
-Pick the apps that take your time, like TikTok or Instagram: they share a few minutes a day, and close when they're gone until a walk or a book wins some back. Want more help? Ask for a pause before the ones that pull hardest: Bo pops up for a breath, and often that's all it takes. Still want in? Open it for 5 or 15 minutes; Bo checks in when the time is up. No guilt, no shame.
+BETTER TOGETHER
+Add friends and see each other's place along the river. Cheer for a walk, call someone to the fire and put your phones down at the same time, send a little present, trade things, reach a shared weekly goal. No chat, no feed, no likes.
 
-CALM BY DESIGN
-• Evening mode: a sleepy Bo and a longer pause at night, for better sleep
-• Scheduled lock for bedtime or work hours
-• Morning plan, evening recap, Sunday letter: at most three notes a day
-• Home screen widgets, light and dark theme
-• In English and Hungarian
+A LITTLE PLACE THAT GROWS
+Every activity and every "Not now" earns acorns. Spend them on a clearing by the river: a campfire, a hammock, a tent that becomes a cabin, a canoe, string lights. Levels unlock new things, seasons bring their own. Bo uses everything you get, even when you're away.
 
 PRIVATE
-No ads, no tracking, no account needed. Log in only if you want a backup or friends; your health data never leaves your phone.
+No ads, no tracking, no account needed. Log in only for a backup or friends. Your health data and your app list never leave your phone.
 
-For a digital detox that sticks: less screen time, more of your life, and a small friend cheering you on.
+A digital detox that sticks: less screen time, more of your day, and a small friend cheering you on.
 ```
 
 ## Store graphics (in `docs/play/`)
@@ -96,7 +95,7 @@ For a digital detox that sticks: less screen time, more of your life, and a smal
 - Everything else (minutes, Health Connect readings) stays on the device.
 
 ### Content rating (IARC questionnaire)
-- Category: Utility / Productivity. No violence, sexuality, language, controlled substances, gambling, user-generated content, location sharing or purchases. Expected rating: Everyone / PEGI 3.
+- Category: Productivity. No violence, sexuality, language, controlled substances, gambling, user-generated content, location sharing or purchases. Expected rating: Everyone / PEGI 3.
 
 ### Target audience
 - 13 and over (not designed for children).
@@ -150,7 +149,7 @@ Optional feature "Close only Reels & Shorts". When the user turns it on, tend's 
 
 1. `versionCode` in `app/build.gradle.kts` (1 for the first upload, +1 for each one after).
 2. `keystore.properties` in place, then `./gradlew bundlePlayRelease`; back up the upload keystore somewhere safe (it can't be recreated).
-3. Publish `docs/` (GitHub Pages): privacy policy at `/privacy/`, terms at `/terms/`, invite page at `/i/`.
+3. Publish `docs/` to https://tend.hu (`firebase deploy --only hosting`): privacy policy at `/privacy/`, terms at `/terms/`, invite page at `/i/`, app links at `/.well-known/assetlinks.json` (add the Play app signing SHA-256 there next to the upload key's).
 4. Google Cloud → OAuth consent screen → **Publish app** (in "Testing" only the listed test users can sign in with Google). Add the Play **app signing** SHA-1 (Play Console → Setup → App signing) as an Android OAuth client, or Google sign-in fails for Play installs.
 5. Play Console forms, from the sections above: Data safety, Content rating, Target audience, Ads, App access, Foreground service, Accessibility API, Health Connect / Health apps.
 6. New screenshots if the look changed since `docs/play/screenshot-*.png` were made.

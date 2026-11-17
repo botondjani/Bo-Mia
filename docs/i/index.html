@@ -36,7 +36,7 @@ a.alt { color:var(--moss); display:block; margin-top:12px; }
 var c = (new URLSearchParams(location.search).get('c') || '').toUpperCase();
 if (/^[A-Z2-9]{6}$/.test(c)) {
   document.getElementById('code').textContent = c.slice(0, 3) + ' ' + c.slice(3);
-  var fallback = encodeURIComponent(location.origin + '/Bo-Mia/');
+  var fallback = encodeURIComponent(new URL('../', location.href).href);
   document.getElementById('open').href = 'intent://invite?c=' + c + '#Intent;scheme=tend;package=app.tend;S.browser_fallback_url=' + fallback + ';end';
 } else {
   document.getElementById('open').style.display = 'none';

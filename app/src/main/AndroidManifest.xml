@@ -58,6 +58,14 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="tend" android:host="invite" />
             </intent-filter>
+            <!-- Invite links on tend.hu open straight in the app (verified by tend.hu/.well-known/assetlinks.json). -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="tend.hu" android:pathPrefix="/i" />
+            </intent-filter>
+            <!-- Invites already sent from the old address. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

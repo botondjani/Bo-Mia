@@ -75,9 +75,34 @@ class MonitorService : Service() {
     private var leftEnds = 0L
     private var focusCaughtAt = 0L
     private var interceptedAt = 0L
+    /** The last foreground event handled (time stamp and app), so a look back never handles one twice. */
+    private var lastEventAt = 0L
+    private var lastEventPkg: String? = null
+
+    /**
+     * Android 15 and later only let an app with "display over other apps" start a screen from the
+     * background while one of its overlay windows is visible: without it the pause is silently not
+     * shown. So a 1-pixel window that can't be seen or touched stays up while the service runs.
+     */
+    private var anchor: android.view.View? = null
+    private fun keepAnchor() {
+        if (anchor != null || !android.provider.Settings.canDrawOverlays(this)) return
+        val wm = getSystemService(android.view.WindowManager::class.java)
+        val view = android.view.View(this)
+        val params = android.view.WindowManager.LayoutParams(
+            1, 1, android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            android.graphics.PixelFormat.TRANSPARENT,
+        ).apply { gravity = android.view.Gravity.TOP or android.view.Gravity.START }
+        if (runCatching { wm.addView(view, params) }.isSuccess) anchor = view
+    }
+    /** A pause that didn't show: tried again once. */
+    private var retried = false
 
     private val tick = object : Runnable {
         override fun run() {
+            keepAnchor()
             poll()
             handler.postDelayed(this, POLL_MS)
         }
@@ -100,6 +125,8 @@ class MonitorService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
 
     override fun onDestroy() {
+        anchor?.let { v -> runCatching { getSystemService(android.view.WindowManager::class.java).removeView(v) } }
+        anchor = null
         peek.hide()
         scope.cancel()
         handler.removeCallbacks(tick)
@@ -132,16 +159,23 @@ class MonitorService : Service() {
         getSharedPreferences("tend_monitor", MODE_PRIVATE).edit().putLong("heartbeat", now).apply()
 
         // Null when the system won't answer (usage access just taken away): nothing new, try again next time.
-        val events = runCatching { usm.queryEvents(lastQuery, now) }.getOrNull()
+        // Android sometimes hands an event over a moment late, stamped with an earlier time: the window
+        // looks a few seconds back, and what was already handled is skipped by its time stamp.
+        val events = runCatching { usm.queryEvents(lastQuery - EVENT_LAG_MS, now) }.getOrNull()
         val e = UsageEvents.Event()
-        var latest: String? = null
+        // Every switch in order, not only the last one: home and back into an app within one poll is still an opening.
+        val opened = ArrayList<String>()
         while (events?.hasNextEvent() == true) {
             events.getNextEvent(e)
             @Suppress("DEPRECATION")
-            if (e.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) latest = e.packageName
+            if (e.eventType != UsageEvents.Event.MOVE_TO_FOREGROUND) continue
+            if (e.timeStamp < lastEventAt || (e.timeStamp == lastEventAt && e.packageName == lastEventPkg)) continue
+            lastEventAt = e.timeStamp
+            lastEventPkg = e.packageName
+            if (opened.lastOrNull() != e.packageName) opened += e.packageName
         }
         lastQuery = now
-        if (latest != null && latest != foreground) onForegroundChanged(foreground, latest, now)
+        for (pkg in opened) if (pkg != foreground) onForegroundChanged(foreground, pkg, now)
 
         val blocked = store.blockedPackages
         val fg = foreground
@@ -190,9 +224,9 @@ class MonitorService : Service() {
         } else if (fg != null && fg in blocked && fg == interceptedPkg &&
             now - interceptedAt > MISS_AFTER_MS
         ) {
-            // The delay screen should have covered the app by now.
-            store.logMiss("open_not_caught", fg)
-            interceptedPkg = null
+            // The delay screen should have covered the app by now: once more, then it's logged.
+            if (!retried) { retried = true; store.logMiss("open_retry", fg); intercept(fg, now) }
+            else { store.logMiss("open_not_caught", fg); interceptedPkg = null }
         }
         lastTick = now - (now - lastTick) % 1000
     }
@@ -201,6 +235,7 @@ class MonitorService : Service() {
         foreground = new
         if (new == packageName) {
             interceptedPkg = null // our delay screen is showing
+            retried = false
             return
         }
         if (sessionPkg != null && new == sessionPkg && awaySince > 0) {
@@ -230,9 +265,13 @@ class MonitorService : Service() {
             if (sessionPkg != null) endSession(now, askWorthIt = false) // another paused app: the pause takes over
             val closed = ((store.isLocked() || store.appLocked(new)) && !store.borrowing(new)) || scheduledLock() != null
             val pass = if (closed) null else store.consumePass(new)
-            // Back in the same app within a few minutes, with its chosen time not up yet: no second
-            // pause, the same minutes carry on (not in strict mode).
-            val back = !closed && pass == null && !store.isStrict && new == leftPkg && now - lastLeft < REENTRY_MS && now < leftEnds
+            // Back in the same app within a few seconds (slipped out by mistake, a quick look elsewhere),
+            // or within a few minutes with its chosen time not up yet (not in strict mode): no second
+            // pause, the same minutes carry on. Never when it's closed.
+            // (The few minutes only after a time chosen on the pause screen: an app that was let in without
+            // a pause, then had its pause turned on, gets it on the very next open.)
+            val back = !closed && pass == null && new == leftPkg && now < leftEnds &&
+                (now - lastLeft < QUICK_BACK_MS || (!store.isStrict && leftEnds != Long.MAX_VALUE && now - lastLeft < REENTRY_MS))
             // No pause asked for this app (only the minutes count): straight in, time running, until they're gone.
             val free = !closed && pass == null && !back && !store.pausesOnOpen(new)
             if (free) {
@@ -313,6 +352,8 @@ class MonitorService : Service() {
 
     private fun intercept(pkg: String, now: Long, timeUp: Boolean = false) {
         if (!android.provider.Settings.canDrawOverlays(this)) return nudge(pkg)
+        keepAnchor()
+        if (pkg != interceptedPkg) retried = false
         peek.hide()
         interceptedPkg = pkg
         interceptedAt = now
@@ -433,7 +474,7 @@ class MonitorService : Service() {
         private const val NUDGE_CHANNEL = "nudge"
         /** How often the foreground app is checked: fast enough that the pause beats the app's first scroll. */
         private const val POLL_MS = 300L
-        private const val MISS_AFTER_MS = 3000L
+        private const val MISS_AFTER_MS = 1500L
         private const val GAP_LOG_SECONDS = 120
         private const val WORTH_IT_DELAY_MS = 1500L
         private const val SYNC_EVERY_MS = 15 * 60_000L
@@ -441,6 +482,10 @@ class MonitorService : Service() {
         private const val STREAK_GAP_MS = 3 * 60_000L
         /** Back in the same app within this long (and within its chosen time): no second pause. */
         private const val REENTRY_MS = 5 * 60_000L
+        /** Back in the same app within this long: no pause, whatever was chosen (strict too), unless it's closed. */
+        const val QUICK_BACK_MS = 5_000L
+        /** How far back each poll looks for events Android hands over late. */
+        private const val EVENT_LAG_MS = 3_000L
         private const val PLUS_CHANNEL = "plus"
         private const val AWAY_CONFIRM_MS = 8_000L
         private const val HELPER_MAX_MS = 10 * 60_000L

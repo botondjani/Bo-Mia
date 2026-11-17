@@ -5,48 +5,46 @@ A Play Console-ban: Store presence → Main store listing → Manage translation
 ## App neve (max. 30)
 
 ```
-tend: Szokások és képernyőidő
+tend: Képernyőidő, appkorlát
 ```
 
 ## Rövid leírás (max. 80)
 
 ```
-Kedves társ a jó szokásokhoz: sétálj, aludj, olvass, és nyerd vissza az idődet.
+Kedves appkorlát: séta, olvasás vagy letett telefon old fel újabb perceket.
 ```
 
 ## Teljes leírás (max. 4000)
 
 ```
-Ismerd meg Bót, a kis társat, aki akkor érzi jól magát, ha te a valódi napodat éled.
+Kevesebb görgetés, önmagad legyőzése nélkül.
 
-Sétálj egyet, aludd ki magad, olvass, tanulj, találkozz a barátaiddal, főzz, vagy vedd fel a saját szokásaidat. Minden, amit megcsinálsz, jókedvre deríti Bót, szintet lépsz vele, és képernyőidőt nyersz vissza. Kevesebb görgetés, erőlködés nélkül: a tend abból csinál örömöt, ami a telefonon kívül történik.
+Kiválasztod az appokat, amik elviszik az idődet, például a TikTokot, az Instagramot vagy a YouTube-ot. Ezekre naponta jár néhány ingyen perc. Ha elfogyott, zárva maradnak, amíg fel nem oldasz újabbakat: sétálj egyet, olvass, találkozz valakivel, vagy egyszerűen tedd le egy időre a telefont. Bo, a kis társad, végig veled van.
 
-GONDOZD BÓT AZZAL, HOGY MAGADRA FIGYELSZ
-• Napi célok, amiket te választasz: lépések, edzés, alvás, olvasás, tanulás, barátok, hobbi, rendrakás, főzés, vagy bármi saját
-• A séta, az edzés és az alvás magától beszámít a Health Connecttel (okosórával a legjobb)
-• Minden másra fókusz- és telefonmentes időzítő: amíg megy, minden app megvárja
-• Vagy csak „Telefon le”: időzítő 15-től 120 percig, egy koppintással
-• Szintek a Testnek, az Elmének és a Pihenésnek: minden tevékenység XP
-• Heti kihívás a saját szokásaidból, bónusszal
-• Bo apró holmikat kap a jó szokásokért: szerencselevelet, szalmakalapot, hálósapkát
+APPKORLÁT, AMINEK VAN ÉRTELME
+• Csak a kiválasztott appok számítanak: a telefonod többi része a tiéd
+• Ingyen percek minden nap, és egy napi maximum, amit te állítasz be
+• Újabb perceket a valódi életeddel oldasz fel: séta, edzés, jó alvás, olvasás, tanulás, barátok, főzés, rendrakás vagy saját tevékenységek
+• „Telefon le”: időzítő 15-től 120 percig; minden letett perc felold egy percet
+• A séta, az edzés és az alvás magától beszámít a Health Connecttel
+• Hétvégén plusz egy óra, ha elfogyott a keret (te döntesz, és nem marad bekapcsolva)
 
-TÁBOR A FOLYÓPARTON
-A sétákért, a könyvekért és minden „Most nem”-ért makk jár. Ebből építed a tábort a folyóparti tisztáson: tábortűz, függőágy, vászonsátor, kenu, fényfüzér a fák között. Minden nap jut valami apróság, és van mire gyűjteni is. A barátaid átjöhetnek, integethetnek, megtapsolhatnak, és odaülhettek egymás tábortüzéhez: együtt letenni a telefont könnyebb.
+SZÜNET A LEGERŐSEBB APPOK ELŐTT
+Kérj egy rövid szünetet bármelyik app előtt: Bo felbukkan egy lélegzetvételnyi időre, és gyakran ennyi is elég. A „Most nem” jutalmat ér. Mégis kell? A „Csak megnézek valamit” pár percre megnyitja, és Bo szól, ha letelt.
+• Csak a Reels és a Shorts zár be: az üzenetek, a keresés és a sima videók működnek
+• Jó éjt: az appjaid reggel 7:00-ig pihennek, Bo is alszik
+• A heted egy pillantással: a teljes képernyőidőd, ami a keretbe számított, és a túllépett napok
 
-KEDVES SZÜNET, NEM TILTÁS
-Kiválasztod az appokat, amik elviszik az idődet, például a TikTokot vagy az Instagramot: ezekre naponta néhány perc jár, és ha elfogy, bezárnak, amíg egy séta vagy egy könyv vissza nem nyer pár percet. Több segítség kell? Kérj szünetet a legerősebbek előtt: Bo felbukkan egy lélegzetvételnyi időre, és gyakran ennyi is elég. Mégis kell? Nyisd meg 5 vagy 15 percre; Bo szól, ha letelt. Nincs bűntudat, nincs szégyen.
+EGYÜTT KÖNNYEBB
+Vedd fel a barátaidat, és lássátok egymás helyét a folyó mentén. Tapsolj meg egy sétát, hívj valakit a tűzhöz, és tegyétek le egyszerre a telefont, küldj apró ajándékot, cseréljetek tárgyakat, érjetek el közös heti célt. Nincs chat, nincs hírfolyam, nincsenek lájkok.
 
-NYUGALOMRA TERVEZVE
-• Esti mód: álmos Bo és hosszabb szünet éjjel, a jobb alvásért
-• Időzített zár lefekvéshez vagy munkaidőre
-• Reggeli terv, esti összefoglaló, vasárnapi levél: naponta legfeljebb három üzenet
-• Widgetek a kezdőképernyőre, világos és sötét téma
-• Magyarul és angolul
+EGY KIS HELY, AMI NŐ
+Minden tevékenység és minden „Most nem” makkot ér. Ebből egy folyóparti tisztást rendezel be: tábortűz, függőágy, sátor, amiből kunyhó lesz, kenu, fényfüzér. A szintek új dolgokat nyitnak meg, az évszakok sajátokat hoznak. Bo mindent használ, amit szerzel, akkor is, ha nem vagy ott.
 
 A TE ADATAID
-Nincs reklám, nincs követés, fiók sem kell. Csak akkor lépj be, ha mentést vagy barátokat szeretnél; az egészségadataid soha nem hagyják el a telefonod.
+Nincs reklám, nincs követés, fiók sem kell. Csak mentéshez vagy a barátokhoz kell belépni. Az egészségadataid és az appjaid listája soha nem hagyják el a telefonod.
 
-Digitális detox, ami meg is marad: kevesebb képernyőidő, több az életedből, és egy kis barát, aki szurkol neked.
+Digitális detox, ami meg is marad: kevesebb képernyőidő, több a napodból, és egy kis barát, aki szurkol neked.
 ```
 
 ## Képek (`docs/play/hu/`)
