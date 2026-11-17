@@ -195,22 +195,30 @@ fun Onboarding(
                 // The very first page: sign in (an old camp comes back by itself) or start without an account.
                 Step.SIGN_IN -> Column(Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
                     Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Says(avatar, tr("Welcome to tend", "Üdv a tendben"), tr("Less scrolling, more of your day.", "Kevesebb görgetés, több a napodból."), figure = 0.dp)
+                        Says(avatar, tr("Welcome to tend", "Üdv a tendben"), tr("Less scrolling, more of your day. An account is optional.", "Kevesebb görgetés, több a napodból. Fiók nem kötelező."), figure = 0.dp)
                         // Google or an e-mail code; with a backup on this account, the old camp is restored and setup ends there.
                         account { next() }
                         LanguagePicker()
                     }
-                    Text(
-                        tr("Start without an account", "Kipróbálom regisztráció nélkül"), style = MaterialTheme.typography.titleMedium, color = Brand.Moss, textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp).clip(RoundedCornerShape(16.dp)).tappable(onClick = next).padding(vertical = 14.dp),
-                    )
+                    // Starting without an account is a real choice, as big as signing in: a full button, and what it means.
+                    Column(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            tr("Start without an account", "Kezdés regisztráció nélkül"), style = MaterialTheme.typography.titleMedium, color = Brand.Moss, textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).border(2.dp, Brand.Moss, RoundedCornerShape(18.dp)).tappable(onClick = next).padding(vertical = 16.dp),
+                        )
+                        Text(
+                            tr("Everything works without one. You can sign up later and keep your camp.", "Minden működik nélküle is. Később is regisztrálhatsz, és a táborod megmarad."),
+                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, textAlign = TextAlign.Center,
+                        )
+                    }
                 }
 
                 // First: the language, and who keeps you company.
                 Step.WELCOME -> StepPage(cta = tr("Continue with ${avatar.displayName}", "Tovább, ${avatar.displayName} jön velem"), onCta = next, scroll = false) {
                     // The language is on the sign-in page; here only when that page was skipped (signed in already).
                     Says(avatar, tr("Who keeps you company?", "Ki legyen veled?"), tr("You can switch any time.", "Bármikor válthatsz."), figure = 0.dp)
-                    CompanionPicker(avatar, onAvatar)
+                    // Small choices: the one big companion is the one at the top, and it turns into whoever is picked.
+                    CompanionPicker(avatar, onAvatar, compact = true)
                     if (signedIn) LanguagePicker()
                     Spacer(Modifier.weight(1f))
                 }

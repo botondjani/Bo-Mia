@@ -1260,21 +1260,9 @@ class MainActivity : ComponentActivity() {
         overlayAttempted = true
         launched = Launched.OVERLAY
         returnWhenGranted { Settings.canDrawOverlays(this) }
-        // Android 11+ on Pixel (and other near-stock phones) ignores the package on the overlay screen and shows the
-        // whole list from the top. tend's own App info page has the same switch one tap down, and Settings can be
-        // asked to scroll to it and flash it: that's the shortest way there. Samsung and the like still open
-        // tend's own overlay page directly, so they keep the usual route.
-        if (Build.VERSION.SDK_INT >= 30 && Build.MANUFACTURER.lowercase() in NEAR_STOCK_MAKERS) {
-            hint(tr("Tap \"Display over other apps\", then switch it on", "Koppints a „Megjelenítés más alkalmazások felett” sorra, és kapcsold be"))
-            open(
-                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
-                    .putExtra(":settings:fragment_args_key", "system_alert_window")
-                    .putExtra(":settings:show_fragment_args", Bundle().apply { putString(":settings:fragment_args_key", "system_alert_window") }),
-                highlightTend(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)),
-            )
-            return
-        }
-        hint(tr("Find tend in the list and switch it on", "Keresd meg a tendet a listában, és kapcsold be"))
+        // Android 11+ shows the whole list here whatever is asked (Google's rule; tend's own page can't be opened
+        // directly), so the note says where tend is in it. Some phones (Samsung) still open tend's own page.
+        hint(tr("Scroll down to tend (under T) and switch it on", "Görgess le a tendig (a T betűnél), és kapcsold be"))
         open(
             Intent("android.settings.MANAGE_APP_OVERLAY_PERMISSION", Uri.parse("package:$packageName")),
             highlightTend(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))),
@@ -1415,8 +1403,6 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         /** Makers whose phones stop background apps on their own, so tend asks to be left running. */
-        /** Makers that ship (near) stock Android, where the overlay screen always opens as the whole list. */
-        val NEAR_STOCK_MAKERS = setOf("google", "nothing", "motorola", "fairphone")
         val STRICT_BATTERY_MAKERS = setOf("samsung", "xiaomi", "redmi", "poco", "huawei", "honor", "oppo", "vivo", "realme", "oneplus", "meizu", "asus", "tecno", "infinix")
         const val DAY_MS = 24 * 3_600_000L
     }
