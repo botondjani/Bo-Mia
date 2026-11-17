@@ -105,7 +105,7 @@ private const val STEP_MS = 650L
 /** How big the companion is at the top of setup (the same on every page). */
 private val COMPANION_SIZE = 130.dp
 
-private enum class Step { WELCOME, INTRO, HOW, PERMS, APPS, MINUTES, EARN, CAMP }
+private enum class Step { SIGN_IN, WELCOME, INTRO, HOW, PERMS, APPS, MINUTES, EARN, CAMP }
 
 @Composable
 fun Onboarding(
@@ -131,7 +131,8 @@ fun Onboarding(
     /** A little about you (all optional): your town for the weather, an age range, a gender. */
     onFinish: () -> Unit,
 ) {
-    var stepIndex by rememberSaveable { mutableIntStateOf(0) }
+    // Already signed in (back after a restart, say): straight past the sign-in page.
+    var stepIndex by rememberSaveable { mutableIntStateOf(if (signedIn) Step.WELCOME.ordinal else 0) }
     val step = Step.entries[stepIndex]
     // A second tap on "Continue" while the page slides in lands on the next page's button: steps move at most
     // once per transition, so none is skipped.
@@ -191,18 +192,27 @@ fun Onboarding(
                     Point("heart", tr("Most minutes you unlock yourself: with Phone down, or by doing your daily tasks.", "A percek nagy részét te oldod fel: a Telefon le funkcióval, vagy a napi feladataid elvégzésével."))
                 }
 
+                // The very first page: sign in (an old camp comes back by itself) or start without an account.
+                Step.SIGN_IN -> Column(Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
+                    Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Says(avatar, tr("Welcome to tend", "Üdv a tendben"), tr("Less scrolling, more of your day.", "Kevesebb görgetés, több a napodból."), figure = 0.dp)
+                        // Google or an e-mail code; with a backup on this account, the old camp is restored and setup ends there.
+                        account { next() }
+                        LanguagePicker()
+                    }
+                    Text(
+                        tr("Start without an account", "Kipróbálom regisztráció nélkül"), style = MaterialTheme.typography.titleMedium, color = Brand.Moss, textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp).clip(RoundedCornerShape(16.dp)).tappable(onClick = next).padding(vertical = 14.dp),
+                    )
+                }
+
                 // First: the language, and who keeps you company.
                 Step.WELCOME -> StepPage(cta = tr("Continue with ${avatar.displayName}", "Tovább, ${avatar.displayName} jön velem"), onCta = next, scroll = false) {
-                    LanguagePicker()
+                    // The language is on the sign-in page; here only when that page was skipped (signed in already).
+                    if (signedIn) LanguagePicker()
                     Title(tr("Who keeps you company?", "Ki legyen veled?"), tr("You can switch any time.", "Bármikor válthatsz."))
                     CompanionPicker(avatar, onAvatar)
                     Spacer(Modifier.weight(1f))
-                    // Coming back with an account (a new phone): log in here and the camp is restored.
-                    var loggingIn by rememberSaveable { mutableStateOf(false) }
-                    if (!signedIn) LinkText(tr("I already have an account", "Már van fiókom"), { loggingIn = true })
-                    if (loggingIn) androidx.compose.ui.window.Dialog(onDismissRequest = { loggingIn = false }) {
-                        Column(Modifier.clip(RoundedCornerShape(28.dp)).background(Brand.Sage).padding(16.dp)) { account { loggingIn = false } }
-                    }
                 }
 
                 // The switches tend needs, one at a time: only what's still missing shows.
