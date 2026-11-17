@@ -232,8 +232,10 @@ class MonitorService : Service() {
         } else if (fg != null && fg in blocked && fg == interceptedPkg &&
             now - interceptedAt > MISS_AFTER_MS
         ) {
-            // The delay screen should have covered the app by now: once more, then it's logged.
-            if (!retried) { retried = true; store.logMiss("open_retry", fg); intercept(fg, now) }
+            // The delay screen should have covered the app by now: once more, then it's logged. Not if it
+            // did show (Android only told us late) and was left with Home: that would bring it back on the home screen.
+            if (InterstitialActivity.shownAt >= interceptedAt) interceptedPkg = null
+            else if (!retried) { retried = true; store.logMiss("open_retry", fg); intercept(fg, now) }
             else { store.logMiss("open_not_caught", fg); interceptedPkg = null }
         }
         lastTick = now - (now - lastTick) % 1000

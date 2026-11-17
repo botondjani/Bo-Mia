@@ -90,6 +90,12 @@ class InterstitialActivity : ComponentActivity() {
         store.logAnswer("pause", pkgName, what)
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Seen: the monitor won't put it up again for this opening, even if Android tells it late.
+        shownAt = System.currentTimeMillis()
+    }
+
     override fun onStop() {
         super.onStop()
         // Left without a choice (home key, a call): the app wasn't opened from here.
@@ -449,6 +455,9 @@ class InterstitialActivity : ComponentActivity() {
     }
 
     companion object {
+        /** When a pause last came on screen (the monitor runs in the same process and reads it). */
+        @Volatile var shownAt = 0L
+
         private const val EXTRA_PKG = "pkg"
         private const val SYNC_TIMEOUT_MS = 3000L
         private const val EXTRA_TIME_UP = "time_up"
