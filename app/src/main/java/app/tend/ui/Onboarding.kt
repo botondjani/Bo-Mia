@@ -149,10 +149,10 @@ fun Onboarding(
 
     Column(Modifier.fillMaxSize().background(Brand.Sage)) {
         Progress(stepIndex + 1, Step.entries.size + 1) { if (stepIndex > 0) { movedAt = android.os.SystemClock.uptimeMillis(); stepIndex-- } }
-        // The companion stays put at the top, big, while only what's under them changes (not on the first
-        // page, where they're being picked, nor at the camp, where they live in the picture).
+        // The companion stays put at the top, big, while only what's under them changes: the one being picked,
+        // live, on the picking page; gone only at the camp, where they live in the picture.
         androidx.compose.animation.AnimatedVisibility(
-            step != Step.WELCOME && step != Step.CAMP,
+            step != Step.CAMP,
             enter = androidx.compose.animation.expandVertically(tween(420)) + androidx.compose.animation.fadeIn(tween(420)),
             exit = androidx.compose.animation.shrinkVertically(tween(380)) + androidx.compose.animation.fadeOut(tween(260)),
         ) {
@@ -167,12 +167,12 @@ fun Onboarding(
         AnimatedContent(
             targetState = step,
             transitionSpec = {
-                // A short glide and a cross-fade: the new page drifts in a little from the side as the old one
-                // drifts out and fades, so nothing whips across the screen.
+                // Under the companion, the page slides all the way across: the old one out to the side, the new one in
+                // from the other, together, with a soft ease (and a touch of fade at the far ends).
                 val dir = if (targetState.ordinal > initialState.ordinal) 1 else -1
-                val ease = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f)
-                (slideInHorizontally(tween(420, easing = ease)) { it / 6 * dir } + androidx.compose.animation.fadeIn(tween(320, delayMillis = 60))) togetherWith
-                    (slideOutHorizontally(tween(320, easing = ease)) { -it / 8 * dir } + androidx.compose.animation.fadeOut(tween(200)))
+                val ease = androidx.compose.animation.core.CubicBezierEasing(0.3f, 0f, 0.1f, 1f)
+                (slideInHorizontally(tween(480, easing = ease)) { it * dir } + androidx.compose.animation.fadeIn(tween(480, easing = ease), initialAlpha = 0.3f)) togetherWith
+                    (slideOutHorizontally(tween(480, easing = ease)) { -it * dir } + androidx.compose.animation.fadeOut(tween(480, easing = ease), targetAlpha = 0.3f))
             },
             modifier = Modifier.weight(1f),
             label = "onboarding",
@@ -209,9 +209,9 @@ fun Onboarding(
                 // First: the language, and who keeps you company.
                 Step.WELCOME -> StepPage(cta = tr("Continue with ${avatar.displayName}", "Tovább, ${avatar.displayName} jön velem"), onCta = next, scroll = false) {
                     // The language is on the sign-in page; here only when that page was skipped (signed in already).
-                    if (signedIn) LanguagePicker()
-                    Title(tr("Who keeps you company?", "Ki legyen veled?"), tr("You can switch any time.", "Bármikor válthatsz."))
+                    Says(avatar, tr("Who keeps you company?", "Ki legyen veled?"), tr("You can switch any time.", "Bármikor válthatsz."), figure = 0.dp)
                     CompanionPicker(avatar, onAvatar)
+                    if (signedIn) LanguagePicker()
                     Spacer(Modifier.weight(1f))
                 }
 
