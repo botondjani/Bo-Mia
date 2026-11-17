@@ -1,6 +1,6 @@
 # Prompt a böngészős Claude-nak: automatikus Play-kiadás
 
-Másold be egy Claude in Chrome beszélgetésbe. A kulcsokat (keystore és jelszavak) Botond adja meg a GitHubon, nem te.
+Másold be egy Claude in Chrome beszélgetésbe, és csatold hozzá a két fájlt: `TEND_UPLOAD_KEYSTORE_B64.txt` és `tend-upload-jelszavak.txt`.
 
 ---
 
@@ -21,6 +21,15 @@ A tend Android app (`hu.tend`) új verzióit a GitHub fogja feltölteni a Google
 
 **3. GitHub titok** (github.com/botondjani/Bo-Mia → Settings → Secrets and variables → Actions → New repository secret)
 - `PLAY_SERVICE_ACCOUNT_JSON`: a letöltött JSON fájl teljes tartalma.
-- Nézd meg, megvan-e már ez a három titok: `TEND_UPLOAD_KEYSTORE_B64`, `TEND_KEYSTORE_PASSWORD`, `TEND_KEY_PASSWORD`. Ha nincs, ne hozd létre, csak jelezd: ezeket Botond adja meg.
+- A csatolt fájlokból még három titok:
+  - `TEND_UPLOAD_KEYSTORE_B64`: a `TEND_UPLOAD_KEYSTORE_B64.txt` teljes tartalma (egyetlen hosszú sor).
+  - `TEND_KEYSTORE_PASSWORD`: a `tend-upload-jelszavak.txt` fájlban a „TEND_KEYSTORE_PASSWORD” alatti sor.
+  - `TEND_KEY_PASSWORD`: ugyanott a „TEND_KEY_PASSWORD” alatti sor.
+  - Ezek értékét se írd ki a chatbe.
 
-**A végén** írd le, mi lett kész, és megvan-e mind a négy titok.
+**4. Próbakiadás** (github.com/botondjani/Bo-Mia → Actions → „Release to Google Play” → Run workflow)
+- Branch: `main`, track: `internal`, notes: `Javítások és apró fejlesztések.`
+- Várd meg a végét. Ha zöld: a Play Console → Belső tesztelés alatt meg kell jelennie egy új kiadásnak (versionCode 100 fölött). Ha piros: másold ki a hibaüzenet utolsó pár sorát (titkot ne).
+- A zárt tesztet (Alpha) most ne indítsd el.
+
+**A végén** írd le, mi lett kész, megvan-e mind a négy titok, és mi lett a próbakiadás eredménye.
