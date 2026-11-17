@@ -589,8 +589,10 @@ class MainActivity : ComponentActivity() {
                     store.tourDone = true // the camp was shown at the end of setup
                     app.tend.data.Stats.log(this, "onboarding_done", mapOf("tasks" to store.selectedTasks.size))
                     if (permissions().usageAccess) MonitorService.start(this)
-                    if (!permissions().overlay && Build.VERSION.SDK_INT >= 33 && !RecapReminder.canNotify(this)) {
-                        notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) // for the fallback nudge
+                    // Android's own question, once, as setup ends: timers ending, friends at the fire, and (without the
+                    // overlay) the nudge all need it.
+                    if (Build.VERSION.SDK_INT >= 33 && !RecapReminder.canNotify(this)) {
+                        notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                     }
                     saveProfile()
                     screen = Screen.HOME
@@ -1228,8 +1230,10 @@ class MainActivity : ComponentActivity() {
         val p = permissions()
         return PermissionActions(
             permissions = p,
-            usageBlocked = usageAttempted && !p.usageAccess,
-            overlayBlocked = overlayAttempted && !p.overlay,
+            // "Blocked" (send them to App info) only where Android can block it: a side-loaded install.
+            // From Google Play a switch left off just means "not yet": the same button asks again.
+            usageBlocked = usageAttempted && !p.usageAccess && installedOutsideStore(),
+            overlayBlocked = overlayAttempted && !p.overlay && installedOutsideStore(),
             requestUsage = ::requestUsage,
             requestOverlay = ::requestOverlay,
             openAppInfo = ::openUnlock,
@@ -1291,6 +1295,7 @@ class MainActivity : ComponentActivity() {
     private fun lock(): PermissionLock {
         val p = permissions()
         if (p.overlay || p.usageAccess) return PermissionLock.NONE // a switch worked, so nothing is locked
+        if (!installedOutsideStore()) return PermissionLock.NONE // from Google Play: nothing is restricted
         return when (restrictedMode()) {
             AppOpsManager.MODE_ERRORED -> PermissionLock.LOCKED
             AppOpsManager.MODE_IGNORED -> PermissionLock.TRIPPED

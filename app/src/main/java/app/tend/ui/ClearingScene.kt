@@ -1992,7 +1992,8 @@ private fun DrawScope.fireLog(i: Int, at: Offset, u: Float, turn: Float) {
             val placedDir = if (i == 0) Offset(u * 0.035f, -u * 0.008f) else Offset(u * 0.035f, u * 0.008f)
             val dir = Offset(u * 0.035f, 0f) + (placedDir - Offset(u * 0.035f, 0f)) * turn
             drawLine(if (i == 0) BarkDark else Bark, at - dir, at + dir, strokeWidth = u * 0.012f, cap = StrokeCap.Round)
-            drawCircle(WoodLight, u * 0.004f, at + dir)
+            // The cut end shows while it's carried; laid in the pit it looks just like the finished fire's logs.
+            if (turn < 1f) drawCircle(WoodLight, u * 0.004f, at + dir)
         }
         else -> for (j in -1..1) drawLine(BarkDark, at + Offset(j * u * 0.012f, u * 0.004f), at + Offset(j * u * 0.012f + u * 0.008f, -u * 0.01f), strokeWidth = u * 0.004f, cap = StrokeCap.Round)
     }
@@ -2012,7 +2013,8 @@ private fun DrawScope.buildFire(p: Offset, u: Float, c: FireChoreo, lights: Muta
     }
     val spots = listOf(pit + Offset(0f, -u * 0.002f), pit + Offset(0f, -u * 0.002f), pit + Offset(0f, -u * 0.004f))
     // Kindling first under the logs once it's there, then the logs.
-    if (c.laid >= 3) fireLog(2, spots[2], u, 1f)
+    // The kindling burns away as the flame takes over (the finished fire has none).
+    if (c.laid >= 3 && c.flame < 1f) scale(1f - c.flame, pivot = spots[2]) { fireLog(2, spots[2], u, 1f) }
     for (i in 0 until minOf(c.laid, 2)) {
         val last = i == c.laid - 1 && c.laying < 1f
         val at = if (last) spots[i] + Offset(0f, -u * 0.03f * (1f - c.laying)) else spots[i]

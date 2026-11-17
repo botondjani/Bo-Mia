@@ -1031,7 +1031,10 @@ fun rememberFireBuild(placed: Map<Int, String>): Float? {
         anim.animateTo(1f, androidx.compose.animation.core.tween((FIRE_BUILD_SECS * 1000).toInt(), easing = androidx.compose.animation.core.LinearEasing))
         building = false
     }
-    return if (building) anim.value else null
+    // Bought this very frame (the effect above hasn't run yet): already at the start, so the finished
+    // fire never flashes up for a frame before the building begins.
+    val pending = placed[0] == "campfire" && seen.value != "campfire"
+    return if (building) anim.value else if (pending) 0f else null
 }
 
 /** Little four-point stars bursting out from [at] and fading, [k] 0..1. */
