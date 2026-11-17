@@ -1050,7 +1050,10 @@ class MainActivity : ComponentActivity() {
                     refresh++
                 },
                 welcomeBack = store.welcomeBackOn == LocalDate.now().toString(),
-                batteryRisk = !getSystemService(android.os.PowerManager::class.java).isIgnoringBatteryOptimizations(packageName),
+                // Only where it matters: phones known to stop background apps (Samsung, Xiaomi and the like), or any
+                // phone that already put tend to sleep. A Pixel leaves a foreground service alone.
+                batteryRisk = !getSystemService(android.os.PowerManager::class.java).isIgnoringBatteryOptimizations(packageName) &&
+                    (store.monitorSlept || Build.MANUFACTURER.lowercase() in STRICT_BATTERY_MAKERS),
                 monitorSlept = store.monitorSlept,
                 onKeepAwake = ::keepAwake,
                 // One "calm evenings" step: the recap and notes, sleepy pauses, the Sunday letter.
@@ -1258,7 +1261,13 @@ class MainActivity : ComponentActivity() {
         launched = Launched.OVERLAY
         returnWhenGranted { Settings.canDrawOverlays(this) }
         hint(tr("Find tend in the list and switch it on", "Keresd meg a tendet a listában, és kapcsold be"))
-        open(highlightTend(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))), highlightTend(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)))
+        // Android 11+ (Pixel) ignores the package on the usual overlay screen and shows the whole list: first the
+        // app's own overlay page, which some phones open for anyone; then the list, asked to scroll to tend.
+        open(
+            Intent("android.settings.MANAGE_APP_OVERLAY_PERMISSION", Uri.parse("package:$packageName")),
+            highlightTend(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))),
+            highlightTend(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)),
+        )
     }
 
     /**
@@ -1360,7 +1369,8 @@ class MainActivity : ComponentActivity() {
 
     private fun open(vararg intents: Intent) {
         for (intent in intents) {
-            try { startActivity(intent); return } catch (_: ActivityNotFoundException) { }
+            // Not there on this phone, or not open to apps (a protected settings page): the next one.
+            try { startActivity(intent); return } catch (_: ActivityNotFoundException) { } catch (_: SecurityException) { }
         }
     }
 
@@ -1392,6 +1402,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private companion object {
+        /** Makers whose phones stop background apps on their own, so tend asks to be left running. */
+        val STRICT_BATTERY_MAKERS = setOf("samsung", "xiaomi", "redmi", "poco", "huawei", "honor", "oppo", "vivo", "realme", "oneplus", "meizu", "asus", "tecno", "infinix")
         const val DAY_MS = 24 * 3_600_000L
     }
 }

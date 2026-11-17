@@ -148,9 +148,12 @@ fun Onboarding(
         AnimatedContent(
             targetState = step,
             transitionSpec = {
+                // A short glide and a cross-fade: the new page drifts in a little from the side as the old one
+                // drifts out and fades, so nothing whips across the screen.
                 val dir = if (targetState.ordinal > initialState.ordinal) 1 else -1
-                val motion = androidx.compose.animation.core.spring<androidx.compose.ui.unit.IntOffset>(stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow)
-                slideInHorizontally(motion) { it * dir } togetherWith slideOutHorizontally(motion) { -it * dir }
+                val ease = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f)
+                (slideInHorizontally(tween(420, easing = ease)) { it / 6 * dir } + androidx.compose.animation.fadeIn(tween(320, delayMillis = 60))) togetherWith
+                    (slideOutHorizontally(tween(320, easing = ease)) { -it / 8 * dir } + androidx.compose.animation.fadeOut(tween(200)))
             },
             modifier = Modifier.weight(1f),
             label = "onboarding",
@@ -193,14 +196,18 @@ fun Onboarding(
                     var askSkip by rememberSaveable { mutableStateOf(false) }
                     if (askSkip) LimitedModeDialog(perms.permissions, onConfirm = { askSkip = false; next() }, onDismiss = { askSkip = false })
                     val p = perms.permissions
-                    val total = 2
-                    val done = (if (p.overlay) 1 else 0) + (if (p.usageAccess) 1 else 0)
-                    Says(avatar, tr("I need two switches to work.", "Két engedély kell, hogy működjek."), if (p.allGranted) tr("All set, thank you!", "Megvan, köszönöm!") else tr("Step ${done + 1} of $total. It all stays on your phone.", "${done + 1}. lépés a $total-ből. Minden a telefonodon marad."), figure = 140.dp)
-                    when {
-                        p.allGranted -> {}
-                        perms.lock != PermissionLock.NONE -> UnlockCard(perms)
-                        !p.overlay -> OneSwitch(tr("Show over other apps", "Megjelenítés más appok fölött"), tr("So the apps can close when your minutes are gone.", "Hogy az appok bezárhassanak, ha elfogyott a perced."), perms.overlayBlocked, perms.requestOverlay, perms.openAppInfo)
-                        else -> OneSwitch(tr("Usage access", "Használati hozzáférés"), tr("So I can see how long each app is open.", "Hogy lássam, mennyi ideig van nyitva egy app."), perms.usageBlocked, perms.requestUsage, perms.openAppInfo)
+                    Says(avatar, tr("I need two switches to work.", "Két engedély kell, hogy működjek."), if (p.allGranted) tr("All set, thank you!", "Megvan, köszönöm!") else tr("Both on this page. It all stays on your phone.", "Mindkettő itt van. Minden a telefonodon marad."), figure = 110.dp)
+                    if (perms.lock != PermissionLock.NONE && !p.allGranted) UnlockCard(perms)
+                    else {
+                        // Both at once, in order: the one to do next is the green one; done ones say so.
+                        OneSwitch(
+                            tr("Show over other apps", "Megjelenítés más appok fölött"), tr("So the apps can close when your minutes are gone.", "Hogy az appok bezárhassanak, ha elfogyott a perced."),
+                            done = p.overlay, next = !p.overlay, blocked = perms.overlayBlocked, onAllow = perms.requestOverlay, onAppInfo = perms.openAppInfo,
+                        )
+                        OneSwitch(
+                            tr("Usage access", "Használati hozzáférés"), tr("So I can see how long each app is open.", "Hogy lássam, mennyi ideig van nyitva egy app."),
+                            done = p.usageAccess, next = p.overlay && !p.usageAccess, blocked = perms.usageBlocked, onAllow = perms.requestUsage, onAppInfo = perms.openAppInfo,
+                        )
                     }
                     Spacer(Modifier.weight(1f))
                     if (!p.allGranted) LinkText(tr("Continue without", "Folytatom nélküle"), { askSkip = true })
@@ -928,15 +935,22 @@ private fun Point(icon: String, text: String) = Row(Modifier.fillMaxWidth().clip
 
 /** One switch to turn on: what it's for, and one button (or, when Android keeps it closed, the way to App info). */
 @Composable
-private fun OneSwitch(title: String, why: String, blocked: Boolean, onAllow: () -> Unit, onAppInfo: () -> Unit) = Column(
-    Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Brand.Card).border(2.dp, Brand.Moss, RoundedCornerShape(22.dp)).padding(16.dp),
-    verticalArrangement = Arrangement.spacedBy(8.dp),
+private fun OneSwitch(title: String, why: String, done: Boolean, next: Boolean, blocked: Boolean, onAllow: () -> Unit, onAppInfo: () -> Unit) = Row(
+    Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(if (done) Brand.Mint.copy(alpha = 0.25f) else Brand.Card)
+        .border(2.dp, if (next) Brand.Moss else Color.Transparent, RoundedCornerShape(22.dp)).padding(16.dp),
+    verticalAlignment = Alignment.CenterVertically,
 ) {
-    Text(title, style = MaterialTheme.typography.titleMedium)
-    Text(why, style = MaterialTheme.typography.bodyMedium, color = Brand.Muted)
-    if (blocked) PrimaryButton(tr("Open App info", "Alkalmazásinfó megnyitása"), onAppInfo)
-    else PrimaryButton(tr("Allow", "Engedélyezem"), onAllow)
-    Text(tr("Find tend in the list and switch it on; you'll come right back.", "Keresd meg a tendet a listában, és kapcsold be; utána visszahozunk."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(title, style = MaterialTheme.typography.titleMedium)
+        Text(why, style = MaterialTheme.typography.bodyMedium, color = Brand.Muted)
+    }
+    Spacer(Modifier.width(12.dp))
+    androidx.compose.animation.AnimatedContent(done, label = "switch") { on ->
+        if (on) Box(Modifier.size(40.dp).clip(CircleShape).background(Brand.Moss), contentAlignment = Alignment.Center) {
+            androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, tr("On", "Bekapcsolva"), tint = Color.White, modifier = Modifier.size(22.dp))
+        }
+        else ChipButton(if (blocked) tr("App info", "Alkalmazásinfó") else tr("Allow", "Engedélyezem"), if (blocked) onAppInfo else onAllow, filled = next)
+    }
 }
 
 /** Any app on the phone, by name: a search in a small window. */
