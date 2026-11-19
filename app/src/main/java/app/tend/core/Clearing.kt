@@ -37,8 +37,8 @@ object Things {
         Thing("telescope", tr("Telescope", "Távcső"), 120, SpotKind.SMALL),
         // The fire pit: each one cooks something else.
         Thing("campfire", tr("Campfire", "Tábortűz"), 40, SpotKind.FIRE),
-        Thing("kettle", tr("Fire and kettle", "Tűz teáskannával"), 180, SpotKind.FIRE),
-        Thing("pizza_oven", tr("Pizza oven", "Pizzakemence"), 375, SpotKind.FIRE),
+        Thing("kettle", tr("Fire and kettle", "Tűz teáskannával"), 120, SpotKind.FIRE),
+        Thing("pizza_oven", tr("Pizza oven", "Pizzakemence"), 420, SpotKind.FIRE),
         // Seats by the fire.
         Thing("log_bench", tr("Log bench", "Rönkpad"), 50, SpotKind.SEAT),
         Thing("picnic_table", tr("Picnic table", "Piknikasztal"), 135, SpotKind.SEAT),
@@ -52,13 +52,13 @@ object Things {
         Thing("cabin_porch", tr("Cabin with a porch", "Tornácos faház"), 0, SpotKind.SHELTER),
         Thing("cabin_cozy", tr("Cosy cabin", "Otthonos faház"), 0, SpotKind.SHELTER),
         // In the trees.
-        Thing("swing", tr("Swing", "Hinta"), 105, SpotKind.TREES, spot = 6),
+        Thing("swing", tr("Swing", "Hinta"), 75, SpotKind.TREES, spot = 6),
         Thing("hammock", tr("Hammock", "Függőágy"), 135, SpotKind.TREES, spot = 5),
-        Thing("treehouse", tr("Treehouse", "Lombház"), 450, SpotKind.TREES, spot = 6),
+        Thing("treehouse", tr("Treehouse", "Lombház"), 520, SpotKind.TREES, spot = 6),
         // On the river.
-        Thing("raft", tr("Raft", "Tutaj"), 225, SpotKind.WATER, spot = 7),
-        Thing("canoe", tr("Canoe", "Kenu"), 300, SpotKind.WATER, spot = 7),
-        Thing("dock", tr("Dock", "Stég"), 600, SpotKind.WATER, spot = 8),
+        Thing("raft", tr("Raft", "Tutaj"), 150, SpotKind.WATER, spot = 7),
+        Thing("canoe", tr("Canoe", "Kenu"), 330, SpotKind.WATER, spot = 7),
+        Thing("dock", tr("Dock", "Stég"), 700, SpotKind.WATER, spot = 8),
         // Strung between the trees over the camp.
         Thing("wind_chimes", tr("Wind chimes", "Szélcsengő"), 60, SpotKind.ABOVE),
         Thing("bird_feeder", tr("Bird feeder", "Madáretető"), 75, SpotKind.ABOVE),

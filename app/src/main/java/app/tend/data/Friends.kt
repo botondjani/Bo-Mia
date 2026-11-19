@@ -336,6 +336,9 @@ object Friends {
                 n.id > (if (upTo > 0) upTo else p.getLong(if (n.kind == Kind.GIFT) "gifts_opened" else "things_taken", 0))
         }
         store.wrap(presents.sortedBy { it.id }.map { TendStore.Wrapped(it.id, it.name, it.thing.takeIf { _ -> it.kind == Kind.THING }) })
+        // The mark set from the first sync on, presents or not: it travels with the camp's backup, so a camp
+        // restored on another phone doesn't get the presents it already opened a second time.
+        if (upTo == 0L) notes.maxOfOrNull { it.id }?.let { newest -> if (newest > store.giftsUpTo) store.giftsUpTo = newest }
         // Calls already over aren't news any more. A cheer isn't worth a buzz on its own: it waits in the camp.
         val news = fresh.filter { (it.kind != Kind.FIRE || System.currentTimeMillis() - it.at < FIRE_CALL_MS) && it.kind != Kind.CHEER }
         if (news.isNotEmpty()) notify(c, news)

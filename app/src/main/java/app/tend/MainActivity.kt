@@ -573,7 +573,12 @@ class MainActivity : ComponentActivity() {
             val b = store.blockedPackages
             // Strict mode: apps can be added, not taken off.
             if (pkg in b && store.isStrict) strictNo()
-            else { store.blockedPackages = if (pkg in b) b - pkg else b + pkg; refresh++ }
+            else {
+                store.blockedPackages = if (pkg in b) b - pkg else b + pkg
+                // Taken off: picked again later, it starts with its pause on, like any newly picked app.
+                if (pkg in b && pkg in store.pauseOff) store.pauseOff = store.pauseOff - pkg
+                refresh++
+            }
         }
 
         val page = when {

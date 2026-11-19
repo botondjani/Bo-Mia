@@ -55,6 +55,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -226,8 +227,10 @@ fun Onboarding(
                     if (askSkip) LimitedModeDialog(perms.permissions, onConfirm = { askSkip = false; next() }, onDismiss = { askSkip = false })
                     val p = perms.permissions
                     Says(avatar, tr("I need two switches to work.", "Két engedély kell, hogy működjek."), if (p.allGranted) tr("All set, thank you!", "Megvan, köszönöm!") else tr("Both on this page. It all stays on your phone.", "Mindkettő itt van. Minden a telefonodon marad."), figure = 0.dp)
-                    // Both on: a moment to see the two ticks, then on by itself.
-                    LaunchedEffect(p.allGranted) { if (p.allGranted) { kotlinx.coroutines.delay(900); next() } }
+                    // Both turned on here: a moment to see the two ticks, then on by itself. Not when they were on
+                    // already (come back to with Back): that would bounce straight forward again.
+                    val grantedBefore = rememberSaveable { p.allGranted }
+                    LaunchedEffect(p.allGranted) { if (p.allGranted && !grantedBefore) { kotlinx.coroutines.delay(900); next() } }
                     if (perms.lock != PermissionLock.NONE && !p.allGranted) UnlockCard(perms)
                     else {
                         // Both at once, in order: the one to do next is the green one; done ones say so.
@@ -434,7 +437,8 @@ fun Onboarding(
 @Composable
 private fun Progress(step: Int, total: Int, onBack: () -> Unit) =
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, tr("Back", "Vissza"), onBack)
+        // On the first page there's nowhere to go back to: an empty space of the same size, so nothing moves.
+        Box(Modifier.alpha(if (step > 1) 1f else 0f)) { IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, tr("Back", "Vissza"), if (step > 1) onBack else ({})) }
         Spacer(Modifier.width(Space.m))
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             for (i in 1 until total) {
