@@ -84,10 +84,18 @@ object Backup {
     fun lastBackupAt(c: Context): Long = accountPrefs(c).getLong("last_backup", 0)
 
     /** Sends a backup now; true when it's saved. */
+    /**
+     * Whether this phone has looked at the account's backup since signing in (and restored it, offered it,
+     * or found none). Until then nothing is sent on its own, so an older camp on the server is never
+     * replaced by a phone that just signed in without being able to look (offline at the time).
+     */
+    fun checked(c: Context): Boolean = accountPrefs(c).getBoolean("backup_checked", false) || lastBackupAt(c) > 0 // backed up from here before: it's this phone's
+    fun markChecked(c: Context) = accountPrefs(c).edit().putBoolean("backup_checked", true).apply()
+
     suspend fun upload(c: Context): Boolean {
         val args = JSONObject().put("p_data", snapshot(c)).put("p_version", app.tend.BuildConfig.VERSION_NAME)
         val ok = Account.rpc(c, "tend_save_backup", args)?.ok == true
-        if (ok) accountPrefs(c).edit().putLong("last_backup", System.currentTimeMillis()).apply()
+        if (ok) accountPrefs(c).edit().putLong("last_backup", System.currentTimeMillis()).putBoolean("backup_checked", true).apply()
         return ok
     }
 
@@ -95,15 +103,23 @@ object Backup {
     suspend fun uploadIfDue(c: Context) {
         if (Account.user(c) == null) return
         if (System.currentTimeMillis() - lastBackupAt(c) < 12 * 3_600_000L) return
+        if (!checked(c)) {
+            // Not looked yet: a camp on the server waits for the user's choice (the account card offers it).
+            val saved = try { fetch(c) } catch (_: Unreachable) { return }
+            if (saved != null) return
+        }
         upload(c)
     }
 
     class Saved(val data: JSONObject, val updatedAt: String)
 
-    /** The account's backup on the server, or null (none, or offline). */
+    /** The server couldn't be asked (offline, an error): not the same as "no backup there". */
+    class Unreachable : Exception()
+
+    /** The account's backup on the server, or null when there's none. Throws [Unreachable] when it can't tell. */
     suspend fun fetch(c: Context): Saved? {
-        val reply = Account.rpc(c, "tend_load_backup") ?: return null
-        if (!reply.ok) return null
+        val reply = Account.rpc(c, "tend_load_backup") ?: throw Unreachable()
+        if (!reply.ok) throw Unreachable()
         val row = runCatching { JSONArray(reply.body).optJSONObject(0) }.getOrNull() ?: return null
         val data = row.optJSONObject("data") ?: return null
         return Saved(data, row.optString("updated_at"))

@@ -50,11 +50,13 @@ fun AccountCard(onChanged: () -> Unit, onRestored: () -> Unit = {}, onSignedIn: 
 
     /** Right after logging in: offer the server's backup, or send this phone's if there's none. */
     suspend fun afterLogin() {
-        val saved = app.tend.data.Backup.fetch(context)
+        // Couldn't reach the server: nothing is sent (it might hold an older camp); the 12-hourly backup asks again later.
+        val saved = try { app.tend.data.Backup.fetch(context) } catch (_: app.tend.data.Backup.Unreachable) { onSignedIn(); return }
         // A phone with next to nothing on it yet (a new phone, a reinstall): the old camp comes back by itself.
         val fresh = app.tend.data.TendStore(context).daysTended <= 1 &&
             !context.getSharedPreferences("tend", android.content.Context.MODE_PRIVATE).getBoolean("started_over", false)
         if (saved != null && fresh) {
+            app.tend.data.Backup.markChecked(context)
             app.tend.data.Backup.restore(context, saved.data)
             onRestored()
         } else if (saved != null) found = saved
@@ -79,6 +81,9 @@ fun AccountCard(onChanged: () -> Unit, onRestored: () -> Unit = {}, onSignedIn: 
             busy = false
         }
     }
+
+    // Signed in earlier without having looked at the server's backup (offline then): look now.
+    androidx.compose.runtime.LaunchedEffect(Unit) { if (user != null && !app.tend.data.Backup.checked(context)) afterLogin() }
 
     Card {
         val u = user
@@ -164,6 +169,7 @@ fun AccountCard(onChanged: () -> Unit, onRestored: () -> Unit = {}, onSignedIn: 
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     found = null
+                    app.tend.data.Backup.markChecked(context)
                     app.tend.data.Backup.restore(context, saved.data)
                     onRestored()
                 }) { Text(tr("Restore", "Visszaállítás"), color = Brand.Moss) }

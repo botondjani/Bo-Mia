@@ -1145,7 +1145,9 @@ class MainActivity : ComponentActivity() {
             ) {
                 androidx.compose.material3.Text(tr("Sign up or log in", "Regisztráció vagy belépés"), style = androidx.compose.material3.MaterialTheme.typography.headlineSmall)
                 app.tend.ui.AccountCard(
-                    onChanged = { saveProfile(); refresh++; if (app.tend.data.Account.user(this@MainActivity) != null) signUp = false },
+                    // Signed in: the window stays open until the old camp is fetched (and restored, or offered),
+                    // so closing it can't cut that short; it closes itself after.
+                    onChanged = { saveProfile(); refresh++ },
                     onRestored = ::restartFresh,
                     onSignedIn = { signUp = false },
                 )
