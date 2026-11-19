@@ -128,7 +128,8 @@ class MainActivity : ComponentActivity() {
         app.tend.reminder.WeeklyLetter.schedule(this)
         app.tend.reminder.MorningNote.schedule(this)
         app.tend.reminder.DayClock.schedule(this)
-        handleIntent(intent)
+        // Not again when Android brings the screen back, or reopens it from recents with the intent it once had.
+        if (savedInstanceState == null && intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) handleIntent(intent)
         setContent {
             TendTheme {
                 androidx.compose.runtime.CompositionLocalProvider(app.tend.ui.LocalAccessories provides shelf.first) {
@@ -144,14 +145,18 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
-        when (intent?.getStringExtra(RecapReminder.EXTRA_OPEN)) {
+        val open = intent?.getStringExtra(RecapReminder.EXTRA_OPEN)
+        // Opened from a friend's note (the widget or a notification): it's been seen, so the widget lets it go.
+        if (open in setOf(app.tend.reminder.WeeklyLetter.OPEN_CLEARING, app.tend.data.Friends.OPEN_JOIN, app.tend.data.Friends.OPEN_NOTES, app.tend.data.Friends.OPEN_THINGS)) app.tend.data.Friends.markSeen(this)
+        when (open) {
             RecapReminder.OPEN_RECAP -> openRecap = true
             app.tend.reminder.WeeklyLetter.OPEN_CLEARING -> openClearing = true
             app.tend.data.Friends.OPEN_JOIN -> joinFire = true
             app.tend.data.Friends.OPEN_NOTES -> { campFriends = true; openClearing = true }
-            app.tend.data.Friends.OPEN_THINGS -> { campSheet = "things"; openClearing = true }
+            app.tend.data.Friends.OPEN_THINGS -> openClearing = true // older notes: presents are by the fire now
             RecapReminder.OPEN_ACTIVITIES -> openActivities = true
         }
+        intent?.removeExtra(RecapReminder.EXTRA_OPEN) // handled once
         // A friend's invite: keep the code (it waits through onboarding or logging in) and open the clearing.
         app.tend.data.Friends.codeFrom(intent?.dataString)?.let { code ->
             app.tend.data.Friends.setPendingCode(this, code)

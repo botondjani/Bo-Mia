@@ -381,15 +381,21 @@ object Friends {
     }
 
     /**
-     * For the widget: the newest note still worth a look. Paper, a duck or a present only while
-     * it's still in the camp (unrolled, fished out, opened: done); a call to the fire only while it's on.
+     * For the widget: the newest note still worth a look. Paper, a duck or a present for as long as
+     * it's still in the camp (unrolled, fished out, opened: gone at once); a call to the fire while
+     * it's on; a wave or a cheer until it's been seen in the app (or a day has gone by).
      */
-    fun unseen(c: Context, now: Long = System.currentTimeMillis()): Note? = unseenNotes(c, now).firstOrNull { n ->
-        when (n.kind) {
-            Kind.TP -> paperOnMe(c).any { it.id == n.id }
-            Kind.VISIT -> ducks(c).any { it.id == n.id }
-            Kind.GIFT, Kind.THING -> TendStore(c).wrapped.any { it.id == n.id }
-            else -> true
+    fun unseen(c: Context, now: Long = System.currentTimeMillis()): Note? {
+        val seen = prefs(c).getLong("notes_seen", 0)
+        val wrapped by lazy { TendStore(c).wrapped.map { it.id }.toSet() }
+        return notes(c).firstOrNull { n ->
+            when (n.kind) {
+                Kind.TP -> paperOnMe(c).any { it.id == n.id }
+                Kind.VISIT -> now - n.at < DAY_MS && ducks(c).any { it.id == n.id }
+                Kind.GIFT, Kind.THING -> n.id in wrapped
+                Kind.FIRE -> n.id > seen && now - n.at < FIRE_CALL_MS
+                else -> n.id > seen && now - n.at < DAY_MS
+            }
         }
     }
 
