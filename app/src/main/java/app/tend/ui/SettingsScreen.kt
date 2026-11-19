@@ -510,7 +510,7 @@ private fun AppsCard(
     var picking by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(blocked.isEmpty()) }
     // The switch flips at once, whatever the screen around it does; saved through [onPauseApp].
     var paused by remember(pauseApps) { androidx.compose.runtime.mutableStateOf(pauseApps) }
-    if (blocked.isNotEmpty()) Text(tr("Their time comes off your daily minutes. Tap one for a pause before it opens, or its own minutes a day.", "Az idejük a napi keretedből fogy. Koppints egyre: kérhetsz szünetet megnyitás előtt, vagy saját napi perceket."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+    if (blocked.isNotEmpty()) Text(tr("Their time comes off your daily minutes, and each pauses for a moment before it opens. Tap one to turn its pause off, or to give it its own minutes a day.", "Az idejük a napi keretedből fogy, és mindegyik előtt van egy rövid szünet. Koppints egyre, ha nála kikapcsolnád a szünetet, vagy saját napi perceket adnál neki."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
     blocked.sortedBy { catalog.label(it).lowercase() }.forEach { pkg ->
         val limit = limits[pkg]
         val used = ((secondsToday[pkg] ?: 0L) / 60).toInt()
@@ -551,7 +551,7 @@ private fun AppsCard(
             title = { Text(catalog.label(pkg)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // A short pause before each open: asked for app by app (always on in strict mode).
+                    // A short pause before each open: on for every picked app, off one by one (always on in strict mode).
                     SwitchRow(
                         tr("Pause before it opens", "Szünet megnyitás előtt"),
                         if (strict) tr("Always on in strict mode.", "Szigorú módban mindig be van kapcsolva.") else tr("A few seconds first: often enough to change your mind.", "Előtte pár másodperc szünet: sokszor ennyi is elég, hogy meggondold."),

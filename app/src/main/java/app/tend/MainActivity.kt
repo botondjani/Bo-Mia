@@ -683,7 +683,7 @@ class MainActivity : ComponentActivity() {
                 appSecondsToday = store.appSecondsToday(),
                 onAppLimit = { pkg, m -> if (store.setAppLimit(pkg, m)) refresh++ else strictNo() },
                 pauseApps = store.pauseApps,
-                onPauseApp = { pkg, on -> store.pauseApps = if (on) store.pauseApps + pkg else store.pauseApps - pkg; refresh++ },
+                onPauseApp = { pkg, on -> store.pauseOff = if (on) store.pauseOff - pkg else store.pauseOff + pkg; refresh++ },
                 strict = store.isStrict,
                 strictEndsAt = store.strictEndsAt,
                 onStrict = { store.setStrict(it); refresh++ },
@@ -971,7 +971,6 @@ class MainActivity : ComponentActivity() {
                         if (store.layout.isEmpty() && store.placed.values.any { id -> app.tend.core.Things.byId(id)?.let(app.tend.core.Clearing::movable) == true }) add(app.tend.core.Tip.MOVE)
                         if (widgetPlaced() == false) add(app.tend.core.Tip.WIDGET)
                         if (store.weatherPlace == null) add(app.tend.core.Tip.TOWN)
-                        if (store.pauseApps.isEmpty() && !store.isStrict) add(app.tend.core.Tip.PAUSE)
                         if (app.tend.data.Account.user(this@MainActivity) == null) add(app.tend.core.Tip.ACCOUNT)
                     })
                 },
@@ -1070,7 +1069,6 @@ class MainActivity : ComponentActivity() {
                 onTimerMinutes = { store.focusTimerMinutes = it },
                 signedIn = app.tend.data.Account.user(this@MainActivity) != null,
                 onOpenAccount = { signUp = true },
-                pauseSuggested = store.pauseApps.isEmpty() && !store.isStrict,
                 onPauseSetup = { settingsSection = "apps"; screen = Screen.SETTINGS },
                 exerciseTracked = store.exerciseTracked,
                 sleepEstimated = store.sleepEstimatedOn == LocalDate.now().toString(),

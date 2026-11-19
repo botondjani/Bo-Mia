@@ -236,13 +236,6 @@ fun HomeScreen(
             },
         ) {
             camp()
-            campTip?.let {
-                Text(
-                    it.text(avatar.displayName), style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp), color = Brand.Moss,
-                    modifier = Modifier.align(Alignment.BottomStart).padding(start = 16.dp, bottom = 20.dp)
-                        .clip(RoundedCornerShape(50)).background(Color(0xE6FFFFFF)).tappable { onCampTip(it) }.padding(horizontal = 12.dp, vertical = 5.dp),
-                )
-            }
             // What the companion says: one small bubble, so the camp shows.
             Text(
                 voice?.let(app.tend.core.Voice::home) ?: Moods.line(cfg, day, tasks, welcomeBack, canClose = permissions.overlay),
@@ -270,14 +263,28 @@ fun HomeScreen(
                 Spacer(Modifier.width(4.dp))
                 Text(tr("${streak.days} days", "${streak.days} nap"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), color = Color(0xFF3D2A1C))
             }
-            // The way in, plainly: a button to the camp, where it's bigger and everything happens.
+            // Along the bottom: a tip on the left (wrapping, never under the button), and the way in, plainly:
+            // a button to the camp, where it's bigger and everything happens.
             Row(
-                Modifier.align(Alignment.BottomEnd).padding(14.dp).clip(RoundedCornerShape(50)).background(Brand.Moss)
-                    .tappable(onClick = onOpenClearing).padding(start = 14.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom,
             ) {
-                Text(tr("${avatar.displayName}'s camp", "${avatar.displayName} tábora"), style = MaterialTheme.typography.labelLarge, color = Color.White)
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                campTip?.let {
+                    Text(
+                        it.text(avatar.displayName), style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp, lineHeight = 15.sp), color = Brand.Moss, maxLines = 2,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp)
+                            .clip(RoundedCornerShape(14.dp)).background(Color(0xE6FFFFFF)).tappable { onCampTip(it) }.padding(horizontal = 12.dp, vertical = 5.dp),
+                    )
+                } ?: Spacer(Modifier.width(0.dp))
+                Row(
+                    Modifier.clip(RoundedCornerShape(50)).background(Brand.Moss)
+                        .tappable(onClick = onOpenClearing).padding(start = 14.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(tr("${avatar.displayName}'s camp", "${avatar.displayName} tábora"), style = MaterialTheme.typography.labelLarge, color = Color.White, maxLines = 1)
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                }
             }
         }
 
@@ -379,27 +386,41 @@ fun HomeScreen(
         if (focusSecondsLeft == null) {
             var minutes by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(Tasks.clampTimer(timerMinutes)) }
             fun nudge(d: Int) { minutes = Tasks.clampTimer(minutes + d); onTimerMinutes(minutes) }
-            Row(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Column(Modifier.weight(1f)) {
-                    Text(tr("Phone down", "Telefon le"), style = MaterialTheme.typography.titleSmall)
-                    Text(tr("Earns minutes too", "Perceket is ad"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+            // Minus and plus drawn, not typed: a font's glyphs sit off-centre in a circle.
+            @Composable
+            fun Nudge(plus: Boolean, on: Boolean, onTap: () -> Unit) = Box(
+                Modifier.size(34.dp).clip(CircleShape).background(Brand.Mint.copy(alpha = if (on) 0.25f else 0.1f)).then(if (on) Modifier.tappable(onClick = onTap) else Modifier),
+                contentAlignment = Alignment.Center,
+            ) {
+                androidx.compose.foundation.Canvas(Modifier.size(12.dp)) {
+                    val col = if (on) Brand.Moss else Brand.Muted.copy(alpha = 0.4f)
+                    val w = 2.2.dp.toPx()
+                    drawLine(col, androidx.compose.ui.geometry.Offset(0f, size.height / 2), androidx.compose.ui.geometry.Offset(size.width, size.height / 2), w, androidx.compose.ui.graphics.StrokeCap.Round)
+                    if (plus) drawLine(col, androidx.compose.ui.geometry.Offset(size.width / 2, 0f), androidx.compose.ui.geometry.Offset(size.width / 2, size.height), w, androidx.compose.ui.graphics.StrokeCap.Round)
                 }
-                // Minus and plus drawn, not typed: a font's glyphs sit off-centre in a circle.
-                @Composable
-                fun Nudge(plus: Boolean, on: Boolean, onTap: () -> Unit) = Box(
-                    Modifier.size(34.dp).clip(CircleShape).background(Brand.Mint.copy(alpha = if (on) 0.25f else 0.1f)).then(if (on) Modifier.tappable(onClick = onTap) else Modifier),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    androidx.compose.foundation.Canvas(Modifier.size(12.dp)) {
-                        val col = if (on) Brand.Moss else Brand.Muted.copy(alpha = 0.4f)
-                        val w = 2.2.dp.toPx()
-                        drawLine(col, androidx.compose.ui.geometry.Offset(0f, size.height / 2), androidx.compose.ui.geometry.Offset(size.width, size.height / 2), w, androidx.compose.ui.graphics.StrokeCap.Round)
-                        if (plus) drawLine(col, androidx.compose.ui.geometry.Offset(size.width / 2, 0f), androidx.compose.ui.geometry.Offset(size.width / 2, size.height), w, androidx.compose.ui.graphics.StrokeCap.Round)
-                    }
-                }
+            }
+            @Composable
+            fun Title(modifier: Modifier) = Column(modifier) {
+                Text(tr("Phone down", "Telefon le"), style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                Text(tr("Earns minutes too", "Perceket is ad"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, maxLines = 1)
+            }
+            @Composable
+            fun Stepper() {
                 Nudge(false, minutes > Tasks.TIMER_MIN) { nudge(-Tasks.TIMER_STEP) }
-                Text(tr("$minutes min", "$minutes perc"), style = MaterialTheme.typography.titleMedium, color = Brand.Moss, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.width(60.dp))
+                Text(tr("$minutes min", "$minutes perc"), style = MaterialTheme.typography.titleMedium, color = Brand.Moss, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 1, modifier = Modifier.width(72.dp))
                 Nudge(true, minutes < Tasks.TIMER_MAX) { nudge(Tasks.TIMER_STEP) }
+            }
+            // On a narrow screen in two lines (the title never squeezed), otherwise in one.
+            val narrow = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 400
+            if (narrow) Column(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Title(Modifier.weight(1f))
+                    ChipButton(tr("Start", "Indítás"), { onStartFocus(Tasks.timer(minutes)) })
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) { Stepper() }
+            } else Row(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Title(Modifier.weight(1f))
+                Stepper()
                 ChipButton(tr("Start", "Indítás"), { onStartFocus(Tasks.timer(minutes)) })
             }
         }

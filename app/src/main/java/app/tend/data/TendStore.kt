@@ -333,13 +333,16 @@ class TendStore(private val context: Context) {
         }
         set(v) = edit { putString("placed", app.tend.core.Clearing.format(v)) }
 
-    /** Picked apps that get a short pause before each open (the rest just count against the minutes). */
-    var pauseApps: Set<String>
-        get() = prefs.getStringSet("pause_apps", emptySet())!!.toSet()
-        set(v) = edit { putStringSet("pause_apps", v) }
+    /** Picked apps whose pause before opening was turned off, one by one (every picked app pauses unless it's here). */
+    var pauseOff: Set<String>
+        get() = prefs.getStringSet("pause_off", emptySet())!!.toSet()
+        set(v) = edit { putStringSet("pause_off", v) }
 
-    /** Whether opening [pkg] waits on the pause screen first: asked for it, or strict mode (every picked app). */
-    fun pausesOnOpen(pkg: String) = isStrict || pkg in pauseApps
+    /** Picked apps that get a short pause before each open. */
+    val pauseApps: Set<String> get() = blockedPackages - pauseOff
+
+    /** Whether opening [pkg] waits on the pause screen first: unless turned off for it; always in strict mode. */
+    fun pausesOnOpen(pkg: String) = isStrict || pkg !in pauseOff
 
     /** Things bought and put away: not in the camp, kept to take out again or give a friend. */
     var chest: List<String>
