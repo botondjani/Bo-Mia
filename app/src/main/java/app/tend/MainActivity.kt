@@ -668,7 +668,7 @@ class MainActivity : ComponentActivity() {
                         android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_t_hourglass), mainExecutor,
                     ) { }
                 }) else null,
-                version = BuildConfig.VERSION_NAME,
+                version = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                 shareStats = app.tend.data.Stats.consent(this) == true,
                 onShareStats = { app.tend.data.Stats.setConsent(this, it); refresh++ },
                 notesMorning = store.notesMorning,

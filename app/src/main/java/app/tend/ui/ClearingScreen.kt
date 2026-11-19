@@ -195,11 +195,12 @@ fun ClearingScreen(
     var milestonesOpen by rememberSaveable { mutableStateOf(false) }
     var chestOpen by rememberSaveable { mutableStateOf(false) }
     var shopStart by remember { mutableStateOf<SpotKind?>(null) }
+    var shopTab by remember { androidx.compose.runtime.mutableIntStateOf(0) }
     androidx.compose.runtime.LaunchedEffect(openSheet) {
         val sheet = openSheet ?: return@LaunchedEffect
         when {
             sheet == "things" -> chestOpen = true
-            sheet.startsWith("shop") -> { shopStart = sheet.substringAfter(':', "").takeIf { it.isNotEmpty() }?.let { k -> runCatching { SpotKind.valueOf(k) }.getOrNull() }; shopOpen = true }
+            sheet.startsWith("shop") -> { shopTab = 0; shopStart = sheet.substringAfter(':', "").takeIf { it.isNotEmpty() }?.let { k -> runCatching { SpotKind.valueOf(k) }.getOrNull() }; shopOpen = true }
         }
         onSheetShown()
     }
@@ -212,6 +213,7 @@ fun ClearingScreen(
     // What friends did: toilet paper unrolls when tapped; a visitor's duck is fished out.
     val paperLeft by androidx.compose.animation.core.animateFloatAsState(if (paper) 1f else 0f, androidx.compose.animation.core.tween(1400), label = "paper")
     val ducksNow by androidx.compose.runtime.rememberUpdatedState(ducks)
+    val fishedOut = remember { mutableSetOf<Long>() }
     val giftsNow by androidx.compose.runtime.rememberUpdatedState(gifts)
     val paperNow by androidx.compose.runtime.rememberUpdatedState(paper)
     val bridgeNow by androidx.compose.runtime.rememberUpdatedState(bridge)
@@ -496,9 +498,13 @@ fun ClearingScreen(
                             }
                             return@detectTapGestures
                         }
-                        val duck = DuckSpots.take(ducksNow.size).indexOfFirst { kotlin.math.abs(it.x - fx) * size.width < size.height * 0.08f && kotlin.math.abs(it.y - fy) < 0.09f }
+                        // Only a duck that's really there (one fished out a moment ago is gone at once, before the
+                        // camp redraws), so a tap on the empty water is just water.
+                        val swimming = ducksNow.filter { it.id !in fishedOut }
+                        val duck = DuckSpots.take(swimming.size).indexOfFirst { kotlin.math.abs(it.x - fx) * size.width < size.height * 0.07f && kotlin.math.abs(it.y - fy) < 0.07f }
                         if (duck >= 0) {
-                            val n = ducksNow[duck]
+                            val n = swimming[duck]
+                            fishedOut += n.id
                             val total = onCatchDuck(n)
                             caught = tr("${n.name}'s duck from their visit. You have $total.", "${n.name} kacsája a látogatásából. Már $total van.")
                             burst(DuckSpots[duck]); tick()
@@ -528,7 +534,9 @@ fun ClearingScreen(
                                 // Walk over first, unless already there; the sound starts on arrival.
                                 else -> startUse(hit, thing)
                             }
-                        } else if (using != null) { using = null; queue.clear(); Sounds.stop() }
+                        // A tap on the grass stops what they're doing; not at night: woken up for something,
+                        // they finish it and walk back to bed (stopped, they'd be back in the tent in a blink).
+                        } else if (using != null && !nightNow) { using = null; queue.clear(); Sounds.stop() }
                     }
                 }.pointerInput(Unit) {
                     // Inside the tap handler, so it sees the finger first: once a thing is picked up, the drag is
@@ -610,7 +618,7 @@ fun ClearingScreen(
                     ?: cheerT.takeIf { it >= 0f }?.let { InUse(-2, "act_hearts", it) }
                     ?: using?.takeIf { useStart >= 0 }?.let { (spot, thing) -> InUse(spot, thing, (frame - useStart) / 1e9f, walk, Uses.seconds(thing)) } ?: idle.value
                 drawClearing(
-                    avatar, placed, mood, worn = worn, night = night, signpost = signpost, paper = paperLeft, ducks = ducks.size, bridge = bridge,
+                    avatar, placed, mood, worn = worn, night = night, signpost = signpost, paper = paperLeft, ducks = ducks.count { it.id !in fishedOut }, bridge = bridge,
                     use = use, fireBuild = fireBuild, lastStrum = (frame - strumAt) / 1e9f - walk, visitor = visitor, rest = rest, nightClock = nightClock, appear = appear,
                     bursts = bursts.map { it.first to it.second.value },
                     layout = drag?.let { (spot, at) -> pinned + (spot to at) } ?: pinned,
@@ -631,7 +639,16 @@ fun ClearingScreen(
             }
             // A present opened: what was in it, popping up over the camp.
             AcornsClaimed(giftPop, giftKey, Modifier.align(Alignment.Center))
-            opened?.let { o -> OpenedGift(o, gifts.size, onTakeOutThing) { opened = null } }
+            opened?.let { o ->
+                OpenedGift(o, gifts.size, onTakeOutThing, onNext = {
+                    // The next one, right here: a thing in the same window, acorns popping over the camp.
+                    when (val n = onOpenGift()) {
+                        is app.tend.data.TendStore.Opened.Acorns -> { opened = null; giftPop = n.acorns; giftKey++; Sounds.acorns(context); caught = tr("${n.from} sent you ${n.acorns} acorns!", "${n.from} ${n.acorns} makkot küldött neked!") }
+                        null -> opened = null
+                        else -> { opened = n; Sounds.acorns(context) }
+                    }
+                }) { opened = null }
+            }
         }
         // On the camp: the way back home (top left) and the acorns (top right).
         Box(
@@ -697,7 +714,7 @@ fun ClearingScreen(
     app.tend.core.CampEvent.on(java.time.LocalDate.now())?.let { event ->
         val left = event.daysLeft(java.time.LocalDate.now())
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Brand.Coral.copy(alpha = 0.12f)).tappable { shopOpen = true }.padding(horizontal = 14.dp, vertical = 10.dp),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Brand.Coral.copy(alpha = 0.12f)).tappable { shopTab = 2; shopOpen = true }.padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Canvas(Modifier.size(40.dp)) { drawThingIcon(event.thing) }
@@ -711,7 +728,7 @@ fun ClearingScreen(
 
     // The shop, friends, and sharing the camp: a button each.
     Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
-        PillButton(tr("Shop", "Bolt"), androidx.compose.material.icons.Icons.Filled.ShoppingCart, Modifier.weight(1f)) { shopOpen = true }
+        PillButton(tr("Shop", "Bolt"), androidx.compose.material.icons.Icons.Filled.ShoppingCart, Modifier.weight(1f)) { shopTab = 0; shopOpen = true }
         PillButton(tr("Friends", "Barátok"), androidx.compose.material.icons.Icons.Filled.Person, Modifier.weight(1f)) { friendsOpen = true }
         PillButton(tr("Share", "Megosztás"), androidx.compose.material.icons.Icons.Filled.Share, Modifier.weight(1f), onShare)
     }
@@ -779,7 +796,7 @@ fun ClearingScreen(
             Column(Modifier.sheetBody(0.62f)) {
             var ready by remember { mutableStateOf(false) }
             androidx.compose.runtime.LaunchedEffect(Unit) { androidx.compose.runtime.withFrameNanos { }; ready = true }
-            if (ready) Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, plus = plus, onPlus = onPlus, level = level, startFilter = shopStart, outfits = outfits, outfitWorn = outfitWorn,
+            if (ready) Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, plus = plus, onPlus = onPlus, level = level, startFilter = shopStart, startTab = shopTab, outfits = outfits, outfitWorn = outfitWorn,
                 onBuyOutfit = { a -> onBuyOutfit(a).also { if (it) { tick(firm = true); Sounds.chime(context) } } },
                 onWearOutfit = { tick(); onWearOutfit(it) }, onBuy = { id ->
                 // Bought: a firm tick, a chime, and up to the camp to watch it pop in.
@@ -801,7 +818,8 @@ fun ClearingScreen(
             Inventory(avatar, placed, chest, onPutAway = { tick(); onPutAway(it) }, onSell = onSell, onTakeOut = { id ->
                 onTakeOut(id).also { ok -> if (ok) { tick(firm = true); chestOpen = false; scope.launch { scroll.animateScrollTo(0) } } }
             }, onTraded = onFriendsChanged, worn = worn, onShelf = onShelf, earned = earned, onToggleAccessory = onToggleAccessory,
-                outfits = outfits, outfitWorn = outfitWorn, onWearOutfit = { tick(); onWearOutfit(it) })
+                outfits = outfits, outfitWorn = outfitWorn, onWearOutfit = { tick(); onWearOutfit(it) },
+                onWardrobe = { chestOpen = false; shopStart = null; shopTab = 1; shopOpen = true })
         }
     }
     // Achievements: the milestones, and what the companion earns by habits.
@@ -887,13 +905,15 @@ private fun Shop(
     level: Int = 1,
     /** The filter the shop opens on (from a challenge like "something for the trees"). */
     startFilter: SpotKind? = null,
+    /** The tab it opens on: 0 things, 1 outfits, 2 seasonal. */
+    startTab: Int = 0,
 ) {
     val inCamp = placed.values.toSet()
     fun owns(id: String) = id in inCamp || id in chest
     var outfitOpen by remember { mutableStateOf<app.tend.core.Accessory?>(null) }
     var open by remember { mutableStateOf<app.tend.core.Thing?>(null) }
     // Three tabs: things for the camp, things for the companion to wear, and the season's own.
-    var tab by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
+    var tab by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(startTab) }
     val season = app.tend.core.Season.of(java.time.LocalDate.now())
     var filter by remember { mutableStateOf(startFilter) }
     @Composable
@@ -918,14 +938,14 @@ private fun Shop(
             Column(Modifier.weight(1f)) {
                 Text(tr("SHOP", "BOLT"), style = MaterialTheme.typography.labelSmall)
                 Text(
-                    if (earnedToday > 0) tr("+$earnedToday acorns today", "Ma +$earnedToday makk") else tr("Activities earn 10, a \"Not now\" 2.", "Egy tevékenység 10-et ér, egy „Most nem” 2-t."),
+                    if (earnedToday > 0) tr("+$earnedToday acorns today", "Ma +$earnedToday makk") else tr("An activity earns ${app.tend.core.Acorns.PER_ACTIVITY}, a \"Not now\" ${app.tend.core.Acorns.PER_NOT_NOW}.", "Egy tevékenység ${app.tend.core.Acorns.PER_ACTIVITY}-at ér, egy „Most nem” ${app.tend.core.Acorns.PER_NOT_NOW}-et."),
                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted,
                 )
             }
             AcornBadge(acorns)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 8.dp)) {
-            listOf(tr("Things", "Tárgyak"), tr("For $name", "Kiegészítők"), tr("Seasonal", "Szezonális")).forEachIndexed { i, label ->
+            listOf(tr("Things", "Tárgyak"), tr("Outfits", "Ruhák"), tr("Seasonal", "Szezonális")).forEachIndexed { i, label ->
                 Text(
                     label, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), textAlign = TextAlign.Center, maxLines = 1,
                     color = if (tab == i) Color.White else Brand.Moss,
@@ -1053,6 +1073,8 @@ private fun Inventory(
     avatar: Avatar, placed: Map<Int, String>, chest: List<String>, onPutAway: (String) -> Unit, onSell: (String) -> Unit, onTakeOut: (String) -> Boolean, onTraded: () -> Unit,
     worn: Set<Accessory>, onShelf: Set<Accessory>, earned: Set<Accessory>, onToggleAccessory: ((Accessory) -> Unit)?,
     outfits: Set<Accessory>, outfitWorn: Accessory?, onWearOutfit: (Accessory?) -> Unit,
+    /** Opens the shop on its outfits. */
+    onWardrobe: () -> Unit = {},
 ) = Column(verticalArrangement = Arrangement.spacedBy(Space.s)) {
     var tab by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
     var open by remember { mutableStateOf<app.tend.core.Thing?>(null) }
@@ -1080,8 +1102,16 @@ private fun Inventory(
         1 -> if (chest.isEmpty()) Text(tr("Empty. Put things away here to make room in the camp; presents from friends come here once you open them by the fire.", "Üres. Ide teheted el, amit most nem szeretnél kint látni; a barátaid ajándékai is ide kerülnek, ha kibontod őket a tűz mellett."), style = MaterialTheme.typography.bodyMedium)
             else grid(chest, true)
         else -> {
+            // The outfits: the ones bought, and the way to the rest (in the shop).
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(tr("OUTFITS", "RUHÁK"), style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.weight(1f))
+                Text(
+                    tr("More in the shop →", "Több a boltban →"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onWardrobe).padding(horizontal = 6.dp, vertical = 4.dp),
+                )
+            }
+            if (outfits.isEmpty()) Text(tr("None yet: hats, glasses and more are in the shop.", "Még nincs: sapkák, szemüvegek és társaik a boltban."), style = MaterialTheme.typography.bodyMedium)
             if (outfits.isNotEmpty()) {
-                Text(tr("OUTFITS", "RUHÁK"), style = MaterialTheme.typography.labelSmall, color = Brand.Muted)
                 outfits.sortedBy { it.ordinal }.chunked(4).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         row.forEach { a -> OutfitTile(a, owned = true, worn = a == outfitWorn, affordable = true, Modifier.weight(1f)) { onWearOutfit(if (a == outfitWorn) null else a) } }
@@ -1419,8 +1449,8 @@ private fun CampFooter(modifier: Modifier) = Canvas(modifier) {
 
 /** What was in a present: a thing (into the camp or left in the chest), acorns for one you had, or one to update for. */
 @Composable
-private fun OpenedGift(o: app.tend.data.TendStore.Opened, left: Int, onTakeOut: (String) -> Boolean, onClose: () -> Unit) {
-    var note by remember { mutableStateOf<String?>(null) }
+private fun OpenedGift(o: app.tend.data.TendStore.Opened, left: Int, onTakeOut: (String) -> Boolean, onNext: () -> Unit, onClose: () -> Unit) {
+    var note by remember(o) { mutableStateOf<String?>(null) }
     // One that can't be opened yet stays by the fire: not counted as another.
     val others = if (o is app.tend.data.TendStore.Opened.Unknown) left - 1 else left
     val more = if (others > 0) tr(" There's another one by the fire.", " A tűznél még vár egy.") else ""
@@ -1444,12 +1474,21 @@ private fun OpenedGift(o: app.tend.data.TendStore.Opened, left: Int, onTakeOut: 
             }
         },
         confirmButton = {
-            if (o is app.tend.data.TendStore.Opened.Thing && note == null) androidx.compose.material3.TextButton(onClick = {
-                if (onTakeOut(o.thing.id)) onClose() else note = tr("No room for it in the camp right now: it stays in the chest.", "Most nincs neki hely a táborban: a ládában marad.")
-            }) { Text(tr("Put it out", "Kirakom"), color = Brand.Moss) }
-            else androidx.compose.material3.TextButton(onClick = onClose) { Text(tr("OK", "Rendben"), color = Brand.Moss) }
+            Row {
+                // A thing: out into the camp, or left in the chest; then (or otherwise) the next one, if there is one.
+                if (o is app.tend.data.TendStore.Opened.Thing && note == null) {
+                    androidx.compose.material3.TextButton(onClick = { if (onTakeOut(o.thing.id)) { if (others > 0) onNext() else onClose() } else note = tr("No room for it in the camp right now: it stays in the chest.", "Most nincs neki hely a táborban: a ládában marad.") }) {
+                        Text(tr("Put it out", "Kirakom"), color = Brand.Moss)
+                    }
+                } else if (others > 0) androidx.compose.material3.TextButton(onClick = onNext) { Text(tr("Open the next", "Kibontom a következőt"), color = Brand.Moss) }
+                else androidx.compose.material3.TextButton(onClick = onClose) { Text(tr("OK", "Rendben"), color = Brand.Moss) }
+            }
         },
-        dismissButton = { if (o is app.tend.data.TendStore.Opened.Thing && note == null) androidx.compose.material3.TextButton(onClick = onClose) { Text(tr("Keep it in the chest", "Ládában hagyom"), color = Brand.Muted) } },
+        dismissButton = {
+            if (o is app.tend.data.TendStore.Opened.Thing && note == null) androidx.compose.material3.TextButton(onClick = { if (others > 0) onNext() else onClose() }) {
+                Text(tr("Keep it in the chest", "Ládában hagyom"), color = Brand.Muted)
+            } else if (others > 0) androidx.compose.material3.TextButton(onClick = onClose) { Text(tr("Later", "Később"), color = Brand.Muted) }
+        },
         containerColor = Brand.Card,
     )
 }
