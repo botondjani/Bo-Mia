@@ -159,9 +159,11 @@ fun ClearingScreen(
     askTown: Boolean = false,
     onTown: (app.tend.data.WeatherService.Place?) -> Unit = {},
     onTownLater: () -> Unit = {},
-    /** Presents from friends to open (who sent each); opening them is [onOpenGifts]. */
+    /** Presents from friends to open (who sent each, oldest first); [onOpenGift] opens the oldest. */
     gifts: List<String> = emptyList(),
-    onOpenGifts: () -> Unit = {},
+    onOpenGift: () -> app.tend.data.TendStore.Opened? = { null },
+    /** Takes a thing out of the chest into the camp; false when there's no spot for it. */
+    onTakeOutThing: (String) -> Boolean = { false },
     /** Opened by tapping the animal on home: greet it right away. */
     greetOnOpen: Boolean = false,
     onGreetedOnOpen: () -> Unit = {},
@@ -215,6 +217,7 @@ fun ClearingScreen(
     val bridgeNow by androidx.compose.runtime.rememberUpdatedState(bridge)
     var caught by remember { mutableStateOf<String?>(null) }
     var giftPop by remember { mutableIntStateOf(0) }
+    var opened by remember { mutableStateOf<app.tend.data.TendStore.Opened?>(null) }
     var giftKey by remember { mutableIntStateOf(0) }
     // Moving things: hold one to pick it up, drag it anywhere on the meadow, let go to put it down.
     // Shown at once where it was put (the saved layout catches up right after).
@@ -458,13 +461,17 @@ fun ClearingScreen(
                                 tick(); return@detectTapGestures
                             }
                         }
-                        // A present from a friend: opened, its acorns fly out.
+                        // A present from a friend: opened, one at a time (acorns fly out; a thing is shown).
                         if (giftsNow.isNotEmpty() && kotlin.math.abs(GiftSpot.x - fx) * size.width < size.height * 0.07f && fy in (GiftSpot.y - 0.1f)..(GiftSpot.y + 0.03f)) {
-                            val who = giftsNow.distinct()
-                            caught = tr("${who.joinToString(" and ")} sent you ${if (giftsNow.size == 1) "a present" else "presents"}: ${giftsNow.size * app.tend.data.Friends.GIFT_ACORNS} acorns!", "${who.joinToString(" és ")} ${if (giftsNow.size == 1) "ajándékot küldött" else "ajándékokat küldött"}: ${giftsNow.size * app.tend.data.Friends.GIFT_ACORNS} makk!")
-                            burst(Offset(GiftSpot.x, GiftSpot.y - 0.05f)); tick(firm = true); Sounds.acorns(context)
-                            giftPop = giftsNow.size * app.tend.data.Friends.GIFT_ACORNS; giftKey++
-                            onOpenGifts()
+                            when (val o = onOpenGift()) {
+                                is app.tend.data.TendStore.Opened.Acorns -> {
+                                    caught = tr("${o.from} sent you ${o.acorns} acorns!", "${o.from} ${o.acorns} makkot küldött neked!")
+                                    burst(Offset(GiftSpot.x, GiftSpot.y - 0.05f)); tick(firm = true); Sounds.acorns(context)
+                                    giftPop = o.acorns; giftKey++
+                                }
+                                null -> {}
+                                else -> { burst(Offset(GiftSpot.x, GiftSpot.y - 0.05f)); tick(firm = true); Sounds.acorns(context); opened = o }
+                            }
                             return@detectTapGestures
                         }
                         val duck = DuckSpots.take(ducksNow.size).indexOfFirst { kotlin.math.abs(it.x - fx) * size.width < size.height * 0.08f && kotlin.math.abs(it.y - fy) < 0.09f }
@@ -602,6 +609,7 @@ fun ClearingScreen(
             }
             // A present opened: what was in it, popping up over the camp.
             AcornsClaimed(giftPop, giftKey, Modifier.align(Alignment.Center))
+            opened?.let { o -> OpenedGift(o, gifts.size, onTakeOutThing) { opened = null } }
         }
         // On the camp: the way back home (top left) and the acorns (top right).
         Box(
@@ -648,7 +656,8 @@ fun ClearingScreen(
         when {
             drag != null && caught != null -> caught!!
             using != null -> Uses.line(using!!.second, avatar.displayName)
-            gifts.isNotEmpty() -> tr("A present from ${gifts.distinct().joinToString(" and ")}! Tap it to open.", "Ajándék érkezett: ${gifts.distinct().joinToString(" és ")} küldte! Koppints rá, és kibontod.")
+            gifts.isNotEmpty() -> if (gifts.size == 1) tr("A present from ${gifts[0]} by the fire! Tap it to open.", "Ajándék vár a tűznél, ${gifts[0]} küldte! Koppints rá, és kibontod.")
+                else tr("${gifts.size} presents by the fire (from ${gifts.distinct().joinToString(" and ")})! Tap to open them one by one.", "${gifts.size} ajándék vár a tűznél (${gifts.distinct().joinToString(" és ")} küldte)! Koppints, és egyenként kibontod.")
             paper -> tr("Someone toilet-papered your oak! Tap it to unroll.", "Valaki vécépapírral dobálta meg a tölgyfádat! Koppints rá, és letekered.")
             visitor != null -> tr("${visitor.aName.replaceFirstChar { it.uppercase() }} came to the camp. Tap it to say hello.", "${visitor.aName.replaceFirstChar { it.uppercase() }} jött a táborba. Koppints rá, és köszönj neki.")
             ducks.isNotEmpty() -> tr("A rubber duck: someone visited. Tap it to fish it out.", "Egy gumikacsa: valaki itt járt. Koppints rá, és kihalászod.")
@@ -1046,7 +1055,7 @@ private fun Inventory(
     }
     when (tab) {
         0 -> grid(placed.values.filterNot(app.tend.core.Home::isHome), false)
-        1 -> if (chest.isEmpty()) Text(tr("Empty. Put things away here to make room in the camp; friends' gifts land here too.", "Üres. Ide teheted el, amit most nem szeretnél kint látni; a barátaidtól kapott tárgyak is ide érkeznek."), style = MaterialTheme.typography.bodyMedium)
+        1 -> if (chest.isEmpty()) Text(tr("Empty. Put things away here to make room in the camp; presents from friends come here once you open them by the fire.", "Üres. Ide teheted el, amit most nem szeretnél kint látni; a barátaid ajándékai is ide kerülnek, ha kibontod őket a tűz mellett."), style = MaterialTheme.typography.bodyMedium)
             else grid(chest, true)
         else -> {
             if (outfits.isNotEmpty()) {
@@ -1080,7 +1089,7 @@ private fun Inventory(
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(if (stored) tr("In your chest.", "A ládádban van.") else tr("Out in the camp.", "Kint van a táborban."), style = MaterialTheme.typography.bodyMedium)
                     if (signedIn) Text(
-                        tr("Offer it to a friend", "Felajánlom cserére egy barátnak"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+                        tr("Give it to a friend", "Ajándékba adom egy barátnak"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
                         modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable { trading = t; open = null }.padding(vertical = 6.dp),
                     )
                 }
@@ -1093,7 +1102,7 @@ private fun Inventory(
             containerColor = Brand.Card,
         )
     }
-    trading?.let { t -> TradeDialog(null, preset = t, onGave = onTraded) { trading = null } }
+    trading?.let { t -> GiftDialog(null, thing = t, onGave = onTraded) { trading = null } }
 }
 
 /** One thing in the shop: its picture, name and price (a tick when it's in the camp). */
@@ -1384,4 +1393,41 @@ private fun CampFooter(modifier: Modifier) = Canvas(modifier) {
     val moon = Offset(w * 0.72f, base - h * 0.72f); val mr = h * 0.06f
     drawCircle(Brand.Mint.copy(alpha = 0.45f), mr, moon)
     drawCircle(Brand.Sage, mr * 0.92f, moon + Offset(mr * 0.4f, -mr * 0.2f))
+}
+
+/** What was in a present: a thing (into the camp or left in the chest), acorns for one you had, or one to update for. */
+@Composable
+private fun OpenedGift(o: app.tend.data.TendStore.Opened, left: Int, onTakeOut: (String) -> Boolean, onClose: () -> Unit) {
+    var note by remember { mutableStateOf<String?>(null) }
+    // One that can't be opened yet stays by the fire: not counted as another.
+    val others = if (o is app.tend.data.TendStore.Opened.Unknown) left - 1 else left
+    val more = if (others > 0) tr(" There's another one by the fire.", " A tűznél még vár egy.") else ""
+    val thing = when (o) { is app.tend.data.TendStore.Opened.Thing -> o.thing; is app.tend.data.TendStore.Opened.Had -> o.thing; else -> null }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onClose,
+        icon = { if (thing != null) Canvas(Modifier.size(72.dp)) { drawThingIcon(thing.id) } else TendIcons.Glyph("gift", 40.dp) },
+        title = { Text(tr("A present from ${o.from}", "Ajándék tőle: ${o.from}")) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    when (o) {
+                        is app.tend.data.TendStore.Opened.Thing -> tr("${o.thing.name}! It's in your chest now: put it out, or keep it for later.", "${o.thing.name}! Most a ládádban van: kirakhatod, vagy elteheted későbbre.")
+                        is app.tend.data.TendStore.Opened.Had -> tr("${o.thing.name}, but you already have one, so it's ${o.acorns} acorns instead.", "${o.thing.name}, de ilyened már van, ezért helyette ${o.acorns} makkot kaptál.")
+                        is app.tend.data.TendStore.Opened.Unknown -> tr("Something new that only the latest tend knows. Update the app, then open it.", "Valami új, amit csak a tend legújabb verziója ismer. Frissítsd az appot, és utána kibonthatod.")
+                        is app.tend.data.TendStore.Opened.Acorns -> tr("${o.acorns} acorns.", "${o.acorns} makk.")
+                    } + more,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                note?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Brand.Coral) }
+            }
+        },
+        confirmButton = {
+            if (o is app.tend.data.TendStore.Opened.Thing && note == null) androidx.compose.material3.TextButton(onClick = {
+                if (onTakeOut(o.thing.id)) onClose() else note = tr("No room for it in the camp right now: it stays in the chest.", "Most nincs neki hely a táborban: a ládában marad.")
+            }) { Text(tr("Put it out", "Kirakom"), color = Brand.Moss) }
+            else androidx.compose.material3.TextButton(onClick = onClose) { Text(tr("OK", "Rendben"), color = Brand.Moss) }
+        },
+        dismissButton = { if (o is app.tend.data.TendStore.Opened.Thing && note == null) androidx.compose.material3.TextButton(onClick = onClose) { Text(tr("Keep it in the chest", "Ládában hagyom"), color = Brand.Muted) } },
+        containerColor = Brand.Card,
+    )
 }

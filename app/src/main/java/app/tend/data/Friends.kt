@@ -258,25 +258,28 @@ object Friends {
             CHEER -> tr("$name cheered you on", "$name megtapsolt")
             GIFT -> tr("$name sent you a present", "$name ajándékot küldött")
             FIRE -> tr("$name calls you to the campfire", "$name a tábortűzhöz hív")
-            THING -> tr("$name gave you something for your camp", "$name adott neked valamit a táborodba")
+            THING -> tr("$name sent you a present", "$name ajándékot küldött")
         }
 
         /** For the widget's small label: "Anna: visited". */
-        val short: String get() = when (this) { WAVE -> tr("waved", "integetett"); VISIT -> tr("visited", "itt járt"); TP -> tr("toilet paper!", "vécépapír!"); CHEER -> tr("cheered!", "megtapsolt!"); GIFT -> tr("a present!", "ajándék!"); FIRE -> tr("to the fire!", "a tűzhöz hív!"); THING -> tr("a thing for you!", "tárgyat küldött!") }
+        val short: String get() = when (this) { WAVE -> tr("waved", "integetett"); VISIT -> tr("visited", "itt járt"); TP -> tr("toilet paper!", "vécépapír!"); CHEER -> tr("cheered!", "megtapsolt!"); GIFT -> tr("a present!", "ajándék!"); FIRE -> tr("to the fire!", "a tűzhöz hív!"); THING -> tr("a present!", "ajándék!") }
 
         /** For the 1x1 widget's badge. */
-        val emoji: String get() = when (this) { WAVE -> "\uD83D\uDC4B"; VISIT -> "\uD83E\uDD86"; TP -> "\uD83E\uDDFB"; CHEER -> "\uD83D\uDC4F"; GIFT -> "\uD83C\uDF81"; FIRE -> "\uD83D\uDD25"; THING -> "\uD83D\uDCE6" }
+        val emoji: String get() = when (this) { WAVE -> "\uD83D\uDC4B"; VISIT -> "\uD83E\uDD86"; TP -> "\uD83E\uDDFB"; CHEER -> "\uD83D\uDC4F"; GIFT -> "\uD83C\uDF81"; FIRE -> "\uD83D\uDD25"; THING -> "\uD83C\uDF81" }
 
         companion object { fun of(id: String) = entries.firstOrNull { it.id == id } }
     }
 
     data class Note(val id: Long, val from: String, val name: String, val companion: String, val kind: Kind, val at: Long, val cleared: Boolean = false, val thing: String? = null)
 
-    /** Gives a friend [thing] from your chest; true when it went (false: not friends, 5 given today, or offline). */
-    suspend fun giveThing(c: Context, to: String, thing: String): Boolean {
-        val reply = Account.rpc(c, "tend_give_thing", JSONObject().put("p_to", to).put("p_thing", thing)) ?: return false
-        return reply.ok && reply.body.trim() == "true"
+    /** Gives a friend [thing]: true when it went, false when refused (not friends, or 5 given today), null offline. */
+    suspend fun giveThing(c: Context, to: String, thing: String): Boolean? {
+        val reply = Account.rpc(c, "tend_give_thing", JSONObject().put("p_to", to).put("p_thing", thing))?.takeIf { it.ok } ?: return null
+        return reply.body.trim() == "true"
     }
+
+    /** Presents a day, in all (the server's limit). */
+    const val GIFTS_A_DAY = 5
 
     /** Sends [kind] to a friend; true when it went (false: not friends, already sent, or offline). */
     suspend fun send(c: Context, to: String, kind: Kind): Boolean {
@@ -324,14 +327,15 @@ object Friends {
             if (counted > 0) store.addAcorns(counted * CHEER_ACORNS, "cheer")
             p.edit().putLong("cheers_paid", cheers.maxOf { it.id }).putString("cheers_day", today).putInt("cheers_today", countedToday + counted).apply()
         }
-        // Things from friends: into the chest, each once.
-        val taken = p.getLong("things_taken", 0)
-        val things = notes.filter { it.kind == Kind.THING && it.id > taken && it.thing != null }
-        if (things.isNotEmpty()) {
-            val store = TendStore(c)
-            things.forEach { store.received(it.thing!!) }
-            p.edit().putLong("things_taken", things.maxOf { it.id }).apply()
+        // Presents (a thing, or acorns from older versions): wrapped by the fire, each once.
+        val store = TendStore(c)
+        val upTo = store.giftsUpTo
+        val presents = notes.filter { n ->
+            (n.kind == Kind.THING && n.thing != null || n.kind == Kind.GIFT) &&
+                // Before presents were kept with the camp, each kind had its own mark here.
+                n.id > (if (upTo > 0) upTo else p.getLong(if (n.kind == Kind.GIFT) "gifts_opened" else "things_taken", 0))
         }
+        store.wrap(presents.sortedBy { it.id }.map { TendStore.Wrapped(it.id, it.name, it.thing.takeIf { _ -> it.kind == Kind.THING }) })
         // Calls already over aren't news any more. A cheer isn't worth a buzz on its own: it waits in the camp.
         val news = fresh.filter { (it.kind != Kind.FIRE || System.currentTimeMillis() - it.at < FIRE_CALL_MS) && it.kind != Kind.CHEER }
         if (news.isNotEmpty()) notify(c, news)
@@ -384,7 +388,7 @@ object Friends {
         when (n.kind) {
             Kind.TP -> paperOnMe(c).any { it.id == n.id }
             Kind.VISIT -> ducks(c).any { it.id == n.id }
-            Kind.GIFT -> n.id > prefs(c).getLong("gifts_opened", 0)
+            Kind.GIFT, Kind.THING -> TendStore(c).wrapped.any { it.id == n.id }
             else -> true
         }
     }
@@ -393,7 +397,6 @@ object Friends {
     fun openFor(kind: Kind): String = when (kind) {
         Kind.FIRE -> OPEN_JOIN
         Kind.WAVE, Kind.CHEER -> OPEN_NOTES
-        Kind.THING -> OPEN_THINGS // into the chest, where it is
         else -> app.tend.reminder.WeeklyLetter.OPEN_CLEARING
     }
 
@@ -424,19 +427,8 @@ object Friends {
     const val CHEER_ACORNS = 2
     private const val CHEERS_PAID_A_DAY = 5
 
-    /** Acorns in a present from a friend. */
+    /** Acorns in a present from a friend (sent by older versions). */
     const val GIFT_ACORNS = 10
-
-    /** Presents from friends not opened yet: who sent each (newest first). */
-    fun giftsToOpen(c: Context): List<String> {
-        val opened = prefs(c).getLong("gifts_opened", 0)
-        return notes(c).filter { it.kind == Kind.GIFT && it.id > opened }.map { it.name }
-    }
-
-    /** The presents shown are opened. */
-    fun markGiftsOpened(c: Context) {
-        notes(c).filter { it.kind == Kind.GIFT }.maxOfOrNull { it.id }?.let { prefs(c).edit().putLong("gifts_opened", it).apply() }
-    }
 
     /** One notification for what's new: "Anna toilet-papered your oak" (and how many more). */
     private fun notify(c: Context, fresh: List<Note>) {
@@ -449,8 +441,7 @@ object Friends {
             Kind.VISIT -> tr("They left a rubber duck in your river.", "Egy gumikacsát hagyott a folyódban.")
             Kind.WAVE -> tr("Wave back from your camp.", "Integess vissza a táborodból.")
             Kind.CHEER -> tr("For what you did today: +$CHEER_ACORNS acorns.", "Azért, amit ma csináltál: +$CHEER_ACORNS makk.")
-            Kind.GIFT -> tr("It's waiting in your camp. Tap it to open.", "A táborodban vár. Koppints rá, és kibontod.")
-            Kind.THING -> (first.thing?.let(app.tend.core.Things::byId)?.let { tr("${it.name}: it's in your chest, in the shop.", "${it.name}: a ládádban vár, a boltban.") } ?: "")
+            Kind.GIFT, Kind.THING -> tr("It's wrapped by your fire. Tap it to open.", "Becsomagolva vár a tüzednél. Koppints rá, és kibontod.")
             Kind.FIRE -> tr("Put your phones down together: +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each. Tap to join.", "Tegyétek le együtt a telefont: fejenként +${app.tend.core.Acorns.TOGETHER_FIRE} makk. Koppints, és csatlakozol.")
         } + if (fresh.size > 1) tr(" And ${fresh.size - 1} more from friends.", " És még ${fresh.size - 1} a barátaidtól.") else ""
         val open = android.app.PendingIntent.getActivity(

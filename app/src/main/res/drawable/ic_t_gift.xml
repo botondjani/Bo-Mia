@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- tend icon set: 24 grid, 1.8 stroke, round caps. Tinted in code. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:strokeColor="#FF000000" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M4,9h16v3.5h-16z M5.5,12.5v7.5h13v-7.5 M12,9v11 M12,9c-1.5,-3.5 -5.5,-3.5 -5,-1.2c0.4,1.2 3,1.2 5,1.2 M12,9c1.5,-3.5 5.5,-3.5 5,-1.2c-0.4,1.2 -3,1.2 -5,1.2" />
+</vector>

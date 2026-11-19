@@ -374,13 +374,74 @@ class TendStore(private val context: Context) {
         return true
     }
 
-    /** A thing gone from the chest to a friend. */
-    fun gaveAway(thingId: String) { chest = chest - thingId }
+    /** A thing given to a friend: gone from the chest, or from the camp if it was out. */
+    @Synchronized
+    fun gaveAway(thingId: String) {
+        if (thingId in chest) { chest = chest - thingId; return }
+        val spot = placed.entries.firstOrNull { it.value == thingId }?.key ?: return
+        val l = layout
+        placed = placed - spot
+        if (spot in l) saveLayout(l - spot)
+    }
 
-    /** A thing from a friend: into the chest (if it's already yours, half its price in acorns instead). */
-    fun received(thingId: String) {
-        val thing = app.tend.core.Things.byId(thingId) ?: return
-        if (owns(thingId)) addAcorns(app.tend.core.Clearing.sellValue(thing), "gift") else chest = chest + thingId
+    /** A present from a friend, still wrapped by the fire: a thing for the camp, or (no thing) acorns. */
+    data class Wrapped(val id: Long, val from: String, val thing: String?)
+
+    /** Presents from friends waiting by the fire, oldest first. Kept here, so a restored camp still has them. */
+    val wrapped: List<Wrapped>
+        get() = runCatching {
+            val a = org.json.JSONArray(prefs.getString("wrapped", "[]"))
+            (0 until a.length()).map { i -> a.getJSONObject(i).let { Wrapped(it.getLong("id"), it.optString("from"), it.optString("thing").ifEmpty { null }) } }
+        }.getOrDefault(emptyList())
+
+    private fun saveWrapped(l: List<Wrapped>) = edit {
+        putString("wrapped", org.json.JSONArray(l.map { org.json.JSONObject().put("id", it.id).put("from", it.from).put("thing", it.thing ?: "") }).toString())
+    }
+
+    /** The newest friend's note already taken in as a present: each one is wrapped once. */
+    var giftsUpTo: Long
+        get() = prefs.getLong("gifts_up_to", 0)
+        set(v) = edit { putLong("gifts_up_to", v) }
+
+    /** New presents from friends: by the fire, to open. */
+    @Synchronized
+    fun wrap(presents: List<Wrapped>) {
+        if (presents.isEmpty()) return
+        val have = wrapped
+        val ids = have.map { it.id }.toSet()
+        saveWrapped(have + presents.filter { it.id !in ids })
+        giftsUpTo = maxOf(giftsUpTo, presents.maxOf { it.id })
+    }
+
+    /** What opening a present gave. */
+    sealed interface Opened {
+        val from: String
+        class Acorns(override val from: String, val acorns: Int) : Opened
+        /** A thing, now in the chest. */
+        class Thing(override val from: String, val thing: app.tend.core.Thing) : Opened
+        /** A thing already yours: half its price in acorns instead. */
+        class Had(override val from: String, val thing: app.tend.core.Thing, val acorns: Int) : Opened
+        /** A thing only a newer tend knows: it stays wrapped until the app is updated. */
+        class Unknown(override val from: String) : Opened
+    }
+
+    /** Opens the oldest present this version can open; null when there are none. */
+    @Synchronized
+    fun unwrap(): Opened? {
+        val all = wrapped
+        val w = all.firstOrNull { it.thing == null || app.tend.core.Things.byId(it.thing) != null } ?: return all.firstOrNull()?.let { Opened.Unknown(it.from) }
+        saveWrapped(all - w)
+        val thing = w.thing?.let(app.tend.core.Things::byId) ?: run {
+            addAcorns(app.tend.data.Friends.GIFT_ACORNS, "gift")
+            return Opened.Acorns(w.from, app.tend.data.Friends.GIFT_ACORNS)
+        }
+        if (owns(thing.id)) {
+            val acorns = app.tend.core.Clearing.sellValue(thing)
+            addAcorns(acorns, "gift")
+            return Opened.Had(w.from, thing, acorns)
+        }
+        chest = chest + thing.id
+        return Opened.Thing(w.from, thing)
     }
 
     /** Buys [thingId] from the shop: it goes to a free spot of its kind, or the cheapest one there goes into the chest. */
@@ -1165,7 +1226,7 @@ class TendStore(private val context: Context) {
     }
 
     companion object {
-        const val EARLY_NIGHT_ACORNS = 5
+        const val EARLY_NIGHT_ACORNS = 3
         const val PLUS_TRIAL_DAYS = 14
         const val FIRST_FRIEND_ACORNS = 30
         const val FRIEND_ACORNS = 15

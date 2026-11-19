@@ -28,19 +28,19 @@ class ClearingTest {
     @Test fun acornsDontDependOnBudgetSize() {
         // Two people, same day (60 min used, normal 120): one with a 2-hour budget, one with 4 hours.
         assertEquals(Acorns.atDayClose(60, 120, 120), Acorns.atDayClose(60, 240, 120))
-        assertEquals(10 + 6, Acorns.atDayClose(60, 120, 120))
+        assertEquals(5 + 3, Acorns.atDayClose(60, 120, 120))
         // Over budget, above normal: nothing at day close.
         assertEquals(0, Acorns.atDayClose(200, 120, 150))
         // Way below normal: capped.
-        assertEquals(10 + Acorns.BELOW_NORMAL_CAP, Acorns.atDayClose(0, 60, 600))
+        assertEquals(5 + Acorns.BELOW_NORMAL_CAP, Acorns.atDayClose(0, 60, 600))
         // Normal not known yet: only the budget part.
-        assertEquals(10, Acorns.atDayClose(30, 60, null))
+        assertEquals(5, Acorns.atDayClose(30, 60, null))
     }
 
     @Test fun dailyCaps() {
-        assertEquals(30, Acorns.forActivities(3))
+        assertEquals(24, Acorns.forActivities(3))
         assertEquals(Acorns.ACTIVITY_CAP, Acorns.forActivities(9))
-        assertEquals(6, Acorns.forNotNows(3))
+        assertEquals(3, Acorns.forNotNows(3))
         assertEquals(Acorns.NOT_NOW_CAP, Acorns.forNotNows(40))
     }
 
@@ -124,8 +124,8 @@ class ClearingTest {
         assertEquals("cabin", Home.forLevel(12))
         assertEquals("cabin_cozy", Home.forLevel(40))
         assertTrue(Home.TIERS.all { Things.byId(it.second)?.kind == SpotKind.SHELTER })
-        assertEquals(10, Perks.perActivity(4)); assertEquals(11, Perks.perActivity(5)); assertEquals(12, Perks.perActivity(20))
-        assertEquals(55, Acorns.forActivities(9, 5)) // the daily cap grows with the perk
+        assertEquals(8, Perks.perActivity(4)); assertEquals(9, Perks.perActivity(5)); assertEquals(10, Perks.perActivity(20))
+        assertEquals(27, Acorns.forActivities(9, 5)) // the daily cap grows with the perk
         assertEquals(Acorns.CHALLENGE * 2, Perks.challenge(15))
         // The campfire is there from the start; every level up to 15 opens something new in the shop.
         assertEquals(1, Perks.unlockLevel(Things.byId("campfire")!!))

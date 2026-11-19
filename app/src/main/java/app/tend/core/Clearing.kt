@@ -32,17 +32,17 @@ object Things {
         Thing("wildflowers", tr("Wildflowers", "Vadvirágok"), 10, SpotKind.SMALL),
         Thing("lantern", tr("Lantern", "Lámpás"), 15, SpotKind.SMALL),
         Thing("woodpile", tr("Firewood", "Tűzifa"), 15, SpotKind.SMALL),
-        Thing("guitar", tr("Guitar", "Gitár"), 30, SpotKind.SMALL),
-        Thing("fishing_rod", tr("Fishing rod", "Horgászbot"), 40, SpotKind.SMALL),
-        Thing("telescope", tr("Telescope", "Távcső"), 80, SpotKind.SMALL),
+        Thing("guitar", tr("Guitar", "Gitár"), 45, SpotKind.SMALL),
+        Thing("fishing_rod", tr("Fishing rod", "Horgászbot"), 60, SpotKind.SMALL),
+        Thing("telescope", tr("Telescope", "Távcső"), 120, SpotKind.SMALL),
         // The fire pit: each one cooks something else.
         Thing("campfire", tr("Campfire", "Tábortűz"), 40, SpotKind.FIRE),
-        Thing("kettle", tr("Fire and kettle", "Tűz teáskannával"), 120, SpotKind.FIRE),
-        Thing("pizza_oven", tr("Pizza oven", "Pizzakemence"), 250, SpotKind.FIRE),
+        Thing("kettle", tr("Fire and kettle", "Tűz teáskannával"), 180, SpotKind.FIRE),
+        Thing("pizza_oven", tr("Pizza oven", "Pizzakemence"), 375, SpotKind.FIRE),
         // Seats by the fire.
         Thing("log_bench", tr("Log bench", "Rönkpad"), 50, SpotKind.SEAT),
-        Thing("picnic_table", tr("Picnic table", "Piknikasztal"), 90, SpotKind.SEAT),
-        Thing("rocking_chair", tr("Rocking chair", "Hintaszék"), 120, SpotKind.SEAT),
+        Thing("picnic_table", tr("Picnic table", "Piknikasztal"), 135, SpotKind.SEAT),
+        Thing("rocking_chair", tr("Rocking chair", "Hintaszék"), 180, SpotKind.SEAT),
         // Shelters at the back, for the night.
         Thing("tent", tr("Tent", "Sátor"), 150, SpotKind.SHELTER),
         Thing("bell_tent", tr("Canvas tent", "Vászonsátor"), 300, SpotKind.SHELTER),
@@ -52,17 +52,17 @@ object Things {
         Thing("cabin_porch", tr("Cabin with a porch", "Tornácos faház"), 0, SpotKind.SHELTER),
         Thing("cabin_cozy", tr("Cosy cabin", "Otthonos faház"), 0, SpotKind.SHELTER),
         // In the trees.
-        Thing("swing", tr("Swing", "Hinta"), 70, SpotKind.TREES, spot = 6),
-        Thing("hammock", tr("Hammock", "Függőágy"), 90, SpotKind.TREES, spot = 5),
-        Thing("treehouse", tr("Treehouse", "Lombház"), 300, SpotKind.TREES, spot = 6),
+        Thing("swing", tr("Swing", "Hinta"), 105, SpotKind.TREES, spot = 6),
+        Thing("hammock", tr("Hammock", "Függőágy"), 135, SpotKind.TREES, spot = 5),
+        Thing("treehouse", tr("Treehouse", "Lombház"), 450, SpotKind.TREES, spot = 6),
         // On the river.
-        Thing("raft", tr("Raft", "Tutaj"), 150, SpotKind.WATER, spot = 7),
-        Thing("canoe", tr("Canoe", "Kenu"), 200, SpotKind.WATER, spot = 7),
-        Thing("dock", tr("Dock", "Stég"), 400, SpotKind.WATER, spot = 8),
+        Thing("raft", tr("Raft", "Tutaj"), 225, SpotKind.WATER, spot = 7),
+        Thing("canoe", tr("Canoe", "Kenu"), 300, SpotKind.WATER, spot = 7),
+        Thing("dock", tr("Dock", "Stég"), 600, SpotKind.WATER, spot = 8),
         // Strung between the trees over the camp.
-        Thing("wind_chimes", tr("Wind chimes", "Szélcsengő"), 40, SpotKind.ABOVE),
-        Thing("bird_feeder", tr("Bird feeder", "Madáretető"), 50, SpotKind.ABOVE),
-        Thing("string_lights", tr("String lights", "Fényfüzér"), 60, SpotKind.ABOVE),
+        Thing("wind_chimes", tr("Wind chimes", "Szélcsengő"), 60, SpotKind.ABOVE),
+        Thing("bird_feeder", tr("Bird feeder", "Madáretető"), 75, SpotKind.ABOVE),
+        Thing("string_lights", tr("String lights", "Fényfüzér"), 90, SpotKind.ABOVE),
         // Each season brings three of its own, sold only while it lasts.
         Thing("tulips", tr("Tulips", "Tulipánok"), 20, SpotKind.SMALL, season = Season.SPRING),
         Thing("watering_can", tr("Watering can", "Locsolókanna"), 25, SpotKind.SMALL, season = Season.SPRING),
@@ -247,13 +247,14 @@ object Clearing {
 
 /** How acorns are earned. Never by budget size: the same day is worth the same with any budget. */
 object Acorns {
-    const val PER_ACTIVITY = 10
-    const val ACTIVITY_CAP = 50
-    const val PER_NOT_NOW = 2
-    const val NOT_NOW_CAP = 10
-    const val WITHIN_BUDGET = 10
-    const val BELOW_NORMAL_CAP = 20
-    const val CHALLENGE = 60
+    // Paced so a well-used week buys a few things, and the whole shop takes a month or two.
+    const val PER_ACTIVITY = 8
+    const val ACTIVITY_CAP = 24
+    const val PER_NOT_NOW = 1
+    const val NOT_NOW_CAP = 5
+    const val WITHIN_BUDGET = 5
+    const val BELOW_NORMAL_CAP = 10
+    const val CHALLENGE = 40
     /** Out of minutes, once a day: five minutes now, not counted, for this many acorns. */
     const val BORROW = 20
     const val BORROW_MINUTES = 5
@@ -265,12 +266,12 @@ object Acorns {
     fun forNotNows(count: Int): Int = (count * PER_NOT_NOW).coerceIn(0, NOT_NOW_CAP)
 
     /**
-     * At day close: +10 for staying within the day's budget, and +1 per 10 minutes below your own
+     * At day close: +5 for staying within the day's budget, and +1 per 20 minutes below your own
      * normal (null while it isn't known yet).
      */
     fun atDayClose(usedMinutes: Int, availableMinutes: Int, normalMinutes: Int?): Int {
         val within = if (usedMinutes <= availableMinutes) WITHIN_BUDGET else 0
-        val below = normalMinutes?.let { ((it - usedMinutes) / 10).coerceIn(0, BELOW_NORMAL_CAP) } ?: 0
+        val below = normalMinutes?.let { ((it - usedMinutes) / 20).coerceIn(0, BELOW_NORMAL_CAP) } ?: 0
         return within + below
     }
 
@@ -305,8 +306,8 @@ object Perks {
     /** Acorns for one activity: +1 from level 5, +2 from level 20. */
     fun perActivity(level: Int) = Acorns.PER_ACTIVITY + (if (level >= MORE_ACORNS_LEVEL) 2 else if (level >= ACORN_LEVEL) 1 else 0)
 
-    /** Acorns for reaching [level]: more the higher it is (level 2: 30, level 10: 70, level 20: 120). */
-    fun levelUpAcorns(level: Int) = 20 + 5 * level
+    /** Acorns for reaching [level]: more the higher it is (level 2: 16, level 10: 40, level 20: 70). */
+    fun levelUpAcorns(level: Int) = 10 + 3 * level
 
     /** The weekly challenge's acorns: double from level 15. */
     fun challenge(level: Int) = Acorns.CHALLENGE * (if (level >= CHALLENGE_LEVEL) 2 else 1)

@@ -24,7 +24,7 @@ object TendIcons {
         "friends" to R.drawable.ic_t_friends, "hobby" to R.drawable.ic_t_hobby, "chores" to R.drawable.ic_t_chores,
         "cook" to R.drawable.ic_t_cook, "music" to R.drawable.ic_t_music, "pen" to R.drawable.ic_t_pen,
         "paw" to R.drawable.ic_t_paw, "sprout" to R.drawable.ic_t_sprout, "bike" to R.drawable.ic_t_bike,
-        "star" to R.drawable.ic_t_star, "moon" to R.drawable.ic_t_moon, "alert" to R.drawable.ic_t_alert,
+        "star" to R.drawable.ic_t_star, "gift" to R.drawable.ic_t_gift, "moon" to R.drawable.ic_t_moon, "alert" to R.drawable.ic_t_alert,
         "heart" to R.drawable.ic_t_heart, "sparkle" to R.drawable.ic_t_sparkle, "sun" to R.drawable.ic_t_sun,
         "flower" to R.drawable.ic_t_flower, "hourglass" to R.drawable.ic_t_hourglass, "bench" to R.drawable.ic_t_bench,
         "cup" to R.drawable.ic_t_cup, "dice" to R.drawable.ic_t_dice, "camera" to R.drawable.ic_t_camera, "brush" to R.drawable.ic_t_brush,

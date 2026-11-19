@@ -83,10 +83,11 @@ class MonitorService : Service() {
      * Android 15 and later only let an app with "display over other apps" start a screen from the
      * background while one of its overlay windows is visible: without it the pause is silently not
      * shown. So a 1-pixel window that can't be seen or touched stays up while the service runs.
+     * Earlier versions start it without one, so they never get Android's "displaying over other apps" note for it.
      */
     private var anchor: android.view.View? = null
     private fun keepAnchor() {
-        if (anchor != null || !android.provider.Settings.canDrawOverlays(this)) return
+        if (anchor != null || Build.VERSION.SDK_INT < 35 || !android.provider.Settings.canDrawOverlays(this)) return
         val wm = getSystemService(android.view.WindowManager::class.java)
         val view = android.view.View(this)
         val params = android.view.WindowManager.LayoutParams(
@@ -471,6 +472,8 @@ class MonitorService : Service() {
             .setContentTitle(tr("${store.avatar.displayName} is keeping you company", "${store.avatar.displayName} veled van"))
             .setContentIntent(open)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setShowWhen(false)
             .build()
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)

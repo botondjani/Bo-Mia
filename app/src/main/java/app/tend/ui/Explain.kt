@@ -39,14 +39,14 @@ fun MinutesDialog(cfg: BudgetConfig, tasks: List<TaskDef>, canClose: Boolean = t
 @Composable
 fun AcornsDialog(onDismiss: () -> Unit) = Sheet(tr("Acorns", "Makk"), onDismiss) {
     Para(tr("For the camp: spend them in the shop. They don't buy minutes, except one 5-minute emergency a day.", "A táborra való: a boltban költheted el. Percet nem lehet venni rajta, kivéve napi egy 5 perces vészhelyzetet."))
-    Line(tr("An activity", "Egy tevékenység"), tr("+${Acorns.PER_ACTIVITY} (5 a day)", "+${Acorns.PER_ACTIVITY} (naponta 5)"))
+    Line(tr("An activity", "Egy tevékenység"), tr("+${Acorns.PER_ACTIVITY} (${Acorns.ACTIVITY_CAP / Acorns.PER_ACTIVITY} a day)", "+${Acorns.PER_ACTIVITY} (naponta ${Acorns.ACTIVITY_CAP / Acorns.PER_ACTIVITY})"))
     Line(tr("\"Not now\" on a paused app", "„Most nem” egy szüneteltetett appnál"), tr("+${Acorns.PER_NOT_NOW} (up to ${Acorns.NOT_NOW_CAP})", "+${Acorns.PER_NOT_NOW} (legfeljebb ${Acorns.NOT_NOW_CAP})"))
     Line(tr("A day within your minutes", "Egy nap a perceiden belül"), "+${Acorns.WITHIN_BUDGET}")
-    Line(tr("Below your normal", "A megszokottnál kevesebb"), tr("+1 per 10 min", "10 percenként +1"))
+    Line(tr("Below your normal", "A megszokottnál kevesebb"), tr("+1 per 20 min", "20 percenként +1"))
     Line(tr("A visitor in the camp", "Látogató a táborban"), "+${Rarity.COMMON.acorns}–${Rarity.RARE.acorns}")
     Line(tr("A challenge", "Egy kihívás"), "+${app.tend.core.Step.entries.minOf { it.acorns }}–${app.tend.core.Step.entries.maxOf { it.acorns }}")
     Line(tr("The weekly goal", "A heti cél"), "+${Acorns.CHALLENGE}")
-    Line(tr("A new level", "Új szint"), tr("+20 + 5 × level", "+20 + 5 × szint"))
+    Line(tr("A new level", "Új szint"), tr("+10 + 3 × level", "+10 + 3 × szint"))
     Para(tr("From level 5 every activity gives 1 more, from level 20, 2 more.", "Az 5. szinttől minden tevékenység 1-gyel, a 20.-tól 2-vel többet ér."))
 }
 

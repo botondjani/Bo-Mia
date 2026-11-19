@@ -15,7 +15,7 @@ class RecapTest {
         val r = Recap.of(cfg, d, emptyList())
         assertEquals(30, r.gotBackMinutes)
         assertEquals("within budget, normal unknown", Acorns.WITHIN_BUDGET, r.tonightAcorns)
-        assertEquals(Acorns.WITHIN_BUDGET + 3, Recap.of(cfg, d, emptyList(), normalMinutes = 60).tonightAcorns)
+        assertEquals(Acorns.WITHIN_BUDGET + 1, Recap.of(cfg, d, emptyList(), normalMinutes = 60).tonightAcorns)
         assertEquals(6240, r.steps)
         assertEquals(20, r.readingMinutes)
     }

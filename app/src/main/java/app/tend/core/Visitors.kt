@@ -8,7 +8,7 @@ import java.time.LocalDate
  * the guestbook, with a few acorns.
  */
 /** How often an animal comes, and what greeting it is worth. */
-enum class Rarity(val label: String, val acorns: Int) { COMMON(tr("Common", "Gyakori"), 5), UNCOMMON(tr("Uncommon", "Ritkább"), 10), RARE(tr("Rare", "Ritka"), 20) }
+enum class Rarity(val label: String, val acorns: Int) { COMMON(tr("Common", "Gyakori"), 3), UNCOMMON(tr("Uncommon", "Ritkább"), 6), RARE(tr("Rare", "Ritka"), 12) }
 
 enum class Visitor(val title: String, val rarity: Rarity, val x: Float, val y: Float) {
     RABBIT(tr("Rabbit", "Nyúl"), Rarity.COMMON, 0.6f, 0.885f),

@@ -42,6 +42,12 @@ object CharacterPainter {
     private const val PALETTE = 0xFFEAD2A8.toInt()
     private const val STRAW = 0xFFD9B45A.toInt()
     private const val COAT_LINE = 0xFFD5DCD6.toInt()
+    private const val NAVY = 0xFF2E4A7A.toInt()
+    private const val GOLD = 0xFFF2C14E.toInt()
+    private const val TAN = 0xFFA0673A.toInt()
+    private const val TAN_DARK = 0xFF6F4424.toInt()
+    private const val WIZARD = 0xFF6A4FB0.toInt()
+    private const val WIZARD_DARK = 0xFF513B8C.toInt()
 
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -278,6 +284,13 @@ object CharacterPainter {
             Accessory.HEADPHONES -> RectF(16f, 8f, 84f, 56f)
             Accessory.CROWN -> RectF(32f, 3f, 68f, 26f)
             Accessory.HAIR_BOW -> RectF(56f, 8f, 80f, 28f)
+            Accessory.CHEF_HAT -> RectF(30f, 1f, 70f, 27f)
+            Accessory.CAPTAIN_HAT -> RectF(26f, 6f, 74f, 31f)
+            Accessory.COWBOY_HAT -> RectF(13f, 3f, 87f, 34f)
+            Accessory.WIZARD_HAT -> RectF(23f, -5f, 77f, 30f)
+            Accessory.MUSTACHE -> RectF(33f, 49f, 67f, 60f)
+            Accessory.MONOCLE -> RectF(48f, 34f, 78f, 76f)
+            Accessory.STAR_GLASSES -> RectF(26f, 33f, 74f, 59f)
         }
         val scale = sizePx * 0.86f / maxOf(box.width(), box.height())
         c.translate(sizePx / 2f, sizePx / 2f)
@@ -290,9 +303,9 @@ object CharacterPainter {
     private fun drawAccessories(c: Canvas, all: Set<Accessory>) {
         // An outfit wins over a habit's thing in the same place: one hat at a time, one pair of glasses.
         var a = all
-        if (a.any { it in setOf(Accessory.BOBBLE_HAT, Accessory.FLOWER_CROWN, Accessory.BERET, Accessory.PARTY_HAT, Accessory.CROWN, Accessory.HEADPHONES) }) a = a - Accessory.HAT - Accessory.NIGHTCAP - Accessory.LEAF - Accessory.HEADBAND
+        if (a.any { it in setOf(Accessory.BOBBLE_HAT, Accessory.FLOWER_CROWN, Accessory.BERET, Accessory.PARTY_HAT, Accessory.CROWN, Accessory.HEADPHONES, Accessory.CHEF_HAT, Accessory.CAPTAIN_HAT, Accessory.COWBOY_HAT, Accessory.WIZARD_HAT) }) a = a - Accessory.HAT - Accessory.NIGHTCAP - Accessory.LEAF - Accessory.HEADBAND
         if (Accessory.BANDANA in a) a = a - Accessory.BOWTIE
-        if (Accessory.SUNGLASSES in a) a = a - Accessory.GLASSES
+        if (Accessory.SUNGLASSES in a || Accessory.STAR_GLASSES in a || Accessory.MONOCLE in a) a = a - Accessory.GLASSES
         if (Accessory.SCARF in a) a = a - Accessory.BOWTIE
         if (Accessory.HEADBAND in a) {
             stroke.color = CORAL; stroke.strokeWidth = 4.5f
@@ -442,6 +455,62 @@ object CharacterPainter {
             c.drawPath(Path().apply { moveTo(68f, 18f); lineTo(78f, 10f); lineTo(78f, 26f); close() }, fill)
             fill.color = 0xFFD96C9C.toInt(); c.drawCircle(68f, 18f, 2.6f, fill)
         }
+        if (Accessory.CHEF_HAT in a) {
+            fill.color = COAT
+            c.drawCircle(40f, 15f, 8f, fill); c.drawCircle(50f, 11f, 9f, fill); c.drawCircle(60f, 15f, 8f, fill)
+            c.drawRoundRect(RectF(37f, 16f, 63f, 26f), 2f, 2f, fill)
+            stroke.color = COAT_LINE; stroke.strokeWidth = 1.2f; c.drawLine(37f, 21f, 63f, 21f, stroke)
+            stroke.color = INK; stroke.strokeWidth = 2.6f
+        }
+        if (Accessory.CAPTAIN_HAT in a) {
+            // A white top, a navy band, a black peak and a gold anchor badge.
+            fill.color = COAT; c.drawRoundRect(RectF(27f, 8f, 73f, 22f), 8f, 8f, fill)
+            fill.color = NAVY; c.drawRect(31f, 18f, 69f, 25f, fill)
+            fill.color = INK; c.drawPath(Path().apply { moveTo(33f, 24f); quadTo(50f, 31f, 67f, 24f); quadTo(50f, 27f, 33f, 24f); close() }, fill)
+            fill.color = GOLD; c.drawCircle(50f, 15f, 2.8f, fill)
+        }
+        if (Accessory.COWBOY_HAT in a) {
+            fill.color = TAN
+            c.drawPath(Path().apply { moveTo(14f, 20f); quadTo(22f, 29f, 50f, 29f); quadTo(78f, 29f, 86f, 20f); quadTo(80f, 33f, 50f, 33f); quadTo(20f, 33f, 14f, 20f); close() }, fill)
+            c.drawPath(Path().apply { moveTo(34f, 27f); lineTo(36f, 8f); quadTo(43f, 4f, 50f, 9f); quadTo(57f, 4f, 64f, 8f); lineTo(66f, 27f); close() }, fill)
+            fill.color = TAN_DARK; c.drawRect(35f, 21f, 65f, 25f, fill)
+        }
+        if (Accessory.WIZARD_HAT in a) {
+            fill.color = WIZARD_DARK; c.drawOval(RectF(24f, 21f, 76f, 29f), fill)
+            fill.color = WIZARD
+            c.drawPath(Path().apply { moveTo(32f, 25f); quadTo(46f, 6f, 61f, -4f); quadTo(57f, 8f, 68f, 25f); close() }, fill)
+            fill.color = SUNNY
+            c.drawPath(star(46f, 16f, 3.2f, 1.4f), fill); c.drawPath(star(56f, 9f, 2.4f, 1f), fill); c.drawPath(star(56f, 20f, 2f, 0.9f), fill)
+        }
+        if (Accessory.MUSTACHE in a) {
+            fill.color = HAIR
+            c.drawPath(Path().apply { moveTo(50f, 54f); cubicTo(46f, 50f, 37f, 50f, 34f, 56f); cubicTo(38f, 55f, 40f, 59f, 44f, 59f); cubicTo(47f, 59f, 49f, 57f, 50f, 55.5f); close() }, fill)
+            c.drawPath(Path().apply { moveTo(50f, 54f); cubicTo(54f, 50f, 63f, 50f, 66f, 56f); cubicTo(62f, 55f, 60f, 59f, 56f, 59f); cubicTo(53f, 59f, 51f, 57f, 50f, 55.5f); close() }, fill)
+        }
+        if (Accessory.MONOCLE in a) {
+            fill.color = 0x33FFFFFF; c.drawCircle(61f, 46f, 10.5f, fill)
+            stroke.color = GOLD; stroke.strokeWidth = 2f; c.drawCircle(61f, 46f, 10.5f, stroke)
+            stroke.strokeWidth = 1f; c.drawPath(Path().apply { moveTo(70f, 52f); quadTo(77f, 64f, 72f, 75f) }, stroke)
+            stroke.color = INK; stroke.strokeWidth = 2.6f
+        }
+        if (Accessory.STAR_GLASSES in a) {
+            fill.color = 0xFFF2A0B8.toInt()
+            c.drawPath(star(39f, 46f, 12f, 6.5f), fill); c.drawPath(star(61f, 46f, 12f, 6.5f), fill)
+            stroke.strokeWidth = 2f; c.drawLine(46f, 44f, 54f, 44f, stroke); stroke.strokeWidth = 2.6f
+            fill.color = 0xCC1D2A23.toInt(); c.drawCircle(39f, 46f, 5f, fill); c.drawCircle(61f, 46f, 5f, fill)
+        }
+    }
+
+    /** A five-pointed star around ([cx], [cy]), point up. */
+    private fun star(cx: Float, cy: Float, outer: Float, inner: Float) = Path().apply {
+        for (k in 0 until 10) {
+            val r = if (k % 2 == 0) outer else inner
+            val ang = Math.toRadians(k * 36.0 - 90)
+            val x = cx + r * Math.cos(ang).toFloat()
+            val y = cy + r * Math.sin(ang).toFloat()
+            if (k == 0) moveTo(x, y) else lineTo(x, y)
+        }
+        close()
     }
 
     private fun drawBook(c: Canvas) {

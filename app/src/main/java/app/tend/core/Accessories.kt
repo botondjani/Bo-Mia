@@ -34,6 +34,13 @@ enum class Accessory(
     HEADPHONES(tr("Headphones", "Fejhallgató"), tr("In the shop", "A boltban"), "headphones", emptySet(), 0, always = true),
     CROWN(tr("Little crown", "Kis korona"), tr("In the shop", "A boltban"), "crown", emptySet(), 0, always = true),
     HAIR_BOW(tr("Hair bow", "Masni"), tr("In the shop", "A boltban"), "bow", emptySet(), 0, always = true),
+    CHEF_HAT(tr("Chef's hat", "Szakácssapka"), tr("In the shop", "A boltban"), "chef", emptySet(), 0, always = true),
+    CAPTAIN_HAT(tr("Captain's cap", "Kapitánysapka"), tr("In the shop", "A boltban"), "captain", emptySet(), 0, always = true),
+    COWBOY_HAT(tr("Cowboy hat", "Cowboykalap"), tr("In the shop", "A boltban"), "cowboy", emptySet(), 0, always = true),
+    WIZARD_HAT(tr("Wizard hat", "Varázslósüveg"), tr("In the shop", "A boltban"), "wizard", emptySet(), 0, always = true),
+    MUSTACHE(tr("Mustache", "Bajusz"), tr("In the shop", "A boltban"), "mustache", emptySet(), 0, always = true),
+    MONOCLE(tr("Monocle", "Monokli"), tr("In the shop", "A boltban"), "monocle", emptySet(), 0, always = true),
+    STAR_GLASSES(tr("Star glasses", "Csillagszemüveg"), tr("In the shop", "A boltban"), "stars", emptySet(), 0, always = true),
     ;
 
     /** Bought and worn by choice (a season's, or any time's), not earned by a habit. */
@@ -49,7 +56,7 @@ enum class Accessory(
         fun outfitFor(season: Season): Accessory = entries.first { it.outfit == season }
 
         /** What an outfit costs in acorns. */
-        const val OUTFIT_PRICE = 60
+        const val OUTFIT_PRICE = 90
     }
 }
 
