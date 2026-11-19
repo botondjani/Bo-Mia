@@ -1,200 +1,322 @@
 <!doctype html>
-<html lang="en">
+<html lang="hu" data-l="hu">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta property="og:title" content="tend: screen time &amp; app limits">
-<meta property="og:description" content="Walk, sleep, read, and earn your screen time back. Join the early testers.">
-<meta property="og:image" content="img/bo.png">
-<style>body{margin:0}img{max-width:100%}</style>
-<title>tend: Screen Time &amp; App Limits</title>
-<meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="tend limits the apps that take your time, kindly. Walk, read or put the phone down to unlock more minutes. For Android. Join the early testers.">
+<title>tend – kevesebb görgetés, több a napodból</title>
+<meta name="description" content="A tend kedves appkorlát Androidra: a választott appokra naponta pár perc jár, a többit sétával, olvasással vagy a telefon letételével oldod fel. Bo vagy Mia végig veled van.">
+<meta property="og:title" content="tend – kevesebb görgetés, több a napodból">
+<meta property="og:description" content="Kedves appkorlát Androidra, egy kis társsal és egy saját táborral.">
+<meta property="og:image" content="https://tend.hu/img/bo-face.png">
+<meta name="theme-color" content="#F1F4ED">
+<link rel="icon" href="img/bo-face.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;600;700&display=swap">
 <style>
-/* Layout: a day at the camp. Hero with Bo, then the day told by the clock, then the app, then the invite. */
+/* The app's own colours and type: sage ground, moss green, mint, a coral accent; Fredoka for headings. */
 :root {
-  --bg: #F1F4ED;       /* sage, the app's ground */
-  --card: #FFFFFF;
-  --ink: #1D2A23;
-  --muted: #5F6A63;
-  --moss: #316849;     /* accent */
-  --mint: #D7EDDF;
-  --line: #DCE3D8;
-  --on-moss: #FFFFFF;
-  --display: "Fredoka", "Nunito", ui-rounded, system-ui, sans-serif;
-  --body: "Nunito", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --bg: #F1F4ED; --card: #FFFFFF; --ink: #1D2A23; --muted: #5E6B63;
+  --moss: #2F6A4A; --on-moss: #FFFFFF; --mint: #7ECAA3; --mint-soft: #E2F1E8; --coral: #E76649; --line: #DCE6DE;
 }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #121614; --card: #1C211E; --ink: #E7ECE8; --muted: #9BA79F; --moss: #6DBB92; --mint: #1F3329; --line: #2A332E; --on-moss: #0E1A13; color-scheme: dark;
-} }
-:root[data-theme="dark"] {
-  --bg: #121614; --card: #1C211E; --ink: #E7ECE8; --muted: #9BA79F; --moss: #6DBB92; --mint: #1F3329; --line: #2A332E; --on-moss: #0E1A13; color-scheme: dark;
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #121614; --card: #1B211D; --ink: #E7ECE8; --muted: #9DAAA2; --moss: #6DBB92; --on-moss: #0E1A13; --mint-soft: #1F2D25; --line: #2A332D; }
 }
 * { box-sizing: border-box; }
-body { background: var(--bg); color: var(--ink); font: 400 1.0625rem/1.6 var(--body); }
-.wrap { max-width: 1040px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-h1, h2, h3 { font-family: var(--display); font-weight: 600; line-height: 1.08; margin: 0; text-wrap: balance; }
-p { margin: 0; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 1.0625rem/1.6 Nunito, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+img { max-width: 100%; display: block; }
 a { color: var(--moss); }
-a:focus-visible, .btn:focus-visible { outline: 3px solid var(--moss); outline-offset: 3px; }
-.label { font: 700 0.78rem/1 var(--body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+h1, h2, h3 { font-family: Fredoka, Nunito, sans-serif; font-weight: 600; line-height: 1.15; margin: 0; }
+h1 { font-size: clamp(2.2rem, 6vw, 3.6rem); letter-spacing: -0.01em; }
+h2 { font-size: clamp(1.7rem, 4vw, 2.5rem); }
+h3 { font-size: 1.2rem; }
+p { margin: 0; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+section { padding: 72px 0; }
+.muted { color: var(--muted); }
+.kicker { font-weight: 700; letter-spacing: .12em; text-transform: uppercase; font-size: .78rem; color: var(--moss); }
 
-header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 20px; }
-.logo { font: 600 1.9rem/1 var(--display); color: var(--moss); text-decoration: none; }
-.btn { display: inline-flex; align-items: center; gap: 8px; padding: 14px 24px; border-radius: 999px; background: var(--moss); color: var(--on-moss); font: 700 1rem/1 var(--body); text-decoration: none; transition: transform .15s ease; }
-.btn:hover { transform: translateY(-2px); }
-.btn.small { padding: 10px 18px; font-size: 0.9rem; }
+/* Language: Hungarian by default on tend.hu; the other one hidden. */
+html[data-l="hu"] [lang="en"], html[data-l="en"] [lang="hu"] { display: none !important; }
 
-.hero .wrap { display: grid; grid-template-columns: 1.1fr 0.9fr; align-items: center; gap: 32px; padding-block: 24px 56px; }
-.hero h1 { font-size: clamp(2.6rem, 6.4vw, 4.6rem); }
-.hero h1 em { font-style: normal; color: var(--moss); }
-.hero .lede { font-size: 1.2rem; color: var(--muted); max-width: 32ch; margin-top: 18px; }
-.hero .cta { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 20px; margin-top: 28px; }
-.hero .note { color: var(--muted); font-size: 0.95rem; }
-.bo { position: relative; justify-self: center; width: min(100%, 420px); aspect-ratio: 1; max-width: 100%; display: grid; place-items: center; }
-.bo::before { content: ""; position: absolute; inset: 6%; border-radius: 50%; background: radial-gradient(circle at 50% 35%, var(--card) 0%, var(--mint) 75%); }
-.bo img { position: relative; width: 82%; animation: bob 4s ease-in-out infinite; }
-@keyframes bob { 50% { transform: translateY(-8px) rotate(-1.5deg); } }
+/* Top bar */
+header { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+header .wrap { display: flex; align-items: center; gap: 14px; height: 64px; }
+.logo { display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--ink); font: 600 1.6rem Fredoka, sans-serif; }
+.logo img { width: 32px; height: 32px; object-fit: contain; }
+.spacer { flex: 1; }
+.lang { display: flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+.lang button { border: 0; background: transparent; color: var(--muted); font: 700 .85rem Nunito, sans-serif; padding: 6px 12px; cursor: pointer; }
+.lang button[aria-pressed="true"] { background: var(--moss); color: var(--on-moss); }
 
-.day { background: var(--card); border-block: 1px solid var(--line); }
-.day .wrap { padding-block: 56px; display: grid; gap: 32px; }
-.day h2, .shots h2, .faq h2 { font-size: clamp(1.9rem, 4vw, 2.6rem); }
-.timeline { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
-.timeline li { display: grid; gap: 8px; align-content: start; padding-top: 16px; border-top: 3px solid var(--mint); }
-.timeline time { font: 600 1.6rem/1 var(--display); color: var(--moss); font-variant-numeric: tabular-nums; }
-.timeline h3 { font-size: 1.2rem; }
-.timeline p { color: var(--muted); font-size: 1rem; }
-.chip { justify-self: start; padding: 4px 10px; border-radius: 999px; background: var(--mint); color: var(--moss); font: 700 0.85rem/1.3 var(--body); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--moss); color: var(--on-moss); text-decoration: none; font-weight: 700; border-radius: 999px; padding: 14px 24px; transition: transform .15s ease; }
+.btn:hover { transform: translateY(-1px); }
+.btn.ghost { background: transparent; color: var(--moss); border: 2px solid var(--moss); }
+.btn.small { padding: 8px 16px; font-size: .9rem; }
+@media (max-width: 560px) { header .btn.small { display: none; } }
 
-.shots .wrap { padding-block: 56px; display: grid; gap: 24px; }
-.strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-.strip img { width: 100%; border-radius: 20px; display: block; }
-
-.facts .wrap { padding-block: 8px 56px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-.facts div { display: grid; gap: 6px; }
-.facts h3 { font-size: 1.25rem; }
-.facts p { color: var(--muted); font-size: 1rem; }
-
-.invite { background: var(--moss); color: var(--on-moss); }
-.invite .wrap { padding-block: 48px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 24px 32px; }
-.invite img { width: 150px; }
-.invite h2 { font-size: clamp(1.8rem, 4vw, 2.4rem); }
-.invite p { opacity: .85; margin-top: 8px; max-width: 46ch; }
-.invite .btn { background: var(--on-moss); color: var(--moss); }
-
-footer .wrap { padding-block: 28px 40px; display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; color: var(--muted); font-size: 0.95rem; }
-.mail { user-select: all; color: var(--ink); }
-
-@media (max-width: 760px) {
-  .hero .wrap { grid-template-columns: 1fr; padding-block: 8px 40px; }
-  .bo { width: min(100%, 300px); grid-row: 1; }
-  .timeline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .strip { grid-template-columns: repeat(3, 70%); overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 8px; }
-  .strip img { scroll-snap-align: start; }
-  .facts .wrap { grid-template-columns: 1fr; }
-  .invite .wrap { grid-template-columns: 1fr; justify-items: start; }
-  .invite img { width: 110px; }
+/* Hero */
+.hero { padding: 56px 0 40px; }
+.hero .wrap { display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: center; }
+.hero p.lead { font-size: 1.2rem; color: var(--muted); margin: 18px 0 28px; max-width: 34em; }
+.ctas { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.soon { font-size: .9rem; color: var(--muted); }
+.phone { border-radius: 34px; overflow: hidden; border: 8px solid var(--ink); box-shadow: 0 30px 60px -30px rgba(20,40,30,.45); background: var(--card); }
+.hero .visual { position: relative; justify-self: center; max-width: 330px; }
+.hero .visual .pals { position: absolute; left: -64px; bottom: -18px; display: flex; gap: 2px; }
+.hero .visual .pals img { width: 84px; filter: drop-shadow(0 10px 12px rgba(0,0,0,.15)); }
+@media (max-width: 860px) {
+  .hero .wrap { grid-template-columns: 1fr; text-align: center; }
+  .hero p.lead { margin-left: auto; margin-right: auto; }
+  .ctas { justify-content: center; }
+  .hero .visual { max-width: 280px; }
+  .hero .visual .pals { left: -40px; }
+  .hero .visual .pals img { width: 66px; }
 }
-@media (max-width: 440px) { .timeline { grid-template-columns: 1fr; } }
-@media (prefers-reduced-motion: reduce) { .bo img { animation: none; } .btn { transition: none; } }
+
+/* How it works */
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 32px; }
+.step { background: var(--card); border-radius: 24px; padding: 24px; }
+.step .n { width: 36px; height: 36px; border-radius: 50%; background: var(--mint-soft); color: var(--moss); font: 600 1.1rem Fredoka, sans-serif; display: grid; place-items: center; margin-bottom: 14px; }
+.step p { color: var(--muted); margin-top: 8px; }
+@media (max-width: 760px) { .steps { grid-template-columns: 1fr; } }
+
+/* Feature rows: text and a phone, sides alternating */
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; }
+.row + .row { margin-top: 88px; }
+.row .phone { max-width: 300px; justify-self: center; }
+.row.flip .text { order: 2; }
+.row .text p { color: var(--muted); margin-top: 14px; }
+.row ul { margin: 18px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.row li { padding-left: 30px; position: relative; }
+.row li::before { content: ""; position: absolute; left: 0; top: .45em; width: 18px; height: 18px; border-radius: 50%; background: var(--mint-soft); box-shadow: inset 0 0 0 5px var(--mint); }
+@media (max-width: 760px) { .row { grid-template-columns: 1fr; gap: 28px; } .row.flip .text { order: 0; } .row .phone { max-width: 250px; } }
+
+/* Small features */
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 32px; }
+.tile { background: var(--card); border-radius: 22px; padding: 22px; }
+.tile .ic { font-size: 1.6rem; }
+.tile h3 { margin-top: 10px; font-size: 1.08rem; }
+.tile p { color: var(--muted); margin-top: 6px; font-size: .98rem; }
+@media (max-width: 860px) { .grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .grid { grid-template-columns: 1fr; } }
+
+/* Friends: a soft band */
+.band { background: var(--mint-soft); }
+.friends { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
+.chips { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+.chip { background: var(--card); border-radius: 999px; padding: 8px 14px; font-weight: 600; font-size: .95rem; }
+.pals-big { display: flex; justify-content: center; gap: 12px; }
+.pals-big img { width: 46%; max-width: 200px; }
+@media (max-width: 760px) { .friends { grid-template-columns: 1fr; } }
+
+/* Privacy */
+.privacy { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 28px; }
+@media (max-width: 760px) { .privacy { grid-template-columns: 1fr; } }
+
+/* FAQ */
+details { background: var(--card); border-radius: 18px; padding: 18px 22px; }
+details + details { margin-top: 10px; }
+summary { cursor: pointer; font-weight: 700; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: "+"; color: var(--moss); font: 600 1.3rem Fredoka, sans-serif; line-height: 1; }
+details[open] summary::after { content: "–"; }
+details p { color: var(--muted); margin-top: 10px; }
+
+/* Final call */
+.final { text-align: center; }
+.final img { width: 120px; margin: 0 auto 18px; }
+.final p { color: var(--muted); margin: 14px auto 26px; max-width: 32em; }
+
+footer { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--muted); font-size: .92rem; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 10px 24px; justify-content: space-between; }
+footer a { color: var(--muted); }
 </style>
 </head>
 <body>
 
 <header>
   <div class="wrap">
-    <a class="logo" href="#top" id="top">tend</a>
-    <a class="btn small" href="https://tally.so/r/dbEARd?ref=site" target="_blank" rel="noopener">Join the testers</a>
+    <a class="logo" href="#top"><img src="img/bo-face.png" alt="">tend</a>
+    <span class="spacer"></span>
+    <div class="lang" role="group" aria-label="Nyelv / Language">
+      <button type="button" data-set="hu" aria-pressed="true">HU</button>
+      <button type="button" data-set="en" aria-pressed="false">EN</button>
+    </div>
+    <a class="btn small" href="https://tally.so/r/dbEARd?ref=site" target="_blank" rel="noopener"><span lang="hu">Tesztelőnek jelentkezem</span><span lang="en">Join the testers</span></a>
   </div>
 </header>
 
-<main>
+<main id="top">
+
   <section class="hero">
     <div class="wrap">
       <div>
-        <p class="label">Screen time &amp; app limits for Android</p>
-        <h1 style="margin-top:14px">Care for Bo by caring for <em>yourself.</em></h1>
-        <p class="lede">Walk, sleep, read, see friends. Every real thing you do makes Bo happy, earns acorns for your camp and earns back screen time.</p>
-        <div class="cta">
-          <a class="btn" href="https://tally.so/r/dbEARd?ref=site" target="_blank" rel="noopener">Get early access</a>
-          <span class="note">Free. Coming to Google Play.</span>
+        <div class="kicker"><span lang="hu">Képernyőidő és appkorlát Androidra</span><span lang="en">Screen time &amp; app limits for Android</span></div>
+        <h1 style="margin-top:14px"><span lang="hu">Kevesebb görgetés, több a napodból.</span><span lang="en">Less scrolling, more of your day.</span></h1>
+        <p class="lead">
+          <span lang="hu">Kiválasztod, mely appok viszik el az idődet. Naponta jár rájuk pár perc, a többit te oldod fel: sétával, olvasással, vagy egyszerűen a telefon letételével. Bo vagy Mia végig veled van.</span>
+          <span lang="en">Pick the apps that take your time. They get a few minutes a day, and you unlock the rest: with a walk, a book, or by simply putting the phone down. Bo or Mia keeps you company all the way.</span>
+        </p>
+        <div class="ctas">
+          <a class="btn" href="https://tally.so/r/dbEARd?ref=site" target="_blank" rel="noopener"><span lang="hu">Tesztelőnek jelentkezem</span><span lang="en">Join the testers</span></a>
+          <span class="soon"><span lang="hu">Hamarosan a Google Playen · ingyenes</span><span lang="en">Coming soon to Google Play · free</span></span>
         </div>
       </div>
-      <div class="bo"><img src="img/bo.png" alt="Bo, a small round green creature, smiling"></div>
-    </div>
-  </section>
-
-  <section class="day" aria-labelledby="day-h">
-    <div class="wrap">
-      <div style="display:grid;gap:10px">
-        <p class="label">A day with Bo</p>
-        <h2 id="day-h">Less scrolling, without trying harder.</h2>
-      </div>
-      <ol class="timeline">
-        <li>
-          <time>8:30</time>
-          <h3>A morning plan</h3>
-          <p>Today's minutes, and the activities that unlock more. You pick them; nothing is preset.</p>
-        </li>
-        <li>
-          <time>12:40</time>
-          <h3>A pause before you scroll</h3>
-          <p>Open TikTok or Instagram and Bo pops up for a breath. Often that's all it takes. Still want in? Take a quick look, or open it for 5 or 15 minutes.</p>
-        </li>
-        <li>
-          <time>18:15</time>
-          <h3>Minutes back for living</h3>
-          <p>Walks, workouts and sleep count by themselves with Health Connect. Timers cover reading, cooking, friends.</p>
-          <span class="chip">4,000 steps · +20 min</span>
-        </li>
-        <li>
-          <time>22:00</time>
-          <h3>The camp grows</h3>
-          <p>Acorns from your day buy things for a camp by the river. Bo gets sleepy, and you get a calm recap.</p>
-        </li>
-      </ol>
-    </div>
-  </section>
-
-  <section class="shots" aria-labelledby="shots-h">
-    <div class="wrap">
-      <h2 id="shots-h">Kind, not strict.</h2>
-      <div class="strip">
-        <img src="img/shot-pause.jpg" alt="The pause screen: a breath before you scroll" loading="lazy">
-        <img src="img/shot-home.jpg" alt="Home screen: earn minutes by living" loading="lazy">
-        <img src="img/shot-garden.jpg" alt="The camp: acorns buy things for it" loading="lazy">
+      <div class="visual">
+        <div class="phone"><img lang="hu" src="img/app-home-hu.jpg" alt="A tend kezdőképernyője: a tábor, a mai percek és a Telefon le"><img lang="en" src="img/app-home-en.jpg" alt="tend's home: the camp, today's minutes and Phone down"></div>
+        <div class="pals"><img src="img/bo-face.png" alt="Bo"><img src="img/mia-face.png" alt="Mia"></div>
       </div>
     </div>
   </section>
 
-  <section class="facts" aria-label="What to expect">
+  <section id="how" style="padding-top:24px">
     <div class="wrap">
-      <div><h3>No guilt</h3><p>No streaks to lose, no red numbers. Bo is happy you showed up.</p></div>
-      <div><h3>Calm by design</h3><p>At most three notes a day. Evening mode, bedtime and work-hour locks if you want them.</p></div>
-      <div><h3>Private</h3><p>No ads, no account needed. Your health data never leaves your phone. <a href="privacy/" target="_blank" rel="noopener">Privacy policy</a></p></div>
+      <div class="kicker"><span lang="hu">Így működik</span><span lang="en">How it works</span></div>
+      <h2 style="margin-top:10px"><span lang="hu">Egy egyszerű szabály, ami tényleg működik.</span><span lang="en">One simple rule that actually works.</span></h2>
+      <div class="steps">
+        <div class="step"><div class="n">1</div><h3><span lang="hu">Válaszd ki az appokat</span><span lang="en">Pick the apps</span></h3><p><span lang="hu">A TikTok, az Instagram, a YouTube, bármi, ami elviszi az idődet. A telefonod többi része a tiéd marad.</span><span lang="en">TikTok, Instagram, YouTube, whatever takes your time. The rest of your phone stays yours.</span></p></div>
+        <div class="step"><div class="n">2</div><h3><span lang="hu">Pár perc ingyen jár</span><span lang="en">A few minutes come free</span></h3><p><span lang="hu">Te döntöd el, mennyi. Ha elfogyott, ezek az appok bezárnak – kedvesen, Bo szól előtte.</span><span lang="en">You decide how much. When they're gone, those apps close, kindly, and Bo tells you first.</span></p></div>
+        <div class="step"><div class="n">3</div><h3><span lang="hu">A többit feloldod</span><span lang="en">Unlock the rest</span></h3><p><span lang="hu">Séta, edzés, alvás, olvasás, barátok, vagy a Telefon le: minden letett perc felold egy percet.</span><span lang="en">A walk, a workout, sleep, reading, friends, or Phone down: every minute away unlocks a minute.</span></p></div>
+      </div>
     </div>
   </section>
 
-  <section class="invite" aria-labelledby="invite-h">
+  <section>
     <div class="wrap">
-      <img src="img/bo-scientist.png" alt="">
+      <div class="row">
+        <div class="text">
+          <div class="kicker"><span lang="hu">Szünet görgetés előtt</span><span lang="en">A pause before you scroll</span></div>
+          <h2 style="margin-top:10px"><span lang="hu">Egy lélegzetnyi idő, mielőtt elmerülsz.</span><span lang="en">One breath before you dive in.</span></h2>
+          <p><span lang="hu">Kérhetsz egy rövid szünetet a legerősebb appok előtt. Bo felbukkan, és sokszor ennyi is elég, hogy meggondold magad.</span><span lang="en">Ask for a short pause before the apps that pull hardest. Bo pops up, and often that's all it takes to change your mind.</span></p>
+          <ul>
+            <li><span lang="hu">„Most nem” – és makkot kapsz érte</span><span lang="en">"Not now" – and you get acorns for it</span></li>
+            <li><span lang="hu">„Csak megnézek valamit”: pár percre megnyílik, Bo szól, ha letelt</span><span lang="en">"Just checking something": opens for a few minutes, Bo lets you know when it's up</span></li>
+            <li><span lang="hu">Szigorú mód azokra a napokra, amikor nem bízol magadban</span><span lang="en">Strict mode for the days you don't trust yourself</span></li>
+          </ul>
+        </div>
+        <div class="phone"><img lang="hu" src="img/app-pause-hu.jpg" alt="A szünet-képernyő" loading="lazy"><img lang="en" src="img/app-pause-en.jpg" alt="The pause screen" loading="lazy"></div>
+      </div>
+
+      <div class="row flip">
+        <div class="text">
+          <div class="kicker"><span lang="hu">Telefon le</span><span lang="en">Phone down</span></div>
+          <h2 style="margin-top:10px"><span lang="hu">Tedd le, és nyersd vissza az idődet.</span><span lang="en">Put it down, win your time back.</span></h2>
+          <p><span lang="hu">Indíts egy időzítőt 15-től 120 percig. Amíg megy, minden app vár, Bo pedig veled méri az időt. Minden letett perc felold egy percet.</span><span lang="en">Start a timer from 15 to 120 minutes. While it runs every app waits, and Bo keeps time with you. Every minute away unlocks a minute.</span></p>
+          <ul>
+            <li><span lang="hu">A séta, az edzés és az alvás magától beszámít (Health Connect)</span><span lang="en">Walks, workouts and sleep count by themselves (Health Connect)</span></li>
+            <li><span lang="hu">Saját feladatok: zenélés, főzés, naplóírás – amit csak szeretnél</span><span lang="en">Your own tasks: music, cooking, journaling – whatever you like</span></li>
+          </ul>
+        </div>
+        <div class="phone"><img lang="hu" src="img/app-phonedown-hu.jpg" alt="A Telefon le időzítő" loading="lazy"><img lang="en" src="img/app-phonedown-en.jpg" alt="The Phone down timer" loading="lazy"></div>
+      </div>
+
+      <div class="row">
+        <div class="text">
+          <div class="kicker"><span lang="hu">A saját táborod</span><span lang="en">Your own camp</span></div>
+          <h2 style="margin-top:10px"><span lang="hu">Egy kis hely a folyóparton, ami veled nő.</span><span lang="en">A little place by the river that grows with you.</span></h2>
+          <p><span lang="hu">Minden tevékenység és minden „Most nem” makkot ér. Ebből rendezed be a tisztást: tábortűz, függőágy, kenu, fényfüzér. A sátorból kunyhó lesz, az évszakok saját dolgokat hoznak, és Bo mindent használ, amit szerzel.</span><span lang="en">Every activity and every "Not now" earns acorns. Spend them on the clearing: a campfire, a hammock, a canoe, string lights. The tent becomes a cabin, the seasons bring their own things, and Bo uses everything you get.</span></p>
+        </div>
+        <div class="phone"><img lang="hu" src="img/app-camp-hu.jpg" alt="A tábor a folyóparton" loading="lazy"><img lang="en" src="img/app-camp-en.jpg" alt="The camp by the river" loading="lazy"></div>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding-top:24px">
+    <div class="wrap">
+      <div class="kicker"><span lang="hu">És még</span><span lang="en">And more</span></div>
+      <h2 style="margin-top:10px"><span lang="hu">Apró dolgok, amik sokat számítanak.</span><span lang="en">Small things that make a big difference.</span></h2>
+      <div class="grid">
+        <div class="tile"><div class="ic">🎬</div><h3><span lang="hu">Csak a Reels és a Shorts zárása</span><span lang="en">Close only Reels &amp; Shorts</span></h3><p><span lang="hu">Az üzenetek, a keresés és a sima videók működnek, a végtelen rövid videók nem.</span><span lang="en">Messages, search and normal videos keep working; the endless short videos don't.</span></p></div>
+        <div class="tile"><div class="ic">🌙</div><h3><span lang="hu">Jó éjt</span><span lang="en">Good night</span></h3><p><span lang="hu">Egy koppintás, és az appjaid reggel 7-ig pihennek. Bo is alszik.</span><span lang="en">One tap and your apps rest until 7 in the morning. Bo sleeps too.</span></p></div>
+        <div class="tile"><div class="ic">📊</div><h3><span lang="hu">A heted egy pillantással</span><span lang="en">Your week at a glance</span></h3><p><span lang="hu">A teljes képernyőidőd, ami a keretbe számított, és a túllépett napok.</span><span lang="en">All your screen time, what counted, and the days you ran over.</span></p></div>
+        <div class="tile"><div class="ic">☀️</div><h3><span lang="hu">Hétvégi plusz óra</span><span lang="en">An extra weekend hour</span></h3><p><span lang="hu">Ha hétvégén elfogy a keret, felajánl egy plusz órát – te döntesz, és nem marad bekapcsolva.</span><span lang="en">Run out at the weekend and it offers one more hour – your choice, and it never stays on.</span></p></div>
+        <div class="tile"><div class="ic">🏕️</div><h3><span lang="hu">Widget</span><span lang="en">Widgets</span></h3><p><span lang="hu">Bo és a táborod a kezdőképernyőn, a mai percekkel együtt.</span><span lang="en">Bo and your camp on the home screen, with today's minutes.</span></p></div>
+        <div class="tile"><div class="ic">🔔</div><h3><span lang="hu">Nyugalomra tervezve</span><span lang="en">Calm by design</span></h3><p><span lang="hu">Nincs bűntudat, nincsenek piros számok. Kevés, kedves értesítés, csak ha számít.</span><span lang="en">No guilt, no red numbers. A few kind notes, only when they matter.</span></p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap friends">
       <div>
-        <h2 id="invite-h">Be one of the first to try tend.</h2>
-        <p>Leave your e-mail and we'll send the Google Play test link. Early testers shape what Bo learns next.</p>
+        <div class="kicker"><span lang="hu">Barátokkal</span><span lang="en">With friends</span></div>
+        <h2 style="margin-top:10px"><span lang="hu">Együtt könnyebb letenni.</span><span lang="en">Putting it down is easier together.</span></h2>
+        <p class="muted" style="margin-top:14px"><span lang="hu">Vedd fel a barátaidat, és lássátok egymás táborát a folyó mentén. Nincs chat, nincs hírfolyam, nincsenek lájkok – csak apró, kedves gesztusok.</span><span lang="en">Add friends and see each other's camps along the river. No chat, no feed, no likes – just small, kind gestures.</span></p>
+        <div class="chips">
+          <span class="chip"><span lang="hu">👏 Taps egy sétáért</span><span lang="en">👏 Cheer for a walk</span></span>
+          <span class="chip"><span lang="hu">🔥 Hívás a tűzhöz</span><span lang="en">🔥 Call to the fire</span></span>
+          <span class="chip"><span lang="hu">🎁 Ajándék</span><span lang="en">🎁 Presents</span></span>
+          <span class="chip"><span lang="hu">📦 Tárgycsere</span><span lang="en">📦 Trade things</span></span>
+          <span class="chip"><span lang="hu">🎯 Közös heti cél</span><span lang="en">🎯 A shared weekly goal</span></span>
+          <span class="chip"><span lang="hu">🧻 Vécépapír a tölgyre</span><span lang="en">🧻 Toilet paper on the oak</span></span>
+        </div>
       </div>
-      <a class="btn" href="https://tally.so/r/dbEARd?ref=site" target="_blank" rel="noopener">Join the waitlist</a>
+      <div>
+        <div class="pals-big"><img src="img/bo-face.png" alt="Bo"><img src="img/mia-face.png" alt="Mia"></div>
+        <p class="muted" style="text-align:center;margin-top:14px"><span lang="hu">Bo vagy Mia – te választod, ki legyen veled.</span><span lang="en">Bo or Mia – you choose who keeps you company.</span></p>
+      </div>
     </div>
   </section>
+
+  <section>
+    <div class="wrap">
+      <div class="kicker"><span lang="hu">A te adataid</span><span lang="en">Your data</span></div>
+      <h2 style="margin-top:10px"><span lang="hu">Ami a telefonodon van, ott is marad.</span><span lang="en">What's on your phone stays there.</span></h2>
+      <div class="privacy">
+        <div class="tile"><h3><span lang="hu">Nincs reklám, nincs követés</span><span lang="en">No ads, no tracking</span></h3><p><span lang="hu">A tend nem él az adataidból, és nem is ad el semmit.</span><span lang="en">tend doesn't live off your data, and sells nothing.</span></p></div>
+        <div class="tile"><h3><span lang="hu">Fiók nem kötelező</span><span lang="en">No account needed</span></h3><p><span lang="hu">Minden működik nélküle. Belépni csak a mentéshez és a barátokhoz kell.</span><span lang="en">Everything works without one. Sign in only for a backup and friends.</span></p></div>
+        <div class="tile"><h3><span lang="hu">Az appjaid és az egészséged privát</span><span lang="en">Your apps and health stay private</span></h3><p><span lang="hu">Hogy milyen appokat használsz, és az egészségadataid, soha nem hagyják el a telefonod.</span><span lang="en">Which apps you use and your health data never leave your phone.</span></p></div>
+      </div>
+      <p class="muted" style="margin-top:18px"><a href="privacy/"><span lang="hu">Adatvédelmi tájékoztató</span><span lang="en">Privacy policy</span></a></p>
+    </div>
+  </section>
+
+  <section style="padding-top:24px">
+    <div class="wrap" style="max-width:760px">
+      <div class="kicker"><span lang="hu">Kérdések</span><span lang="en">Questions</span></div>
+      <h2 style="margin:10px 0 24px"><span lang="hu">Gyakori kérdések</span><span lang="en">Frequently asked</span></h2>
+      <details><summary><span lang="hu">Mennyibe kerül?</span><span lang="en">How much is it?</span></summary><p><span lang="hu">A tend ingyenes: a szünet, a napi keret, a percek feloldása, a tábor és a barátok mind benne vannak. Később lesz egy opcionális Plus a még többet akaróknak.</span><span lang="en">tend is free: the pause, the daily minutes, unlocking more, the camp and friends are all in. An optional Plus for those who want more comes later.</span></p></details>
+      <details><summary><span lang="hu">Van iPhone-ra?</span><span lang="en">Is it on iPhone?</span></summary><p><span lang="hu">Egyelőre csak Androidra készül.</span><span lang="en">For now it's Android only.</span></p></details>
+      <details><summary><span lang="hu">Milyen engedélyek kellenek?</span><span lang="en">Which permissions does it need?</span></summary><p><span lang="hu">Kettő: a használati hozzáférés, hogy lássa, mennyi ideig van nyitva egy app, és a megjelenítés más appok fölött, hogy a szünet megjelenhessen. Minden adat a telefonodon marad.</span><span lang="en">Two: usage access, to see how long an app is open, and display over other apps, so the pause can show. All of it stays on your phone.</span></p></details>
+      <details><summary><span lang="hu">Mi van, ha egyszer tényleg kell az app?</span><span lang="en">What if I really need an app?</span></summary><p><span lang="hu">A „Csak megnézek valamit” pár percre megnyitja, szigorú mód nélkül bármikor. A tend segít, nem büntet.</span><span lang="en">"Just checking something" opens it for a few minutes, any time outside strict mode. tend helps, it doesn't punish.</span></p></details>
+      <details><summary><span lang="hu">Mi történik, ha új telefonom lesz?</span><span lang="en">What if I get a new phone?</span></summary><p><span lang="hu">Ha be vagy lépve, a táborod és a haladásod mentve van. Az új telefonon belépve magától visszajön.</span><span lang="en">If you're signed in, your camp and progress are backed up. Sign in on the new phone and it comes back by itself.</span></p></details>
+    </div>
+  </section>
+
+  <section class="final">
+    <div class="wrap">
+      <img src="img/bo-face.png" alt="">
+      <h2><span lang="hu">Legyél az elsők között.</span><span lang="en">Be one of the first.</span></h2>
+      <p><span lang="hu">A tend most tesztelés alatt áll. Jelentkezz, és küldünk egy meghívót, amint jöhetsz.</span><span lang="en">tend is in testing now. Sign up and we'll send you an invite as soon as there's room.</span></p>
+      <a class="btn" href="https://tally.so/r/dbEARd?ref=site" target="_blank" rel="noopener"><span lang="hu">Tesztelőnek jelentkezem</span><span lang="en">Join the testers</span></a>
+    </div>
+  </section>
+
 </main>
 
 <footer>
   <div class="wrap">
-    <span>tend · a little pause before you scroll</span>
-    <span><a href="privacy/">Privacy</a> · <a href="terms/">Terms</a> · Questions: <span class="mail">botondjani@gmail.com</span></span>
+    <span>© 2026 tend</span>
+    <span><a href="privacy/"><span lang="hu">Adatvédelem</span><span lang="en">Privacy</span></a> · <a href="terms/"><span lang="hu">Feltételek</span><span lang="en">Terms</span></a> · <span lang="hu">Kérdés?</span><span lang="en">Questions?</span> <a href="mailto:botondjani@gmail.com">botondjani@gmail.com</a></span>
   </div>
 </footer>
+
+<script>
+// Hungarian on tend.hu unless the browser is set to something else; the choice is remembered.
+(function () {
+  var html = document.documentElement;
+  function set(l) {
+    html.setAttribute('data-l', l); html.lang = l;
+    document.querySelectorAll('.lang button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.set === l)); });
+    document.title = l === 'hu' ? 'tend – kevesebb görgetés, több a napodból' : 'tend – less scrolling, more of your day';
+    try { localStorage.setItem('tend-lang', l); } catch (e) {}
+  }
+  var saved = null; try { saved = localStorage.getItem('tend-lang'); } catch (e) {}
+  set(saved || ((navigator.language || 'hu').toLowerCase().indexOf('hu') === 0 ? 'hu' : 'en'));
+  document.querySelectorAll('.lang button').forEach(function (b) { b.addEventListener('click', function () { set(b.dataset.set); }); });
+})();
+</script>
 </body>
 </html>
