@@ -724,7 +724,11 @@ class MainActivity : ComponentActivity() {
                     )
                 }
                 val apps = remember(refresh) { store.appMinutes().map { (pkg, before, now) -> app.tend.ui.AppTime(catalog.label(pkg), catalog.icon(pkg), before, now) } }
-                app.tend.ui.InsightsScreen(insights, apps, plus = store.isPlus, onPlus = { openPlus(app.tend.ui.PlusFrom.INSIGHTS) }) { screen = Screen.HOME }
+                app.tend.ui.InsightsScreen(
+                    insights, apps, plus = store.isPlus, onPlus = { openPlus(app.tend.ui.PlusFrom.INSIGHTS) },
+                    taskTitle = { id -> (store.selectedTasks + Tasks.presets).firstOrNull { it.id == id }?.title },
+                    onShare = ::shareCamp,
+                ) { screen = Screen.HOME }
             }
 
             p == "SLEEP" -> app.tend.ui.SleepScreen(store.avatar, store.placed, shelf.first, goodNightAcorns, campLayout()) { screen = Screen.HOME }
@@ -1108,6 +1112,7 @@ class MainActivity : ComponentActivity() {
                         atFire = atFire.map { it.name },
                         welcomeBack = store.welcomeBackOn == LocalDate.now().toString(),
                         canClose = permissions().overlay,
+                        days = days,
                     )
                 },
                 strict = store.isStrict,

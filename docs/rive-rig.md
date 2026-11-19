@@ -20,6 +20,8 @@ Read by `ui/Character.kt` → `RiveRig`. Names are case-sensitive.
 | Input | `mia` | Boolean | `false` Bo · `true` Mia |
 | Input | `tap` | Trigger | a short hop |
 | Input | `headband`, `glasses`, `hat`, `flower` | Boolean | accessories earned by a week of habits (200 ms fade) |
+| Input | `leaf`, `bowtie`, `nightcap` | Boolean | more of the habits' accessories |
+| Input | `flower_crown`, `sunglasses`, `scarf`, `bobble_hat`, `beret`, `party_hat`, `bandana`, `headphones`, `crown`, `hair_bow`, `chef_hat`, `captain_hat`, `cowboy_hat`, `wizard_hat`, `mustache`, `monocle`, `star_glasses` | Boolean | outfits (bought, one at a time); the app hides a habit's thing an outfit covers (`Accessories.shown`) |
 | Input | `scientist` | Boolean | lab coat, glasses and a pointer (onboarding slides, home tour) |
 | Input | `prop` | Number | during timers: `0` none · `1` dumbbell · `2` hearts · `3` palette and brush · `4` broom · `5` chef's hat |
 

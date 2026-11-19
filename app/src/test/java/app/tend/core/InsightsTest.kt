@@ -36,9 +36,9 @@ class InsightsTest {
     }
 
     @Test fun `hours and what they are like`() {
-        assertEquals("45 min", InsightsOf.hours(45))
-        assertEquals("2 h", InsightsOf.hours(120))
-        assertEquals("31 h 20 min", InsightsOf.hours(1880))
+        assertEquals("45\u00A0min", InsightsOf.hours(45))
+        assertEquals("2\u00A0h", InsightsOf.hours(120))
+        assertEquals("31\u00A0h\u00A020\u00A0min", InsightsOf.hours(1880))
         assertNull(InsightsOf.likeWhat(60))
         assertEquals("about 4 walks in the woods", InsightsOf.likeWhat(180))
         assertEquals("about 5 books", InsightsOf.likeWhat(1880))

@@ -52,4 +52,16 @@ class VoiceTest {
         assertEquals(1, Voice.streak(listOf(DaySummary(today.minusDays(2), 0, 0, 1)), today))
         assertEquals(0, Voice.streak(listOf(DaySummary(today.minusDays(3), 0, 0, 1)), today))
     }
+
+    @Test fun `last week is remembered early in the week`() {
+        val today = LocalDate.of(2026, 11, 10) // a Tuesday
+        val lastWeek = (2L..8L).map { DaySummary(today.minusDays(it), 40, 0, 1, setOf(if (it % 2 == 0L) "read" else "move")) }
+        val weekBefore = (9L..15L).map { DaySummary(today.minusDays(it), 70, 0, 0) }
+        val w = Voice.lastWeek(lastWeek + weekBefore, today)!!
+        assertEquals(7, w.activities)
+        assertEquals(30, w.lessMinutes)
+        val lines = (0 until 40).map { Voice.home(m(at = tuesday.plusHours(it * 3L % 24), extra = arrayOf({ it.copy(days = lastWeek + weekBefore) }))) }
+        assertTrue(lines.any { it.startsWith("Last week: 7 things on 7 days.") })
+        assertTrue(lines.any { it.contains("30 minutes a day less") })
+    }
 }

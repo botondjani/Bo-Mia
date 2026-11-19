@@ -121,6 +121,7 @@ class InterstitialActivity : ComponentActivity() {
         enableEdgeToEdge()
         val pkg = intent.getStringExtra(EXTRA_PKG) ?: return finish()
         pkgName = pkg
+        if (savedInstanceState == null) store.countHealth("shown")
         val label = runCatching { packageManager.getApplicationInfo(pkg, 0).loadLabel(packageManager).toString() }.getOrDefault(pkg)
         // An activity on its timer: every app waits; a screen of its own (not a pause: nothing is counted).
         if (intent.getBooleanExtra(EXTRA_FOCUS, false)) {
@@ -269,7 +270,7 @@ class InterstitialActivity : ComponentActivity() {
         // Just answering someone: in at once, for a few minutes, a few times a day (not in strict mode).
         val quick = store.quickLooksLeft()
         if (quick > 0) Text(
-            tr("I just need to check something · $REPLY_MINUTES min, now", "Csak megnézek valamit · $REPLY_MINUTES perc, most") +
+            tr("I just need to check something · $REPLY_MINUTES\u00A0min, now", "Csak megnézek valamit · $REPLY_MINUTES\u00A0perc, most") +
                 if (quick <= 2) tr(" ($quick left today)", " (ma még $quick)") else "",
             style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {

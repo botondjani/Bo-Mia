@@ -146,8 +146,7 @@ fun CharacterView(
     val rig = if (lightweight) null else RiveRig.bytes(LocalContext.current)
     var failed by remember { mutableStateOf(false) }
     val accessories = LocalAccessories.current
-    // The animated rig doesn't know the seasons' outfits: with one on, the drawn companion shows it.
-    if (rig != null && !failed && accessories.none { it.isOutfit }) RiveCharacter(rig, avatar, when { reading -> RiveRig.READING; mood == Mood.SLEEPING -> RiveRig.SLEEPING; mood == Mood.SLEEPY -> RiveRig.SLEEPY; else -> mood.ordinal.toFloat() }, accessories, scientist, prop, size, modifier) { failed = true }
+    if (rig != null && !failed) RiveCharacter(rig, avatar, when { reading -> RiveRig.READING; mood == Mood.SLEEPING -> RiveRig.SLEEPING; mood == Mood.SLEEPY -> RiveRig.SLEEPY; else -> mood.ordinal.toFloat() }, accessories, scientist, prop, size, modifier) { failed = true }
     else DrawnCharacter(avatar, mood, size, modifier, reading, accessories, scientist, prop)
 }
 
@@ -174,7 +173,8 @@ private fun RiveCharacter(rig: ByteArray, avatar: Avatar, mood: Float, accessori
             val rive = v as? RiveAnimationView ?: return@AndroidView
             runCatching { rive.setNumberState(RiveRig.STATE_MACHINE, RiveRig.INPUT_MOOD, mood) }
             runCatching { rive.setBooleanState(RiveRig.STATE_MACHINE, RiveRig.INPUT_MIA, avatar == Avatar.MIA) }
-            for (a in Accessory.entries) runCatching { rive.setBooleanState(RiveRig.STATE_MACHINE, RiveRig.inputOf(a), a in accessories) }
+            val shown = app.tend.core.Accessories.shown(accessories)
+            for (a in Accessory.entries) runCatching { rive.setBooleanState(RiveRig.STATE_MACHINE, RiveRig.inputOf(a), a in shown) }
             runCatching { rive.setBooleanState(RiveRig.STATE_MACHINE, RiveRig.INPUT_SCIENTIST, scientist) }
             runCatching { rive.setNumberState(RiveRig.STATE_MACHINE, RiveRig.INPUT_PROP, prop.ordinal.toFloat()) }
         },

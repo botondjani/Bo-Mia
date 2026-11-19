@@ -31,7 +31,27 @@ object Voice {
         val welcomeBack: Boolean = false,
         /** Out of minutes means the apps really close (the pause permission is there). */
         val canClose: Boolean = true,
+        /** The days logged (newest or oldest first, any order): the companion remembers last week from them. */
+        val days: List<DaySummary> = emptyList(),
     )
+
+    /** What the companion remembers of the week before this one (Monday first); null without one. */
+    data class LastWeek(val activities: Int, val activeDays: Int, val favourite: String?, val lessMinutes: Int?)
+
+    fun lastWeek(days: List<DaySummary>, today: java.time.LocalDate): LastWeek? {
+        val monday = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        fun inWeek(start: java.time.LocalDate) = days.filter { it.date >= start && it.date < start.plusDays(7) }
+        val last = inWeek(monday.minusWeeks(1)).takeIf { it.isNotEmpty() } ?: return null
+        val before = inWeek(monday.minusWeeks(2)).filter { !it.paused }
+        val avg = { l: List<DaySummary> -> l.filter { !it.paused }.takeIf { it.isNotEmpty() }?.let { w -> w.sumOf { it.usedMinutes } / w.size } }
+        val less = avg(last)?.let { a -> avg(before)?.let { b -> b - a } }?.takeIf { it >= 5 }
+        return LastWeek(
+            activities = last.sumOf { maxOf(it.done.size, it.tasksDone) },
+            activeDays = last.count { it.done.isNotEmpty() || it.tasksDone > 0 },
+            favourite = last.flatMap { it.done }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key,
+            lessMinutes = less,
+        )
+    }
 
     fun home(m: Moment): String {
         val done = m.selected.filter { it.id in m.day.completedTasks }
@@ -54,8 +74,9 @@ object Voice {
         if (done.isEmpty()) {
             val n = next!!
             val ideas = buildList {
-                // Remembering: yesterday, and a good run.
+                // Remembering: yesterday, a week ago, last week, and a good run.
                 m.selected.firstOrNull { it.id in m.yesterday }?.let { y -> add(tr("Yesterday we ${Tasks.pastTense(y)}. Again today?", "Tegnap ${Tasks.pastTense(y)}. Ma is?")) }
+                memories(m).forEach(::add)
                 if (m.streak >= 3) add(tr("${m.streak} good days in a row! Let's keep the fire going.", "${m.streak} jó nap egymás után! Tartsuk életben a tüzet."))
                 // The weather and the season.
                 when (m.weather) {
@@ -107,6 +128,27 @@ object Voice {
             add(tr("Tap something: $name will use it. Hold it to move it.", "Koppints valamire: $name használni fogja. Tartsd nyomva, ha arrébb tennéd."))
         }
         return pick(m, "camp", lines)
+    }
+
+    /**
+     * What the companion remembers beyond yesterday: a week ago today, and (early in the week) how
+     * last week went: what was done most, and less time in the picked apps than the week before.
+     */
+    private fun memories(m: Moment): List<String> = buildList {
+        if (m.days.isEmpty()) return@buildList
+        val today = m.now.toLocalDate()
+        val weekAgo = m.days.firstOrNull { it.date == today.minusDays(7) }?.done.orEmpty()
+        m.selected.firstOrNull { it.id in weekAgo && it.id !in m.yesterday }?.let { t ->
+            add(tr("A week ago today we ${Tasks.pastTense(t)}. I still think about it. Again?", "Ma egy hete ${Tasks.pastTense(t)}. Azóta is jólesik rá gondolni. Ma is?"))
+        }
+        if (m.now.dayOfWeek <= DayOfWeek.WEDNESDAY) lastWeek(m.days, today)?.let { w ->
+            val fav = w.favourite?.let { id -> m.selected.firstOrNull { it.id == id } }
+            if (w.activities >= 2 && fav != null) add(tr(
+                "Last week: ${w.activities} things on ${w.activeDays} days. My favourite was when we ${Tasks.pastTense(fav)}.",
+                "Múlt héten ${w.activities} dolog, ${w.activeDays} napon. A kedvencem az volt, amikor ${Tasks.pastTense(fav)}.",
+            ))
+            w.lessMinutes?.let { add(tr("Last week you spent $it minutes a day less in those apps than the week before. I noticed.", "Múlt héten napi $it perccel kevesebbet töltöttél azokban az appokban, mint előtte. Észrevettem.")) }
+        }
     }
 
     /** Little things the companion says now and then, just because. */

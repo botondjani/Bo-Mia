@@ -36,6 +36,9 @@ object Brand {
     val Sage get() = if (dark) Color(0xFF131414) else Color(0xFFF1F4ED)
     val Card get() = if (dark) Color(0xFF1E201F) else Color(0xFFFFFFFF)
     val Muted get() = if (dark) Color(0xFF9DA19F) else Color(0xFF6B756F)
+    /** Text on the camp's pills, which stay light in both themes (the camp is never dark-mode). */
+    val InkOnPill = Color(0xFF1D2A23)
+    val MossOnPill = Color(0xFF316849)
     /** A picked item's tint. */
     val Picked get() = if (dark) Color(0xFF233029) else Color(0xFFE8F5EE)
     /** Shadows and scrims stay dark in both themes. */

@@ -77,6 +77,17 @@ object Accessories {
         return on.filter { it !in TOP || it == top }.toSet()
     }
 
+    /** What actually shows of [all]: an outfit wins over a habit's thing in the same place (one hat, one pair of glasses). */
+    fun shown(all: Set<Accessory>): Set<Accessory> {
+        var a = all
+        val hats = setOf(Accessory.BOBBLE_HAT, Accessory.FLOWER_CROWN, Accessory.BERET, Accessory.PARTY_HAT, Accessory.CROWN, Accessory.HEADPHONES,
+            Accessory.CHEF_HAT, Accessory.CAPTAIN_HAT, Accessory.COWBOY_HAT, Accessory.WIZARD_HAT)
+        if (a.any { it in hats }) a = a - Accessory.HAT - Accessory.NIGHTCAP - Accessory.LEAF - Accessory.HEADBAND
+        if (Accessory.BANDANA in a || Accessory.SCARF in a) a = a - Accessory.BOWTIE
+        if (Accessory.SUNGLASSES in a || Accessory.STAR_GLASSES in a || Accessory.MONOCLE in a) a = a - Accessory.GLASSES
+        return a
+    }
+
     /** Tapping [a] in the collection: off if it's on; on if it isn't (taking its place on the head, if that's where it goes). */
     fun toggle(a: Accessory, earned: Set<Accessory>, off: Set<Accessory>): Set<Accessory> = when {
         a !in earned -> off

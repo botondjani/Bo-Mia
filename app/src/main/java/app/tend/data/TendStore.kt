@@ -727,6 +727,7 @@ class TendStore(private val context: Context) {
         if (stored != null && stored.date == now) return stored
         val fresh = DayState(now)
         stored?.let { d -> closeDayAcorns(d) }
+        flushHealth()
         stored?.let { d -> summary(d).let { Stats.log(context, "day_closed", mapOf("used_min" to it.usedMinutes, "unused_min" to it.unusedMinutes, "tasks" to it.tasksDone)); append("history.csv", "${it.date},${it.usedMinutes},${it.unusedMinutes},${it.tasksDone},${it.done.joinToString(";")}") } }
         writeDay(fresh) {
             if (stored != null) putInt("days_tended", prefs.getInt("days_tended", 0) + 1)
@@ -1100,7 +1101,37 @@ class TendStore(private val context: Context) {
     }
 
     /** Every case where blocking did not run: monitor stopped, or an open was not caught. */
-    fun logMiss(reason: String, pkg: String = "") = append("misses.csv", "${LocalDateTime.now()},$reason,$pkg")
+    fun logMiss(reason: String, pkg: String = "") {
+        append("misses.csv", "${LocalDateTime.now()},$reason,$pkg")
+        when {
+            reason == "open_retry" -> countHealth("retry")
+            reason == "open_not_caught" -> countHealth("missed")
+            reason.startsWith("monitor_not_running") -> countHealth("gap")
+            reason == "monitor_destroyed" -> countHealth("stopped")
+        }
+    }
+
+    /**
+     * How well the pause works on this phone, counted through the day and sent once (with consent,
+     * like all stats): shown, needed a second try, never came, or the monitor wasn't running. With
+     * the maker and model, so a phone family that misses can be found. No app names.
+     */
+    @Synchronized
+    fun countHealth(what: String) {
+        val today = LocalDate.now().toString()
+        if (prefs.getString("health_day", "") != today) flushHealth()
+        prefs.edit().putString("health_day", today).putInt("health_$what", prefs.getInt("health_$what", 0) + 1).apply()
+    }
+
+    /** Sends a finished day's counts (any day but today) and starts again. */
+    @Synchronized
+    fun flushHealth() {
+        val day = prefs.getString("health_day", "").orEmpty()
+        if (day.isEmpty() || day == LocalDate.now().toString()) return
+        val counts = HEALTH.associateWith { prefs.getInt("health_$it", 0) }
+        if (counts.values.any { it > 0 }) Stats.log(context, "pause_health", counts + mapOf("maker" to android.os.Build.MANUFACTURER.lowercase(), "model" to android.os.Build.MODEL))
+        prefs.edit().apply { HEALTH.forEach { remove("health_$it") } }.putString("health_day", "").apply()
+    }
 
     /** All logged answers (looking-for and worth-it), oldest first. */
     fun answers(): List<Answer> = lines("answers.csv").mapNotNull { line ->
@@ -1230,6 +1261,7 @@ class TendStore(private val context: Context) {
 
     companion object {
         const val EARLY_NIGHT_ACORNS = 3
+        private val HEALTH = listOf("shown", "retry", "missed", "gap", "stopped")
         const val PLUS_TRIAL_DAYS = 14
         const val FIRST_FRIEND_ACORNS = 30
         const val FRIEND_ACORNS = 15

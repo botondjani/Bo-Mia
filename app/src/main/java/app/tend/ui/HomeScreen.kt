@@ -239,7 +239,7 @@ fun HomeScreen(
             // What the companion says: one small bubble, so the camp shows.
             Text(
                 voice?.let(app.tend.core.Voice::home) ?: Moods.line(cfg, day, tasks, welcomeBack, canClose = permissions.overlay),
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 17.sp), color = Brand.Ink, maxLines = 3,
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 17.sp), color = Brand.InkOnPill, maxLines = 3,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier.align(Alignment.TopStart).padding(16.dp).fillMaxWidth(0.58f)
                     .clip(RoundedCornerShape(14.dp)).background(Color(0xE6FFFFFF)).padding(horizontal = 10.dp, vertical = 6.dp),
@@ -271,7 +271,7 @@ fun HomeScreen(
             ) {
                 campTip?.let {
                     Text(
-                        it.text(avatar.displayName), style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp, lineHeight = 15.sp), color = Brand.Moss, maxLines = 2,
+                        it.text(avatar.displayName), style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp, lineHeight = 15.sp), color = Brand.MossOnPill, maxLines = 2,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp)
                             .clip(RoundedCornerShape(14.dp)).background(Color(0xE6FFFFFF)).tappable { onCampTip(it) }.padding(horizontal = 12.dp, vertical = 5.dp),

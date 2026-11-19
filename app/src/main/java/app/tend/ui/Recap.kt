@@ -220,7 +220,7 @@ internal fun Stat(value: String, label: String, modifier: Modifier) = Column(
     Text(label, style = MaterialTheme.typography.bodyMedium)
 }
 
-private fun duration(minutes: Int) = if (minutes >= 60) tr("${minutes / 60} h ${minutes % 60} min", "${minutes / 60} ó ${minutes % 60} p") else tr("$minutes min", "$minutes perc")
+private fun duration(minutes: Int) = app.tend.core.InsightsOf.hours(minutes)
 
 private fun hour(h: Int) = if (app.tend.core.Lang.hu) "$h:00" else when {
     h == 0 -> "midnight"

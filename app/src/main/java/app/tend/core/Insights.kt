@@ -23,7 +23,19 @@ data class Insights(
     val activeDays: Int,
     /** Times a paused app was left closed ("Not now"). */
     val notNows: Int,
+    /** Months, oldest first: average minutes a day, null for a month with no closed days. */
+    val months: List<Pair<java.time.YearMonth, Int?>> = emptyList(),
+    /** This week so far and the week before (Monday first): average minutes a day and activities done. */
+    val thisWeek: WeekSummary? = null,
+    val prevWeek: WeekSummary? = null,
+    /** The closed day with the least time in the picked apps, of the last 30. */
+    val bestDay: DaySummary? = null,
+    /** The activity done most often (its id), and how many times. */
+    val favourite: Pair<String, Int>? = null,
 )
+
+/** A week's average minutes a day (closed days only; null without any) and activities done. */
+data class WeekSummary(val avg: Int?, val activities: Int)
 
 object InsightsOf {
     /** From [days] (closed days and today, as logged), as of [today], with [weeks] weeks in the chart. */
@@ -37,7 +49,23 @@ object InsightsOf {
             val inWeek = closed.filter { it.date >= start && it.date < start.plusDays(7) }
             start to inWeek.takeIf { it.isNotEmpty() }?.let { l -> l.sumOf { it.usedMinutes } / l.size }
         }
+        val months = (5 downTo 0).map { back ->
+            val m = java.time.YearMonth.from(today).minusMonths(back.toLong())
+            m to closed.filter { java.time.YearMonth.from(it.date) == m }.takeIf { it.isNotEmpty() }?.let { l -> l.sumOf { it.usedMinutes } / l.size }
+        }
+        fun week(start: LocalDate): WeekSummary? {
+            val all = days.filter { it.date >= start && it.date < start.plusDays(7) && it.date <= today }
+            if (all.isEmpty()) return null
+            val shut = all.filter { it.date < today && !it.paused }
+            return WeekSummary(shut.takeIf { it.isNotEmpty() }?.let { l -> l.sumOf { it.usedMinutes } / l.size }, all.sumOf { maxOf(it.done.size, it.tasksDone) })
+        }
+        val favourite = days.flatMap { it.done }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.toPair()?.takeIf { it.second >= 2 }
         return Insights(
+            months = months,
+            thisWeek = week(thisMonday),
+            prevWeek = week(thisMonday.minusWeeks(1)),
+            bestDay = closed.filter { it.date >= today.minusDays(30) }.takeIf { it.size >= 3 }?.minByOrNull { it.usedMinutes },
+            favourite = favourite,
             normal = normal,
             wonBack = wonBack,
             since = days.minOfOrNull { it.date },
@@ -49,12 +77,12 @@ object InsightsOf {
         )
     }
 
-    /** "31 h 20 min", "45 min". */
+    /** "31 h 20 min", "45 min": never broken over two lines (no-break spaces). */
     fun hours(minutes: Int): String = when {
         minutes < 60 -> tr("$minutes min", "$minutes perc")
         minutes % 60 == 0 -> tr("${minutes / 60} h", "${minutes / 60} óra")
         else -> tr("${minutes / 60} h ${minutes % 60} min", "${minutes / 60} ó ${minutes % 60} p")
-    }
+    }.replace(' ', '\u00A0')
 
     /** What the time won back is worth, said plainly: walks, films or books. */
     fun likeWhat(minutes: Int): String? = when {

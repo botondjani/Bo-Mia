@@ -302,11 +302,7 @@ object CharacterPainter {
     /** Same shapes as the Rive rig (tools/rive/make_character.py), drawn back to front. */
     private fun drawAccessories(c: Canvas, all: Set<Accessory>) {
         // An outfit wins over a habit's thing in the same place: one hat at a time, one pair of glasses.
-        var a = all
-        if (a.any { it in setOf(Accessory.BOBBLE_HAT, Accessory.FLOWER_CROWN, Accessory.BERET, Accessory.PARTY_HAT, Accessory.CROWN, Accessory.HEADPHONES, Accessory.CHEF_HAT, Accessory.CAPTAIN_HAT, Accessory.COWBOY_HAT, Accessory.WIZARD_HAT) }) a = a - Accessory.HAT - Accessory.NIGHTCAP - Accessory.LEAF - Accessory.HEADBAND
-        if (Accessory.BANDANA in a) a = a - Accessory.BOWTIE
-        if (Accessory.SUNGLASSES in a || Accessory.STAR_GLASSES in a || Accessory.MONOCLE in a) a = a - Accessory.GLASSES
-        if (Accessory.SCARF in a) a = a - Accessory.BOWTIE
+        val a = app.tend.core.Accessories.shown(all)
         if (Accessory.HEADBAND in a) {
             stroke.color = CORAL; stroke.strokeWidth = 4.5f
             c.drawPath(Path().apply { moveTo(25f, 37f); quadTo(50f, 25f, 75f, 37f) }, stroke)

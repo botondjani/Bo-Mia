@@ -523,8 +523,12 @@ private fun AppsCard(
             else Box(Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(Brand.Mint))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(catalog.label(pkg), style = MaterialTheme.typography.bodyLarge, maxLines = 1)
-                if (strict || pkg in paused) Text(tr("Pause before it opens", "Szünet megnyitás előtt"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Moss)
+                Text(catalog.label(pkg), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Text(
+                    if (strict || pkg in paused) tr("Pauses first", "Szünettel nyílik") else tr("Opens without a pause", "Szünet nélkül nyílik"),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = if (strict || pkg in paused) Brand.Moss else Brand.Muted,
+                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
                 if (limit != null) Text(
                     if (used >= limit) tr("Used up today", "Mára elfogyott") else tr("${limit - used} of $limit min left today", "Ma még ${limit - used} perc a $limit percből"),
                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = if (used >= limit) Brand.Coral else Brand.Muted,

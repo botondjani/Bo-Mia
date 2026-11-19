@@ -28,7 +28,7 @@ object Backup {
     /** Everything to save, as one JSON object. */
     fun snapshot(c: Context): JSONObject {
         val prefs = JSONObject()
-        c.getSharedPreferences("tend", Context.MODE_PRIVATE).all.filterKeys { it !in HEALTH_KEYS && it !in APP_KEYS }.forEach { (key, value) ->
+        c.getSharedPreferences("tend", Context.MODE_PRIVATE).all.filterKeys { it !in HEALTH_KEYS && it !in APP_KEYS && !it.startsWith("health_") }.forEach { (key, value) ->
             val entry = when (value) {
                 is String -> JSONObject().put("t", "s").put("v", value)
                 is Int -> JSONObject().put("t", "i").put("v", value)

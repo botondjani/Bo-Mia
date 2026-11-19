@@ -37,6 +37,11 @@ def T(px, py):
 class Rig:
     def __init__(self, w):
         self.w, self.n = w, 0
+        self.origin = (50.0, 92.0)  # painter point the current parent sits on (the feet, unless a rotated group)
+
+    def t(self, px, py):
+        """Painter coordinates -> coordinates relative to the current parent's origin."""
+        return ((px - self.origin[0]) * S, (py - self.origin[1]) * S)
 
     def add(self, type_key, **props):
         self.w.obj(type_key, **props)
@@ -58,13 +63,13 @@ class Rig:
         return colors
 
     def ellipse(self, name, parent, cx, cy, w, h, fill):
-        x, y = T(cx, cy)
+        x, y = self.t(cx, cy)
         shape = self.add(SHAPE, name=name, parentId=parent, x=x, y=y)
         self.add(ELLIPSE, parentId=shape, pWidth=w * S, pHeight=h * S)
         return shape, self.paint(shape, fill)[0]
 
     def rect(self, name, parent, cx, cy, w, h, r, fill, origin_top=False):
-        x, y = T(cx, cy)
+        x, y = self.t(cx, cy)
         shape = self.add(SHAPE, name=name, parentId=parent, x=x, y=y)
         self.add(RECTANGLE, parentId=shape, pWidth=w * S, pHeight=h * S, cornerRadius=r * S,
                  originY=0.0 if origin_top else None)
@@ -75,7 +80,7 @@ class Rig:
         shape = self.add(SHAPE, name=name, parentId=parent)
         path = self.add(POINTS_PATH, parentId=shape, isClosed=closed)
         for (vx, vy, vin, vout) in verts:
-            px, py = T(vx, vy)
+            px, py = self.t(vx, vy)
             if vin is None and vout is None:
                 self.add(STRAIGHT_VERTEX, parentId=path, vx=px, vy=py)
                 continue
@@ -88,6 +93,169 @@ class Rig:
                 props[key + 'Distance'] = math.hypot(dx, dy)
             self.add(CUBIC_DETACHED_VERTEX, **props)
         return shape, self.paint(shape, fill, stroke, width)
+
+    def ring(self, name, parent, cx, cy, d, color, width, fill=None):
+        """A circle outline (and its inside, if [fill])."""
+        x, y = self.t(cx, cy)
+        shape = self.add(SHAPE, name=name, parentId=parent, x=x, y=y)
+        self.add(ELLIPSE, parentId=shape, pWidth=d * S, pHeight=d * S)
+        self.paint(shape, fill=fill, stroke=color, width=width)
+        return shape
+
+    def draw(self, name, parent, start, segs, closed, fill=None, stroke=None, width=2.6):
+        """Like the painter's Path: start (x, y), then ('L', x, y), ('Q', qx, qy, x, y) or ('C', c1x, c1y, c2x, c2y, x, y)."""
+        pts = [[start[0], start[1], None, None]]
+        for sg in segs:
+            prev = pts[-1]
+            if sg[0] == 'L':
+                pts.append([sg[1], sg[2], None, None])
+                continue
+            if sg[0] == 'Q':
+                qx, qy, x, y = sg[1:]
+                c1 = (prev[0] + 2 / 3 * (qx - prev[0]), prev[1] + 2 / 3 * (qy - prev[1]))
+                c2 = (x + 2 / 3 * (qx - x), y + 2 / 3 * (qy - y))
+            else:
+                c1, c2, (x, y) = (sg[1], sg[2]), (sg[3], sg[4]), (sg[5], sg[6])
+            prev[3] = c1
+            pts.append([x, y, c2, None])
+        # Back where it started: one vertex, its way in from the last segment.
+        if closed and len(pts) > 2 and abs(pts[-1][0] - pts[0][0]) < 1e-6 and abs(pts[-1][1] - pts[0][1]) < 1e-6:
+            pts[0][2] = pts[-1][2]
+            pts.pop()
+        return self.path(name, parent, [tuple(p) for p in pts], closed, fill=fill, stroke=stroke, width=width)
+
+    def star(self, name, parent, cx, cy, outer, inner, fill):
+        pts = []
+        for k in range(10):
+            r = outer if k % 2 == 0 else inner
+            a = math.radians(k * 36 - 90)
+            pts.append((cx + r * math.cos(a), cy + r * math.sin(a), None, None))
+        return self.path(name, parent, pts, True, fill=fill)
+
+
+# Outfits: bought, worn one at a time (Accessory.isOutfit). Input names are the enum names in lower case.
+OUTFITS = ('flower_crown', 'sunglasses', 'scarf', 'bobble_hat', 'beret', 'party_hat', 'bandana', 'headphones', 'crown', 'hair_bow',
+           'chef_hat', 'captain_hat', 'cowboy_hat', 'wizard_hat', 'mustache', 'monocle', 'star_glasses')
+
+
+def outfits(r, body):
+    """Same shapes as CharacterPainter.drawOutfits / drawAnytime, each group written front to back."""
+    g = {name: r.node(f'acc_{name}', body) for name in OUTFITS}
+    GOLD, PINK, NAVY, TAN, TAN_DARK = 0xFFF2C14E, 0xFFF2A0B8, 0xFF2E4A7A, 0xFFA0673A, 0xFF6F4424
+    RUST, STRIPE, RED, RED_DARK, LEAF = 0xFFC9652E, 0xFFF2D27A, 0xFFD2483F, 0xFFB23A33, 0xFF4FA36F
+
+    p = g['scarf']
+    for i, x in enumerate((61, 63.3, 65.6, 67.9)):
+        r.path(f'fringe_{i}', p, [(x, 95.5, None, None), (x + 0.4, 98.5, None, None)], False, stroke=STRIPE, width=1.2)
+    r.rect('scarf_tail_stripe', p, 64.15, 88.25, 8.3, 2.5, 0, STRIPE)
+    for i, x in enumerate((33, 43, 53)):
+        r.rect(f'scarf_stripe_{i}', p, x + 1.5, 79, 3, 9, 0, STRIPE)
+    r.path('scarf_tail', p, [(58, 79, None, None), (67, 79, None, None), (69, 95, None, None), (60, 96, None, None)], True, fill=RUST)
+    r.rect('scarf_band', p, 50, 79, 50, 10, 5, RUST)
+
+    p = g['sunglasses']
+    r.ellipse('sun_shine_l', p, 35, 43, 6, 4, 0x66FFFFFF)
+    r.ellipse('sun_shine_r', p, 58, 43, 6, 4, 0x66FFFFFF)
+    r.path('sun_bridge', p, [(47, 43, None, None), (53, 43, None, None)], False, stroke=INK, width=2)
+    r.rect('sun_lens_l', p, 38.5, 46, 19, 14, 6, INK)
+    r.rect('sun_lens_r', p, 61.5, 46, 19, 14, 6, INK)
+
+    p = g['flower_crown']
+    colors = (0xFFF2A0B8, WHITE, SUNNY, 0xFFF2A0B8, WHITE)
+    for k in reversed(range(5)):
+        tt = k / 4
+        x, y = 28 + 44 * tt, 26 - 10 * (1 - (2 * tt - 1) ** 2)
+        r.ellipse(f'fc_mid_{k}', p, x, y, 3, 3, GOLD)
+        for q in range(5):
+            a = math.radians(q * 72 - 90)
+            r.ellipse(f'fc_petal_{k}_{q}', p, x + 2.4 * math.cos(a), y + 2.4 * math.sin(a), 4.2, 4.2, colors[k])
+        r.ellipse(f'fc_leaf_{k}', p, x - 3.5, y + 0.25, 5, 3.5, LEAF)
+    r.draw('fc_stem', p, (26, 27), [('Q', 50, 13, 74, 27)], False, stroke=MOSS, width=1.8)
+
+    p = g['bobble_hat']
+    r.ellipse('bobble', p, 50, 9, 11, 11, 0xFFF7F3E8)
+    for i, x in enumerate(range(27, 74, 5)):
+        r.path(f'knit_{i}', p, [(x, 24.5, None, None), (x, 31.5, None, None)], False, stroke=RED, width=1.2)
+    r.rect('bobble_band', p, 50, 28, 54, 10, 4, RED_DARK)
+    r.draw('bobble_dome', p, (26, 28), [('C', 26, 6, 74, 6, 74, 28)], True, fill=RED)
+
+    # The beret and the party hat lean: each in a group turned around its own point.
+    beret = r.add(NODE, name='beret_tilt', parentId=g['beret'], x=(50 - 50) * S, y=(20 - 92) * S, rotation=math.radians(-12))
+    r.origin = (50.0, 20.0)
+    r.ellipse('beret_nub', beret, 50, 11.5, 4.6, 4.6, 0xFFB5523B)
+    r.rect('beret_band', beret, 50, 25.5, 36, 5, 3, 0xFF8E3A27)
+    r.ellipse('beret_top', beret, 50, 20, 48, 16, 0xFFB5523B)
+    party = r.add(NODE, name='party_tilt', parentId=g['party_hat'], x=(50 - 50) * S, y=(24 - 92) * S, rotation=math.radians(10))
+    r.origin = (50.0, 24.0)
+    r.ellipse('party_pom', party, 50, 1.5, 7.2, 7.2, SUNNY)
+    r.path('party_stripe_1', party, [(41.5, 18, None, None), (58.5, 18, None, None)], False, stroke=CORAL, width=2.2)
+    r.path('party_stripe_2', party, [(45, 11, None, None), (55, 11, None, None)], False, stroke=CORAL, width=2.2)
+    r.path('party_cone', party, [(38, 25, None, None), (50, 1, None, None), (62, 25, None, None)], True, fill=SKY)
+    r.origin = (50.0, 92.0)
+
+    p = g['bandana']
+    for i, (x, y) in enumerate(((42, 79), (50, 81), (58, 79), (46, 85), (54, 85), (50, 89))):
+        r.ellipse(f'bandana_dot_{i}', p, x, y, 2.2, 2.2, WHITE)
+    r.path('bandana_point', p, [(33, 75, None, None), (67, 75, None, None), (50, 92, None, None)], True, fill=CORAL)
+    r.rect('bandana_knot', p, 50, 75, 44, 6, 3, CORAL)
+
+    p = g['headphones']
+    for side, cx in (('l', 23), ('r', 77)):
+        shape, _ = r.rect(f'cup_{side}', p, cx, 46, 12, 18, 5, SKY)
+        r.paint(shape, stroke=INK)
+    r.draw('headband_arc', p, (23, 44), [('C', 22, 6, 78, 6, 77, 44)], False, stroke=INK, width=4)
+
+    p = g['crown']
+    r.ellipse('crown_ruby', p, 50, 19, 4.4, 4.4, CORAL)
+    r.ellipse('crown_gem_l', p, 41, 20, 3.2, 3.2, SKY)
+    r.ellipse('crown_gem_r', p, 59, 20, 3.2, 3.2, SKY)
+    r.path('crown', p, [(35, 24, None, None), (34, 9, None, None), (42, 16, None, None), (50, 5, None, None), (58, 16, None, None), (66, 9, None, None), (65, 24, None, None)], True, fill=GOLD)
+
+    p = g['hair_bow']
+    r.ellipse('hairbow_knot', p, 68, 18, 5.2, 5.2, 0xFFD96C9C)
+    r.path('hairbow_l', p, [(68, 18, None, None), (58, 10, None, None), (58, 26, None, None)], True, fill=PINK)
+    r.path('hairbow_r', p, [(68, 18, None, None), (78, 10, None, None), (78, 26, None, None)], True, fill=PINK)
+
+    p = g['chef_hat']
+    r.path('chefhat_line', p, [(37, 21, None, None), (63, 21, None, None)], False, stroke=COAT_LINE, width=1.2)
+    r.rect('chefhat_band', p, 50, 21, 26, 10, 2, COAT)
+    r.ellipse('chefhat_puff_l', p, 40, 15, 16, 16, COAT)
+    r.ellipse('chefhat_puff_r', p, 60, 15, 16, 16, COAT)
+    r.ellipse('chefhat_puff_m', p, 50, 11, 18, 18, COAT)
+
+    p = g['captain_hat']
+    r.ellipse('captain_badge', p, 50, 15, 5.6, 5.6, GOLD)
+    r.draw('captain_peak', p, (33, 24), [('Q', 50, 31, 67, 24), ('Q', 50, 27, 33, 24)], True, fill=INK)
+    r.rect('captain_band', p, 50, 21.5, 38, 7, 0, NAVY)
+    r.rect('captain_top', p, 50, 15, 46, 14, 8, COAT)
+
+    p = g['cowboy_hat']
+    r.rect('cowboy_band', p, 50, 23, 30, 4, 0, TAN_DARK)
+    r.draw('cowboy_crown', p, (34, 27), [('L', 36, 8), ('Q', 43, 4, 50, 9), ('Q', 57, 4, 64, 8), ('L', 66, 27)], True, fill=TAN)
+    r.draw('cowboy_brim', p, (14, 20), [('Q', 22, 29, 50, 29), ('Q', 78, 29, 86, 20), ('Q', 80, 33, 50, 33), ('Q', 20, 33, 14, 20)], True, fill=TAN)
+
+    p = g['wizard_hat']
+    r.star('wizard_star_1', p, 46, 16, 3.2, 1.4, SUNNY)
+    r.star('wizard_star_2', p, 56, 9, 2.4, 1.0, SUNNY)
+    r.star('wizard_star_3', p, 56, 20, 2.0, 0.9, SUNNY)
+    r.draw('wizard_cone', p, (32, 25), [('Q', 46, 6, 61, -4), ('Q', 57, 8, 68, 25)], True, fill=0xFF6A4FB0)
+    r.ellipse('wizard_brim', p, 50, 25, 52, 8, 0xFF513B8C)
+
+    p = g['mustache']
+    r.draw('mustache_l', p, (50, 54), [('C', 46, 50, 37, 50, 34, 56), ('C', 38, 55, 40, 59, 44, 59), ('C', 47, 59, 49, 57, 50, 55.5)], True, fill=HAIR)
+    r.draw('mustache_r', p, (50, 54), [('C', 54, 50, 63, 50, 66, 56), ('C', 62, 55, 60, 59, 56, 59), ('C', 53, 59, 51, 57, 50, 55.5)], True, fill=HAIR)
+
+    p = g['monocle']
+    r.draw('monocle_chain', p, (70, 52), [('Q', 77, 64, 72, 75)], False, stroke=GOLD, width=1)
+    r.ring('monocle', p, 61, 46, 21, GOLD, 2, fill=0x33FFFFFF)
+
+    p = g['star_glasses']
+    r.ellipse('star_lens_l', p, 39, 46, 10, 10, 0xCC1D2A23)
+    r.ellipse('star_lens_r', p, 61, 46, 10, 10, 0xCC1D2A23)
+    r.path('star_bridge', p, [(46, 44, None, None), (54, 44, None, None)], False, stroke=INK, width=2)
+    r.star('star_frame_l', p, 39, 46, 12, 6.5, PINK)
+    r.star('star_frame_r', p, 61, 46, 12, 6.5, PINK)
+    return g
 
 
 def build():
@@ -153,7 +321,8 @@ def build():
         r.paint(ring, stroke=INK, width=1.8)
     r.path('sci_bridge', sci, [(48.5, 45, None, None), (51.5, 45, None, None)], False, stroke=INK, width=1.8)
 
-    # Accessories sit on top of everything on the head.
+    # Outfits, then the habits' accessories: on top of everything on the head.
+    acc.update(outfits(r, body))
     r.ellipse('nightcap_pom', acc['nightcap'], 71, 13, 7.2, 7.2, COAT)
     r.rect('nightcap_band', acc['nightcap'], 50, 22, 36, 6, 3, COAT)
     r.path('nightcap', acc['nightcap'], [(34, 22, None, (41, 11)), (70, 12, (59, 6), None), (64, 17, None, (60, 14.5)), (66, 22, (60, 17), None)], True, fill=0xFF5B7FC0)
@@ -345,6 +514,9 @@ def build():
     for i, name in enumerate(('leaf', 'bowtie', 'nightcap')):
         w.obj(SM_BOOL, smName=name)                      # inputs 9, 10, 11
         acc_inputs[name] = 9 + i
+    for i, name in enumerate(OUTFITS):
+        w.obj(SM_BOOL, smName=name)                      # inputs 12 and on
+        acc_inputs[name] = 12 + i
     MOOD, MIA, TAP, SCIENTIST, PROP = 0, 1, 2, 7, 8
 
     def layer(name, states, entry_to, any_transitions=(), state_transitions=None):

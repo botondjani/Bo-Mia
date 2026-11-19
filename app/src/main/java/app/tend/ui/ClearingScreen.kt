@@ -348,11 +348,33 @@ fun ClearingScreen(
     val companionAt = remember { floatArrayOf(-1f, -1f) }
     var pokeAct by remember { mutableStateOf<String?>(null) }
     var pokeT by remember { androidx.compose.runtime.mutableFloatStateOf(-1f) }
+    // Poked again and again: they notice (and say so).
+    val pokes = remember { mutableListOf<Long>() }
     fun poke() {
         if (pokeAct != null) return
-        val i = kotlin.random.Random.nextInt(4)
-        pokeAct = listOf("act_cheer", "act_hearts", "act_stretch", "act_cheer")[i]
-        caught = listOf(tr("${avatar.displayName} giggles. That tickles!", "${avatar.displayName} kuncog. Ez csikiz!"), tr("${avatar.displayName} blushes a little.", "${avatar.displayName} kicsit elpirul."), tr("${avatar.displayName} stretches and smiles at you.", "${avatar.displayName} nyújtózik egyet, és rád mosolyog."), tr("${avatar.displayName} does a happy little dance.", "${avatar.displayName} örömében táncra perdül."))[i]
+        val n = avatar.displayName
+        val now = System.currentTimeMillis()
+        pokes.removeAll { now - it > 12_000 }
+        pokes += now
+        val hour = java.time.LocalTime.now().hour
+        // What fits right now first (poked a lot, late, an outfit on), otherwise one of the everyday ones.
+        val (act, line) = when {
+            pokes.size >= 4 -> "act_stretch" to tr("$n laughs: \"Okay, okay, I'm awake!\"", "$n nevet: „Jó, jó, ébren vagyok!”")
+            pokes.size == 3 -> "act_hearts" to tr("$n pokes you back. Fair's fair.", "$n visszabök. Így igazságos.")
+            (hour >= 22 || hour < 6) && kotlin.random.Random.nextBoolean() -> "act_stretch" to tr("$n yawns a big yawn. Bedtime soon?", "$n nagyot ásít. Lassan alvás?")
+            outfitWorn != null && kotlin.random.Random.nextInt(3) == 0 -> "act_cheer" to tr("$n straightens the ${outfitWorn.title.lowercase()} and strikes a pose.", "$n megigazítja: ${outfitWorn.title.lowercase()}, és pózol egyet.")
+            else -> listOf(
+                "act_cheer" to tr("$n giggles. That tickles!", "$n kuncog. Ez csikiz!"),
+                "act_hearts" to tr("$n blushes a little.", "$n kicsit elpirul."),
+                "act_stretch" to tr("$n stretches and smiles at you.", "$n nyújtózik egyet, és rád mosolyog."),
+                "act_cheer" to tr("$n does a happy little dance.", "$n örömében táncra perdül."),
+                "act_hearts" to tr("$n gives you a hug. A small one, but a real one.", "$n megölel. Kicsit, de igazán."),
+                "act_cheer" to tr("$n waves, as if you'd been away for ages.", "$n integet, mintha évek óta nem látott volna."),
+                "act_stretch" to tr("$n points at the sky: a bird went by.", "$n az égre mutat: elrepült egy madár."),
+            ).random()
+        }
+        pokeAct = act
+        caught = line
         tick(firm = true)
         scope.launch {
             val start = androidx.compose.runtime.withFrameNanos { it }
@@ -615,11 +637,11 @@ fun ClearingScreen(
         Box(
             Modifier.align(Alignment.TopStart).padding(start = 28.dp, top = 12.dp).size(36.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xE6FFFFFF)).tappable(onClick = onBack),
             contentAlignment = Alignment.Center,
-        ) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, tr("Home", "Főoldal"), tint = Brand.Moss, modifier = Modifier.size(18.dp)) }
+        ) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, tr("Home", "Főoldal"), tint = Brand.MossOnPill, modifier = Modifier.size(18.dp)) }
         AcornBadge(acorns, Modifier.align(Alignment.TopEnd).padding(12.dp))
         // Until something has been moved: how, right on the camp.
         if (hintSpot != null && drag == null && carries.isEmpty()) Text(
-            tr("Tip: hold a thing to move it", "Tipp: tartsd nyomva, és húzd"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp), color = Brand.Moss,
+            tr("Tip: hold a thing to move it", "Tipp: tartsd nyomva, és húzd"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp), color = Brand.MossOnPill,
             modifier = Modifier.align(Alignment.TopCenter).padding(top = 18.dp)
                 .clip(RoundedCornerShape(50)).background(Color(0xE6FFFFFF)).padding(horizontal = 12.dp, vertical = 5.dp),
         )
