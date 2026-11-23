@@ -6,6 +6,7 @@ import app.tend.core.BudgetConfig
 import app.tend.core.Avatar
 import app.tend.core.Accessories
 import app.tend.core.Accessory
+import app.tend.core.slot
 import app.tend.core.Answer
 import app.tend.core.DayState
 import app.tend.core.DaySummary
@@ -955,22 +956,42 @@ class TendStore(private val context: Context) {
     val outfits: Set<Accessory>
         get() = prefs.getStringSet("outfits", emptySet())!!.mapNotNull { n -> Accessory.entries.firstOrNull { it.name == n && it.isOutfit } }.toSet()
 
-    /** The outfit being worn, if any. */
-    val outfitWorn: Accessory?
-        get() = prefs.getString("outfit_worn", null)?.let { n -> outfits.firstOrNull { it.name == n } }
-
     /** Buys this season's outfit (with Plus, for acorns) and puts it on. False when it can't be bought now. */
     fun buyOutfit(a: Accessory): Boolean {
         if (!a.isOutfit || a in outfits) return false
         if (!isPlus || (a.outfit != null && a.outfit != app.tend.core.Season.of(LocalDate.now())) || acorns < Accessory.OUTFIT_PRICE) return false
         addAcorns(-Accessory.OUTFIT_PRICE, "outfit")
-        edit { putStringSet("outfits", outfits.map { it.name }.toSet() + a.name); putString("outfit_worn", a.name) }
+        edit { putStringSet("outfits", outfits.map { it.name }.toSet() + a.name) }
+        wear(a)
         Stats.log(context, "outfit", mapOf("which" to a.name.lowercase()))
         return true
     }
 
-    /** Puts on an outfit that's been bought, or (null) takes it off. */
-    fun wearOutfit(a: Accessory?) = edit { if (a != null && a in outfits) putString("outfit_worn", a.name) else remove("outfit_worn") }
+    // ---- Bo's wardrobe: four places, one thing each, chosen by you ----
+
+    /** Everything the companion has: earned by a habit once (kept for good) or bought. */
+    val owned: Set<Accessory>
+        get() = prefs.getStringSet("acc_seen", emptySet())!!.mapNotNull { n -> Accessory.entries.firstOrNull { it.name == n && !it.isOutfit } }.toSet() + outfits
+
+    /** What's chosen for each place (before dressing by itself and the nightcap at night). */
+    val wardrobe: Map<app.tend.core.Slot, Accessory>
+        get() = app.tend.core.Accessories.decode(prefs.getString("wardrobe", "")!!).filterValues { it in owned }
+
+    private fun setWardrobe(m: Map<app.tend.core.Slot, Accessory>) = edit { putString("wardrobe", app.tend.core.Accessories.encode(m)) }
+
+    /** Puts [a] on, in its place (what was there goes back to the wardrobe). */
+    fun wear(a: Accessory) { if (a in owned) setWardrobe(wardrobe + (a.slot to a)) }
+
+    /** Leaves [slot] empty. */
+    fun takeOff(slot: app.tend.core.Slot) = setWardrobe(wardrobe - slot)
+
+    /** On if it's off, off if it's on. */
+    fun toggleWear(a: Accessory) = if (wardrobe[a.slot] == a) takeOff(a.slot) else wear(a)
+
+    /** The companion picks from its own things by the weather, the season and the time of day. */
+    var autoDress: Boolean
+        get() = prefs.getBoolean("auto_dress", false)
+        set(v) = edit { putBoolean("auto_dress", v) }
 
     // ---- Limits for single apps ----
 
@@ -1308,26 +1329,37 @@ class TendStore(private val context: Context) {
         // The last six closed days plus today as it stands, so a first activity earns the leaf right away.
         val week = (6 downTo 1).map { byDate[today.minusDays(it.toLong())]?.done.orEmpty() } + listOf(today().completedTasks)
         val earned = Accessories.active(week)
+        // Once, from the earlier versions: what showed then is put in its place.
+        if (!prefs.contains("wardrobe")) {
+            val off = prefs.getStringSet("acc_off", emptySet())!!
+            val before = earned.filter { it.name !in off }.toSet() + listOfNotNull(prefs.getString("outfit_worn", null)?.let { n -> outfits.firstOrNull { it.name == n } })
+            prefs.edit().putString("wardrobe", Accessories.encode(Accessories.fromOld(before))).remove("acc_off").remove("outfit_worn").apply()
+        }
         val seen = prefs.getStringSet("acc_seen", emptySet())!!
-        if (!seen.containsAll(earned.map { it.name })) prefs.edit().putStringSet("acc_seen", seen + earned.map { it.name }).apply()
+        val fresh = earned.filter { it.name !in seen }
+        if (fresh.isNotEmpty()) {
+            prefs.edit().putStringSet("acc_seen", seen + fresh.map { it.name }).apply()
+            // Something new goes on where there's room.
+            fresh.forEach { a -> if (a.slot !in wardrobe) wear(a) }
+        }
         val shelf = Accessory.habits.filter { it.name in seen && it !in earned }.toSet()
         accessoriesEarned = earned
-        return (Accessories.worn(earned, accessoriesOff) + listOfNotNull(outfitWorn)) to shelf
+        return dressed() to shelf
+    }
+
+    /** What shows now: the chosen things, or (dressing by itself) the weather's; at night the nightcap. */
+    fun dressed(now: java.time.LocalDateTime = java.time.LocalDateTime.now()): Set<Accessory> {
+        val mine = owned
+        var m = wardrobe
+        if (autoDress) m = Accessories.auto(mine, m, app.tend.core.Season.of(now.toLocalDate()), app.tend.core.LiveWeather.fresh() ?: app.tend.core.Weather.of(now.toLocalDate(), now.hour))
+        if (Accessory.NIGHTCAP in mine && Budget.isEvening(eveningFrom, now.hour)) m = m + (app.tend.core.Slot.HEAD to Accessory.NIGHTCAP)
+        return m.values.toSet()
     }
 
     /** Earned right now (as of the last [accessories] read), worn or not. */
     var accessoriesEarned: Set<Accessory> = emptySet()
         private set
 
-    /** Earned ones the user took off (or that gave their place on the head to another). */
-    val accessoriesOff: Set<Accessory>
-        get() = prefs.getStringSet("acc_off", emptySet())!!.mapNotNull { n -> Accessory.entries.firstOrNull { it.name == n } }.toSet()
-
-    /** Puts an earned accessory on or takes it off. */
-    fun toggleAccessory(a: Accessory) {
-        accessories()
-        edit { putStringSet("acc_off", Accessories.toggle(a, accessoriesEarned, accessoriesOff).map { it.name }.toSet()) }
-    }
 
     private fun summary(d: DayState) = DaySummary(
         d.date, ((d.usedSeconds + 59) / 60).toInt(), Budget.unusedMinutesAtClose(config, d), d.completedTasks.size, d.completedTasks,

@@ -1,8 +1,8 @@
 package app.tend.core
 
 /**
- * Little things the companion wears when a habit has held for a week. Never body shape, only
- * accessories; when the habit fades they go to the shelf and come back when it returns.
+ * Little things the companion wears: earned by a habit held for a week (kept for good once earned),
+ * or bought in the shop. Never body shape, only accessories.
  */
 enum class Accessory(
     val title: String, val how: String, val short: String, val tasks: Set<String>, val days: Int,
@@ -60,39 +60,61 @@ enum class Accessory(
     }
 }
 
+/** Where on the companion a thing goes: one thing per place. */
+enum class Slot(val title: String) {
+    HEAD(tr("Head", "Fej")), EYES(tr("Eyes", "Szem")), NECK(tr("Neck", "Nyak")), DECOR(tr("Extra", "Dísz"));
+}
+
+val Accessory.slot: Slot get() = when (this) {
+    Accessory.GLASSES, Accessory.SUNGLASSES, Accessory.MONOCLE, Accessory.STAR_GLASSES -> Slot.EYES
+    Accessory.BOWTIE, Accessory.SCARF, Accessory.BANDANA -> Slot.NECK
+    Accessory.LEAF, Accessory.FLOWER, Accessory.HAIR_BOW, Accessory.MUSTACHE -> Slot.DECOR
+    else -> Slot.HEAD
+}
+
 object Accessories {
-    /** Worn right now, from the done tasks of the last 7 days (today included). */
+    /** The habits held right now, from the done tasks of the last 7 days (today included): the ones that shine. */
     fun active(lastDays: List<Set<String>>): Set<Accessory> {
         val week = lastDays.takeLast(7)
         return Accessory.habits.filter { a -> week.count { day -> day.any { a.tasks.isEmpty() || it in a.tasks } } >= a.days }.toSet()
     }
 
-    /** On top of the head there's room for one: the hat first, then the nightcap, then the leaf. */
-    val TOP = listOf(Accessory.HAT, Accessory.NIGHTCAP, Accessory.LEAF)
+    /** What actually shows of [all]: one thing per place, a bought one before an earned one (for older or friends' sets). */
+    fun shown(all: Set<Accessory>): Set<Accessory> =
+        all.groupBy { it.slot }.values.map { same -> same.firstOrNull { it.isOutfit } ?: same.first() }.toSet()
 
-    /** What's actually on, of the [earned] ones: not the ones taken [off], and one thing on top of the head. */
-    fun worn(earned: Set<Accessory>, off: Set<Accessory>): Set<Accessory> {
-        val on = earned - off
-        val top = TOP.firstOrNull { it in on }
-        return on.filter { it !in TOP || it == top }.toSet()
+    /** The earlier versions' worn set, put in its places: what showed then shows now. */
+    fun fromOld(worn: Set<Accessory>): Map<Slot, Accessory> {
+        // Then the hat went before the nightcap and the leaf; any bought thing before an earned one.
+        val order = listOf(Accessory.HAT, Accessory.NIGHTCAP, Accessory.HEADBAND, Accessory.LEAF)
+        return shown(worn.sortedBy { if (it in order) order.indexOf(it) else -1 }.toCollection(LinkedHashSet())).associateBy { it.slot }
     }
 
-    /** What actually shows of [all]: an outfit wins over a habit's thing in the same place (one hat, one pair of glasses). */
-    fun shown(all: Set<Accessory>): Set<Accessory> {
-        var a = all
-        val hats = setOf(Accessory.BOBBLE_HAT, Accessory.FLOWER_CROWN, Accessory.BERET, Accessory.PARTY_HAT, Accessory.CROWN, Accessory.HEADPHONES,
-            Accessory.CHEF_HAT, Accessory.CAPTAIN_HAT, Accessory.COWBOY_HAT, Accessory.WIZARD_HAT)
-        if (a.any { it in hats }) a = a - Accessory.HAT - Accessory.NIGHTCAP - Accessory.LEAF - Accessory.HEADBAND
-        if (Accessory.BANDANA in a || Accessory.SCARF in a) a = a - Accessory.BOWTIE
-        if (Accessory.SUNGLASSES in a || Accessory.STAR_GLASSES in a || Accessory.MONOCLE in a) a = a - Accessory.GLASSES
-        return a
+    /**
+     * Dressed by itself, from what's [owned]: a bobble hat and scarf in winter or snow, sunglasses
+     * and the sun hat on a summer day, the flower crown in spring, the scarf in autumn. Where none of
+     * those fits, what was chosen stays.
+     */
+    fun auto(owned: Set<Accessory>, chosen: Map<Slot, Accessory>, season: Season, weather: Weather?): Map<Slot, Accessory> {
+        val out = chosen.toMutableMap()
+        fun put(a: Accessory) { if (a in owned) out[a.slot] = a }
+        val cold = season == Season.WINTER || weather == Weather.SNOW
+        val sunny = weather == null || weather == Weather.CLEAR
+        when {
+            cold -> { put(Accessory.BOBBLE_HAT); put(Accessory.SCARF) }
+            season == Season.SUMMER -> { put(Accessory.HAT); if (sunny) put(Accessory.SUNGLASSES) }
+            season == Season.SPRING -> { put(Accessory.FLOWER_CROWN); put(Accessory.FLOWER) }
+            season == Season.AUTUMN -> put(Accessory.SCARF)
+        }
+        // No sunglasses in the rain, whatever was chosen.
+        if (out[Slot.EYES] == Accessory.SUNGLASSES && !sunny) out.remove(Slot.EYES)
+        return out
     }
 
-    /** Tapping [a] in the collection: off if it's on; on if it isn't (taking its place on the head, if that's where it goes). */
-    fun toggle(a: Accessory, earned: Set<Accessory>, off: Set<Accessory>): Set<Accessory> = when {
-        a !in earned -> off
-        a in worn(earned, off) -> off + a
-        a in TOP -> off - a + TOP.filter { it != a && it in earned }
-        else -> off - a
-    }
+    fun encode(m: Map<Slot, Accessory>) = m.entries.joinToString(";") { "${it.key.name}=${it.value.name}" }
+    fun decode(s: String): Map<Slot, Accessory> = s.split(';').mapNotNull { e ->
+        val (k, v) = e.split('=').takeIf { it.size == 2 } ?: return@mapNotNull null
+        val slot = Slot.entries.firstOrNull { it.name == k } ?: return@mapNotNull null
+        Accessory.entries.firstOrNull { it.name == v && it.slot == slot }?.let { slot to it }
+    }.toMap()
 }

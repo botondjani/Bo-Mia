@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.tend.core.Accessory
+import app.tend.core.slot
 import app.tend.core.Avatar
 import app.tend.core.Clearing
 import app.tend.core.SpotKind
@@ -138,14 +139,18 @@ fun ClearingScreen(
     /** The level (as seen): what the shop has open, and the extra small spot. */
     level: Int = 1,
     onPlus: () -> Unit = {},
-    /** The seasons' outfits bought, the one worn, and buying or putting one on (null: off). */
+    /** The outfits bought, and buying one (it goes on). */
     outfits: Set<app.tend.core.Accessory> = emptySet(),
-    outfitWorn: app.tend.core.Accessory? = null,
     onBuyOutfit: (app.tend.core.Accessory) -> Boolean = { false },
-    onWearOutfit: (app.tend.core.Accessory?) -> Unit = {},
+    /** Bo's wardrobe: everything owned, what's chosen per place, emptying a place, and dressing by itself. */
+    owned: Set<Accessory> = worn,
+    chosen: Map<app.tend.core.Slot, Accessory> = emptyMap(),
+    onTakeOff: (app.tend.core.Slot) -> Unit = {},
+    autoDress: Boolean = false,
+    onAutoDress: (Boolean) -> Unit = {},
     /** Opens the challenges (they live on home). */
     onOpenChallenges: () -> Unit = {},
-    /** The habit accessories earned right now (worn or taken off), and putting one on or off. */
+    /** The habits held right now (their things shine), and putting a thing on or off. */
     earned: Set<Accessory> = worn,
     onToggleAccessory: ((Accessory) -> Unit)? = null,
     /** Friends phone-free right now, at the fire (companion, name). */
@@ -364,7 +369,7 @@ fun ClearingScreen(
             pokes.size >= 4 -> "act_stretch" to tr("$n laughs: \"Okay, okay, I'm awake!\"", "$n nevet: „Jó, jó, ébren vagyok!”")
             pokes.size == 3 -> "act_hearts" to tr("$n pokes you back. Fair's fair.", "$n visszabök. Így igazságos.")
             (hour >= 22 || hour < 6) && kotlin.random.Random.nextBoolean() -> "act_stretch" to tr("$n yawns a big yawn. Bedtime soon?", "$n nagyot ásít. Lassan alvás?")
-            outfitWorn != null && kotlin.random.Random.nextInt(3) == 0 -> "act_cheer" to tr("$n straightens the ${outfitWorn.title.lowercase()} and strikes a pose.", "$n megigazítja: ${outfitWorn.title.lowercase()}, és pózol egyet.")
+            worn.any { it.isOutfit } && kotlin.random.Random.nextInt(3) == 0 -> worn.first { it.isOutfit }.let { o -> "act_cheer" to tr("$n straightens the ${o.title.lowercase()} and strikes a pose.", "$n megigazítja: ${o.title.lowercase()}, és pózol egyet.") }
             else -> listOf(
                 "act_cheer" to tr("$n giggles. That tickles!", "$n kuncog. Ez csikiz!"),
                 "act_hearts" to tr("$n blushes a little.", "$n kicsit elpirul."),
@@ -796,9 +801,9 @@ fun ClearingScreen(
             Column(Modifier.sheetBody(0.62f)) {
             var ready by remember { mutableStateOf(false) }
             androidx.compose.runtime.LaunchedEffect(Unit) { androidx.compose.runtime.withFrameNanos { }; ready = true }
-            if (ready) Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, plus = plus, onPlus = onPlus, level = level, startFilter = shopStart, startTab = shopTab, outfits = outfits, outfitWorn = outfitWorn,
+            if (ready) Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, plus = plus, onPlus = onPlus, level = level, startFilter = shopStart, startTab = shopTab, outfits = outfits, worn = worn, avatar = avatar,
                 onBuyOutfit = { a -> onBuyOutfit(a).also { if (it) { tick(firm = true); Sounds.chime(context) } } },
-                onWearOutfit = { tick(); onWearOutfit(it) }, onBuy = { id ->
+                onWearOutfit = { tick(); onToggleAccessory?.invoke(it) }, onBuy = { id ->
                 // Bought: a firm tick, a chime, and up to the camp to watch it pop in.
                 val spot = Things.byId(id)?.let { Clearing.spotFor(placed, it, level) }
                 // Bought: a firm tick and a chime; the shop stays open (it pops into the camp behind it).
@@ -817,9 +822,12 @@ fun ClearingScreen(
         Column(Modifier.sheetBody(0.62f)) {
             Inventory(avatar, placed, chest, onPutAway = { tick(); onPutAway(it) }, onSell = onSell, onTakeOut = { id ->
                 onTakeOut(id).also { ok -> if (ok) { tick(firm = true); chestOpen = false; scope.launch { scroll.animateScrollTo(0) } } }
-            }, onTraded = onFriendsChanged, worn = worn, onShelf = onShelf, earned = earned, onToggleAccessory = onToggleAccessory,
-                outfits = outfits, outfitWorn = outfitWorn, onWearOutfit = { tick(); onWearOutfit(it) },
-                onWardrobe = { chestOpen = false; shopStart = null; shopTab = 1; shopOpen = true })
+            }, onTraded = onFriendsChanged,
+                wardrobe = {
+                    Wardrobe(avatar, worn, chosen, owned, earned, plus, acorns, autoDress, { tick(); onAutoDress(it) },
+                        onToggle = { tick(); onToggleAccessory?.invoke(it) }, onTakeOff = { tick(); onTakeOff(it) },
+                        onBuy = { a -> onBuyOutfit(a).also { if (it) { tick(firm = true); Sounds.chime(context) } } }, onPlus = onPlus)
+                })
         }
     }
     // Achievements: the milestones, and what the companion earns by habits.
@@ -827,7 +835,7 @@ fun ClearingScreen(
         Column(Modifier.sheetBody(0.62f), verticalArrangement = Arrangement.spacedBy(Space.m)) {
             Text(tr("Achievements", "Eredmények"), style = MaterialTheme.typography.headlineSmall)
             totals?.let { MilestonesCard(it) }
-            Things(avatar, worn, onShelf, earned, onToggleAccessory)
+            Things(avatar, worn, emptySet(), owned, onToggleAccessory)
         }
     }
     if (bookOpen) androidx.compose.material3.ModalBottomSheet(onDismissRequest = { bookOpen = false }, containerColor = Brand.Sage, sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
@@ -899,7 +907,7 @@ private const val CAMP_ASPECT = 1.4f
 @Composable
 private fun Shop(
     acorns: Int, placed: Map<Int, String>, earnedToday: Int, name: String, plus: Boolean, onPlus: () -> Unit,
-    outfits: Set<app.tend.core.Accessory>, outfitWorn: app.tend.core.Accessory?, onBuyOutfit: (app.tend.core.Accessory) -> Boolean, onWearOutfit: (app.tend.core.Accessory?) -> Unit,
+    outfits: Set<app.tend.core.Accessory>, worn: Set<Accessory>, avatar: Avatar, onBuyOutfit: (app.tend.core.Accessory) -> Boolean, onWearOutfit: (app.tend.core.Accessory) -> Unit,
     onBuy: (String) -> Boolean, onSell: (String) -> Unit,
     chest: List<String> = emptyList(), onPutAway: (String) -> Unit = {}, onTakeOut: (String) -> Boolean = { false },
     level: Int = 1,
@@ -978,12 +986,9 @@ private fun Shop(
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
                         row.forEach { a ->
                             val owned = a in outfits
-                            OutfitTile(a, owned, worn = a == outfitWorn, affordable = plus && acorns >= app.tend.core.Accessory.OUTFIT_PRICE, Modifier.weight(1f)) {
-                                when {
-                                    owned -> onWearOutfit(if (a == outfitWorn) null else a)
-                                    plus -> outfitOpen = a
-                                    else -> onPlus()
-                                }
+                            OutfitTile(a, owned, worn = a in worn, affordable = plus && acorns >= app.tend.core.Accessory.OUTFIT_PRICE, Modifier.weight(1f)) {
+                                // Owned: on or off. Not yet: tried on first.
+                                if (owned) onWearOutfit(a) else outfitOpen = a
                             }
                         }
                         repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
@@ -1011,13 +1016,17 @@ private fun Shop(
     outfitOpen?.let { a ->
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { outfitOpen = null },
-            icon = { androidx.compose.foundation.Image(remember(a) { CharacterPainter.accessoryIcon(a, 240).asImageBitmap() }, null, Modifier.size(84.dp)) },
+            // Tried on: Bo, big, wearing it (in the place of what's there now).
+            icon = { TryOn(avatar, worn, a) },
             title = { Text(a.title) },
             text = { Text(tr("For ${name} to wear, now and every season after. You can take it off any time.", "${name} viselheti, most és minden későbbi évszakban. Bármikor leveheted róla.")) },
             confirmButton = {
                 val price = app.tend.core.Accessory.OUTFIT_PRICE
-                if (acorns >= price) androidx.compose.material3.TextButton(onClick = { if (onBuyOutfit(a)) outfitOpen = null }) { Text(tr("Get it for $price", "Megveszem $price makkért"), color = Brand.Moss) }
-                else androidx.compose.material3.TextButton(onClick = { outfitOpen = null }) { Text(tr("${price - acorns} more acorns to go", "Még ${price - acorns} makk kell hozzá"), color = Brand.Muted) }
+                when {
+                    !plus -> androidx.compose.material3.TextButton(onClick = { outfitOpen = null; onPlus() }) { Text(tr("With Plus", "Plusszal"), color = Brand.Moss) }
+                    acorns >= price -> androidx.compose.material3.TextButton(onClick = { if (onBuyOutfit(a)) outfitOpen = null }) { Text(tr("Get it for $price", "Megveszem $price makkért"), color = Brand.Moss) }
+                    else -> androidx.compose.material3.TextButton(onClick = { outfitOpen = null }) { Text(tr("${price - acorns} more acorns to go", "Még ${price - acorns} makk kell hozzá"), color = Brand.Muted) }
+                }
             },
             dismissButton = { androidx.compose.material3.TextButton(onClick = { outfitOpen = null }) { Text(tr("Close", "Bezárás")) } },
             containerColor = Brand.Card,
@@ -1071,10 +1080,8 @@ private fun Shop(
 @Composable
 private fun Inventory(
     avatar: Avatar, placed: Map<Int, String>, chest: List<String>, onPutAway: (String) -> Unit, onSell: (String) -> Unit, onTakeOut: (String) -> Boolean, onTraded: () -> Unit,
-    worn: Set<Accessory>, onShelf: Set<Accessory>, earned: Set<Accessory>, onToggleAccessory: ((Accessory) -> Unit)?,
-    outfits: Set<Accessory>, outfitWorn: Accessory?, onWearOutfit: (Accessory?) -> Unit,
-    /** Opens the shop on its outfits. */
-    onWardrobe: () -> Unit = {},
+    /** The companion's tab: the wardrobe. */
+    wardrobe: @Composable () -> Unit = {},
 ) = Column(verticalArrangement = Arrangement.spacedBy(Space.s)) {
     var tab by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
     var open by remember { mutableStateOf<app.tend.core.Thing?>(null) }
@@ -1101,35 +1108,7 @@ private fun Inventory(
         0 -> grid(placed.values.filterNot(app.tend.core.Home::isHome), false)
         1 -> if (chest.isEmpty()) Text(tr("Empty. Put things away here to make room in the camp; presents from friends come here once you open them by the fire.", "Üres. Ide teheted el, amit most nem szeretnél kint látni; a barátaid ajándékai is ide kerülnek, ha kibontod őket a tűz mellett."), style = MaterialTheme.typography.bodyMedium)
             else grid(chest, true)
-        else -> {
-            // The outfits: the ones bought, and the way to the rest (in the shop).
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(tr("OUTFITS", "RUHÁK"), style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.weight(1f))
-                Text(
-                    tr("More in the shop →", "Több a boltban →"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
-                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onWardrobe).padding(horizontal = 6.dp, vertical = 4.dp),
-                )
-            }
-            if (outfits.isEmpty()) Text(tr("None yet: hats, glasses and more are in the shop.", "Még nincs: sapkák, szemüvegek és társaik a boltban."), style = MaterialTheme.typography.bodyMedium)
-            if (outfits.isNotEmpty()) {
-                outfits.sortedBy { it.ordinal }.chunked(4).forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        row.forEach { a -> OutfitTile(a, owned = true, worn = a == outfitWorn, affordable = true, Modifier.weight(1f)) { onWearOutfit(if (a == outfitWorn) null else a) } }
-                        repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
-                    }
-                }
-            }
-            // What's been earned by habits: on or off with a tap (how to earn the rest: Achievements).
-            Text(tr("EARNED", "MEGSZERZETT"), style = MaterialTheme.typography.labelSmall, color = Brand.Muted)
-            val mine = Accessory.habits.filter { it in earned }
-            if (mine.isEmpty()) Text(tr("Nothing yet: do an activity and ${avatar.displayName} gets a lucky leaf.", "Még semmi: csinálj meg egy tevékenységet, és ${avatar.displayName} kap egy szerencselevelet."), style = MaterialTheme.typography.bodyMedium)
-            mine.chunked(4).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    row.forEach { a -> OutfitTile(a, owned = true, worn = a in worn, affordable = true, Modifier.weight(1f)) { onToggleAccessory?.invoke(a) } }
-                    repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
-                }
-            }
-        }
+        else -> wardrobe()
     }
     open?.let { t ->
         val stored = t.id in chest
@@ -1492,3 +1471,109 @@ private fun OpenedGift(o: app.tend.data.TendStore.Opened, left: Int, onTakeOut: 
         containerColor = Brand.Card,
     )
 }
+
+/** Bo wearing [a] in its place, instead of what's there: for trying things on. */
+@Composable
+private fun TryOn(avatar: Avatar, worn: Set<Accessory>, a: Accessory?, size: androidx.compose.ui.unit.Dp = 120.dp) {
+    val shown = if (a == null) worn else worn.filter { it.slot != a.slot }.toSet() + a
+    androidx.compose.runtime.CompositionLocalProvider(LocalAccessories provides shown) {
+        CharacterView(avatar, app.tend.core.Mood.HAPPY, size)
+    }
+}
+
+/**
+ * Bo's wardrobe: Bo, big, and the four places (head, eyes, neck, extra), each with what's on it or
+ * nothing. A place opens to everything for it: what's yours goes on with a tap, what isn't yet is
+ * tried on and says how to get it. Things whose habit holds right now shine. And: dressing by itself.
+ */
+@Composable
+internal fun Wardrobe(
+    avatar: Avatar, worn: Set<Accessory>, chosen: Map<app.tend.core.Slot, Accessory>, owned: Set<Accessory>, active: Set<Accessory>,
+    plus: Boolean, acorns: Int, autoDress: Boolean, onAutoDress: (Boolean) -> Unit,
+    onToggle: (Accessory) -> Unit, onTakeOff: (app.tend.core.Slot) -> Unit, onBuy: (Accessory) -> Boolean, onPlus: () -> Unit,
+) = Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    var place by remember { mutableStateOf<app.tend.core.Slot?>(null) }
+    var trying by remember { mutableStateOf<Accessory?>(null) }
+    val season = app.tend.core.Season.of(java.time.LocalDate.now())
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { TryOn(avatar, worn, trying, 132.dp) }
+    trying?.let { a ->
+        // Tried on: how to get it, and the button when it's for sale now.
+        val forSale = a.isOutfit && (a.always || a.outfit == season)
+        val price = Accessory.OUTFIT_PRICE
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Brand.Card).padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(a.title, style = MaterialTheme.typography.labelLarge)
+                Text(if (forSale) tr("In the shop, $price acorns", "A boltban, $price makk") else a.how, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp))
+            }
+            if (forSale) Text(
+                when { !plus -> tr("With Plus", "Plusszal"); acorns >= price -> tr("Get it", "Megveszem"); else -> tr("${price - acorns} to go", "még ${price - acorns}") },
+                style = MaterialTheme.typography.labelLarge, color = if (!plus || acorns >= price) Brand.Moss else Brand.Muted,
+                modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable {
+                    when { !plus -> onPlus(); acorns >= price -> if (onBuy(a)) trying = null }
+                }.padding(horizontal = 8.dp, vertical = 6.dp),
+            )
+        }
+    }
+    app.tend.core.Slot.entries.forEach { slot ->
+        val on = chosen[slot]
+        val open = place == slot
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if (open) Brand.Picked else Brand.Card)
+                .tappable { place = if (open) null else slot; trying = null }.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(slot.title.uppercase(), style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.width(64.dp))
+            if (on != null) Box(Modifier.size(30.dp).clip(CircleShape).background(IconChip), contentAlignment = Alignment.Center) {
+                androidx.compose.foundation.Image(remember(on) { CharacterPainter.accessoryIcon(on, 96).asImageBitmap() }, null, Modifier.size(26.dp))
+            }
+            Spacer(Modifier.width(8.dp))
+            Text(on?.title ?: tr("Nothing", "Semmi"), style = MaterialTheme.typography.bodyLarge, color = if (on != null) Brand.Ink else Brand.Muted, modifier = Modifier.weight(1f))
+            Text(if (open) tr("Close", "Bezár") else tr("Change", "Csere"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+        }
+        if (open) {
+            // Yours first, then the rest (faded, with how to get them).
+            val all = Accessory.entries.filter { it.slot == slot }.sortedBy { if (it in owned) 0 else 1 }
+            androidx.compose.foundation.layout.FlowRow(maxItemsInEachRow = 4, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                WardrobeTile(null, picked = on == null, mine = true, shines = false, Modifier.weight(1f)) { onTakeOff(slot); trying = null }
+                all.forEach { a ->
+                    val mine = a in owned
+                    WardrobeTile(a, picked = a == on, mine = mine, shines = mine && a in active, Modifier.weight(1f)) {
+                        if (mine) { trying = null; if (a != on) onToggle(a) } else trying = a
+                    }
+                }
+                repeat((4 - (all.size + 1) % 4) % 4) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Brand.Card).padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(tr("${avatar.displayName} dresses itself", "${avatar.displayName} öltözzön magától"), style = MaterialTheme.typography.bodyLarge)
+            Text(tr("From its own things, by the weather and the season. At night: the nightcap.", "A saját holmijából, időjárás és évszak szerint. Éjjel hálósapkában."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp))
+        }
+        androidx.compose.material3.Switch(autoDress, onAutoDress, colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = Brand.Moss))
+    }
+}
+
+/** One thing in a wardrobe place (null: nothing): its picture and name; faded when not yours yet, a gold ring when its habit holds. */
+@Composable
+private fun WardrobeTile(a: Accessory?, picked: Boolean, mine: Boolean, shines: Boolean, modifier: Modifier, onTap: () -> Unit) = Column(
+    modifier.clip(RoundedCornerShape(14.dp)).background(if (picked) Brand.Picked else Brand.Card)
+        .then(if (shines) Modifier.border(2.dp, Brand.Sunny, RoundedCornerShape(14.dp)) else Modifier)
+        .tappable(onClick = onTap).padding(vertical = 6.dp, horizontal = 2.dp),
+    horizontalAlignment = Alignment.CenterHorizontally,
+) {
+    Box(Modifier.size(38.dp).clip(CircleShape).background(if (a != null) IconChip else Color.Transparent), contentAlignment = Alignment.Center) {
+        if (a != null) androidx.compose.foundation.Image(remember(a) { CharacterPainter.accessoryIcon(a, 120).asImageBitmap() }, null, Modifier.size(32.dp).graphicsLayer { alpha = if (mine) 1f else 0.35f })
+        else Text("–", style = MaterialTheme.typography.titleLarge, color = Brand.Muted)
+    }
+    Text(a?.title ?: tr("Nothing", "Semmi"), style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp), maxLines = 1,
+        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, color = if (mine) Brand.Ink else Brand.Muted)
+    Text(
+        when { picked -> tr("Wearing", "Rajta van"); a == null -> tr("Take off", "Leveszi"); mine -> tr("Put on", "Felveszi"); a.isOutfit -> tr("Shop", "Bolt"); else -> a.short },
+        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        color = if (picked) Brand.Moss else Brand.Muted,
+    )
+}
+
+/** Behind a thing's picture: light in both themes, so the ink-drawn glasses stay visible. */
+private val IconChip: Color @Composable get() = if (Brand.dark) Color(0xFFDCE2DD) else Color.Transparent

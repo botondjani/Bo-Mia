@@ -78,7 +78,7 @@ internal fun Things(avatar: Avatar, worn: Set<Accessory>, onShelf: Set<Accessory
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(tr("${avatar.displayName}'s things", "${avatar.displayName} holmija"), style = MaterialTheme.typography.titleLarge)
-            Text(tr("Earned by doing, kept while the habit holds. Tap one to put it on or take it off. Faded ones wait on the shelf.", "Tettekkel szerzi, és megmarad, amíg a szokás tart. Koppintással adhatod rá vagy veheted le. Ami kikopott, a polcon vár."), style = MaterialTheme.typography.bodyMedium)
+            Text(tr("Earned by doing, and kept for good. Tap one to put it on or take it off.", "Tettekkel szerzi, és örökre megmarad. Koppintással adhatod rá vagy veheted le."), style = MaterialTheme.typography.bodyMedium)
             androidx.compose.foundation.layout.FlowRow(
                 maxItemsInEachRow = 3,
                 horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(12.dp),

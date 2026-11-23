@@ -174,23 +174,28 @@ class WelcomeBackTest {
         org.junit.Assert.assertTrue(Moods.line(BudgetConfig(), done, listOf(Tasks.READ), welcomeBack = true).startsWith("Today we already"))
     }
 
-    @Test fun `accessories go on and off, one at a time on top of the head`() {
-        val earned = setOf(Accessory.HAT, Accessory.NIGHTCAP, Accessory.LEAF, Accessory.GLASSES)
-        // Nothing chosen yet: the hat is on top, the glasses with it.
-        assertEquals(setOf(Accessory.HAT, Accessory.GLASSES), Accessories.worn(earned, emptySet()))
-        // Tap the nightcap: it takes the hat's place.
-        var off = Accessories.toggle(Accessory.NIGHTCAP, earned, emptySet())
-        assertEquals(setOf(Accessory.NIGHTCAP, Accessory.GLASSES), Accessories.worn(earned, off))
-        // Tap it again: off, and nothing else jumps on by itself.
-        off = Accessories.toggle(Accessory.NIGHTCAP, earned, off)
-        assertEquals(setOf(Accessory.GLASSES), Accessories.worn(earned, off))
-        // Glasses off and on again.
-        off = Accessories.toggle(Accessory.GLASSES, earned, off)
-        assertTrue(Accessories.worn(earned, off).isEmpty())
-        off = Accessories.toggle(Accessory.GLASSES, earned, off)
-        assertEquals(setOf(Accessory.GLASSES), Accessories.worn(earned, off))
-        // One not earned can't be put on.
-        assertEquals(off, Accessories.toggle(Accessory.BOWTIE, earned, off))
+    @Test fun `the wardrobe keeps one thing per place`() {
+        // Earlier versions' worn set: the hat went before the nightcap and the leaf; a bought hat before both.
+        assertEquals(mapOf(Slot.HEAD to Accessory.HAT, Slot.EYES to Accessory.GLASSES, Slot.DECOR to Accessory.LEAF),
+            Accessories.fromOld(setOf(Accessory.NIGHTCAP, Accessory.HAT, Accessory.LEAF, Accessory.GLASSES)))
+        assertEquals(Accessory.BERET, Accessories.fromOld(setOf(Accessory.HAT, Accessory.BERET))[Slot.HEAD])
+        // Saved and read back; an unknown or misplaced one is dropped.
+        val m = mapOf(Slot.HEAD to Accessory.CROWN, Slot.NECK to Accessory.SCARF)
+        assertEquals(m, Accessories.decode(Accessories.encode(m)))
+        assertEquals(emptyMap<Slot, Accessory>(), Accessories.decode("HEAD=SCARF;EYES=NOPE;"))
+        // Shown: one per place.
+        assertEquals(setOf(Accessory.CROWN), Accessories.shown(setOf(Accessory.CROWN, Accessory.HAT)))
+    }
+
+    @Test fun `dressing by itself follows the season and the weather, from its own things`() {
+        val owned = setOf(Accessory.BOBBLE_HAT, Accessory.SCARF, Accessory.SUNGLASSES, Accessory.HAT, Accessory.GLASSES)
+        val chosen = mapOf(Slot.EYES to Accessory.GLASSES, Slot.HEAD to Accessory.HAT)
+        assertEquals(mapOf(Slot.EYES to Accessory.GLASSES, Slot.HEAD to Accessory.BOBBLE_HAT, Slot.NECK to Accessory.SCARF),
+            Accessories.auto(owned, chosen, Season.WINTER, Weather.CLEAR))
+        assertEquals(Accessory.SUNGLASSES, Accessories.auto(owned, chosen, Season.SUMMER, Weather.CLEAR)[Slot.EYES])
+        assertEquals(Accessory.GLASSES, Accessories.auto(owned, chosen, Season.SUMMER, Weather.RAIN)[Slot.EYES])
+        // Not owned: what was chosen stays.
+        assertEquals(chosen, Accessories.auto(setOf(Accessory.GLASSES, Accessory.HAT), chosen, Season.SPRING, null))
     }
 
     @Test fun `tips take turns, every other day, a few days each`() {
