@@ -270,7 +270,7 @@ class InterstitialActivity : ComponentActivity() {
         // Just answering someone: in at once, for a few minutes, a few times a day (not in strict mode).
         val quick = store.quickLooksLeft()
         if (quick > 0) Text(
-            tr("I just need to check something · $REPLY_MINUTES\u00A0min, now", "Csak megnézek valamit · $REPLY_MINUTES\u00A0perc, most") +
+            tr("Quick look · $REPLY_MINUTES\u00A0min, now", "Gyors belesés · $REPLY_MINUTES\u00A0perc, most") +
                 if (quick <= 2) tr(" ($quick left today)", " (ma még $quick)") else "",
             style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
@@ -409,7 +409,7 @@ class InterstitialActivity : ComponentActivity() {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Header(View(label, locked = false, opensToday = 0, delaySeconds = 0, remaining = 0, evening = false, focus = true))
             Text(
-                tr("${task.title} with ${store.avatar.displayName}: $left min to go. Every app rests until then, not only the paused ones. Calls and the clock stay open.", "${task.title} · ${store.avatar.displayName} veled tart: még $left perc. Addig minden app pihen, nem csak a szüneteltetettek. A hívások és az óra elérhetők."),
+                tr("${task.title} with ${store.avatar.displayName}: $left min to go. Every app rests until then, not only the paused ones. Calls and the clock stay open.", "${task.title} · ${store.avatar.displayName} veled tart: még $left perc. Addig minden app pihen, nem csak a kiválasztottak. A hívások és az óra elérhetők."),
                 style = MaterialTheme.typography.bodyLarge,
             )
         }

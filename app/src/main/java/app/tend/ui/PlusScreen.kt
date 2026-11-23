@@ -81,7 +81,7 @@ fun PlusScreen(
         Feature("flower", tr("The season's own things", "Az évszak saját tárgyai"), tr("Three new ones every season, yours to keep.", "Évszakonként három új, és örökre a tiéd."))
     }
     Text(
-        tr("Free stays free: the pause, your minutes, activities, the camp and friends.", "Ami ingyenes, az is marad: a szünet, a perceid, a tevékenységek, a tábor és a barátok."),
+        tr("Free stays free: the pause, your minutes, activities, the camp and friends.", "Ami ingyenes, az is marad: a Megállító, a perceid, a tevékenységek, a tábor és a barátok."),
         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp), textAlign = TextAlign.Center, color = Brand.Muted,
     )
     if (!paid && !included) {

@@ -205,7 +205,7 @@ fun SleepScreen(avatar: Avatar, placed: Map<Int, String>, worn: Set<Accessory>, 
         }
         Text(tr("Good night", "Jó éjt"), style = MaterialTheme.typography.headlineMedium, color = Color(0xFFF3EBC8))
         Text(
-            tr("Your paused apps rest until 7:00. Only \"Not now\" until then.", "A szüneteltetett appjaid 7:00-ig pihennek. Addig csak „Most nem” van.") + if (earned > 0) tr("\n+$earned acorns for an early night.", "\n+$earned makk a korai lefekvésért.") else "",
+            tr("Your paused apps rest until 7:00. Only \"Not now\" until then.", "A kiválasztott appjaid 7:00-ig pihennek. Addig csak „Most nem” van.") + if (earned > 0) tr("\n+$earned acorns for an early night.", "\n+$earned makk a korai lefekvésért.") else "",
             style = MaterialTheme.typography.bodyLarge, color = Color(0xFFF3EBC8).copy(alpha = 0.8f), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
     }

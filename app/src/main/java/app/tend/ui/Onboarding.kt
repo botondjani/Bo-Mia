@@ -671,7 +671,7 @@ fun BudgetSteppers(cfg: BudgetConfig, onConfig: (BudgetConfig) -> Unit) {
     }
     Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp).background(Brand.Sage))
     Text(tr("These count too", "Ezek is beleszámítanak"), style = MaterialTheme.typography.titleMedium)
-    Text(tr("No pause pops up, their time just comes off the same minutes", "Szünet nem ugrik fel, csak az idejük fogy ugyanabból a keretből"), style = MaterialTheme.typography.bodyMedium)
+    Text(tr("No pause pops up, their time just comes off the same minutes", "Megállító nem ugrik fel, csak az idejük fogy ugyanabból a keretből"), style = MaterialTheme.typography.bodyMedium)
     Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         listOf(AppKinds.SOCIAL to tr("Social", "Közösségi"), AppKinds.VIDEO to tr("Video", "Videó"), AppKinds.GAMES to tr("Games", "Játékok")).forEach { (kind, label) ->
             val on = kind in cfg.counted
@@ -718,7 +718,7 @@ fun PermissionSteps(perms: PermissionActions) {
     val n = if (unlock) 1 else 0
     // Overlay first: once it's granted, tend can bring itself back to the front after each switch.
     PermissionCard(
-        number = n + 1, title = tr("Display over other apps", "Megjelenítés más appok fölött"), why = tr("So the apps can close when your minutes run out (and a pause can show, if you ask for one).", "Hogy az appok bezárhassanak, ha elfogyott a perced (és szünet jöhessen, ha kérsz)."),
+        number = n + 1, title = tr("Display over other apps", "Megjelenítés más appok fölött"), why = tr("So the apps can close when your minutes run out (and a pause can show, if you ask for one).", "Hogy az appok bezárhassanak, ha elfogyott a perced, és megjelenhessen a Megállító."),
         granted = p.overlay, active = !unlock && !p.overlay, blocked = perms.overlayBlocked,
         onAllow = perms.requestOverlay, onAppInfo = perms.openAppInfo,
     )
@@ -914,7 +914,7 @@ fun LimitedModeDialog(p: Permissions, onConfirm: () -> Unit, onDismiss: () -> Un
                 style = MaterialTheme.typography.bodyLarge,
             )
             if (p.usageAccess && !p.overlay) Text(
-                tr("Without \"display over other apps\", there's no pause before scrolling. tend still counts your minutes and sends a gentle notification instead.", "A „megjelenítés más appok fölött” engedély nélkül nincs szünet görgetés előtt. A tend így is számolja a perceidet, és helyette egy halk értesítést küld."),
+                tr("Without \"display over other apps\", there's no pause before scrolling. tend still counts your minutes and sends a gentle notification instead.", "A „megjelenítés más appok fölött” engedély nélkül nincs Megállító görgetés előtt. A tend így is számolja a perceidet, és helyette egy halk értesítést küld."),
                 style = MaterialTheme.typography.bodyLarge,
             )
             Text(tr("You can turn the switches on any time from the home screen.", "A kapcsolókat a főoldalról bármikor bekapcsolhatod."), style = MaterialTheme.typography.bodyMedium)

@@ -114,6 +114,7 @@ class MonitorService : Service() {
         val prefs = getSharedPreferences("tend_monitor", MODE_PRIVATE)
         val lastBeat = prefs.getLong("heartbeat", 0)
         val gap = (System.currentTimeMillis() - lastBeat) / 1000
+        store.moveSettings() // an update can start the monitor before tend is opened
         if (lastBeat > 0 && gap > GAP_LOG_SECONDS) store.logMiss("monitor_not_running_${gap}s")
         // Stopped for over 10 minutes while the phone was on: likely a battery saver. Home offers a fix.
         if (lastBeat > 0 && gap > 600 && store.onboarded) store.monitorSlept = true
@@ -387,7 +388,7 @@ class MonitorService : Service() {
         val text = if (app.tend.core.Budget.isLocked(cfg, day)) tr("Out of minutes for today. ${store.avatar.displayName} is here if you want to earn some.", "Mára elfogytak a percek. ${store.avatar.displayName} itt van, ha szereznél párat.")
             else tr("${app.tend.core.Budget.remainingMinutes(cfg, day)} min left today. Worth it right now?", "Ma még ${app.tend.core.Budget.remainingMinutes(cfg, day)} perced van. Megéri most?")
         val nm = getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(NUDGE_CHANNEL, tr("Pause nudges", "Szünet-emlékeztetők"), NotificationManager.IMPORTANCE_HIGH))
+        nm.createNotificationChannel(NotificationChannel(NUDGE_CHANNEL, tr("Pause nudges", "Megállító-emlékeztetők"), NotificationManager.IMPORTANCE_HIGH))
         val open = PendingIntent.getActivity(this, 3, InterstitialActivity.intent(this, pkg), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         nm.notify(
             3,

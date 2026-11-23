@@ -11,7 +11,7 @@ enum class Step(val title: String, val how: String, val acorns: Int, val round: 
     PLACE(tr("Get something for your camp", "Szerezz valamit a táborodba"), tr("Camp → Shop", "Tábor → Bolt"), 10, 0),
     USE(tr("Watch your companion use it", "Nézd meg, ahogy a társad használja"), tr("Tap a thing in the camp", "Koppints egy tárgyra a táborban"), 10, 0),
     MOVE(tr("Move something in your camp", "Tegyél arrébb valamit a táborban"), tr("Camp → hold a thing, then drag it", "Tábor → tartsd nyomva, aztán húzd"), 10, 0),
-    NOT_NOW(tr("Say \"Not now\" once", "Mondd egyszer: „Most nem”"), tr("When a paused app opens", "Amikor megnyílik egy szüneteltetett app"), 10, 0),
+    NOT_NOW(tr("Say \"Not now\" once", "Mondd egyszer: „Most nem”"), tr("When a paused app opens", "Amikor megjelenik a Megállító"), 10, 0),
     WIDGET(tr("Swap the tend icon for Bo", "Cseréld a tend ikonját Bo-ra"), tr("Add the 1×1 widget; it opens tend too", "Tedd ki az 1×1-es widgetet; az is megnyitja a tendet"), 10, 0),
     FRIEND(tr("Invite a friend", "Hívj meg egy barátot"), tr("Camp → Friends → Invite", "Tábor → Barátok → Meghívás"), 15, 0),
 

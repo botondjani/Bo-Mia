@@ -326,7 +326,7 @@ fun HomeScreen(
             "sparkle", if (plusDaysLeft <= 1) tr("Last day of tend Plus", "A tend Plus utolsó napja") else tr("$plusDaysLeft more day${if (plusDaysLeft == 1) "" else "s"} of tend Plus", "Még $plusDaysLeft nap tend Plus"),
             tr("See what stays free and what Plus keeps", "Nézd meg, mi marad ingyen, és mit tart meg a Plus"), onPlus,
         )
-        if (pausedUntil > System.currentTimeMillis()) Notice("sun", tr("On a break until ${breakEnd(pausedUntil)}", "Szünet eddig: ${breakEnd(pausedUntil)}"), tr("No pauses, locks or counting. Tap to come back.", "Nincs szünet-képernyő, zárás, számolás. Koppints, ha visszajönnél."), onResume)
+        if (pausedUntil > System.currentTimeMillis()) Notice("sun", tr("Day off until ${breakEnd(pausedUntil)}", "Szabadnap eddig: ${breakEnd(pausedUntil)}"), tr("No pauses, locks or counting. Tap to come back.", "Nincs Megállító, zárás, számolás. Koppints, ha visszajönnél."), onResume)
         // After "Good night": the paused apps rest until morning, with a way back.
         else if (sleeping) {
             // Waking them takes a moment's thought: a dialog, and a button held for a few seconds.
@@ -350,7 +350,7 @@ fun HomeScreen(
         when {
             !permissions.usageAccess -> Notice("alert", tr("Limited mode", "Korlátozott mód"), tr("${avatar.displayName} can't see screen time. Tap to turn it on.", "${avatar.displayName} nem látja a képernyőidőt. Koppints, és bekapcsolhatod."), onFixPermissions)
             !permissions.overlay -> Notice(
-                "alert", if (remaining <= 0) tr("Out of minutes, but your apps are open", "Elfogytak a percek, de az appjaid nyitva vannak") else tr("No pause before scrolling", "Nincs szünet görgetés előtt"),
+                "alert", if (remaining <= 0) tr("Out of minutes, but your apps are open", "Elfogytak a percek, de az appjaid nyitva vannak") else tr("No pause before scrolling", "Nincs Megállító görgetés előtt"),
                 if (remaining <= 0) tr("tend can only notify you, not close them. Tap to fix.", "A tend csak értesíteni tud, bezárni nem. Koppints, és megjavítjuk.") else tr("Only a notification for now. Tap to fix.", "Egyelőre csak értesítés jön. Koppints, és megjavítjuk."), onFixPermissions,
             )
         }
@@ -633,7 +633,7 @@ private fun NextSteps(
     val name = avatar.displayName
     val steps = listOfNotNull(
         // First, so the pause keeps working: one "Allow" in a system dialog.
-        if (battery) Step("sparkle", tr("Keep $name awake", "Maradjon ébren: $name"), tr("Keeps the pause working in the background.", "Így a szünet a háttérben is működik."), tr("Allow", "Engedélyezem"), onBattery) else null,
+        if (battery) Step("sparkle", tr("Keep $name awake", "Maradjon ébren: $name"), tr("Keeps the pause working in the background.", "Így a Megállító a háttérben is működik."), tr("Allow", "Engedélyezem"), onBattery) else null,
         health?.let {
             Step(
                 "heart", "Health Connect",
@@ -641,11 +641,11 @@ private fun NextSteps(
             )
         },
         if (widget) Step("sun", tr("Home screen widget", "Widget a kezdőképernyőre"), tr("$name at a glance, next to your apps.", "$name egy pillantásra, az appjaid mellett."), tr("Add", "Hozzáadás"), onWidget) else null,
-        if (notes) Step("moon", tr("Calm evenings", "Nyugodt esték"), tr("An evening recap, sleepy pauses at night and a Sunday letter.", "Esti összefoglaló, álmos szünetek éjjel és egy vasárnapi levél."), tr("Turn on", "Bekapcsolom"), onNotes) else null,
+        if (notes) Step("moon", tr("Calm evenings", "Nyugodt esték"), tr("An evening recap, sleepy pauses at night and a Sunday letter.", "Esti összefoglaló, álmos Megállító éjjel és egy vasárnapi levél."), tr("Turn on", "Bekapcsolom"), onNotes) else null,
         // Last: an account keeps the camp safe and lets friends in (setup doesn't ask for one).
         if (account) Step("friends", tr("Keep your camp safe", "Tartsd biztonságban a táborod"), tr("A backup, and friends at your fire.", "Mentés, és barátok a tüzednél."), tr("Log in", "Belépés"), onAccount) else null,
         // Then: a pause before the apps that pull hardest (only the minutes count until then).
-        if (pause) Step("sparkle", tr("A pause before an app", "Szünet egy app előtt"), tr("A few seconds before, say, Instagram opens.", "Pár másodperc, mielőtt mondjuk az Instagram megnyílik."), tr("Set up", "Beállítom"), onPause) else null,
+        if (pause) Step("sparkle", tr("A pause before an app", "Megállító egy app előtt"), tr("A few seconds before, say, Instagram opens.", "Pár másodperc, mielőtt mondjuk az Instagram megnyílik."), tr("Set up", "Beállítom"), onPause) else null,
     )
     val pager = androidx.compose.foundation.pager.rememberPagerState { steps.size }
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1083,7 +1083,7 @@ private fun FocusTimerContent(
         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
     ) else Text(
         tr("${avatar.displayName} is ${if (task.id == Tasks.LEARN.id) "learning" else "reading"} with you. +${task.rewardMinutes} min when the timer ends. ", "${avatar.displayName} veled ${if (task.id == Tasks.LEARN.id) "tanul" else "olvas"}. +${task.rewardMinutes} perc, amikor lejár az időzítő. ") +
-            tr("You can leave tend; opening a paused app ends the session.", "Kiléphetsz a tendből; ha megnyitsz egy szüneteltetett appot, az véget vet neki."),
+            tr("You can leave tend; opening a paused app ends the session.", "Kiléphetsz a tendből; ha megnyitsz egy kiválasztott appot, az véget vet neki."),
         style = MaterialTheme.typography.bodyMedium,
         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
     )

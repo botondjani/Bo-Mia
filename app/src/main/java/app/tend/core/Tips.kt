@@ -11,7 +11,7 @@ enum class Tip {
         MOVE -> tr("Tip: you can move things around", "Tipp: a tárgyakat átrendezheted")
         WIDGET -> tr("Tip: put $name on your home screen", "Tipp: tedd ki a widgetet")
         TOWN -> tr("Tip: add your town for real weather", "Tipp: állítsd be a városod")
-        PAUSE -> tr("Tip: ask for a pause before an app opens", "Tipp: kérj szünetet egy app megnyitása előtt")
+        PAUSE -> tr("Tip: ask for a pause before an app opens", "Tipp: legyen Megállító egy app előtt")
         ACCOUNT -> tr("Tip: sign up to keep your camp safe", "Tipp: regisztrálj, hogy megmaradjon a táborod")
     }
 

@@ -124,7 +124,7 @@ object ShareCard {
         card(RectF(52f, 1190f, 52f + faceSize + 16, 1190f + faceSize + 16), (faceSize + 16) / 2f)
         c.drawBitmap(app.tend.ui.CharacterPainter.bitmap(w.avatar, app.tend.core.Mood.HAPPY, faceSize, w.worn), 60f, 1196f, null)
         text("tend", 196f, 1262f, 62f, MOSS, fredoka)
-        text(tr("A little pause before you scroll.", "Egy kis szünet görgetés előtt."), 196f, 1302f, 27f, MUTED, nunito)
+        text(tr("A little pause before you scroll.", "Egy kis megállás görgetés előtt."), 196f, 1302f, 27f, MUTED, nunito)
         val qr = 120
         val qx = W - 52f - 14 - qr; val qy = H - 44f - qr
         card(RectF(qx - 14, qy - 14, qx + qr + 14, qy + qr + 14), 24f)
@@ -144,7 +144,7 @@ object ShareCard {
             else tr("${w.avatar.displayName} and I are building a camp instead of scrolling.", "Görgetés helyett tábort építünk: ${w.avatar.displayName} és én.")
         val send = Intent(Intent.ACTION_SEND).setType("image/png")
             .putExtra(Intent.EXTRA_STREAM, uri)
-            .putExtra(Intent.EXTRA_TEXT, tr("$line\n\ntend: a little pause before you scroll\n${playUrl(activity)}", "$line\n\ntend: egy kis szünet görgetés előtt\n${playUrl(activity)}"))
+            .putExtra(Intent.EXTRA_TEXT, tr("$line\n\ntend: a little pause before you scroll\n${playUrl(activity)}", "$line\n\ntend: egy kis megállás görgetés előtt\n${playUrl(activity)}"))
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         activity.startActivity(Intent.createChooser(send, tr("Share your camp", "Oszd meg a táborod")))
     }

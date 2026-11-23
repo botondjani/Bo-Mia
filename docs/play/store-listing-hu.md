@@ -30,7 +30,7 @@ APPKORLÁT, AMINEK VAN ÉRTELME
 • Hétvégén plusz egy óra, ha elfogyott a keret (te döntesz, és nem marad bekapcsolva)
 
 SZÜNET A LEGERŐSEBB APPOK ELŐTT
-Kérj egy rövid szünetet bármelyik app előtt: Bo felbukkan egy lélegzetvételnyi időre, és gyakran ennyi is elég. A „Most nem” jutalmat ér. Mégis kell? A „Csak megnézek valamit” pár percre megnyitja, és Bo szól, ha letelt.
+A kiválasztott appok előtt megjelenik a Megállító: Bo felbukkan egy lélegzetvételnyi időre, és gyakran ennyi is elég. A „Most nem” jutalmat ér. Mégis kell? A „Gyors belesés” pár percre megnyitja, és Bo szól, ha letelt.
 • Csak a Reels és a Shorts zár be: az üzenetek, a keresés és a sima videók működnek
 • Jó éjt: az appjaid reggel 7:00-ig pihennek, Bo is alszik
 • A heted egy pillantással: a teljes képernyőidőd, ami a keretbe számított, és a túllépett napok

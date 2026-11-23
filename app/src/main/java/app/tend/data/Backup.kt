@@ -17,7 +17,7 @@ object Backup {
     private const val VERSION = 1
     private val HEALTH_KEYS = setOf("day_steps", "day_exercise", "day_sleep")
     /** Which apps are paused, limited or were just opened: this phone's own business. */
-    private val APP_KEYS = setOf("blocked", "app_limits", "app_sec", "app_sec_day", "pass_pkg", "borrow_pkg", "pause_off", "pause_apps")
+    private val APP_KEYS = setOf("blocked", "app_limits", "app_sec", "app_sec_day", "pass_pkg", "borrow_pkg", "pause_off", "pause_apps", "app_modes")
     private val FILES = listOf("history.csv", "answers.csv", "acorns.csv")
 
     /** answers.csv lines are "time,kind,app,answer,seconds": the same without the app. */

@@ -333,10 +333,74 @@ class TendStore(private val context: Context) {
         }
         set(v) = edit { putString("placed", app.tend.core.Clearing.format(v)) }
 
-    /** Picked apps whose pause before opening was turned off, one by one (every picked app pauses unless it's here). */
+    /** Picked apps whose Megállító was turned off, one by one: they only count their time (every picked app stops unless it's here). */
     var pauseOff: Set<String>
-        get() = prefs.getStringSet("pause_off", emptySet())!!.toSet()
-        set(v) = edit { putStringSet("pause_off", v) }
+        get() = appModes.filterValues { it == app.tend.core.AppMode.COUNT }.keys
+        set(v) = edit { putString("app_modes", formatModes(appModes.filterValues { it != app.tend.core.AppMode.COUNT } + v.associateWith { app.tend.core.AppMode.COUNT })) }
+
+    /** What each picked app does when opened, where it isn't the Megállító (the default). */
+    val appModes: Map<String, app.tend.core.AppMode>
+        get() = prefs.getString("app_modes", null)?.let(::parseModes)
+            ?: prefs.getStringSet("pause_off", emptySet())!!.associateWith { app.tend.core.AppMode.COUNT } // before the move
+
+    private fun parseModes(s: String) = s.split(';').mapNotNull { e ->
+        e.split('=').takeIf { it.size == 2 }?.let { (pkg, m) -> runCatching { pkg to app.tend.core.AppMode.valueOf(m) }.getOrNull() }
+    }.toMap()
+
+    private fun formatModes(m: Map<String, app.tend.core.AppMode>) = m.filterValues { it != app.tend.core.AppMode.STOP }.entries.joinToString(";") { "${it.key}=${it.value}" }
+
+    /** How strict tend is (Strict needs Plus; without it, Balanced). */
+    var strictLevel: app.tend.core.StrictLevel
+        get() = enumPref("strict_level", app.tend.core.StrictLevel.BALANCED)
+        set(v) = edit { putString("strict_level", v.name) }
+
+    /** What the evening does to the picked apps. */
+    var eveningMode: app.tend.core.EveningMode
+        get() = enumPref("evening_mode", app.tend.core.EveningMode.SLOW)
+        set(v) = edit { putString("evening_mode", v.name) }
+
+    /** The weekend's extra hour. */
+    var weekendMode: app.tend.core.WeekendMode
+        get() = enumPref("weekend_mode", app.tend.core.WeekendMode.ASK)
+        set(v) = edit { putString("weekend_mode", v.name) }
+
+    /** How much the companion says in notifications. */
+    var notesLevel: app.tend.core.NotesLevel
+        get() = enumPref("notes_level", app.tend.core.NotesLevel.NORMAL)
+        set(v) = edit { putString("notes_level", v.name) }
+
+    private inline fun <reified E : Enum<E>> enumPref(key: String, default: E): E =
+        prefs.getString(key, null)?.let { n -> runCatching { enumValueOf<E>(n) }.getOrNull() } ?: default
+
+    /** The settings were moved to the new shape and that hasn't been said yet (a card says it once). */
+    var settingsMovedNote: Boolean
+        get() = prefs.getBoolean("settings_moved_note", false)
+        set(v) = edit { putBoolean("settings_moved_note", v) }
+
+    /**
+     * Once: the old switches become the new settings (strict mode → a strict level, the bedtime lock
+     * and sleepy pauses → the evening mode, the notes → a notes level, an app's Megállító turned off →
+     * "count only"). Someone who used tend before is told once; a new user just starts with the defaults.
+     */
+    @Synchronized
+    fun moveSettings() {
+        if (prefs.getBoolean("settings_v2", false)) return
+        val moved = app.tend.core.SettingsMove.from(
+            strict = prefs.getBoolean("strict", false) && prefs.getLong("strict_ends", 0) == 0L,
+            bedtimeLock = lockSchedules.firstOrNull { it.label == app.tend.core.LockSchedule.BEDTIME.label }?.on == true,
+            sleepyPauses = eveningPause,
+            morning = notesMorning, nudges = notesNudges, recap = reminderEnabled, letter = weeklyLetter,
+            pauseOff = prefs.getStringSet("pause_off", emptySet())!!,
+        )
+        prefs.edit()
+            .putString("strict_level", moved.strict.name).putString("evening_mode", moved.evening.name)
+            .putString("weekend_mode", moved.weekend.name).putString("notes_level", moved.notes.name)
+            // This phone's app modes stay as they are (a restored backup carries none).
+            .apply { if (!prefs.contains("app_modes")) putString("app_modes", formatModes(moved.countOnly.associateWith { app.tend.core.AppMode.COUNT })) }
+            .remove("pause_off").remove("pause_apps")
+            .putBoolean("settings_v2", true).putBoolean("settings_moved_note", onboarded)
+            .apply()
+    }
 
     /** Picked apps that get a short pause before each open. */
     val pauseApps: Set<String> get() = blockedPackages - pauseOff

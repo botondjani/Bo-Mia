@@ -182,13 +182,13 @@ fun SettingsScreen(
                     }
                     EveningStepper(eveningFrom, onEvening)
                 }
-                SwitchRow(tr("Sleepy pauses", "Álmos szünetek"), tr("The pause waits 10 s and ${avatar.displayName} gets sleepy", "A szünet 10 mp-ig tart, és ${avatar.displayName} elálmosodik"), eveningPause, onEveningPause)
+                SwitchRow(tr("Sleepy pauses", "Álmos Megállító"), tr("The pause waits 10 s and ${avatar.displayName} gets sleepy", "A Megállító 10 mp-ig vár, és ${avatar.displayName} elálmosodik"), eveningPause, onEveningPause)
                 SwitchRow(tr("Evening recap", "Esti összefoglaló"), tr("A note when the evening starts", "Üzenet, amikor kezdődik az este"), reminderEnabled, onReminder)
                 bedtime?.let { LockRow(it, tr("Bedtime lock", "Lefekvési zár"), onLockSchedule) }
                 Divider()
                 SwitchRow(tr("Morning plan", "Reggeli terv"), tr("8:30: today's minutes and what's worth the most", "8:30: a mai percek, és ami a legtöbbet éri"), notesMorning) { onNotes("morning", it) }
                 SwitchRow(tr("Gentle nudges", "Finom emlékeztetők"), tr("When 10 minutes are left", "Amikor 10 perc maradt"), notesNudges) { onNotes("nudges", it) }
-                SwitchRow(tr("${avatar.displayName} peeks in", "${avatar.displayName} benéz"), tr("After 10 minutes in a row in a paused app, from the edge of the screen", "Ha 10 perce megszakítás nélkül egy szüneteltetett appban vagy, a képernyő széléről"), peekOn, onPeek)
+                SwitchRow(tr("${avatar.displayName} peeks in", "${avatar.displayName} benéz"), tr("After 10 minutes in a row in a paused app, from the edge of the screen", "Ha 10 perce megszakítás nélkül egy kiválasztott appban vagy, a képernyő széléről"), peekOn, onPeek)
                 SwitchRow(tr("Sunday letter", "Vasárnapi levél"), tr("Your week, on Sunday evening", "A heted, vasárnap este"), weeklyLetter, onWeeklyLetter)
                 work?.let { LockRow(it, tr("Work hours lock", "Munkaidő-zár"), onLockSchedule) }
                 Text(tr("At most 3 notes a day. A lock keeps the picked apps closed; only \"Not now\" or something better.", "Naponta legfeljebb 3 üzenet. A zár csukva tartja a kiválasztott appokat; csak „Most nem” van, vagy valami jobb."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
@@ -254,7 +254,7 @@ fun SettingsScreen(
                     }
                 }
                 // Testers only: the Play build doesn't show it.
-                val diagnostics = if (app.tend.BuildConfig.PLAY) "" else if (missCount == 0) tr(" · no blocking misses", " · nem volt kihagyott szünet") else tr(" · $missCount blocking misses", " · $missCount kihagyott szünet")
+                val diagnostics = if (app.tend.BuildConfig.PLAY) "" else if (missCount == 0) tr(" · no blocking misses", " · nem maradt el Megállító") else tr(" · $missCount blocking misses", " · $missCount elmaradt Megállító")
                 Text("tend $version$diagnostics", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
             }
             if (confirmReset) androidx.compose.material3.AlertDialog(
@@ -308,7 +308,7 @@ fun SettingsScreen(
             }
         }
         // Testers only: the Play build doesn't show it.
-        val diagnostics = if (app.tend.BuildConfig.PLAY) "" else if (missCount == 0) tr(" · no blocking misses", " · nem volt kihagyott szünet") else tr(" · $missCount blocking misses", " · $missCount kihagyott szünet")
+        val diagnostics = if (app.tend.BuildConfig.PLAY) "" else if (missCount == 0) tr(" · no blocking misses", " · nem maradt el Megállító") else tr(" · $missCount blocking misses", " · $missCount elmaradt Megállító")
         Text("tend $version$diagnostics", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, modifier = Modifier.align(Alignment.CenterHorizontally))
         Spacer(Modifier.padding(bottom = 24.dp))
     }
@@ -374,7 +374,7 @@ private fun ShortsGuardCard(plus: Boolean, onPlus: () -> Unit) = Card {
 /** The settings menu: key, title, icon. */
 private val SETTINGS_PAGES = listOf(
     Triple("companion", tr("Companion", "Társ"), androidx.compose.material.icons.Icons.Filled.Face),
-    Triple("apps", tr("Apps to pause", "Szüneteltetett appok"), androidx.compose.material.icons.Icons.Filled.Lock),
+    Triple("apps", tr("Picked apps", "Kiválasztott appok"), androidx.compose.material.icons.Icons.Filled.Lock),
     Triple("minutes", tr("Minutes", "Percek"), androidx.compose.material.icons.Icons.Filled.DateRange),
     Triple("activities", tr("Instead of scrolling", "Görgetés helyett"), androidx.compose.material.icons.Icons.Filled.Favorite),
     Triple("evening", tr("Evening & notes", "Este és üzenetek"), androidx.compose.material.icons.Icons.Filled.Notifications),
@@ -456,7 +456,7 @@ fun PermissionsScreen(avatar: Avatar, perms: PermissionActions, onDone: () -> Un
     verticalArrangement = Arrangement.spacedBy(12.dp),
 ) {
     Text(tr("Let ${avatar.displayName} notice again", "Hadd figyeljen újra ${avatar.displayName}"), style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(top = 20.dp))
-    Text(tr("A permission was turned off, so the pause can't appear right now.", "Egy engedély ki lett kapcsolva, ezért a szünet most nem tud megjelenni."), style = MaterialTheme.typography.bodyLarge, color = Brand.Muted)
+    Text(tr("A permission was turned off, so the pause can't appear right now.", "Egy engedély ki lett kapcsolva, ezért a Megállító most nem tud megjelenni."), style = MaterialTheme.typography.bodyLarge, color = Brand.Muted)
     PermissionSteps(perms)
     PrimaryButton(tr("Done", "Kész"), onDone, enabled = perms.permissions.allGranted, modifier = Modifier.padding(vertical = 20.dp))
 }
@@ -467,8 +467,8 @@ private fun BreakRows(pausedUntil: Long, strict: Boolean, onPause: (Int) -> Unit
     if (pausedUntil > System.currentTimeMillis()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(tr("On a break until ${breakEnd(pausedUntil)}", "Szünet eddig: ${breakEnd(pausedUntil)}"), style = MaterialTheme.typography.bodyLarge)
-                Text(tr("No pauses, locks or counting", "Nincs szünet-képernyő, zárás, számolás"), style = MaterialTheme.typography.bodyMedium)
+                Text(tr("Day off until ${breakEnd(pausedUntil)}", "Szabadnap eddig: ${breakEnd(pausedUntil)}"), style = MaterialTheme.typography.bodyLarge)
+                Text(tr("No pauses, locks or counting", "Nincs Megállító, zárás, számolás"), style = MaterialTheme.typography.bodyMedium)
             }
             Text(
                 tr("Come back", "Visszajövök"), style = MaterialTheme.typography.labelLarge, color = Color.White,
@@ -476,7 +476,7 @@ private fun BreakRows(pausedUntil: Long, strict: Boolean, onPause: (Int) -> Unit
             )
         }
     } else {
-        Text(tr("Take a break", "Tarts szünetet"), style = MaterialTheme.typography.bodyLarge)
+        Text(tr("Day off", "Szabadnap"), style = MaterialTheme.typography.bodyLarge)
         Text(
             if (strict) tr("Not while strict mode is on.", "Szigorú módban nem lehet.") else tr("Holiday or a sick day: every limit off, and those days don't count.", "Nyaralás vagy betegség: minden korlát kikapcsol, és ezek a napok nem számítanak."),
             style = MaterialTheme.typography.bodyMedium,
@@ -510,7 +510,7 @@ private fun AppsCard(
     var picking by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(blocked.isEmpty()) }
     // The switch flips at once, whatever the screen around it does; saved through [onPauseApp].
     var paused by remember(pauseApps) { androidx.compose.runtime.mutableStateOf(pauseApps) }
-    if (blocked.isNotEmpty()) Text(tr("Their time comes off your daily minutes, and each pauses for a moment before it opens. Tap one to turn its pause off, or to give it its own minutes a day.", "Az idejük a napi keretedből fogy, és mindegyik előtt van egy rövid szünet. Koppints egyre, ha nála kikapcsolnád a szünetet, vagy saját napi perceket adnál neki."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+    if (blocked.isNotEmpty()) Text(tr("Their time comes off your daily minutes, and each pauses for a moment before it opens. Tap one to turn its pause off, or to give it its own minutes a day.", "Az idejük a napi keretedből fogy, és mindegyiknél megjelenik a Megállító. Koppints egyre, ha nála kikapcsolnád, vagy saját napi perceket adnál neki."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
     blocked.sortedBy { catalog.label(it).lowercase() }.forEach { pkg ->
         val limit = limits[pkg]
         val used = ((secondsToday[pkg] ?: 0L) / 60).toInt()
@@ -525,7 +525,7 @@ private fun AppsCard(
             Column(Modifier.weight(1f)) {
                 Text(catalog.label(pkg), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 Text(
-                    if (strict || pkg in paused) tr("Pauses first", "Szünettel nyílik") else tr("Opens without a pause", "Szünet nélkül nyílik"),
+                    if (strict || pkg in paused) tr("Pauses first", "Megállítóval nyílik") else tr("Opens without a pause", "Megállító nélkül nyílik"),
                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = if (strict || pkg in paused) Brand.Moss else Brand.Muted,
                     maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
@@ -557,8 +557,8 @@ private fun AppsCard(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     // A short pause before each open: on for every picked app, off one by one (always on in strict mode).
                     SwitchRow(
-                        tr("Pause before it opens", "Szünet megnyitás előtt"),
-                        if (strict) tr("Always on in strict mode.", "Szigorú módban mindig be van kapcsolva.") else tr("A few seconds first: often enough to change your mind.", "Előtte pár másodperc szünet: sokszor ennyi is elég, hogy meggondold."),
+                        tr("Pause before it opens", "Megállító"),
+                        if (strict) tr("Always on in strict mode.", "Szigorú módban mindig be van kapcsolva.") else tr("A few seconds first: often enough to change your mind.", "Megnyitás előtt pár másodperc: sokszor ennyi is elég, hogy meggondold."),
                         strict || pkg in paused,
                     ) { on -> if (!strict) { paused = if (on) paused + pkg else paused - pkg; onPauseApp(pkg, on) } }
                     Text(tr("Minutes a day, at most:", "Naponta legfeljebb ennyi perc:"), style = MaterialTheme.typography.bodyMedium)
@@ -600,7 +600,7 @@ private fun StrictRow(strict: Boolean, endsAt: Long, onStrict: (Boolean) -> Unit
         when {
             endsAt > 0 -> tr("Turned off: it ends at midnight.", "Kikapcsoltad: éjfélkor ér véget.")
             strict -> tr("On. Turning it off takes effect tomorrow.", "Bekapcsolva. Ha kikapcsolod, holnaptól érvényes.")
-            else -> tr("A pause before every picked app; no quick looks, no 5 minutes for acorns, no waking the apps, no breaks; limits only get tighter.", "Szünet minden kiválasztott app előtt; nincs gyors belesés, nincs 5 perc makkért, nincs appébresztés, nincs szünetnap; a limitek csak szigorodhatnak.")
+            else -> tr("A pause before every picked app; no quick looks, no 5 minutes for acorns, no waking the apps, no days off; limits only get tighter.", "Megállító minden kiválasztott appnál; nincs Gyors belesés, nincs 5 perc makkért, nincs appébresztés, nincs Szabadnap; a limitek csak szigorodhatnak.")
         },
         strict && endsAt == 0L, onStrict,
     )

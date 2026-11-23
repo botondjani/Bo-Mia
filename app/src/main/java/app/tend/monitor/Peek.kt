@@ -98,7 +98,7 @@ class Peek(private val context: Context) {
             // Partly round the edge: only the face's left side shows.
             translationX = size * 0.32f
             contentDescription = (total?.let { tr("$it minutes in your apps today. ", "Ma eddig $it perc az appokban. ") } ?: "") +
-                tr("${avatar.displayName}: $minutes minutes in $label. Tap for a break.", "${avatar.displayName}: $minutes perce megy ez: $label. Koppints egy szünetért.")
+                tr("${avatar.displayName}: $minutes minutes in $label. Tap for a break.", "${avatar.displayName}: $minutes perce megy ez: $label. Koppints, és megállunk egy kicsit.")
         }
         val frame = FrameLayout(context).apply {
             setPadding(dp(8f).toInt(), dp(10f).toInt(), 0, dp(10f).toInt())

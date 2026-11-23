@@ -128,6 +128,7 @@ class MainActivity : ComponentActivity() {
         app.tend.reminder.WeeklyLetter.schedule(this)
         app.tend.reminder.MorningNote.schedule(this)
         app.tend.reminder.DayClock.schedule(this)
+        store.moveSettings() // once: the old switches become the new settings
         // Not again when Android brings the screen back, or reopens it from recents with the intent it once had.
         if (savedInstanceState == null && intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) handleIntent(intent)
         setContent {
@@ -419,7 +420,7 @@ class MainActivity : ComponentActivity() {
                     // Open a paused app: the pause comes up, and "Not now" is right there.
                     val launch = store.blockedPackages.firstNotNullOfOrNull { packageManager.getLaunchIntentForPackage(it) }
                     if (launch != null && permissions().allGranted) startActivity(launch)
-                    else Toast.makeText(this, tr("Open one of your paused apps, then tap \"Not now\".", "Nyisd meg az egyik szüneteltetett appodat, aztán koppints a „Most nem” gombra."), Toast.LENGTH_LONG).show()
+                    else Toast.makeText(this, tr("Open one of your paused apps, then tap \"Not now\".", "Nyisd meg az egyik kiválasztott appodat, aztán koppints a „Most nem” gombra."), Toast.LENGTH_LONG).show()
                 }
                 app.tend.core.Step.WIDGET -> if (!pinWidget()) { settingsSection = "widget"; screen = Screen.SETTINGS }
                 app.tend.core.Step.FRIEND, app.tend.core.Step.TOGETHER -> { campInvite = step == app.tend.core.Step.FRIEND; screen = Screen.CLEARING }

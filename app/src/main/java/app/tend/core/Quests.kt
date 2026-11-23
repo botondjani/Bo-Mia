@@ -11,7 +11,7 @@ object Quests {
         val options = buildList {
             selected.forEach { add(Quest("do:${it.id}", tr("${it.title} today", "Ma: ${it.title.lowercase()}"), tr("One of yours, any time today", "Egy a sajátjaid közül, ma bármikor"), 10)) }
             if (selected.size >= 2) add(Quest("two", tr("Two activities today", "Két tevékenység ma"), tr("Any two of yours", "Bármelyik kettő a sajátjaid közül"), 12))
-            add(Quest("notnow", tr("Say \"Not now\" twice", "Mondd kétszer: „Most nem”"), tr("When a paused app opens", "Amikor megnyílik egy szüneteltetett app"), 6))
+            add(Quest("notnow", tr("Say \"Not now\" twice", "Mondd kétszer: „Most nem”"), tr("When a paused app opens", "Amikor megjelenik a Megállító"), 6))
             add(Quest("under:$freeMinutes", tr("Stay under $freeMinutes min today", "Maradj ma $freeMinutes perc alatt"), tr("Counts from 20:00", "20:00-tól számít"), 12))
         }
         return options[java.util.Random(date.toEpochDay() * 7919 + 13).nextInt(options.size)]
