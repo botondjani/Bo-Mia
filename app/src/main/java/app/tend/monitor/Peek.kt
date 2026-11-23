@@ -41,7 +41,7 @@ class Peek(private val context: Context) {
      * [total] (every half hour), a little bubble beside it too: today's minutes in the apps so far.
      * Gone again after a few seconds unless tapped.
      */
-    fun show(avatar: Avatar, worn: Set<Accessory>, minutes: Int, label: String, total: Int? = null, onCome: () -> Unit, onMore: () -> Unit) {
+    fun show(avatar: Avatar, worn: Set<Accessory>, minutes: Int, label: String, total: Int? = null, onCome: () -> Unit, onMore: () -> Unit, onIgnored: () -> Unit = {}) {
         if (root != null) return
         val (frame, slide, face) = build(avatar, worn, minutes, label, total)
         frame.getChildAt(0).setOnClickListener { open(frame, avatar, minutes, label, onCome, onMore) }
@@ -62,7 +62,7 @@ class Peek(private val context: Context) {
         slide.animate().translationX(rest).setDuration(520).setInterpolator(OvershootInterpolator(1.2f)).withEndAction {
             face.animate().rotation(face.rotation - 8f).setDuration(220).withEndAction { face.animate().rotation(face.rotation + 8f).setDuration(320).start() }.start()
         }.start()
-        hideLater = Runnable { hide() }.also { handler.postDelayed(it, SHOW_MS) }
+        hideLater = Runnable { hide(); onIgnored() }.also { handler.postDelayed(it, SHOW_MS) }
     }
 
     /** The peek itself, laid out: the frame, the part that slides in, and the face. */
@@ -168,7 +168,7 @@ class Peek(private val context: Context) {
     companion object {
         private const val SHOW_MS = 7_000L
         /** The face's size: small, a glance in, not a card. */
-        private const val FACE_DP = 40f
+        private const val FACE_DP = 48f
         private const val OPEN_MS = 15_000L
         private const val INK = 0xFF1D2A23.toInt()
         private const val MOSS = 0xFF316849.toInt()

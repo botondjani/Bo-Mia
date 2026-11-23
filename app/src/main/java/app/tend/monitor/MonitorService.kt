@@ -66,6 +66,8 @@ class MonitorService : Service() {
     private var streakStart = 0L
     private var lastLeft = 0L
     private var nextPeekAt = Long.MAX_VALUE
+    /** Peeks in a row that went by untouched. */
+    private var peeksIgnored = 0
     private val peek by lazy { Peek(this) }
     private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main) // store writes stay on the main thread, like the poll
     private var interceptedPkg: String? = null
@@ -314,7 +316,7 @@ class MonitorService : Service() {
                 sessionPkg = new
                 sessionStart = now
                 sessionEnds = Long.MAX_VALUE
-                if (now - lastLeft > STREAK_GAP_MS || streakStart == 0L) { streakStart = now; nextPeekAt = now + Peek.everyMs(store.effectiveStrict) }
+                if (now - lastLeft > STREAK_GAP_MS || streakStart == 0L) { streakStart = now; nextPeekAt = now + peekEvery() }
             } else if (pass != null || back) {
                 sessionPkg = new
                 sessionStart = now
@@ -326,7 +328,7 @@ class MonitorService : Service() {
                     app.tend.health.TimerAlarm.showRunning(this, tr("$label, for ${((sessionEnds - now + 59_999) / 60_000)} min", "$label, még ${((sessionEnds - now + 59_999) / 60_000)} percig"), tr("${store.avatar.displayName} checks in when the time is up.", "${store.avatar.displayName} szól, ha letelt az idő."), sessionEnds)
                 }
                 // Carrying on after a short break (another "15 more", a quick look elsewhere): the same stretch.
-                if (now - lastLeft > STREAK_GAP_MS || streakStart == 0L) { streakStart = now; nextPeekAt = now + Peek.everyMs(store.effectiveStrict) }
+                if (now - lastLeft > STREAK_GAP_MS || streakStart == 0L) { streakStart = now; nextPeekAt = now + peekEvery() }
             } else {
                 intercept(new, now)
             }
@@ -346,9 +348,9 @@ class MonitorService : Service() {
      * after a pause screen, and not when one is about to come anyway.
      */
     private fun maybePeek(pkg: String, now: Long) {
-        if (streakStart == 0L) { streakStart = sessionStart; nextPeekAt = sessionStart + Peek.everyMs(store.effectiveStrict) }
+        if (streakStart == 0L) { streakStart = sessionStart; nextPeekAt = sessionStart + peekEvery() }
         if (now < nextPeekAt || peek.showing) return
-        nextPeekAt = now + Peek.everyMs(store.effectiveStrict)
+        nextPeekAt = now + peekEvery()
         if (!store.peekOn || !android.provider.Settings.canDrawOverlays(this)) return
         if (now - sessionStart < 90_000L || sessionEnds - now < 60_000L) return
         val minutes = ((now - streakStart) / 60_000L).toInt()
@@ -359,12 +361,18 @@ class MonitorService : Service() {
         peek.show(
             store.avatar, store.accessories().first, minutes, label, total,
             onCome = {
+                peeksIgnored = 0
                 app.tend.data.Stats.log(this, "peek_come", mapOf("minutes" to minutes))
                 startActivity(Intent(this, app.tend.MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
             },
-            onMore = { app.tend.data.Stats.log(this, "peek_more", mapOf("minutes" to minutes)) },
+            onMore = { peeksIgnored = 0; app.tend.data.Stats.log(this, "peek_more", mapOf("minutes" to minutes)) },
+            // Twice in a row let go by: the next one comes after twice the time.
+            onIgnored = { if (++peeksIgnored == 2) nextPeekAt += Peek.everyMs(store.effectiveStrict) },
         )
     }
+
+    /** Time between peeks: the strictness's, doubled after two let go by in a row. */
+    private fun peekEvery() = Peek.everyMs(store.effectiveStrict) * (if (peeksIgnored >= 2) 2 else 1)
 
     /** Three days before the Plus trial ends: one note, with what it has given so far. */
     private fun trialNote() {
