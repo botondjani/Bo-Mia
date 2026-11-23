@@ -227,7 +227,12 @@ fun Onboarding(
                     // Both turned on here: a moment to see the two ticks, then on by itself. Not when they were on
                     // already (come back to with Back): that would bounce straight forward again.
                     val grantedBefore = rememberSaveable { p.allGranted }
-                    LaunchedEffect(p.allGranted) { if (p.allGranted && !grantedBefore) { kotlinx.coroutines.delay(900); next() } }
+                    // Precise mode (the Play build's accessibility service) is offered here, optional: while it's
+                    // on offer the page waits for "Continue" instead of moving on by itself.
+                    val ctx = androidx.compose.ui.platform.LocalContext.current
+                    val precise = remember(p) { app.tend.monitor.ShortsGuard.enabled(ctx) }
+                    val offerPrecise = app.tend.BuildConfig.PLAY && p.allGranted && !precise
+                    LaunchedEffect(p.allGranted) { if (p.allGranted && !grantedBefore && !offerPrecise) { kotlinx.coroutines.delay(900); next() } }
                     if (perms.lock != PermissionLock.NONE && !p.allGranted) UnlockCard(perms)
                     else {
                         // Both at once, in order: the one to do next is the green one; done ones say so.
@@ -248,6 +253,20 @@ fun Onboarding(
                             tr("A tap opens Android's settings: switch tend on there, and you're brought straight back.", "Egy koppintás megnyitja az Android beállítását: ott kapcsold be a tendet, és utána magától visszahoz."),
                             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp), color = Brand.Muted,
                         )
+                    }
+                    if (offerPrecise) Column(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Brand.Card).padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(tr("Precise mode (optional)", "Pontos mód (nem kötelező)"), style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            tr("A faster Megállító, no \"displaying over other apps\" note, and closing only Reels and Shorts if you like. It reads only which app and screen is open, nothing you type.",
+                                "Gyorsabb Megállító, nincs „displaying over other apps” értesítés, és ha szeretnéd, csak a Reels és a Shorts zár be. Csak azt látja, melyik app és képernyő van nyitva, semmit abból, amit írsz."),
+                            style = MaterialTheme.typography.bodyMedium, color = Brand.Muted,
+                        )
+                        SecondaryButton(tr("Turn on", "Bekapcsolom"), {
+                            ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                        })
                     }
                     Spacer(Modifier.weight(1f))
                     if (!p.allGranted) LinkText(tr("Continue without", "Folytatom nélküle"), { askSkip = true })

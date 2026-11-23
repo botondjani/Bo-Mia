@@ -1116,6 +1116,27 @@ class MainActivity : ComponentActivity() {
                 friendsToday = friendsToday,
                 together = together,
                 saving = remember(refresh) { store.savingFor?.let(app.tend.core.Things::byId)?.let { it.name to it.price } },
+                gentleDaysLeft = store.dayOfUse.takeIf { store.gentleDays }?.let { TendStore.GENTLE_DAYS + 1 - it },
+                ask = remember(refresh, done) { firstWeekAsk() },
+                onAnswer = { a, answer ->
+                    when (a) {
+                        app.tend.ui.Ask.Evening -> {
+                            store.eveningAsked = true
+                            store.eveningMode = listOf(app.tend.core.EveningMode.OFF, app.tend.core.EveningMode.SLOW, app.tend.core.EveningMode.LOCK)[answer]
+                        }
+                        app.tend.ui.Ask.Invite -> { store.inviteAsked = true; if (answer == 1) { campInvite = true; screen = Screen.CLEARING } }
+                        is app.tend.ui.Ask.Level -> {
+                            store.levelAsked = true
+                            if (answer == 1) {
+                                // Balanced is set right here; Strict (Plus) is shown in Settings, with what it means.
+                                if (a.to == app.tend.core.StrictLevel.BALANCED) store.strictLevel = a.to
+                                else { settingsSection = "minutes"; screen = Screen.SETTINGS }
+                            }
+                        }
+                    }
+                    app.tend.data.Stats.log(this@MainActivity, "first_week_ask", mapOf("which" to a.javaClass.simpleName.lowercase(), "answer" to answer))
+                    refresh++
+                },
                 fireCount = app.tend.data.Friends.fireCount,
                 cheered = cheeredToday,
                 onCheer = { f ->
@@ -1199,6 +1220,28 @@ class MainActivity : ComponentActivity() {
     private fun campLayout() = store.layout.mapValues { androidx.compose.ui.geometry.Offset(it.value.first, it.value.second) }
 
     /** Name, companion and level on the server, when signed in (friends will see them). */
+    /**
+     * Bo's one question for now in the first week, if any: on the first evening, what the evenings
+     * should do; after a first good day (an activity, and minutes left over), who to invite; after a
+     * week on Easy or Balanced, one step stricter.
+     */
+    private fun firstWeekAsk(): app.tend.ui.Ask? {
+        val day = store.dayOfUse
+        if (day == 0) return null
+        val evening = app.tend.core.Budget.isEvening(store.eveningFrom, LocalTime.now().hour)
+        if (!store.eveningAsked && day <= 2 && evening) return app.tend.ui.Ask.Evening
+        val goodDay = store.daySummaries().any { it.date.isBefore(java.time.LocalDate.now()) && it.tasksDone > 0 && it.unusedMinutes > 0 }
+        if (!store.inviteAsked && goodDay && store.friendsCelebrated.isEmpty()) return app.tend.ui.Ask.Invite
+        if (!store.levelAsked && day >= 8 && !store.isStrict) {
+            return when (store.strictLevel) {
+                app.tend.core.StrictLevel.EASY -> app.tend.ui.Ask.Level(app.tend.core.StrictLevel.BALANCED)
+                app.tend.core.StrictLevel.BALANCED -> app.tend.ui.Ask.Level(app.tend.core.StrictLevel.STRICT)
+                else -> null
+            }
+        }
+        return null
+    }
+
     private fun saveProfile() {
         if (app.tend.data.Account.user(this) == null) return
         lifecycleScope.launch { app.tend.data.Account.saveProfile(this@MainActivity) }

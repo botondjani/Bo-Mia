@@ -141,6 +141,10 @@ fun HomeScreen(
     friendsToday: List<app.tend.data.Friends.Friend> = emptyList(),
     /** What's being saved up for (its name and price), if anything. */
     saving: Pair<String, Int>? = null,
+    /** The first week: days left of the gentle start (null after), and Bo's questions, each asked once. */
+    gentleDaysLeft: Int? = null,
+    ask: Ask? = null,
+    onAnswer: (Ask, Int) -> Unit = { _, _ -> },
     /** The together week with friends (null with none), and how many sit at a fire anywhere (null: not said). */
     together: app.tend.data.Friends.Week? = null,
     fireCount: Int? = null,
@@ -458,8 +462,18 @@ fun HomeScreen(
             else -> PhoneDown()
         }
 
+        // Bo asks one thing at a time in the first week: what the evening should do, who to invite, a stricter level.
+        ask?.let { a -> AskCard(avatar, a) { onAnswer(a, it) } }
+
         // What needs a look (a permission, a crash, the trial's end…): one directly, more under "To do (n)".
         val todo = mutableListOf<@Composable () -> Unit>()
+        gentleDaysLeft?.let { left ->
+            todo += {
+                Notice("sparkle", tr("Easy does it: the first days", "Lassan a testtel: az első napok"),
+                    if (left <= 1) tr("Today still the shortest Megállító; from tomorrow your evening and work locks start.", "Ma még a legrövidebb a Megállító; holnaptól élnek az esti és a munkaidős zárak.")
+                    else tr("The shortest Megállító for now, and the evening and work locks start on day 3.", "Egyelőre a legrövidebb a Megállító, az esti és a munkaidős zárak pedig a 3. naptól élnek."), {})
+            }
+        }
         if (settingsMoved) todo += { Notice("sparkle", tr("Settings, rearranged", "Átrendeztük a beállításokat"), tr("Everything's still there, in a clearer place. Tap to have a look.", "Minden megvan, csak logikusabb helyen. Koppints, és megnézheted."), onSettingsMoved) }
         todo += {
             if (onShareCrash != null) Notice("alert", tr("tend crashed last time", "A tend legutóbb összeomlott"), tr("Sorry! Tap to share the crash report.", "Bocsánat! Koppints, és megoszthatod a hibajelentést."), onShareCrash)
@@ -1371,6 +1385,61 @@ private fun TodoList(items: List<@Composable () -> Unit>) {
         }
         androidx.compose.animation.AnimatedVisibility(open) {
             Column(verticalArrangement = Arrangement.spacedBy(Space.s)) { items.forEach { it() } }
+        }
+    }
+}
+
+/** What Bo asks in the first week, once each. */
+sealed class Ask {
+    /** The first evening: what should the evening do? Answers: 0 nothing, 1 slower, 2 closed. */
+    data object Evening : Ask()
+    /** After the first good day: who to invite to the fire? 1 invite, 0 not now. */
+    data object Invite : Ask()
+    /** After a week: one step stricter ([to]); 1 have a look, 0 not now. */
+    data class Level(val to: app.tend.core.StrictLevel) : Ask()
+}
+
+/** One of Bo's first-week questions, with its answers as buttons. */
+@Composable
+private fun AskCard(avatar: Avatar, ask: Ask, onAnswer: (Int) -> Unit) = Column(
+    Modifier.fillMaxWidth().surface(radius = 20.dp).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp),
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        CharacterView(avatar, app.tend.core.Mood.HAPPY, 48.dp, lightweight = true)
+        Spacer(Modifier.width(10.dp))
+        Text(
+            when (ask) {
+                Ask.Evening -> tr("It's your first evening. What should the evenings do?", "Ez az első estéd. Mit csináljanak az esték?")
+                Ask.Invite -> tr("A good day! Who would you invite to the fire?", "Jó nap volt! Kit hívnál a tűzhöz?")
+                is Ask.Level -> tr("A week together. Ready for a little more?", "Egy hete vagyunk együtt. Jöhet egy kicsit több?")
+            },
+            style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f),
+        )
+    }
+    Text(
+        when (ask) {
+            Ask.Evening -> tr("Slower: a longer, sleepy Megállító. Closed: the apps rest until morning. You can change it any time.", "Lassít: hosszabb, álmos Megállító. Zár: az appok reggelig pihennek. Bármikor átállíthatod.")
+            Ask.Invite -> tr("Phone-free together at the fire, acorns for both of you.", "Együtt telefon nélkül a tűznél, makk mindkettőtöknek.")
+            is Ask.Level -> if (ask.to == app.tend.core.StrictLevel.STRICT) tr("Strict: a 10-second wait and no shortcuts. It's in Settings, if you'd like it.", "Szigorú: 10 mp várakozás, kiskapuk nélkül. A Beállításokban megtalálod, ha kéred.")
+                else tr("Balanced: a 5-second wait instead of 3, and Bo peeks in a bit sooner.", "Kiegyensúlyozott: 3 helyett 5 mp várakozás, és Bo kicsit hamarabb benéz.")
+        },
+        style = MaterialTheme.typography.bodyMedium, color = Brand.Muted,
+    )
+    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        when (ask) {
+            Ask.Evening -> {
+                ChipButton(tr("Slower", "Lassítson"), { onAnswer(1) })
+                ChipButton(tr("Closed", "Zárjon"), { onAnswer(2) }, filled = false)
+                ChipButton(tr("Nothing", "Semmi"), { onAnswer(0) }, filled = false)
+            }
+            Ask.Invite -> {
+                ChipButton(tr("Invite someone", "Meghívok valakit"), { onAnswer(1) })
+                ChipButton(tr("Not now", "Most nem"), { onAnswer(0) }, filled = false)
+            }
+            is Ask.Level -> {
+                ChipButton(if (ask.to == app.tend.core.StrictLevel.STRICT) tr("Have a look", "Megnézem") else tr("Yes, Balanced", "Igen, Kiegyensúlyozott"), { onAnswer(1) })
+                ChipButton(tr("Not now", "Most nem"), { onAnswer(0) }, filled = false)
+            }
         }
     }
 }

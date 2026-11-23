@@ -155,7 +155,8 @@ class InterstitialActivity : ComponentActivity() {
         // A scheduled lock isn't an open: it doesn't make the next pause longer.
         val counts = savedInstanceState == null && !locked && scheduled == null
         val earlier = if (counts) store.recordOpen() else 0
-        val delaySeconds = Budget.openDelaySeconds(store.effectiveStrict, earlier, evening)
+        // The first days: the shortest wait, whatever the strictness.
+        val delaySeconds = Budget.openDelaySeconds(if (store.gentleDays) app.tend.core.StrictLevel.EASY else store.effectiveStrict, earlier, evening)
         if (counts) day = store.update { it.copy(opensToday = it.opensToday + 1) }
         view = View(
             label, locked, day.opensToday, delaySeconds, Budget.remainingMinutes(cfg, day), evening,

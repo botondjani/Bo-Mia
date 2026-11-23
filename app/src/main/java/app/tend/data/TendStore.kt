@@ -110,6 +110,26 @@ class TendStore(private val context: Context) {
         get() = prefs.getLong("onboarded_at", 0)
         set(v) = edit { putLong("onboarded_at", v) }
 
+    /** Which day with tend this is: 1 on the day of setup (0 when it isn't known). */
+    val dayOfUse: Int
+        get() = onboardedAt.takeIf { it > 0 }?.let {
+            java.time.temporal.ChronoUnit.DAYS.between(java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate(), LocalDate.now()).toInt() + 1
+        } ?: 0
+
+    /** The first two days are gentle: the shortest Megállító, and no scheduled locks yet (they start on day 3). */
+    val gentleDays: Boolean get() = dayOfUse in 1..GENTLE_DAYS
+
+    /** Bo's questions in the first week, each asked once: the evening, a friend, a stricter level. */
+    var eveningAsked: Boolean
+        get() = prefs.getBoolean("asked_evening", false)
+        set(v) = edit { putBoolean("asked_evening", v) }
+    var inviteAsked: Boolean
+        get() = prefs.getBoolean("asked_invite", false)
+        set(v) = edit { putBoolean("asked_invite", v) }
+    var levelAsked: Boolean
+        get() = prefs.getBoolean("asked_level", false)
+        set(v) = edit { putBoolean("asked_level", v) }
+
     /** "light" (default), "dark" or "system" (follow the phone). */
     var themeMode: String
         get() = prefs.getString("theme", "light") ?: "light"
@@ -278,7 +298,8 @@ class TendStore(private val context: Context) {
     /** The lock in force now: a bedtime or work-hours schedule, or "Good night" until 7:00. */
     fun activeLock(pkg: String? = null): LockSchedule? =
         if (isPaused || (pkg != null && lockPassFor(pkg))) null
-        else LockSchedule.activeOf(lockSchedules, pkg = pkg) ?: LockSchedule.GOOD_NIGHT.takeIf { System.currentTimeMillis() < sleepUntil }
+        // The first days: no scheduled lock yet; a good night asked for still holds.
+        else (if (gentleDays) null else LockSchedule.activeOf(lockSchedules, pkg = pkg)) ?: LockSchedule.GOOD_NIGHT.takeIf { System.currentTimeMillis() < sleepUntil }
 
     /** Once a day, not in strict mode: 5 minutes of [pkg] during a scheduled lock, for [LOCK_PASS_ACORNS] acorns. */
     val lockPassLeft: Boolean
@@ -1496,6 +1517,7 @@ class TendStore(private val context: Context) {
         const val PLUS_ON_SALE = false
         private const val PASS_VALID_MS = 15_000L
         const val QUICK_LOOKS_PER_DAY = 3
+        const val GENTLE_DAYS = 2
         const val LOCK_PASS_ACORNS = 30
 
         /** Own activities saved with an emoji before tend had its own icons. */
