@@ -6,7 +6,7 @@ package app.tend.core
  */
 
 /** Where a thing can go: the fire pit, a seat by it, a shelter, the trees, the river, overhead, or a small spot. */
-enum class SpotKind { FIRE, SEAT, SHELTER, TREES, WATER, ABOVE, SMALL }
+enum class SpotKind { FIRE, SEAT, SHELTER, TREES, WATER, ABOVE, SMALL, AROUND }
 
 /** A spot in the clearing; [id] is stable (it's what's saved). */
 data class Spot(val id: Int, val kind: SpotKind)
@@ -60,6 +60,11 @@ object Things {
         Thing("canoe", tr("Canoe", "Kenu"), 330, SpotKind.WATER, spot = 7),
         Thing("dock", tr("Dock", "Stég"), 700, SpotKind.WATER, spot = 8),
         // Strung between the trees over the camp.
+        // Around the camp: late, dear things, each with its own place.
+        Thing("fence", tr("Picket fence", "Kerítés"), 600, SpotKind.AROUND, spot = 18),
+        Thing("garden", tr("Little garden", "Kis kert"), 750, SpotKind.AROUND, spot = 19),
+        Thing("stone_path", tr("Stone path", "Kőösvény"), 850, SpotKind.AROUND, spot = 20),
+
         Thing("wind_chimes", tr("Wind chimes", "Szélcsengő"), 60, SpotKind.ABOVE),
         Thing("bird_feeder", tr("Bird feeder", "Madáretető"), 75, SpotKind.ABOVE),
         Thing("string_lights", tr("String lights", "Fényfüzér"), 90, SpotKind.ABOVE),
@@ -127,7 +132,8 @@ object Clearing {
         Spot(5, SpotKind.TREES), Spot(6, SpotKind.TREES),
         Spot(7, SpotKind.WATER), Spot(8, SpotKind.WATER),
         Spot(9, SpotKind.ABOVE),
-    ) + (0 until SMALL_SPOTS).map { Spot(10 + it, SpotKind.SMALL) } + Spot(BONUS_SPOT, SpotKind.SMALL)
+    ) + (0 until SMALL_SPOTS).map { Spot(10 + it, SpotKind.SMALL) } + Spot(BONUS_SPOT, SpotKind.SMALL) +
+        listOf(Spot(18, SpotKind.AROUND), Spot(19, SpotKind.AROUND), Spot(20, SpotKind.AROUND))
 
     fun spot(id: Int): Spot? = spots.firstOrNull { it.id == id }
 

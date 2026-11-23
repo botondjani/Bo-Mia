@@ -540,8 +540,18 @@ class TendStore(private val context: Context) {
     fun buy(thingId: String): Boolean {
         val thing = app.tend.core.Things.byId(thingId) ?: return false
         val spot = app.tend.core.Clearing.spotFor(placed, thing, levelSeen) ?: return false
-        return buy(spot, thingId)
+        return buy(spot, thingId).also { if (it && savingFor == thingId) savingFor = null }
     }
+
+    /** The thing being saved up for (home shows how far), if any. */
+    var savingFor: String?
+        get() = prefs.getString("saving_for", null)?.takeIf { id -> id !in placed.values && id !in chest }
+        set(v) = edit { if (v == null) remove("saving_for") else putString("saving_for", v) }
+
+    /** Things the shop has shown (for "New"); null before the shop was ever opened. */
+    var shopSeen: Set<String>?
+        get() = prefs.getStringSet("shop_seen", null)?.toSet()
+        set(v) = edit { if (v == null) remove("shop_seen") else putStringSet("shop_seen", v) }
 
     /** Where movable things were put (spot to scene fractions); others stand at their usual place. */
     val layout: Map<Int, Pair<Float, Float>>

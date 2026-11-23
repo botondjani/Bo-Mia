@@ -38,6 +38,9 @@ data class InUse(val spot: Int, val thing: String, val t: Float, val walk: Float
 
 /** What the companion does with each thing: a line to show, and how long it lasts. */
 object Uses {
+    /** What it's for, in a few words: the first sentence of [line] ("Bo plays the guitar"). */
+    fun short(thing: String, name: String): String = line(thing, name).substringBefore(". ").removeSuffix(".")
+
     fun line(thing: String, name: String): String = when (thing) {
         "guitar" -> tr("$name plays the guitar. Tap again for another chord.", "$name gitározik. Koppints még egyszer egy újabb akkordért.")
         "campfire" -> tr("$name roasts a marshmallow.", "$name mályvacukrot süt.")
@@ -56,6 +59,9 @@ object Uses {
         "treehouse" -> tr("$name waves from the treehouse.", "$name integet a lombházból.")
         "canoe" -> tr("$name paddles the canoe.", "$name kenuzik.")
         "dock" -> tr("$name dangles their feet off the dock.", "$name a stégről lógatja a lábát.")
+        "fence" -> tr("$name leans on the fence and looks out over the meadow.", "$name a kerítésre könyököl, és kinéz a rétre.")
+        "garden" -> tr("$name waters the little garden.", "$name meglocsolja a kis kertet.")
+        "stone_path" -> tr("$name hops along the stones.", "$name kőről kőre ugrál.")
         "string_lights" -> tr("$name dances under the lights.", "$name táncol a fények alatt.")
         "rocking_chair" -> tr("$name rocks in the chair.", "$name ringatózik a hintaszékben.")
         "raft" -> tr("$name drifts on the raft.", "$name sodródik a tutajon.")

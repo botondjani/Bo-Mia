@@ -190,6 +190,8 @@ fun ClearingScreen(
         if (openFriends) onFriendsShown()
     }
     var shopOpen by rememberSaveable { mutableStateOf(false) }
+    // A thing from the shop, shown in the camp before buying it.
+    var preview by remember { mutableStateOf<app.tend.core.Thing?>(null) }
     var bookOpen by rememberSaveable { mutableStateOf(false) }
     var milestonesOpen by rememberSaveable { mutableStateOf(false) }
     var chestOpen by rememberSaveable { mutableStateOf(false) }
@@ -206,7 +208,11 @@ fun ClearingScreen(
 
     // The same header as home, settings and all (nothing moves going between them).
     TodayHeader(java.time.LocalDate.now(), minutes, {}) {
-        IconButtonSoft(TendIcons.vector("gear"), tr("Settings", "Beállítások"), onOpenSettings)
+        // Sharing the camp: a small icon by the settings.
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            IconButtonSoft(TendIcons.vector("share"), tr("Share", "Megosztás"), onShare)
+            IconButtonSoft(TendIcons.vector("gear"), tr("Settings", "Beállítások"), onOpenSettings)
+        }
     }
 
     // What friends did: toilet paper unrolls when tapped; a visitor's duck is fished out.
@@ -585,7 +591,7 @@ fun ClearingScreen(
                             kind = thing.kind
                             others = placedNow.keys.filter { it != hit && it in SpotPositions }.mapNotNull { id ->
                                 val k = app.tend.core.Clearing.spots.first { it.id == id }.kind
-                                if (k == app.tend.core.SpotKind.FIRE || k == app.tend.core.SpotKind.WATER || k == app.tend.core.SpotKind.ABOVE) null
+                                if (k == app.tend.core.SpotKind.FIRE || k == app.tend.core.SpotKind.WATER || k == app.tend.core.SpotKind.ABOVE || k == app.tend.core.SpotKind.AROUND) null
                                 else spotPos(id, localNow).let { thingWidth(placedNow.getValue(id)) / 2f to (it.x to it.y) }
                             }
                             half = thingWidth(thing.id) / 2f
@@ -617,7 +623,7 @@ fun ClearingScreen(
                     ?: cheerT.takeIf { it >= 0f }?.let { InUse(-2, "act_hearts", it) }
                     ?: using?.takeIf { useStart >= 0 }?.let { (spot, thing) -> InUse(spot, thing, (frame - useStart) / 1e9f, walk, Uses.seconds(thing)) } ?: idle.value
                 drawClearing(
-                    avatar, placed, mood, worn = worn, night = night, signpost = signpost, paper = paperLeft, ducks = ducks.count { it.id !in fishedOut }, bridge = bridge,
+                    avatar, preview?.let { t -> Clearing.spotFor(placed, t, level)?.let { placed + (it to t.id) } } ?: placed, mood, worn = worn, night = night, signpost = signpost, paper = paperLeft, ducks = ducks.count { it.id !in fishedOut }, bridge = bridge,
                     use = use, fireBuild = fireBuild, lastStrum = (frame - strumAt) / 1e9f - walk, visitor = visitor, rest = rest, nightClock = nightClock, appear = appear,
                     bursts = bursts.map { it.first to it.second.value },
                     layout = drag?.let { (spot, at) -> pinned + (spot to at) } ?: pinned,
@@ -638,6 +644,25 @@ fun ClearingScreen(
             }
             // A present opened: what was in it, popping up over the camp.
             AcornsClaimed(giftPop, giftKey, Modifier.align(Alignment.Center))
+            // Trying a thing in the camp: how it would look, and buying it right here.
+            preview?.let { t ->
+                Row(
+                    Modifier.align(Alignment.BottomCenter).padding(12.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Color(0xF2FFFFFF)).padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(tr("How it would look", "Így nézne ki"), style = MaterialTheme.typography.labelSmall, color = Brand.MossOnPill)
+                        Text(t.name, style = MaterialTheme.typography.titleSmall, color = Brand.InkOnPill)
+                    }
+                    Text(tr("Back", "Vissza"), style = MaterialTheme.typography.labelLarge, color = Brand.MossOnPill,
+                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).tappable { preview = null; shopOpen = true }.padding(horizontal = 10.dp, vertical = 8.dp))
+                    if (acorns >= t.price) Text(tr("Get it · ${t.price}", "Megveszem · ${t.price}"), style = MaterialTheme.typography.labelLarge, color = Color.White,
+                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Brand.MossOnPill).tappable {
+                            if (onBuy(t.id)) { tick(firm = true); Sounds.chime(context) }
+                            preview = null
+                        }.padding(horizontal = 12.dp, vertical = 8.dp))
+                }
+            }
             opened?.let { o ->
                 OpenedGift(o, gifts.size, onTakeOutThing, onNext = {
                     // The next one, right here: a thing in the same window, acorns popping over the camp.
@@ -725,12 +750,6 @@ fun ClearingScreen(
         }
     }
 
-    // The shop, friends, and sharing the camp: a button each.
-    Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
-        PillButton(tr("Shop", "Bolt"), TendIcons.vector("bag"), Modifier.weight(1f)) { shopTab = 0; shopOpen = true }
-        PillButton(tr("Friends", "Barátok"), TendIcons.vector("friends"), Modifier.weight(1f)) { friendsOpen = true }
-        PillButton(tr("Share", "Megosztás"), TendIcons.vector("share"), Modifier.weight(1f), onShare)
-    }
 
     // Set up before the town was asked: once, the real weather offered.
     if (askTown) Card {
@@ -740,8 +759,8 @@ fun ClearingScreen(
         Text(tr("Not now", "Most nem"), style = MaterialTheme.typography.labelLarge, color = Brand.Muted, modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onTownLater).padding(vertical = 6.dp))
     }
 
-    // Challenges, the guestbook, your things and achievements: four tiles, each with its own little
-    // animation; they take whatever height is left, so the page fills the screen without scrolling.
+    // Six tiles, each with its own little animation: up top, big, the shop and your things; then friends
+    // and challenges; then the collection (guestbook, achievements). Under them, the river.
     run {
         val waiting = app.tend.core.FirstSteps.current(steps).filter { it.claimable }.sumOf { it.step.acorns }
         var claimed by remember { mutableIntStateOf(0) }
@@ -749,23 +768,29 @@ fun ClearingScreen(
         val density = androidx.compose.ui.platform.LocalDensity.current
         val free = with(density) { (pageH - hubTop - Space.xxl.toPx()).toDp() }
         val tileH = 68.dp
-        // What's left under the tiles: a quiet drawing, so the page ends calmly and still doesn't scroll.
-        val rest = (free - tileH * 2 - 10.dp - Space.m * 2 - 14.dp - 6.dp).coerceAtLeast(0.dp)
+        val bigH = 80.dp
+        val smallH = 56.dp
+        // What's left under the tiles: the river, so the page ends calmly and still doesn't scroll.
+        val rest = (free - bigH - tileH - smallH - 20.dp - Space.m * 2 - 6.dp).coerceAtLeast(0.dp)
         // Where they start on the page (not on screen: scrolling doesn't change it).
         Column(Modifier.fillMaxWidth().onGloballyPositioned { hubTop = (it.positionInRoot().y - pageTop).toInt() + scroll.value }, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                HubTile("shop", tr("Shop", "Bolt"), tr("$acorns acorns", "$acorns makk"), false, Modifier.weight(1f).height(bigH)) { shopTab = 0; shopOpen = true }
+                HubTile("things", tr("Things", "Holmik"), tr("${placed.size + chest.size} things", "${placed.size + chest.size} tárgy"), false, Modifier.weight(1f).height(bigH)) { chestOpen = true }
+            }
             Box { Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                HubTile("friends", tr("Friends", "Barátok"), if (guests.isNotEmpty()) tr("${guests.size} at the fire", "${guests.size} a tűznél") else tr("The fire, together", "Közös tűz"), false, Modifier.weight(1f).height(tileH)) { friendsOpen = true }
                 HubTile("challenges", tr("Challenges", "Kihívások"), if (waiting > 0) tr("$waiting acorns waiting", "$waiting makk vár") else tr("Quests and goals", "Küldetések, célok"), waiting > 0, Modifier.weight(1f).height(tileH)) {
                     // Acorns waiting: tapped, they're taken at once (the list opens when there's nothing to take).
                     val ready = app.tend.core.FirstSteps.current(steps).filter { it.claimable }
                     if (ready.isEmpty()) onOpenChallenges() else { ready.forEach { onClaimStep(it.step) }; Sounds.acorns(context); claimed = waiting; claimKey++ }
                 }
-                HubTile("guestbook", tr("Guestbook", "Vendégkönyv"), "${guestbook.size} / ${app.tend.core.Visitor.entries.size}", false, Modifier.weight(1f).height(tileH), visitor = guestbook.keys.firstOrNull()) { bookOpen = true }
             }
-                AcornsClaimed(claimed, claimKey, Modifier.align(Alignment.CenterStart).fillMaxWidth(0.5f))
+                AcornsClaimed(claimed, claimKey, Modifier.align(Alignment.CenterEnd).fillMaxWidth(0.5f))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                HubTile("things", tr("Things", "Holmik"), tr("${placed.size + chest.size} things", "${placed.size + chest.size} tárgy"), false, Modifier.weight(1f).height(tileH)) { chestOpen = true }
-                HubTile("achievements", tr("Achievements", "Eredmények"), totals?.let { t -> "${app.tend.core.Milestone.reached(t).size} / ${app.tend.core.Milestone.entries.size}" } ?: "", false, Modifier.weight(1f).height(tileH)) { milestonesOpen = true }
+                HubTile("guestbook", tr("Guestbook", "Vendégkönyv"), "${guestbook.size} / ${app.tend.core.Visitor.entries.size}", false, Modifier.weight(1f).height(smallH), visitor = guestbook.keys.firstOrNull()) { bookOpen = true }
+                HubTile("achievements", tr("Achievements", "Eredmények"), totals?.let { t -> "${app.tend.core.Milestone.reached(t).size} / ${app.tend.core.Milestone.entries.size}" } ?: "", false, Modifier.weight(1f).height(smallH)) { milestonesOpen = true }
             }
         }
         if (rest > 24.dp) {
@@ -780,7 +805,7 @@ fun ClearingScreen(
                 drawPath(Path().apply { moveTo(c.x - r, y); quadraticTo(c.x, y - r * 0.9f, c.x + r, y); quadraticTo(c.x, y + r * 0.9f, c.x - r, y); close() }, Brand.Moss.copy(alpha = 0.45f))
                 drawLine(Brand.Sage, Offset(c.x - r * 0.7f, y), Offset(c.x + r * 0.7f, y), strokeWidth = 0.8.dp.toPx())
             }
-            CampFooter(Modifier.fillMaxWidth().height(rest))
+            RiverPreview(Modifier.fillMaxWidth().height(rest).clip(RoundedCornerShape(20.dp)).tappable { onOpenRiver(null) })
         }
     }
 
@@ -795,7 +820,7 @@ fun ClearingScreen(
             Column(Modifier.sheetBody(0.62f)) {
             var ready by remember { mutableStateOf(false) }
             androidx.compose.runtime.LaunchedEffect(Unit) { androidx.compose.runtime.withFrameNanos { }; ready = true }
-            if (ready) Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, plus = plus, onPlus = onPlus, level = level, startFilter = shopStart, startTab = shopTab, outfits = outfits, worn = worn, avatar = avatar,
+            if (ready) Shop(acorns, placed, earnedToday.values.sum() + lastNight, avatar.displayName, plus = plus, onPlus = onPlus, level = level, startFilter = shopStart, startTab = shopTab, outfits = outfits, worn = worn, avatar = avatar, onPreview = { preview = it; shopOpen = false },
                 onBuyOutfit = { a -> onBuyOutfit(a).also { if (it) { tick(firm = true); Sounds.chime(context) } } },
                 onWearOutfit = { tick(); onToggleAccessory?.invoke(it) }, onBuy = { id ->
                 // Bought: a firm tick, a chime, and up to the camp to watch it pop in.
@@ -879,17 +904,6 @@ private fun MilestonesCard(t: app.tend.core.Totals) = Card {
     }
 }
 
-/** A round-ended button with an icon, for the row under the camp. */
-@Composable
-private fun PillButton(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) = Row(
-    modifier.clip(RoundedCornerShape(50)).background(Brand.Card).tappable(onClick = onClick).padding(vertical = 11.dp),
-    horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
-) {
-    androidx.compose.material3.Icon(icon, null, tint = Brand.Moss, modifier = Modifier.size(18.dp))
-    Spacer(Modifier.width(8.dp))
-    Text(label, style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
-}
-
 /** The camp's shape on its own page: a little taller than on home, so it's bigger. */
 private const val CAMP_ASPECT = 1.4f
 
@@ -909,25 +923,37 @@ private fun Shop(
     startFilter: SpotKind? = null,
     /** The tab it opens on: 0 things, 1 outfits, 2 seasonal. */
     startTab: Int = 0,
+    /** Shows a thing in the camp before buying it. */
+    onPreview: (app.tend.core.Thing) -> Unit = {},
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val inCamp = placed.values.toSet()
     fun owns(id: String) = id in inCamp || id in chest
     var outfitOpen by remember { mutableStateOf<app.tend.core.Accessory?>(null) }
     var open by remember { mutableStateOf<app.tend.core.Thing?>(null) }
+    // "New" on what the shop hasn't shown before (nothing the very first time); seen once the shop closes.
+    val store = remember { app.tend.data.TendStore(context) }
+    val seenBefore = remember { store.shopSeen ?: Things.all.map { it.id }.toSet().also { store.shopSeen = it } }
+    val shownNow = remember { mutableSetOf<String>() }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { store.shopSeen = (store.shopSeen.orEmpty() + shownNow) } }
+    var savingFor by remember { mutableStateOf(store.savingFor) }
     // Three tabs: things for the camp, things for the companion to wear, and the season's own.
     var tab by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(startTab) }
     val season = app.tend.core.Season.of(java.time.LocalDate.now())
     var filter by remember { mutableStateOf(startFilter) }
     @Composable
-    fun tiles(things: List<app.tend.core.Thing>, background: Color = Brand.Sage, paid: Boolean = false) = things.chunked(4).forEach { row ->
+    fun tiles(things: List<app.tend.core.Thing>, background: Color = Brand.Sage, paid: Boolean = false) = things.chunked(3).forEach { row ->
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
             row.forEach { thing ->
                 val owned = owns(thing.id)
                 val at = app.tend.core.Perks.unlockLevel(thing)
                 ShopTile(thing, owned = owned, affordable = (!paid || plus) && acorns >= thing.price, modifier = Modifier.weight(1f), background = background, inChest = thing.id in chest,
-                    lockedUntil = at.takeIf { it > level && !owned }) { if (!paid || plus || owned) open = thing else onPlus() }
+                    lockedUntil = at.takeIf { it > level && !owned }, line = Uses.short(thing.id, name), isNew = !owned && thing.id !in seenBefore, saving = thing.id == savingFor) {
+                    if (!paid || plus || owned) open = thing else onPlus()
+                }
+                shownNow += thing.id
             }
-            repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+            repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
         }
     }
     @Composable
@@ -959,7 +985,7 @@ private fun Shop(
             // Things for the camp, by where they go. The home isn't sold: it comes with levels.
             0 -> {
                 // One list, cheapest first; a row of filters instead of headings.
-                val kinds = listOf(SpotKind.SMALL, SpotKind.FIRE, SpotKind.SEAT, SpotKind.TREES, SpotKind.WATER, SpotKind.ABOVE)
+                val kinds = listOf(SpotKind.SMALL, SpotKind.FIRE, SpotKind.SEAT, SpotKind.TREES, SpotKind.WATER, SpotKind.ABOVE, SpotKind.AROUND)
                 Row(Modifier.padding(top = 8.dp).then(Modifier.horizontalScroll(rememberScrollState())), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     (listOf<SpotKind?>(null) + kinds).forEach { k ->
                         val on = filter == k
@@ -1008,6 +1034,10 @@ private fun Shop(
             }
         }
     }
+    val view = androidx.compose.ui.platform.LocalView.current
+    androidx.compose.runtime.LaunchedEffect(outfitOpen) {
+        if (outfitOpen != null) { view.performHapticFeedback(android.view.HapticFeedbackConstants.CONTEXT_CLICK); Sounds.tryOn(context) }
+    }
     outfitOpen?.let { a ->
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { outfitOpen = null },
@@ -1054,13 +1084,19 @@ private fun Shop(
                     owned -> androidx.compose.material3.TextButton(onClick = { onPutAway(t.id); open = null }) { Text(tr("Put away", "Elteszem"), color = Brand.Moss) }
                     lockedAt != null -> androidx.compose.material3.TextButton(onClick = { open = null }) { Text(tr("Opens at level $lockedAt", "A(z) $lockedAt. szinten nyílik"), color = Brand.Muted) }
                     acorns >= cost -> androidx.compose.material3.TextButton(onClick = { if (onBuy(t.id)) open = null }) { Text(tr("Get it for ${t.price}", "Megveszem ${t.price} makkért"), color = Brand.Moss) }
-                    else -> androidx.compose.material3.TextButton(onClick = { open = null }) { Text(tr("${cost - acorns} more acorns to go", "Még ${cost - acorns} makk kell hozzá"), color = Brand.Muted) }
+                    // Not enough yet: make it the goal (home shows how far), or stop saving for it.
+                    savingFor == t.id -> androidx.compose.material3.TextButton(onClick = { store.savingFor = null; savingFor = null }) { Text(tr("Not my goal", "Mégsem ez a célom"), color = Brand.Muted) }
+                    else -> androidx.compose.material3.TextButton(onClick = { store.savingFor = t.id; savingFor = t.id; open = null }) { Text(tr("Save up for it (${cost - acorns} to go)", "Erre gyűjtök (még ${cost - acorns})"), color = Brand.Moss) }
                 }
             },
             dismissButton = {
                 Row {
                     if (owned) androidx.compose.material3.TextButton(onClick = { onSell(t.id); open = null }) { Text(tr("Sell ${Clearing.sellValue(t)}", "Eladom ${Clearing.sellValue(t)}"), color = Brand.Coral) }
-                    else androidx.compose.material3.TextButton(onClick = { open = null }) { Text(tr("Close", "Bezárás")) }
+                    else {
+                        // See it in the camp first, where it would stand.
+                        if (lockedAt == null) androidx.compose.material3.TextButton(onClick = { open = null; onPreview(t) }) { Text(tr("See it in camp", "Így nézne ki"), color = Brand.Moss) }
+                        androidx.compose.material3.TextButton(onClick = { open = null }) { Text(tr("Close", "Bezárás")) }
+                    }
                 }
             },
             containerColor = Brand.Card,
@@ -1133,14 +1169,30 @@ private fun Inventory(
 
 /** One thing in the shop: its picture, name and price (a tick when it's in the camp). */
 @Composable
-internal fun ShopTile(thing: app.tend.core.Thing, owned: Boolean, affordable: Boolean, modifier: Modifier, background: Color = Brand.Sage, inChest: Boolean = false, lockedUntil: Int? = null, onTap: () -> Unit) = Column(
-    modifier.clip(RoundedCornerShape(14.dp)).background(if (owned) Brand.Picked else background).tappable(onClick = onTap).padding(vertical = 6.dp, horizontal = 2.dp),
-    horizontalAlignment = Alignment.CenterHorizontally,
-) {
+internal fun ShopTile(
+    thing: app.tend.core.Thing, owned: Boolean, affordable: Boolean, modifier: Modifier, background: Color = Brand.Sage, inChest: Boolean = false, lockedUntil: Int? = null,
+    /** In the shop: what it's for, in a line, and "New" until the shop has been seen with it. */
+    line: String? = null, isNew: Boolean = false, saving: Boolean = false,
+    onTap: () -> Unit,
+) = Box(modifier) {
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if (owned) Brand.Picked else background).tappable(onClick = onTap).padding(vertical = 6.dp, horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) { ShopTileBody(thing, owned, affordable, inChest, lockedUntil, line) }
+    if (isNew || saving) Text(
+        if (saving) tr("Goal", "Cél") else tr("New", "Új"), style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = Color.White,
+        modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).clip(RoundedCornerShape(50)).background(if (saving) Brand.Moss else Brand.Plus).padding(horizontal = 5.dp, vertical = 1.dp),
+    )
+}
+
+@Composable
+private fun ShopTileBody(thing: app.tend.core.Thing, owned: Boolean, affordable: Boolean, inChest: Boolean, lockedUntil: Int?, line: String?) {
     Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
         androidx.compose.foundation.Image(thingIconBitmap(thing.id), null, Modifier.size(34.dp).graphicsLayer { alpha = if (lockedUntil != null) 0.4f else 1f })
     }
-    Text(thing.name, style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    // The whole name, on two lines if it needs them.
+    Text(thing.name, style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp, lineHeight = 13.sp), maxLines = 2, minLines = if (line != null) 2 else 1, textAlign = TextAlign.Center)
+    line?.let { Text(it, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 10.sp, lineHeight = 12.sp), color = Brand.Muted, maxLines = 2, minLines = 2, textAlign = TextAlign.Center, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
     Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         if (lockedUntil != null) Text(tr("Level $lockedUntil", "$lockedUntil. szint"), style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = Brand.Muted)
         else if (owned) Text(if (inChest) tr("In chest", "A ládában") else tr("In camp", "A táborban"), style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = Brand.Moss)
@@ -1203,6 +1255,7 @@ private fun kindChip(kind: SpotKind) = when (kind) {
     SpotKind.WATER -> tr("River", "Vízre")
     SpotKind.ABOVE -> tr("Overhead", "Fölé")
     SpotKind.SHELTER -> tr("Homes", "Otthon")
+    SpotKind.AROUND -> tr("Around the camp", "Tábor körül")
 }
 
 private fun kindTitle(kind: SpotKind) = when (kind) {
@@ -1212,6 +1265,7 @@ private fun kindTitle(kind: SpotKind) = when (kind) {
     SpotKind.TREES -> tr("In the trees", "A fák közé")
     SpotKind.WATER -> tr("On the river", "A folyóra")
     SpotKind.ABOVE -> tr("Between the trees", "A fák közé kifeszítve")
+    SpotKind.AROUND -> tr("Around the camp", "A tábor köré")
     SpotKind.SMALL -> tr("Around the camp", "A tábor köré")
 }
 
@@ -1293,6 +1347,22 @@ private fun HubIcon(kind: String, visitor: app.tend.core.Visitor?, modifier: Mod
             }
             "guestbook" -> translate(0f, -kotlin.math.abs(kotlin.math.sin(a)) * w * 0.08f) {
                 drawVisitorIcon(visitor ?: app.tend.core.Visitor.RABBIT, seen = visitor != null)
+            }
+            "shop" -> {
+                // A little stall: a striped awning that sways, an acorn bobbing on the counter.
+                val sway = kotlin.math.sin(a) * w * 0.02f
+                drawRect(Color(0xFFB98A5E), Offset(w * 0.2f, w * 0.5f), Size(w * 0.6f, w * 0.38f))
+                drawRect(Color(0xFF8E6440), Offset(w * 0.16f, w * 0.48f), Size(w * 0.68f, w * 0.07f))
+                for (i in 0 until 4) drawRect(if (i % 2 == 0) Color(0xFFE07A5F) else Color.White, Offset(w * (0.14f + 0.18f * i) + sway, w * 0.22f), Size(w * 0.18f, w * 0.2f))
+                drawCircle(Color(0xFF9C6B3F), w * 0.07f, Offset(w * 0.5f, w * 0.4f - kotlin.math.abs(kotlin.math.sin(a * 2)) * w * 0.06f))
+            }
+            "friends" -> {
+                // A small fire, flickering.
+                drawLine(Color(0xFF6B4A33), Offset(w * 0.24f, w * 0.86f), Offset(w * 0.76f, w * 0.74f), strokeWidth = w * 0.08f, cap = StrokeCap.Round)
+                drawLine(Color(0xFF8E6440), Offset(w * 0.24f, w * 0.74f), Offset(w * 0.76f, w * 0.86f), strokeWidth = w * 0.08f, cap = StrokeCap.Round)
+                val f = 1f + 0.08f * kotlin.math.sin(a * 3)
+                drawPath(Path().apply { moveTo(w * 0.5f, w * (0.78f - 0.6f * f)); cubicTo(w * 0.78f, w * 0.42f, w * 0.7f, w * 0.78f, w * 0.5f, w * 0.78f); cubicTo(w * 0.3f, w * 0.78f, w * 0.22f, w * 0.42f, w * 0.5f, w * (0.78f - 0.6f * f)); close() }, Color(0xFFF2994A))
+                drawPath(Path().apply { moveTo(w * 0.5f, w * (0.78f - 0.34f * f)); cubicTo(w * 0.64f, w * 0.56f, w * 0.6f, w * 0.78f, w * 0.5f, w * 0.78f); cubicTo(w * 0.4f, w * 0.78f, w * 0.36f, w * 0.56f, w * 0.5f, w * (0.78f - 0.34f * f)); close() }, Color(0xFFF2C94C))
             }
             "things" -> {
                 // A present: the lid hops now and then, a sparkle escapes.
@@ -1378,47 +1448,34 @@ private fun thingIconBitmap(id: String): androidx.compose.ui.graphics.ImageBitma
     }
 }
 
-/** The page's quiet end: a low line of hills with a few small pines, a path winding off, a moon. */
+/** The page's end: the river winding past little camps downstream, and "Along the river". Tapped: the river. */
 @Composable
-private fun CampFooter(modifier: Modifier) = Canvas(modifier) {
-    val w = size.width
-    val h = size.height
-    val base = h * 0.86f
-    val ink = Brand.Moss.copy(alpha = 0.16f)
-    val inkDeep = Brand.Moss.copy(alpha = 0.26f)
-    fun fade(alpha: Float, top: Float) = androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Brand.Mint.copy(alpha = alpha), Brand.Sage.copy(alpha = 0f)), startY = top, endY = h)
-    // Far hills, paler, then the near ones.
-    drawPath(Path().apply {
-        moveTo(0f, base - h * 0.2f)
-        cubicTo(w * 0.2f, base - h * 0.42f, w * 0.38f, base - h * 0.18f, w * 0.55f, base - h * 0.32f)
-        cubicTo(w * 0.72f, base - h * 0.46f, w * 0.9f, base - h * 0.24f, w, base - h * 0.3f)
-        lineTo(w, h); lineTo(0f, h); close()
-    }, fade(0.16f, base - h * 0.46f))
-    drawPath(Path().apply {
-        moveTo(0f, base)
-        cubicTo(w * 0.25f, base - h * 0.22f, w * 0.45f, base + h * 0.04f, w * 0.7f, base - h * 0.16f)
-        cubicTo(w * 0.85f, base - h * 0.26f, w * 0.95f, base - h * 0.06f, w, base - h * 0.08f)
-        lineTo(w, h); lineTo(0f, h); close()
-    }, fade(0.32f, base - h * 0.26f))
-    // Pines: two tones, the near ones a little darker.
-    for ((x, sc, deep) in listOf(Triple(0.1f, 1f, true), Triple(0.15f, 0.7f, false), Triple(0.2f, 0.5f, false), Triple(0.8f, 0.9f, true), Triple(0.86f, 0.6f, false))) {
-        val bx = w * x; val by = base - h * 0.06f; val th = h * 0.42f * sc
-        drawPath(Path().apply { moveTo(bx, by - th); lineTo(bx + th * 0.35f, by); lineTo(bx - th * 0.35f, by); close() }, if (deep) inkDeep else ink)
-        drawLine(if (deep) inkDeep else ink, Offset(bx, by), Offset(bx, by + th * 0.08f), strokeWidth = h * 0.012f)
+private fun RiverPreview(modifier: Modifier) = Box(modifier) {
+    Canvas(Modifier.matchParentSize()) {
+        val w = size.width
+        val h = size.height
+        drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Brand.Mint.copy(alpha = 0.18f), Brand.Mint.copy(alpha = 0.32f))))
+        // The water: wide in front, narrowing off to the right.
+        drawPath(Path().apply {
+            moveTo(0f, h * 0.72f)
+            cubicTo(w * 0.3f, h * 0.58f, w * 0.55f, h * 0.78f, w, h * 0.5f)
+            lineTo(w, h * 0.6f)
+            cubicTo(w * 0.6f, h * 0.92f, w * 0.3f, h * 0.76f, 0f, h)
+            close()
+        }, Color(0xFF8EC4E8).copy(alpha = 0.7f))
+        for ((x, y) in listOf(0.12f to 0.82f, 0.4f to 0.74f, 0.7f to 0.66f)) drawLine(Color.White.copy(alpha = 0.7f), Offset(w * x, h * y), Offset(w * (x + 0.06f), h * (y - 0.01f)), strokeWidth = h * 0.012f, cap = StrokeCap.Round)
+        // Little camps along the bank, smaller the farther they are.
+        for ((x, k) in listOf(0.22f to 1f, 0.52f to 0.8f, 0.8f to 0.6f)) {
+            val base = Offset(w * x, h * (0.56f - 0.12f * (1f - k)))
+            val t = h * 0.16f * k
+            drawPath(Path().apply { moveTo(base.x - t, base.y); lineTo(base.x, base.y - t * 1.1f); lineTo(base.x + t, base.y); close() }, Brand.Moss.copy(alpha = 0.55f))
+            drawCircle(Color(0xFFF2994A).copy(alpha = 0.85f), t * 0.18f, base + Offset(t * 1.5f, -t * 0.12f))
+        }
     }
-    // A dotted path winding up to a little tent.
-    for (i in 0 until 12) { val k = i / 11f; drawCircle(ink, h * 0.012f * (1.2f - k * 0.5f), Offset(w * (0.36f + 0.22f * k + 0.03f * kotlin.math.sin(k * 6f)), base + h * (0.1f - 0.2f * k))) }
-    val tent = Offset(w * 0.62f, base - h * 0.12f); val tw = h * 0.12f
-    drawPath(Path().apply { moveTo(tent.x - tw, tent.y); lineTo(tent.x, tent.y - tw * 1.1f); lineTo(tent.x + tw, tent.y); close() }, inkDeep)
-    drawPath(Path().apply { moveTo(tent.x - tw * 0.25f, tent.y); lineTo(tent.x, tent.y - tw * 0.6f); lineTo(tent.x + tw * 0.25f, tent.y); close() }, Brand.Sage)
-    // Birds far off, and a thin crescent.
-    for ((x, y) in listOf(0.42f to 0.66f, 0.47f to 0.74f, 0.37f to 0.76f)) {
-        val c = Offset(w * x, base - h * y); val r = h * 0.035f
-        drawPath(Path().apply { moveTo(c.x - r, c.y); quadraticTo(c.x - r / 2, c.y - r * 0.6f, c.x, c.y); quadraticTo(c.x + r / 2, c.y - r * 0.6f, c.x + r, c.y) }, ink, style = androidx.compose.ui.graphics.drawscope.Stroke(h * 0.008f))
-    }
-    val moon = Offset(w * 0.72f, base - h * 0.72f); val mr = h * 0.06f
-    drawCircle(Brand.Mint.copy(alpha = 0.45f), mr, moon)
-    drawCircle(Brand.Sage, mr * 0.92f, moon + Offset(mr * 0.4f, -mr * 0.2f))
+    Text(
+        tr("Along the river →", "A folyó mentén →"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+        modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
+    )
 }
 
 /** What was in a present: a thing (into the camp or left in the chest), acorns for one you had, or one to update for. */
@@ -1489,6 +1546,12 @@ internal fun Wardrobe(
 ) = Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
     var place by remember { mutableStateOf<app.tend.core.Slot?>(null) }
     var trying by remember { mutableStateOf<Accessory?>(null) }
+    // Trying something on has its own feel: a soft click and two notes up.
+    val view = androidx.compose.ui.platform.LocalView.current
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    androidx.compose.runtime.LaunchedEffect(trying) {
+        if (trying != null) { view.performHapticFeedback(android.view.HapticFeedbackConstants.CONTEXT_CLICK); Sounds.tryOn(ctx) }
+    }
     val season = app.tend.core.Season.of(java.time.LocalDate.now())
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { TryOn(avatar, worn, trying, 132.dp) }
     trying?.let { a ->

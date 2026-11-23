@@ -1115,6 +1115,7 @@ class MainActivity : ComponentActivity() {
                 onDismissCall = { app.tend.data.Friends.doneFireCall(this@MainActivity); refresh++ },
                 friendsToday = friendsToday,
                 together = together,
+                saving = remember(refresh) { store.savingFor?.let(app.tend.core.Things::byId)?.let { it.name to it.price } },
                 fireCount = app.tend.data.Friends.fireCount,
                 cheered = cheeredToday,
                 onCheer = { f ->

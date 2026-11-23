@@ -139,6 +139,8 @@ fun HomeScreen(
     onDismissCall: () -> Unit = {},
     /** Friends who did something today, with a cheer for each (once a day). */
     friendsToday: List<app.tend.data.Friends.Friend> = emptyList(),
+    /** What's being saved up for (its name and price), if anything. */
+    saving: Pair<String, Int>? = null,
     /** The together week with friends (null with none), and how many sit at a fire anywhere (null: not said). */
     together: app.tend.data.Friends.Week? = null,
     fireCount: Int? = null,
@@ -220,8 +222,6 @@ fun HomeScreen(
         TodayHeader(day.date, Triple(remaining, (cfg.freeMinutes + day.earnedMinutes).coerceAtLeast(1), Budget.earnableFrom(cfg, day, tasks)), { explain = "minutes" }) {
             IconButtonSoft(TendIcons.vector("gear"), tr("Settings", "Beállítások"), onOpenSettings)
         }
-        // Once, after the update that moved them: the settings are all still there.
-        if (settingsMoved) Notice("sparkle", tr("Settings, rearranged", "Átrendeztük a beállításokat"), tr("Everything's still there, in a clearer place. Tap to have a look.", "Minden megvan, csak logikusabb helyen. Koppints, és megnézheted."), onSettingsMoved)
 
         // Hero: the camp, with the companion living in it; what they say, today's minutes, and the
         // acorns to spend. Tapping it opens the camp.
@@ -296,89 +296,243 @@ fun HomeScreen(
 
         // Everything under the camp rises in as the page opens (the camp itself glides).
         Column(Modifier.pageBody(), verticalArrangement = Arrangement.spacedBy(Space.m)) {
-        // The evening: tonight's recap, right under the camp.
-        if (isEvening && !sleeping && pausedUntil <= System.currentTimeMillis()) {
-            val seen = app.tend.data.TendStore(context).recapSeenOn == day.date.toString()
-            Notice("moon", if (seen) tr("Tonight's recap", "A ma esti összefoglaló") else tr("Tonight's recap is ready", "Kész a ma esti összefoglaló"), if (seen) tr("See it again", "Megnézem újra") else tr("See what today gave back", "Nézd meg, mit adott vissza a mai nap"), onOpenRecap)
-        }
         if (levelUp != null) LevelUpDialog(avatar, levelUp, onLevelUpSeen)
-
-        if (onShareCrash != null) Notice("alert", tr("tend crashed last time", "A tend legutóbb összeomlott"), tr("Sorry! Tap to share the crash report.", "Bocsánat! Koppints, és megoszthatod a hibajelentést."), onShareCrash)
-        if (brokenTimer != null) Notice(
-            brokenTimer.icon, tr("The phone came back a little early", "A telefon kicsit korán került elő"),
-            tr("${brokenTimer.title} needs ${brokenTimer.target} phone-free minutes. Tap to try again later.", "Ehhez ${brokenTimer.target} telefonmentes perc kell: ${brokenTimer.title.lowercase()}. Koppints, és később újra megpróbálhatod."), onDismissBroken,
-        )
-        // A friend at the fire: join them (unless a timer of your own is already going).
-        if (focusSecondsLeft == null) atFire.firstOrNull()?.let { f ->
-            val until = java.time.Instant.ofEpochMilli(f.until).atZone(java.time.ZoneId.systemDefault()).toLocalTime()
-            Notice(
-                "friends", tr("${f.name}${if (atFire.size > 1) " and ${atFire.size - 1} more" else ""} at your campfire", "${f.name}${if (atFire.size > 1) " és még ${atFire.size - 1} barátod" else ""} a tábortüzednél ül"),
-                tr("Phone-free until ${"%d:%02d".format(until.hour, until.minute)}. Put yours down too: +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each", "${"%d:%02d".format(until.hour, until.minute)}-ig telefon nélkül. Tedd le te is: fejenként +${app.tend.core.Acorns.TOGETHER_FIRE} makk"), { onJoin(f) },
-            )
+        val active = tasks.filter { it.id !in day.completedTasks }
+        val done = tasks.filter { it.id in day.completedTasks }
+        // One main thing to do, by the moment: a day off or the night, a friend at the fire, tonight's
+        // recap, the next activity, or putting the phone down. Everything else comes after it.
+        val now = System.currentTimeMillis()
+        val main = when {
+            pausedUntil > now || sleeping -> "rest"
+            focusSecondsLeft == null && atFire.isNotEmpty() -> "fire"
+            focusSecondsLeft == null && fireCall != null -> "call"
+            isEvening && !sleeping && pausedUntil <= now -> "recap"
+            active.isNotEmpty() || done.isNotEmpty() || tasks.isEmpty() -> "activities"
+            else -> "phone"
         }
-        // A friend calling to the fire (nobody's there yet): one tap puts your phone down too.
-        if (focusSecondsLeft == null && atFire.isEmpty() && fireCall != null) Column(
-            Modifier.fillMaxWidth().surface(radius = 20.dp).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text(tr("$fireCall calls you to the campfire", "$fireCall a tábortűzhöz hív"), style = MaterialTheme.typography.titleMedium)
-            Text(tr("Put your phones down together: +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each.", "Tegyétek le együtt a telefont: fejenként +${app.tend.core.Acorns.TOGETHER_FIRE} makk."), style = MaterialTheme.typography.bodyMedium, color = Brand.Muted)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ChipButton(tr("Join", "Csatlakozom"), onAnswerCall)
-                ChipButton(tr("Not now", "Most nem"), onDismissCall, filled = false)
+        @Composable
+        fun Activities() {
+            SectionHeader(tr("Instead of scrolling", "Görgetés helyett"), tr("${done.size} of ${tasks.size} done", "${done.size} / ${tasks.size} megvan"))
+            if (tasks.isEmpty()) Notice("sparkle", tr("Pick what you'd rather do", "Válaszd ki, mit csinálnál szívesebben"), tr("A few activities that give minutes back", "Pár tevékenység, ami perceket ad vissza"), onOpenSettings)
+            if (active.isNotEmpty()) {
+                // One at a time, swiped left and right; the next one peeks in from the side.
+                val pager = androidx.compose.foundation.pager.rememberPagerState { active.size }
+                // "Do one activity" tapped: back to the first one, and a short glow around it.
+                val glow = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(0f) }
+                androidx.compose.runtime.LaunchedEffect(focusActivities) {
+                    if (focusActivities == 0) return@LaunchedEffect
+                    pager.animateScrollToPage(0)
+                    repeat(2) { glow.animateTo(1f, tween(300)); glow.animateTo(0f, tween(400)) }
+                }
+                // Every card as tall as the tallest one (laid out unseen underneath): nothing jumps when swiping.
+                Box(Modifier.fillMaxWidth()) {
+                    Box(Modifier.fillMaxWidth().padding(end = if (active.size > 1) 36.dp else 0.dp).alpha(0f).clearAndSetSemantics { }) {
+                        active.forEach { task ->
+                            TaskRow(task, day, health, focusSecondsLeft?.takeIf { task.id == focusTaskId }, {}, {}, {}, exerciseTracked, sleepEstimated, Modifier.padding(vertical = 4.dp))
+                        }
+                    }
+                    androidx.compose.foundation.pager.HorizontalPager(
+                        pager, Modifier.matchParentSize(),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(end = if (active.size > 1) 36.dp else 0.dp),
+                        pageSpacing = 12.dp, verticalAlignment = Alignment.Top,
+                    ) { i ->
+                        val task = active[i]
+                        Box(Modifier.fillMaxHeight().padding(vertical = 4.dp).border(2.dp, Brand.Moss.copy(alpha = if (i == 0) glow.value else 0f), RoundedCornerShape(22.dp))) {
+                            TaskRow(task, day, health, focusSecondsLeft?.takeIf { task.id == focusTaskId }, onStartFocus, onCheckOff, onUndo, exerciseTracked, sleepEstimated, Modifier.fillMaxHeight())
+                        }
+                    }
+                }
+                if (active.size > 1) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    repeat(active.size) { i ->
+                        val on = i == pager.currentPage
+                        Box(Modifier.padding(horizontal = 3.dp).size(if (on) 8.dp else 6.dp).clip(CircleShape).background(if (on) Brand.Moss else Brand.Mint.copy(alpha = 0.45f)))
+                    }
+                }
+            } else if (done.isNotEmpty()) {
+                Row(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TendIcons.Badge("sparkle", 40.dp)
+                    Spacer(Modifier.width(12.dp))
+                    Text(tr("Everything done today. ${avatar.displayName} is proud of you.", "Mára minden megvan. ${avatar.displayName} büszke rád."), style = MaterialTheme.typography.titleMedium)
+                }
             }
         }
-        // The trial's last days: said once a day on home, never in the way.
-        if (plusDaysLeft != null && plusDaysLeft <= 3) Notice(
-            "sparkle", if (plusDaysLeft <= 1) tr("Last day of tend Plus", "A tend Plus utolsó napja") else tr("$plusDaysLeft more day${if (plusDaysLeft == 1) "" else "s"} of tend Plus", "Még $plusDaysLeft nap tend Plus"),
-            tr("See what stays free and what Plus keeps", "Nézd meg, mi marad ingyen, és mit tart meg a Plus"), onPlus,
-        )
-        if (pausedUntil > System.currentTimeMillis()) Notice("sun", tr("Day off until ${breakEnd(pausedUntil)}", "Szabadnap eddig: ${breakEnd(pausedUntil)}"), tr("No pauses, locks or counting. Tap to come back.", "Nincs Megállító, zárás, számolás. Koppints, ha visszajönnél."), onResume)
-        // After "Good night": the paused apps rest until morning, with a way back.
-        else if (sleeping) {
-            // Waking them takes a moment's thought: a dialog, and a button held for a few seconds.
-            var waking by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
-            GoodNightCard(avatar, strict) { waking = true }
-            if (waking) androidx.compose.material3.AlertDialog(
-                onDismissRequest = { waking = false },
-                icon = { CharacterView(avatar, app.tend.core.Mood.SLEEPING, 72.dp, lightweight = true) },
-                title = { Text(tr("Wake the apps?", "Felébreszted az appokat?")) },
+        @Composable
+        fun PhoneDown() {
+            // Phone down for as long as you like (15 to 120 minutes), and every app waits: first, as a card of its own.
+            if (focusSecondsLeft == null) {
+                var minutes by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(Tasks.clampTimer(timerMinutes)) }
+                fun nudge(d: Int) { minutes = Tasks.clampTimer(minutes + d); onTimerMinutes(minutes) }
+                // Minus and plus drawn, not typed: a font's glyphs sit off-centre in a circle.
+                @Composable
+                fun Nudge(plus: Boolean, on: Boolean, onTap: () -> Unit) = Box(
+                    Modifier.size(34.dp).clip(CircleShape).background(Brand.Mint.copy(alpha = if (on) 0.25f else 0.1f)).then(if (on) Modifier.tappable(onClick = onTap) else Modifier),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    androidx.compose.foundation.Canvas(Modifier.size(12.dp)) {
+                        val col = if (on) Brand.Moss else Brand.Muted.copy(alpha = 0.4f)
+                        val w = 2.2.dp.toPx()
+                        drawLine(col, androidx.compose.ui.geometry.Offset(0f, size.height / 2), androidx.compose.ui.geometry.Offset(size.width, size.height / 2), w, androidx.compose.ui.graphics.StrokeCap.Round)
+                        if (plus) drawLine(col, androidx.compose.ui.geometry.Offset(size.width / 2, 0f), androidx.compose.ui.geometry.Offset(size.width / 2, size.height), w, androidx.compose.ui.graphics.StrokeCap.Round)
+                    }
+                }
+                @Composable
+                fun Title(modifier: Modifier) = Column(modifier) {
+                    Text(tr("Phone down", "Telefon le"), style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                    Text(tr("Earns minutes too", "Perceket is ad"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, maxLines = 1)
+                }
+                @Composable
+                fun Stepper() {
+                    Nudge(false, minutes > Tasks.TIMER_MIN) { nudge(-Tasks.TIMER_STEP) }
+                    Text(tr("$minutes min", "$minutes perc"), style = MaterialTheme.typography.titleMedium, color = Brand.Moss, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 1, modifier = Modifier.width(72.dp))
+                    Nudge(true, minutes < Tasks.TIMER_MAX) { nudge(Tasks.TIMER_STEP) }
+                }
+                // On a narrow screen in two lines (the title never squeezed), otherwise in one.
+                val narrow = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 400
+                if (narrow) Column(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Title(Modifier.weight(1f))
+                        ChipButton(tr("Start", "Indítás"), { onStartFocus(Tasks.timer(minutes)) })
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) { Stepper() }
+                } else Row(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Title(Modifier.weight(1f))
+                    Stepper()
+                    ChipButton(tr("Start", "Indítás"), { onStartFocus(Tasks.timer(minutes)) })
+                }
+            }
+        }
+        when (main) {
+            "rest" -> {
+                if (pausedUntil > System.currentTimeMillis()) Notice("sun", tr("Day off until ${breakEnd(pausedUntil)}", "Szabadnap eddig: ${breakEnd(pausedUntil)}"), tr("No pauses, locks or counting. Tap to come back.", "Nincs Megállító, zárás, számolás. Koppints, ha visszajönnél."), onResume)
+                // After "Good night": the paused apps rest until morning, with a way back.
+                else if (sleeping) {
+                    // Waking them takes a moment's thought: a dialog, and a button held for a few seconds.
+                    var waking by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+                    GoodNightCard(avatar, strict) { waking = true }
+                    if (waking) androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { waking = false },
+                        icon = { CharacterView(avatar, app.tend.core.Mood.SLEEPING, 72.dp, lightweight = true) },
+                        title = { Text(tr("Wake the apps?", "Felébreszted az appokat?")) },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                                Text(tr("You said good night, and ${avatar.displayName} is asleep. The apps rest until 7:00. Do you really need them now?", "Jó éjt kívántál, és ${avatar.displayName} már alszik. Az appok 7:00-ig pihennek. Tényleg most kellenek?"))
+                                HoldToConfirm(tr("Hold to wake the apps", "Tartsd nyomva az ébresztéshez"), seconds = 7f) { waking = false; onWakeUp() }
+                            }
+                        },
+                        confirmButton = { androidx.compose.material3.TextButton(onClick = { waking = false }) { Text(tr("Let them rest", "Hadd pihenjenek")) } },
+                        containerColor = Brand.Card,
+                    )
+                }
+            }
+            "fire" -> {
+                // A friend at the fire: join them (unless a timer of your own is already going).
+                if (focusSecondsLeft == null) atFire.firstOrNull()?.let { f ->
+                    val until = java.time.Instant.ofEpochMilli(f.until).atZone(java.time.ZoneId.systemDefault()).toLocalTime()
+                    Notice(
+                        "friends", tr("${f.name}${if (atFire.size > 1) " and ${atFire.size - 1} more" else ""} at your campfire", "${f.name}${if (atFire.size > 1) " és még ${atFire.size - 1} barátod" else ""} a tábortüzednél ül"),
+                        tr("Phone-free until ${"%d:%02d".format(until.hour, until.minute)}. Put yours down too: +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each", "${"%d:%02d".format(until.hour, until.minute)}-ig telefon nélkül. Tedd le te is: fejenként +${app.tend.core.Acorns.TOGETHER_FIRE} makk"), { onJoin(f) },
+                    )
+                }
+            }
+            "call" -> {
+                // A friend calling to the fire (nobody's there yet): one tap puts your phone down too.
+                if (focusSecondsLeft == null && atFire.isEmpty() && fireCall != null) Column(
+                    Modifier.fillMaxWidth().surface(radius = 20.dp).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(tr("$fireCall calls you to the campfire", "$fireCall a tábortűzhöz hív"), style = MaterialTheme.typography.titleMedium)
+                    Text(tr("Put your phones down together: +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each.", "Tegyétek le együtt a telefont: fejenként +${app.tend.core.Acorns.TOGETHER_FIRE} makk."), style = MaterialTheme.typography.bodyMedium, color = Brand.Muted)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ChipButton(tr("Join", "Csatlakozom"), onAnswerCall)
+                        ChipButton(tr("Not now", "Most nem"), onDismissCall, filled = false)
+                    }
+                }
+            }
+            "recap" -> {
+                // The evening: tonight's recap, right under the camp.
+                if (isEvening && !sleeping && pausedUntil <= System.currentTimeMillis()) {
+                    val seen = app.tend.data.TendStore(context).recapSeenOn == day.date.toString()
+                    Notice("moon", if (seen) tr("Tonight's recap", "A ma esti összefoglaló") else tr("Tonight's recap is ready", "Kész a ma esti összefoglaló"), if (seen) tr("See it again", "Megnézem újra") else tr("See what today gave back", "Nézd meg, mit adott vissza a mai nap"), onOpenRecap)
+                }
+            }
+            "activities" -> Activities()
+            else -> PhoneDown()
+        }
+
+        // What needs a look (a permission, a crash, the trial's end…): one directly, more under "To do (n)".
+        val todo = mutableListOf<@Composable () -> Unit>()
+        if (settingsMoved) todo += { Notice("sparkle", tr("Settings, rearranged", "Átrendeztük a beállításokat"), tr("Everything's still there, in a clearer place. Tap to have a look.", "Minden megvan, csak logikusabb helyen. Koppints, és megnézheted."), onSettingsMoved) }
+        todo += {
+            if (onShareCrash != null) Notice("alert", tr("tend crashed last time", "A tend legutóbb összeomlott"), tr("Sorry! Tap to share the crash report.", "Bocsánat! Koppints, és megoszthatod a hibajelentést."), onShareCrash)
+        }
+        todo += {
+            if (brokenTimer != null) Notice(
+                brokenTimer.icon, tr("The phone came back a little early", "A telefon kicsit korán került elő"),
+                tr("${brokenTimer.title} needs ${brokenTimer.target} phone-free minutes. Tap to try again later.", "Ehhez ${brokenTimer.target} telefonmentes perc kell: ${brokenTimer.title.lowercase()}. Koppints, és később újra megpróbálhatod."), onDismissBroken,
+            )
+        }
+        todo += {
+            // The trial's last days: said once a day on home, never in the way.
+            if (plusDaysLeft != null && plusDaysLeft <= 3) Notice(
+                "sparkle", if (plusDaysLeft <= 1) tr("Last day of tend Plus", "A tend Plus utolsó napja") else tr("$plusDaysLeft more day${if (plusDaysLeft == 1) "" else "s"} of tend Plus", "Még $plusDaysLeft nap tend Plus"),
+                tr("See what stays free and what Plus keeps", "Nézd meg, mi marad ingyen, és mit tart meg a Plus"), onPlus,
+            )
+        }
+        todo += {
+            when {
+                !permissions.usageAccess -> Notice("alert", tr("Limited mode", "Korlátozott mód"), tr("${avatar.displayName} can't see screen time. Tap to turn it on.", "${avatar.displayName} nem látja a képernyőidőt. Koppints, és bekapcsolhatod."), onFixPermissions)
+                !permissions.overlay -> Notice(
+                    "alert", if (remaining <= 0) tr("Out of minutes, but your apps are open", "Elfogytak a percek, de az appjaid nyitva vannak") else tr("No pause before scrolling", "Nincs Megállító görgetés előtt"),
+                    if (remaining <= 0) tr("tend can only notify you, not close them. Tap to fix.", "A tend csak értesíteni tud, bezárni nem. Koppints, és megjavítjuk.") else tr("Only a notification for now. Tap to fix.", "Egyelőre csak értesítés jön. Koppints, és megjavítjuk."), onFixPermissions,
+                )
+            }
+        }
+        todo += {
+            // Android 15 and later: once, how to quiet Android's own "displaying over other apps" note.
+            var overlayHelp by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+            if (overlayNoteTip) Notice("sparkle", tr("Android's \"over other apps\" note bothers you?", "Zavar az Android „other apps” értesítése?"), tr("Tap to see how to hide it.", "Koppints, és megmutatjuk, hogyan rejtheted el."), { overlayHelp = true })
+            if (overlayHelp) androidx.compose.material3.AlertDialog(
+                onDismissRequest = { overlayHelp = false; onOverlayNoteTip() },
+                title = { Text(tr("Hide Android's note", "Az Android értesítésének elrejtése")) },
                 text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        Text(tr("You said good night, and ${avatar.displayName} is asleep. The apps rest until 7:00. Do you really need them now?", "Jó éjt kívántál, és ${avatar.displayName} már alszik. Az appok 7:00-ig pihennek. Tényleg most kellenek?"))
-                        HoldToConfirm(tr("Hold to wake the apps", "Tartsd nyomva az ébresztéshez"), seconds = 7f) { waking = false; onWakeUp() }
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(tr("Android shows it while tend can bring the Megállító up over other apps. tend works the same without it.", "Az Android akkor mutatja, amikor a tend más appok fölé tudja hozni a Megállítót. A tend nélküle is ugyanúgy működik."))
+                        Text(tr("1. Pull down the notifications.\n2. Hold \"tend is displaying over other apps\".\n3. Turn it off.", "1. Húzd le az értesítéseket.\n2. Tartsd nyomva: „tend is displaying over other apps”.\n3. Kapcsold ki."))
+                        if (app.tend.BuildConfig.PLAY) Text(tr("Or turn on \"Close only Reels & Shorts\" in Settings → Picked apps: with it, the note doesn't come at all.", "Vagy kapcsold be a Beállítások → Kiválasztott appok alatt a „Csak a Reels és a Shorts zárása” lehetőséget: ezzel az értesítés meg sem jelenik."), color = Brand.Muted)
                     }
                 },
-                confirmButton = { androidx.compose.material3.TextButton(onClick = { waking = false }) { Text(tr("Let them rest", "Hadd pihenjenek")) } },
+                confirmButton = { androidx.compose.material3.TextButton(onClick = { overlayHelp = false; onOverlayNoteTip() }) { Text(tr("Got it", "Értem"), color = Brand.Moss) } },
                 containerColor = Brand.Card,
             )
         }
-
-        when {
-            !permissions.usageAccess -> Notice("alert", tr("Limited mode", "Korlátozott mód"), tr("${avatar.displayName} can't see screen time. Tap to turn it on.", "${avatar.displayName} nem látja a képernyőidőt. Koppints, és bekapcsolhatod."), onFixPermissions)
-            !permissions.overlay -> Notice(
-                "alert", if (remaining <= 0) tr("Out of minutes, but your apps are open", "Elfogytak a percek, de az appjaid nyitva vannak") else tr("No pause before scrolling", "Nincs Megállító görgetés előtt"),
-                if (remaining <= 0) tr("tend can only notify you, not close them. Tap to fix.", "A tend csak értesíteni tud, bezárni nem. Koppints, és megjavítjuk.") else tr("Only a notification for now. Tap to fix.", "Egyelőre csak értesítés jön. Koppints, és megjavítjuk."), onFixPermissions,
-            )
+        todo += {
+            var weekendAsk by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+            if (weekendExtra) Notice("sun", tr("It's the weekend: one more hour?", "Hétvége van: kérsz még egy órát?"), tr("Today's minutes are gone. Tap to see how it works.", "A mai keret elfogyott. Koppints, és megnézheted, hogy működik."), { weekendAsk = true })
+            if (weekendAsk) WeekendExtraDialog(onTake = { weekendAsk = false; onWeekendExtra() }, onDismiss = { weekendAsk = false })
         }
-        // Android 15 and later: once, how to quiet Android's own "displaying over other apps" note.
-        var overlayHelp by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
-        if (overlayNoteTip) Notice("sparkle", tr("Android's \"over other apps\" note bothers you?", "Zavar az Android „other apps” értesítése?"), tr("Tap to see how to hide it.", "Koppints, és megmutatjuk, hogyan rejtheted el."), { overlayHelp = true })
-        if (overlayHelp) androidx.compose.material3.AlertDialog(
-            onDismissRequest = { overlayHelp = false; onOverlayNoteTip() },
-            title = { Text(tr("Hide Android's note", "Az Android értesítésének elrejtése")) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(tr("Android shows it while tend can bring the Megállító up over other apps. tend works the same without it.", "Az Android akkor mutatja, amikor a tend más appok fölé tudja hozni a Megállítót. A tend nélküle is ugyanúgy működik."))
-                    Text(tr("1. Pull down the notifications.\n2. Hold \"tend is displaying over other apps\".\n3. Turn it off.", "1. Húzd le az értesítéseket.\n2. Tartsd nyomva: „tend is displaying over other apps”.\n3. Kapcsold ki."))
-                    if (app.tend.BuildConfig.PLAY) Text(tr("Or turn on \"Close only Reels & Shorts\" in Settings → Picked apps: with it, the note doesn't come at all.", "Vagy kapcsold be a Beállítások → Kiválasztott appok alatt a „Csak a Reels és a Shorts zárása” lehetőséget: ezzel az értesítés meg sem jelenik."), color = Brand.Muted)
+        if (main != "fire" && focusSecondsLeft == null && atFire.isNotEmpty()) todo += {
+        // A friend at the fire: join them (unless a timer of your own is already going).
+                atFire.firstOrNull()?.let { f ->
+                val until = java.time.Instant.ofEpochMilli(f.until).atZone(java.time.ZoneId.systemDefault()).toLocalTime()
+                Notice(
+                    "friends", tr("${f.name}${if (atFire.size > 1) " and ${atFire.size - 1} more" else ""} at your campfire", "${f.name}${if (atFire.size > 1) " és még ${atFire.size - 1} barátod" else ""} a tábortüzednél ül"),
+                    tr("Phone-free until ${"%d:%02d".format(until.hour, until.minute)}. Put yours down too: +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each", "${"%d:%02d".format(until.hour, until.minute)}-ig telefon nélkül. Tedd le te is: fejenként +${app.tend.core.Acorns.TOGETHER_FIRE} makk"), { onJoin(f) },
+                )
+            }
+        }
+        TodoList(todo)
+        // Saving up for something: how far, in a thin bar.
+        saving?.let { (thing, price) ->
+            Column(Modifier.fillMaxWidth().surface(radius = 16.dp).tappable(onClick = onOpenClearing).padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(tr("Saving up for: $thing", "Erre gyűjtesz: $thing"), style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f), maxLines = 1)
+                    Text(if (acorns >= price) tr("Ready!", "Megvan!") else tr("${price - acorns} to go", "még ${price - acorns}"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
                 }
-            },
-            confirmButton = { androidx.compose.material3.TextButton(onClick = { overlayHelp = false; onOverlayNoteTip() }) { Text(tr("Got it", "Értem"), color = Brand.Moss) } },
-            containerColor = Brand.Card,
-        )
-        var weekendAsk by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
-        if (weekendExtra) Notice("sun", tr("It's the weekend: one more hour?", "Hétvége van: kérsz még egy órát?"), tr("Today's minutes are gone. Tap to see how it works.", "A mai keret elfogyott. Koppints, és megnézheted, hogy működik."), { weekendAsk = true })
-        if (weekendAsk) WeekendExtraDialog(onTake = { weekendAsk = false; onWeekendExtra() }, onDismiss = { weekendAsk = false })
+                Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(Brand.Mint.copy(alpha = 0.3f))) {
+                    Box(Modifier.fillMaxWidth((acorns / price.toFloat()).coerceIn(0f, 1f)).height(6.dp).clip(RoundedCornerShape(3.dp)).background(Brand.Moss))
+                }
+            }
+        }
+
         val needsHealth = tasks.any { it.verification == Verification.AUTOMATIC } &&
             (health == HealthConnect.Status.NEEDS_PERMISSION || health == HealthConnect.Status.NEEDS_INSTALL)
         if (monitorSlept && batteryRisk) Notice("alert", tr("${avatar.displayName} fell asleep in the background", "${avatar.displayName} elaludt a háttérben"), tr("Your phone paused tend for a while. Tap to keep ${avatar.displayName} awake.", "A telefonod egy időre leállította a tendet. Koppints, hogy ${avatar.displayName} ébren maradjon."), onKeepAwake)
@@ -404,93 +558,8 @@ fun HomeScreen(
 
         if (askStats && !nextSteps && !firstDays) StatsAsk(onStats)
 
-        // Phone down for as long as you like (15 to 120 minutes), and every app waits: first, as a card of its own.
-        if (focusSecondsLeft == null) {
-            var minutes by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(Tasks.clampTimer(timerMinutes)) }
-            fun nudge(d: Int) { minutes = Tasks.clampTimer(minutes + d); onTimerMinutes(minutes) }
-            // Minus and plus drawn, not typed: a font's glyphs sit off-centre in a circle.
-            @Composable
-            fun Nudge(plus: Boolean, on: Boolean, onTap: () -> Unit) = Box(
-                Modifier.size(34.dp).clip(CircleShape).background(Brand.Mint.copy(alpha = if (on) 0.25f else 0.1f)).then(if (on) Modifier.tappable(onClick = onTap) else Modifier),
-                contentAlignment = Alignment.Center,
-            ) {
-                androidx.compose.foundation.Canvas(Modifier.size(12.dp)) {
-                    val col = if (on) Brand.Moss else Brand.Muted.copy(alpha = 0.4f)
-                    val w = 2.2.dp.toPx()
-                    drawLine(col, androidx.compose.ui.geometry.Offset(0f, size.height / 2), androidx.compose.ui.geometry.Offset(size.width, size.height / 2), w, androidx.compose.ui.graphics.StrokeCap.Round)
-                    if (plus) drawLine(col, androidx.compose.ui.geometry.Offset(size.width / 2, 0f), androidx.compose.ui.geometry.Offset(size.width / 2, size.height), w, androidx.compose.ui.graphics.StrokeCap.Round)
-                }
-            }
-            @Composable
-            fun Title(modifier: Modifier) = Column(modifier) {
-                Text(tr("Phone down", "Telefon le"), style = MaterialTheme.typography.titleSmall, maxLines = 1)
-                Text(tr("Earns minutes too", "Perceket is ad"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, maxLines = 1)
-            }
-            @Composable
-            fun Stepper() {
-                Nudge(false, minutes > Tasks.TIMER_MIN) { nudge(-Tasks.TIMER_STEP) }
-                Text(tr("$minutes min", "$minutes perc"), style = MaterialTheme.typography.titleMedium, color = Brand.Moss, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 1, modifier = Modifier.width(72.dp))
-                Nudge(true, minutes < Tasks.TIMER_MAX) { nudge(Tasks.TIMER_STEP) }
-            }
-            // On a narrow screen in two lines (the title never squeezed), otherwise in one.
-            val narrow = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 400
-            if (narrow) Column(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Title(Modifier.weight(1f))
-                    ChipButton(tr("Start", "Indítás"), { onStartFocus(Tasks.timer(minutes)) })
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) { Stepper() }
-            } else Row(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Title(Modifier.weight(1f))
-                Stepper()
-                ChipButton(tr("Start", "Indítás"), { onStartFocus(Tasks.timer(minutes)) })
-            }
-        }
-        val active = tasks.filter { it.id !in day.completedTasks }
-        val done = tasks.filter { it.id in day.completedTasks }
-        SectionHeader(tr("Instead of scrolling", "Görgetés helyett"), tr("${done.size} of ${tasks.size} done", "${done.size} / ${tasks.size} megvan"))
-        if (tasks.isEmpty()) Notice("sparkle", tr("Pick what you'd rather do", "Válaszd ki, mit csinálnál szívesebben"), tr("A few activities that give minutes back", "Pár tevékenység, ami perceket ad vissza"), onOpenSettings)
-        if (active.isNotEmpty()) {
-            // One at a time, swiped left and right; the next one peeks in from the side.
-            val pager = androidx.compose.foundation.pager.rememberPagerState { active.size }
-            // "Do one activity" tapped: back to the first one, and a short glow around it.
-            val glow = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(0f) }
-            androidx.compose.runtime.LaunchedEffect(focusActivities) {
-                if (focusActivities == 0) return@LaunchedEffect
-                pager.animateScrollToPage(0)
-                repeat(2) { glow.animateTo(1f, tween(300)); glow.animateTo(0f, tween(400)) }
-            }
-            // Every card as tall as the tallest one (laid out unseen underneath): nothing jumps when swiping.
-            Box(Modifier.fillMaxWidth()) {
-                Box(Modifier.fillMaxWidth().padding(end = if (active.size > 1) 36.dp else 0.dp).alpha(0f).clearAndSetSemantics { }) {
-                    active.forEach { task ->
-                        TaskRow(task, day, health, focusSecondsLeft?.takeIf { task.id == focusTaskId }, {}, {}, {}, exerciseTracked, sleepEstimated, Modifier.padding(vertical = 4.dp))
-                    }
-                }
-                androidx.compose.foundation.pager.HorizontalPager(
-                    pager, Modifier.matchParentSize(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(end = if (active.size > 1) 36.dp else 0.dp),
-                    pageSpacing = 12.dp, verticalAlignment = Alignment.Top,
-                ) { i ->
-                    val task = active[i]
-                    Box(Modifier.fillMaxHeight().padding(vertical = 4.dp).border(2.dp, Brand.Moss.copy(alpha = if (i == 0) glow.value else 0f), RoundedCornerShape(22.dp))) {
-                        TaskRow(task, day, health, focusSecondsLeft?.takeIf { task.id == focusTaskId }, onStartFocus, onCheckOff, onUndo, exerciseTracked, sleepEstimated, Modifier.fillMaxHeight())
-                    }
-                }
-            }
-            if (active.size > 1) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                repeat(active.size) { i ->
-                    val on = i == pager.currentPage
-                    Box(Modifier.padding(horizontal = 3.dp).size(if (on) 8.dp else 6.dp).clip(CircleShape).background(if (on) Brand.Moss else Brand.Mint.copy(alpha = 0.45f)))
-                }
-            }
-        } else if (done.isNotEmpty()) {
-            Row(Modifier.fillMaxWidth().surface(radius = 20.dp).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                TendIcons.Badge("sparkle", 40.dp)
-                Spacer(Modifier.width(12.dp))
-                Text(tr("Everything done today. ${avatar.displayName} is proud of you.", "Mára minden megvan. ${avatar.displayName} büszke rád."), style = MaterialTheme.typography.titleMedium)
-            }
-        }
+        if (main != "phone" && focusSecondsLeft == null) PhoneDown()
+        if (main != "activities" && tasks.isNotEmpty()) Activities()
         // Friends today: what they did, and a cheer for it, one tap each. Cheered: gone from here (still in Friends).
         // Kept small: only what they did in the last few hours, two at a time, and no more once you've
         // cheered three today or put the card away for the day.
@@ -1283,3 +1352,25 @@ fun WeekendExtraDialog(onTake: () -> Unit, onDismiss: () -> Unit) = androidx.com
     dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text(tr("Not now", "Most nem")) } },
     containerColor = Brand.Card,
 )
+
+/** What needs a look: one shows as it is; more fold under "To do (n)", opened with a tap. */
+@Composable
+private fun TodoList(items: List<@Composable () -> Unit>) {
+    if (items.size <= 1) { items.firstOrNull()?.invoke(); return }
+    var open by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(Space.s)) {
+        Row(
+            Modifier.fillMaxWidth().surface(radius = 16.dp).tappable { open = !open }.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TendIcons.Badge("alert", 32.dp, accent = Brand.Coral)
+            Spacer(Modifier.width(10.dp))
+            Text(tr("To do (${items.size})", "Teendők (${items.size})"), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            val turn by androidx.compose.animation.core.animateFloatAsState(if (open) 90f else 0f, label = "todo")
+            Icon(TendIcons.vector("chevron"), null, tint = Brand.Muted, modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = turn })
+        }
+        androidx.compose.animation.AnimatedVisibility(open) {
+            Column(verticalArrangement = Arrangement.spacedBy(Space.s)) { items.forEach { it() } }
+        }
+    }
+}

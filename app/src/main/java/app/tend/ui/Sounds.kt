@@ -89,6 +89,8 @@ object Sounds {
 
     /** A short happy chime (once through): a duck caught, something bought. */
     fun chime(c: Context) { if (on(c, Kind.LITTLE)) play("chime", false) { musicBox(CHIME, 0.12f, CHIME_SECS) } }
+    /** Trying something on: two quick notes up, lighter than a purchase's chime. */
+    fun tryOn(c: Context) { if (on(c, Kind.LITTLE)) play("try_on", false) { musicBox(TRY_ON, 0.07f, 0.7f) } }
 
     /** Acorns claimed: a few soft wooden taps, like acorns dropping into a pouch. */
     fun acorns(c: Context) { if (on(c, Kind.LITTLE)) play("acorns", false) { acornDrops() } }
@@ -448,6 +450,7 @@ object Sounds {
     private val CHIME = listOf(12 to 1f, 16 to 1f, 19 to 1f, 24 to 3f)
     /** Long enough for the chime once through (a music box tune repeats to fill its time). */
     private const val CHIME_SECS = 1.7f
+    private val TRY_ON = listOf(19 to 1f, 26 to 2f)
     private val CHIMES = listOf(19 to 1f, 24 to 2f, 16 to 1f, 21 to 3f, 12 to 1f, 19 to 2f, 26 to 1f, 24 to 4f)
 
     /** A tune on a music box: sine bells with a bright overtone, each ringing out. */

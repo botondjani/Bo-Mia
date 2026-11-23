@@ -114,6 +114,9 @@ val SpotPositions: Map<Int, Offset> = mapOf(
     15 to Offset(0.665f, 0.95f), // small: front
     16 to Offset(0.9f, 0.64f), // small: by the right shelter
     17 to Offset(0.79f, 0.96f), // small: front right, low
+    18 to Offset(0.7f, 0.565f), // around: a fence along the back
+    19 to Offset(0.385f, 0.73f), // around: a little garden by the river
+    20 to Offset(0.53f, 0.8f), // around: a stone path from the tent to the front
 )
 
 /** Where a spot's thing stands: where the user put it ([layout], scene fractions), else its usual place. */
@@ -483,7 +486,8 @@ fun DrawScope.drawClearing(
     fun thingAt(thing: String, p: Offset, k: Float, spot: Int, sx: Float = 1f, sy: Float = 1f, lift: Float = 0f) {
         val from = lights.size
         withTransform({ translate(0f, -lift); scale(k * sx, k * sy, pivot = p) }) {
-            if (spot != 7) shadow(p + Offset(0f, lift), u * thingWidth(thing) * 0.5f, u)
+            // No shadow on the water, nor under what lies flat around the camp.
+            if (spot != 7 && thing != "stone_path" && thing != "fence") shadow(p + Offset(0f, lift), u * thingWidth(thing) * 0.5f, u)
             drawThing(thing, p, u, lights)
         }
         for (i in from until lights.size) lights[i] = lights[i].let { Light(p + (it.at - p) * k + Offset(0f, -lift), it.radius * k, it.strength) }
@@ -558,7 +562,8 @@ fun DrawScope.drawClearing(
             continue
         }
         val p = at(spot.id)
-        ground += p.y to {
+        // The stone path lies flat on the grass: under everything else.
+        ground += (if (placed[spot.id] == "stone_path") 0f else p.y) to {
             if (spot.kind == SpotKind.FIRE) firePitStones(p, u)
             val thing = placed[spot.id]
             if (thing == "campfire" && fire != null) buildFire(p, u, fire, lights)
@@ -1342,6 +1347,46 @@ fun DrawScope.drawThing(id: String, p: Offset, u: Float, lights: MutableList<Lig
 
 private fun DrawScope.drawThingAsMade(id: String, p: Offset, u: Float, lights: MutableList<Light>) {
     when (id) {
+        // ---- Around the camp ----
+        "fence" -> {
+            // Pickets along the back of the camp, two rails, a little uneven.
+            val wood = Color(0xFFC9A273); val dark = Color(0xFF9C7A52)
+            val half = u * 0.23f; val hgt = u * 0.055f
+            drawRect(dark, Offset(p.x - half, p.y - hgt * 0.7f), Size(half * 2, u * 0.006f))
+            drawRect(dark, Offset(p.x - half, p.y - hgt * 0.3f), Size(half * 2, u * 0.006f))
+            var x = p.x - half
+            var i = 0
+            while (x <= p.x + half) {
+                val top = p.y - hgt * (if (i % 3 == 1) 1.06f else 1f)
+                drawPath(Path().apply { moveTo(x - u * 0.005f, p.y); lineTo(x - u * 0.005f, top + u * 0.006f); lineTo(x, top); lineTo(x + u * 0.005f, top + u * 0.006f); lineTo(x + u * 0.005f, p.y); close() }, wood)
+                x += u * 0.022f; i++
+            }
+        }
+        "garden" -> {
+            // A raised bed: planks, dark soil, rows of greens with a few tomatoes and a sunflower.
+            val bw = u * 0.13f; val bh = u * 0.028f
+            drawRect(Color(0xFF8E6440), Offset(p.x - bw / 2, p.y - bh), Size(bw, bh))
+            drawRect(Color(0xFF5B3F2A), Offset(p.x - bw / 2 + u * 0.004f, p.y - bh), Size(bw - u * 0.008f, bh * 0.35f))
+            for (k in 0 until 6) {
+                val x = p.x - bw / 2 + bw * (k + 0.5f) / 6f
+                drawOval(Color(0xFF5FA463), Offset(x - u * 0.008f, p.y - bh - u * 0.02f), Size(u * 0.016f, u * 0.022f))
+                if (k % 2 == 1) drawCircle(Color(0xFFE76649), u * 0.004f, Offset(x + u * 0.004f, p.y - bh - u * 0.008f))
+            }
+            val sx = p.x + bw * 0.42f
+            drawLine(Color(0xFF4F8A4E), Offset(sx, p.y - bh), Offset(sx, p.y - bh - u * 0.06f), strokeWidth = u * 0.003f)
+            drawCircle(Color(0xFFF2C14E), u * 0.011f, Offset(sx, p.y - bh - u * 0.062f))
+            drawCircle(Color(0xFF7A4E2A), u * 0.005f, Offset(sx, p.y - bh - u * 0.062f))
+        }
+        "stone_path" -> {
+            // Flat stones from the tent down to the front, bigger as they come nearer.
+            for (k in 0 until 7) {
+                val t = k / 6f
+                val c = p + Offset(u * (0.02f - 0.07f * t + 0.025f * kotlin.math.sin(t * 5f)), u * (-0.15f + 0.3f * t))
+                val r = u * (0.012f + 0.01f * t)
+                drawOval(Color(0xFFA9A49A), Offset(c.x - r * 1.3f, c.y - r * 0.55f), Size(r * 2.6f, r * 1.1f))
+                drawOval(Color(0xFFC9C4BA), Offset(c.x - r * 1.1f, c.y - r * 0.6f), Size(r * 2.2f, r * 0.8f))
+            }
+        }
         // ---- The events' own ----
         "jack_o_lantern" -> {
             // A carved pumpkin with a grin, lit from inside.
@@ -2118,6 +2163,9 @@ private fun thingSizeAsMade(id: String): Pair<Float, Float> = when (id) {
     "hammock" -> 0.15f to 0.1f
     "canoe" -> 0.21f to 0.05f
     "dock" -> 0.2f to 0.07f
+    "fence" -> 0.46f to 0.06f
+    "garden" -> 0.14f to 0.06f
+    "stone_path" -> 0.12f to 0.25f
     "kettle" -> 0.11f to 0.13f
     "rocking_chair" -> 0.07f * ROCKER to 0.08f * ROCKER
     "raft" -> 0.18f to 0.05f
@@ -2139,6 +2187,25 @@ fun DrawScope.drawThingIcon(id: String) {
         // Hanging from a short bit of line at the top.
         drawLine(BarkDark, Offset(c.x - s * 0.3f, c.y - s * 0.42f), Offset(c.x + s * 0.3f, c.y - s * 0.42f), strokeWidth = s * 0.02f)
         drawThing(id, Offset(c.x, c.y - s * 0.42f), s * 9f)
+        return
+    }
+    // As icons, the long flat ones show a part of themselves: a few pickets, a few stones.
+    if (id == "fence") {
+        val wood = Color(0xFFC9A273); val dark = Color(0xFF9C7A52)
+        drawRect(dark, Offset(c.x - s * 0.42f, c.y - s * 0.12f), Size(s * 0.84f, s * 0.05f))
+        drawRect(dark, Offset(c.x - s * 0.42f, c.y + s * 0.08f), Size(s * 0.84f, s * 0.05f))
+        for (i in 0 until 5) {
+            val x = c.x - s * 0.36f + i * s * 0.18f
+            drawPath(Path().apply { moveTo(x - s * 0.05f, c.y + s * 0.3f); lineTo(x - s * 0.05f, c.y - s * 0.24f); lineTo(x, c.y - s * 0.32f); lineTo(x + s * 0.05f, c.y - s * 0.24f); lineTo(x + s * 0.05f, c.y + s * 0.3f); close() }, wood)
+        }
+        return
+    }
+    if (id == "stone_path") {
+        for ((dx, dy, r) in listOf(Triple(0.12f, -0.26f, 0.11f), Triple(-0.06f, -0.02f, 0.14f), Triple(0.1f, 0.24f, 0.17f))) {
+            val p = c + Offset(s * dx, s * dy)
+            drawOval(Color(0xFF8F8A80), Offset(p.x - s * r * 1.3f, p.y - s * r * 0.6f), Size(s * r * 2.6f, s * r * 1.2f))
+            drawOval(Color(0xFFBDB8AE), Offset(p.x - s * r * 1.1f, p.y - s * r * 0.62f), Size(s * r * 2.2f, s * r * 0.9f))
+        }
         return
     }
     if (id == "string_lights") {
