@@ -78,6 +78,10 @@ class InterstitialActivity : ComponentActivity() {
         val appLeft: Int? = null,
         /** An activity runs on its timer: every app waits. */
         val focus: Boolean = false,
+        /** Which open this is within the last hour (1 = the first): from the third, the wait grows, and it says why. */
+        val thisHour: Int = 0,
+        /** The minutes chosen last time, for "your 15 minutes are up". */
+        val chosen: Int = 0,
     )
 
     /** How this pause ended: open, not_now, instead or earn. Logged once; it's what the test measures. */
@@ -146,16 +150,18 @@ class InterstitialActivity : ComponentActivity() {
         // Locked: the day's minutes are used up, or this app's own limit is.
         val appLimit = store.appLimits[pkg]?.takeIf { store.appLocked(pkg) }
         val locked = Budget.isLocked(cfg, day) || appLimit != null
-        val evening = Budget.isEvening(if (store.eveningPause) store.eveningFrom else -1, java.time.LocalTime.now().hour)
+        val evening = Budget.isEvening(if (store.eveningSlows) store.eveningFrom else -1, java.time.LocalTime.now().hour)
         val scheduled = store.activeLock()
         // A scheduled lock isn't an open: it doesn't make the next pause longer.
         val counts = savedInstanceState == null && !locked && scheduled == null
         val earlier = if (counts) store.recordOpen() else 0
-        val delaySeconds = Budget.openDelaySeconds(cfg, earlier, evening)
+        val delaySeconds = Budget.openDelaySeconds(store.effectiveStrict, earlier, evening)
         if (counts) day = store.update { it.copy(opensToday = it.opensToday + 1) }
         view = View(
             label, locked, day.opensToday, delaySeconds, Budget.remainingMinutes(cfg, day), evening,
             timeUp = intent.getBooleanExtra(EXTRA_TIME_UP, false),
+            thisHour = if (counts) earlier + 1 else 0,
+            chosen = store.lastPassMinutes,
             scheduled = scheduled,
             appLimit = appLimit,
             appLeft = store.appLimits[pkg]?.takeIf { store.isPlus }?.let { (it - ((store.appSecondsToday()[pkg] ?: 0L) / 60).toInt()).coerceAtLeast(0) },
@@ -227,7 +233,7 @@ class InterstitialActivity : ComponentActivity() {
                         v.scheduled != null -> tr("Closed until ${"%d:00".format(v.scheduled.to)}. That's the deal we made.", "${"%d:00".format(v.scheduled.to)}-ig zárva. Így beszéltük meg.")
                         v.appLimit != null -> tr("That's all for ${v.label} today.", "Mára ennyi volt: ${v.label}.")
                         v.locked -> tr("Today's budget is used up.", "A mai keret elfogyott.")
-                        v.timeUp -> tr("Those were your minutes. Still worth it?", "Ennyi volt a kért időd. Megéri még?")
+                        v.timeUp -> if (v.chosen > 0) tr("You chose ${v.chosen} minutes, and they're up.", "${v.chosen} percet választottál, letelt.") else tr("Those were your minutes. Still worth it?", "Ennyi volt a kért időd. Megéri még?")
                         v.evening -> tr("It's late. We tend to regret the late-night scrolls the most.", "Késő van. A késő esti görgetést szoktuk a leginkább megbánni.")
                         else -> Taglines.forOpen(v.opensToday, store.avatar.displayName)
                     }),
@@ -246,7 +252,10 @@ class InterstitialActivity : ComponentActivity() {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { Header(v) }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp)) {
         Text(
-            if (store.focusStartedAt > 0) tr("${v.remaining} min left today · opening ends your reading session", "Ma még ${v.remaining} perc · a megnyitás véget vet az olvasásnak") else tr("${v.remaining} min left today", "Ma még ${v.remaining} perced van"),
+            if (store.focusStartedAt > 0) tr("${v.remaining} min left today · opening ends your reading session", "Ma még ${v.remaining} perc · a megnyitás véget vet az olvasásnak")
+            // From the third open within an hour the wait grows: it says so, with why.
+            else if (v.thisHour >= 3 && !v.timeUp) tr("${v.remaining}\u00A0min left today · ${ordinal(v.thisHour)} open this hour, so ${v.delaySeconds}\u00A0s", "Ma még ${v.remaining}\u00A0perced van · ebben az órában ${v.thisHour}.\u00A0alkalom, ezért ${v.delaySeconds}\u00A0mp")
+            else tr("${v.remaining} min left today", "Ma még ${v.remaining} perced van"),
             style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
         )
         val openFor = { minutes: Int ->
@@ -266,12 +275,16 @@ class InterstitialActivity : ComponentActivity() {
             })
         }
         PrimaryButton(notNowLabel(), ::notNow)
+        // The chosen time ran out: no second countdown, just five more minutes (they come off the day's).
+        if (v.timeUp) {
+            SecondaryButton(tr("5 more minutes", "Még 5 perc"), { openFor(app.tend.core.TimeBox.CHOICES.first()) })
+            return@Column
+        }
         OpenLinks(v, left, openFor)
         // Just answering someone: in at once, for a few minutes, a few times a day (not in strict mode).
         val quick = store.quickLooksLeft()
         if (quick > 0) Text(
-            tr("Quick look · $REPLY_MINUTES\u00A0min, now", "Gyors belesés · $REPLY_MINUTES\u00A0perc, most") +
-                if (quick <= 2) tr(" ($quick left today)", " (ma még $quick)") else "",
+            tr("Quick look · $REPLY_MINUTES\u00A0min, now ($quick left today)", "Gyors belesés · $REPLY_MINUTES\u00A0perc, most (ma még $quick)"),
             style = MaterialTheme.typography.labelLarge, color = Brand.Moss, textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
                 store.useQuickLook()
@@ -465,7 +478,7 @@ class InterstitialActivity : ComponentActivity() {
         private const val EXTRA_FOCUS = "focus"
 
         /** Replying to a message: in at once, for this long. */
-        private const val REPLY_MINUTES = 3
+        private const val REPLY_MINUTES = 2
 
         fun intent(context: Context, pkg: String, timeUp: Boolean = false, focus: Boolean = false) = Intent(context, InterstitialActivity::class.java)
             .putExtra(EXTRA_PKG, pkg)

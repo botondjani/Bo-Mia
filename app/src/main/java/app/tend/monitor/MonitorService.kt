@@ -86,8 +86,28 @@ class MonitorService : Service() {
      * Earlier versions start it without one, so they never get Android's "displaying over other apps" note for it.
      */
     private var anchor: android.view.View? = null
+    private var accessCheckedAt = 0L
+    private var accessOn = false
+
+    /**
+     * Whether the window is needed: from Android 15, unless the accessibility service (Pontos mód) is
+     * on, which lets the pause start by itself; unless a pause once didn't show without it.
+     */
+    private fun anchorNeeded(): Boolean {
+        if (Build.VERSION.SDK_INT < 35) return false
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - accessCheckedAt > 10_000L) { accessOn = ShortsGuard.enabled(this); accessCheckedAt = now }
+        return !accessOn || store.needsAnchor
+    }
+
+    private fun dropAnchor() {
+        anchor?.let { v -> runCatching { getSystemService(android.view.WindowManager::class.java).removeView(v) } }
+        anchor = null
+    }
+
     private fun keepAnchor() {
-        if (anchor != null || Build.VERSION.SDK_INT < 35 || !android.provider.Settings.canDrawOverlays(this)) return
+        if (!anchorNeeded()) return dropAnchor()
+        if (anchor != null || !android.provider.Settings.canDrawOverlays(this)) return
         val wm = getSystemService(android.view.WindowManager::class.java)
         val view = android.view.View(this)
         val params = android.view.WindowManager.LayoutParams(
@@ -127,8 +147,7 @@ class MonitorService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
 
     override fun onDestroy() {
-        anchor?.let { v -> runCatching { getSystemService(android.view.WindowManager::class.java).removeView(v) } }
-        anchor = null
+        dropAnchor()
         peek.hide()
         scope.cancel()
         handler.removeCallbacks(tick)
@@ -237,7 +256,12 @@ class MonitorService : Service() {
             // The delay screen should have covered the app by now: once more, then it's logged. Not if it
             // did show (Android only told us late) and was left with Home: that would bring it back on the home screen.
             if (InterstitialActivity.shownAt >= interceptedAt) interceptedPkg = null
-            else if (!retried) { retried = true; store.logMiss("open_retry", fg); intercept(fg, now) }
+            else if (!retried) {
+                retried = true; store.logMiss("open_retry", fg)
+                // Not shown without the window (Pontos mód on): the window comes back for good, and once more.
+                if (anchor == null && Build.VERSION.SDK_INT >= 35) { store.needsAnchor = true; accessCheckedAt = 0L; keepAnchor() }
+                intercept(fg, now)
+            }
             else { store.logMiss("open_not_caught", fg); interceptedPkg = null }
         }
         lastTick = now - (now - lastTick) % 1000

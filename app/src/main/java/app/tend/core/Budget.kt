@@ -85,11 +85,19 @@ object Budget {
      * after ([earlierThisHour]: opens in the last hour before this one), up to the most; in the
      * evening at least the evening's.
      */
-    fun openDelaySeconds(cfg: BudgetConfig, earlierThisHour: Int, evening: Boolean = false): Int {
-        val extra = (earlierThisHour - 1).coerceAtLeast(0)
-        val normal = minOf(cfg.baseDelaySeconds + cfg.delayStepSeconds * extra, cfg.maxDelaySeconds)
-        return if (evening) maxOf(normal, cfg.eveningDelaySeconds) else normal
+    /**
+     * The Megállító's wait before an app can be opened, by how strict tend is: Easy 3 s, Balanced 5 s,
+     * Strict 10 s; in the evening 5 s more. From the third open within an hour, a second more for each,
+     * up to 10, 12 or 20 s.
+     */
+    fun openDelaySeconds(level: StrictLevel, earlierThisHour: Int, evening: Boolean = false): Int {
+        val (base, cap) = when (level) { StrictLevel.EASY -> 3 to 10; StrictLevel.BALANCED -> 5 to 12; StrictLevel.STRICT -> 10 to 20 }
+        val start = base + if (evening) EVENING_EXTRA_SECONDS else 0
+        return minOf(start + (earlierThisHour - 1).coerceAtLeast(0), maxOf(cap, start))
     }
+
+    /** What the evening adds to the Megállító's wait. */
+    const val EVENING_EXTRA_SECONDS = 5
 
     /** Evening mode runs from [fromHour] until 5 am; a negative hour means it's off. */
     /** From [fromHour] until 5:00. A start after midnight (0–4) means only those small hours. */

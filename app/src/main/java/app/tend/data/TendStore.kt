@@ -372,6 +372,11 @@ class TendStore(private val context: Context) {
     private inline fun <reified E : Enum<E>> enumPref(key: String, default: E): E =
         prefs.getString(key, null)?.let { n -> runCatching { enumValueOf<E>(n) }.getOrNull() } ?: default
 
+    /** The tip on hiding Android's "displaying over other apps" note was seen. */
+    var overlayTipSeen: Boolean
+        get() = prefs.getBoolean("overlay_tip_seen", false)
+        set(v) = edit { putBoolean("overlay_tip_seen", v) }
+
     /** The settings were moved to the new shape and that hasn't been said yet (a card says it once). */
     var settingsMovedNote: Boolean
         get() = prefs.getBoolean("settings_moved_note", false)
@@ -388,7 +393,7 @@ class TendStore(private val context: Context) {
         val moved = app.tend.core.SettingsMove.from(
             strict = prefs.getBoolean("strict", false) && prefs.getLong("strict_ends", 0) == 0L,
             bedtimeLock = lockSchedules.firstOrNull { it.label == app.tend.core.LockSchedule.BEDTIME.label }?.on == true,
-            sleepyPauses = eveningPause,
+            sleepyPauses = prefs.getBoolean("evening_pause", prefs.getInt("evening_from", 22) >= 0),
             morning = notesMorning, nudges = notesNudges, recap = reminderEnabled, letter = weeklyLetter,
             pauseOff = prefs.getStringSet("pause_off", emptySet())!!,
         )
@@ -711,8 +716,8 @@ class TendStore(private val context: Context) {
 
     /** In the evening the pause waits longer and the companion is sleepy. */
     var eveningPause: Boolean
-        get() = prefs.getBoolean("evening_pause", prefs.getInt("evening_from", 22) >= 0)
-        set(v) = edit { putBoolean("evening_pause", v) }
+        get() = eveningMode != app.tend.core.EveningMode.OFF
+        set(v) { eveningMode = if (!v) app.tend.core.EveningMode.OFF else eveningMode.takeIf { it != app.tend.core.EveningMode.OFF } ?: app.tend.core.EveningMode.SLOW }
 
     /** A short note every Sunday evening about the week. */
     var weeklyLetter: Boolean
@@ -1049,7 +1054,26 @@ class TendStore(private val context: Context) {
         return recent.size
     }
 
-    /** "Quick look": open for one minute without the wait, a few times a day. */
+    /** How strict tend is right now: Strict only with Plus (and while strict mode lasts), else the level chosen. */
+    val effectiveStrict: app.tend.core.StrictLevel
+        get() = if (isStrict) app.tend.core.StrictLevel.STRICT else strictLevel.takeIf { it != app.tend.core.StrictLevel.STRICT } ?: app.tend.core.StrictLevel.BALANCED
+
+    /** Whether the evening makes the Megállító wait longer (the evening mode isn't off). */
+    val eveningSlows: Boolean get() = eveningMode != app.tend.core.EveningMode.OFF
+
+    /** The minutes last chosen on the Megállító (5 or 15), for "your 15 minutes are up". */
+    val lastPassMinutes: Int get() = prefs.getInt("pass_minutes", 0)
+
+    /**
+     * With the accessibility service on, the Megállító needs no invisible window (and so no Android
+     * "displaying over other apps" note). Should a pause still not show without one, the window comes
+     * back for good on this phone.
+     */
+    var needsAnchor: Boolean
+        get() = prefs.getBoolean("needs_anchor", false)
+        set(v) = edit { putBoolean("needs_anchor", v) }
+
+    /** "Gyors belesés": open for a couple of minutes without the wait, a few times a day. */
     fun quickLooksLeft(): Int = if (isStrict) 0 else
         QUICK_LOOKS_PER_DAY - if (prefs.getString("quick_day", "") == LocalDate.now().toString()) prefs.getInt("quick_used", 0) else 0
 
@@ -1333,7 +1357,7 @@ class TendStore(private val context: Context) {
         /** Whether Plus can be bought (Google Play billing). Until it can, it's on for everyone and no trial counts down. */
         const val PLUS_ON_SALE = false
         private const val PASS_VALID_MS = 15_000L
-        const val QUICK_LOOKS_PER_DAY = 5
+        const val QUICK_LOOKS_PER_DAY = 3
 
         /** Own activities saved with an emoji before tend had its own icons. */
         private val LEGACY_EMOJI = mapOf(

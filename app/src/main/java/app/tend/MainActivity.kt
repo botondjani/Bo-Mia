@@ -1080,6 +1080,9 @@ class MainActivity : ComponentActivity() {
                 signedIn = app.tend.data.Account.user(this@MainActivity) != null,
                 onOpenAccount = { signUp = true },
                 onPauseSetup = { settingsSection = "apps"; screen = Screen.SETTINGS },
+                overlayNoteTip = Build.VERSION.SDK_INT >= 35 && permissions().overlay && store.daysTended >= 1 &&
+                    !store.overlayTipSeen && !app.tend.monitor.ShortsGuard.enabled(this@MainActivity),
+                onOverlayNoteTip = { store.overlayTipSeen = true; refresh++ },
                 exerciseTracked = store.exerciseTracked,
                 sleepEstimated = store.sleepEstimatedOn == LocalDate.now().toString(),
                 brokenTimer = Tasks.presets.firstOrNull { it.id == store.timerBroken },

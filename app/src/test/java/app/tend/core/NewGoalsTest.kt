@@ -71,8 +71,9 @@ class PauseAndEveningTest {
 
     @Test fun `evening mode waits longer and runs past midnight`() {
         val cfg = BudgetConfig()
-        assertEquals(5, Budget.openDelaySeconds(cfg, 1))
-        assertEquals(10, Budget.openDelaySeconds(cfg, 1, evening = true))
+        assertEquals(5, Budget.openDelaySeconds(StrictLevel.BALANCED, 1))
+        assertEquals(10, Budget.openDelaySeconds(StrictLevel.BALANCED, 1, evening = true))
+        assertEquals(15, Budget.openDelaySeconds(StrictLevel.STRICT, 1, evening = true))
         assertTrue(Budget.isEvening(22, 23) && Budget.isEvening(22, 1))
         assertTrue(!Budget.isEvening(22, 12) && !Budget.isEvening(-1, 23))
     }

@@ -171,6 +171,9 @@ fun HomeScreen(
     showNextSteps: Boolean = false,
     /** No app asks for a pause yet: suggested among the next steps, after the account. */
     pauseSuggested: Boolean = false,
+    /** Once, on Android 15+: how to hide Android's "displaying over other apps" note; [onOverlayNoteTip] when seen. */
+    overlayNoteTip: Boolean = false,
+    onOverlayNoteTip: () -> Unit = {},
     onPauseSetup: () -> Unit = {},
     widgetPlaced: Boolean = false,
     /** A phone-free session the phone interrupted, shown once. */
@@ -354,6 +357,22 @@ fun HomeScreen(
                 if (remaining <= 0) tr("tend can only notify you, not close them. Tap to fix.", "A tend csak értesíteni tud, bezárni nem. Koppints, és megjavítjuk.") else tr("Only a notification for now. Tap to fix.", "Egyelőre csak értesítés jön. Koppints, és megjavítjuk."), onFixPermissions,
             )
         }
+        // Android 15 and later: once, how to quiet Android's own "displaying over other apps" note.
+        var overlayHelp by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+        if (overlayNoteTip) Notice("sparkle", tr("Android's \"over other apps\" note bothers you?", "Zavar az Android „other apps” értesítése?"), tr("Tap to see how to hide it.", "Koppints, és megmutatjuk, hogyan rejtheted el."), { overlayHelp = true })
+        if (overlayHelp) androidx.compose.material3.AlertDialog(
+            onDismissRequest = { overlayHelp = false; onOverlayNoteTip() },
+            title = { Text(tr("Hide Android's note", "Az Android értesítésének elrejtése")) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(tr("Android shows it while tend can bring the Megállító up over other apps. tend works the same without it.", "Az Android akkor mutatja, amikor a tend más appok fölé tudja hozni a Megállítót. A tend nélküle is ugyanúgy működik."))
+                    Text(tr("1. Pull down the notifications.\n2. Hold \"tend is displaying over other apps\".\n3. Turn it off.", "1. Húzd le az értesítéseket.\n2. Tartsd nyomva: „tend is displaying over other apps”.\n3. Kapcsold ki."))
+                    if (app.tend.BuildConfig.PLAY) Text(tr("Or turn on \"Close only Reels & Shorts\" in Settings → Picked apps: with it, the note doesn't come at all.", "Vagy kapcsold be a Beállítások → Kiválasztott appok alatt a „Csak a Reels és a Shorts zárása” lehetőséget: ezzel az értesítés meg sem jelenik."), color = Brand.Muted)
+                }
+            },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { overlayHelp = false; onOverlayNoteTip() }) { Text(tr("Got it", "Értem"), color = Brand.Moss) } },
+            containerColor = Brand.Card,
+        )
         var weekendAsk by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
         if (weekendExtra) Notice("sun", tr("It's the weekend: one more hour?", "Hétvége van: kérsz még egy órát?"), tr("Today's minutes are gone. Tap to see how it works.", "A mai keret elfogyott. Koppints, és megnézheted, hogy működik."), { weekendAsk = true })
         if (weekendAsk) WeekendExtraDialog(onTake = { weekendAsk = false; onWeekendExtra() }, onDismiss = { weekendAsk = false })
