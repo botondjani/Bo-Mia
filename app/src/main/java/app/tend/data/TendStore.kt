@@ -691,6 +691,55 @@ class TendStore(private val context: Context) {
 
     val bridgeBuilt: Boolean get() = togetherDone.isNotEmpty()
 
+    /** Bronze and silver steps of the together goal given ("2026-W45:BRONZE"); gold is [togetherDone]. */
+    var togetherSteps: Set<String>
+        get() = prefs.getStringSet("together_steps", emptySet())!!.toSet()
+        // Only this week's matter: the older ones go (two a week at most, so nothing piles up meanwhile).
+        set(v) = edit { putStringSet("together_steps", v.filter { it.substringBefore(':') == app.tend.core.Progress.weekKey(LocalDate.now()) }.toSet()) }
+
+    // ---- What friends see, and pranks ----
+
+    /** Pranks (toilet paper) may land in your camp. */
+    var pranksOn: Boolean
+        get() = prefs.getBoolean("pranks_on", true)
+        set(v) = edit { putBoolean("pranks_on", v) }
+    /** Friends see what you did last, your level, and you at the fire. */
+    var shareDone: Boolean
+        get() = prefs.getBoolean("share_done", true)
+        set(v) = edit { putBoolean("share_done", v) }
+    var shareLevel: Boolean
+        get() = prefs.getBoolean("share_level", true)
+        set(v) = edit { putBoolean("share_level", v) }
+    var shareFire: Boolean
+        get() = prefs.getBoolean("share_fire", true)
+        set(v) = edit { putBoolean("share_fire", v) }
+
+    /** Days over the day's minutes ("2026-11-23"), the last few weeks; and the week buddies were told. */
+    private val overDays: Set<String> get() = prefs.getStringSet("over_days", emptySet())!!
+
+    /** Marks today if it's over its minutes; true when it is. */
+    fun markOverToday(): Boolean {
+        if (Budget.remainingMinutes(config, today()) >= 0) return false
+        val day = LocalDate.now()
+        if (day.toString() !in overDays) edit { putStringSet("over_days", overDays.filter { it >= day.minusDays(21).toString() }.toSet() + day.toString()) }
+        return true
+    }
+
+    /** Days over the minutes this week (from Monday). */
+    fun overDaysThisWeek(): Int {
+        val monday = LocalDate.now().with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)).toString()
+        return overDays.count { it >= monday }
+    }
+
+    var overToldWeek: String
+        get() = prefs.getString("over_told", "")!!
+        set(v) = edit { putString("over_told", v) }
+
+    /** The invite reward was asked for (after the first activity). */
+    var inviteClaimed: Boolean
+        get() = prefs.getBoolean("invite_claimed", false)
+        set(v) = edit { putBoolean("invite_claimed", v) }
+
     /** All XP: activities plus completed weekly challenges. */
     fun skillXp(): Map<app.tend.core.Skill, Int> = app.tend.core.Progress.skillXp(daySummaries())
 

@@ -1,5 +1,6 @@
 package app.tend.ui
 
+import kotlinx.coroutines.launch
 import app.tend.core.tr
 
 import androidx.compose.foundation.background
@@ -163,6 +164,8 @@ fun SettingsScreen(
             AccountCard(onAccountChanged, onRestored, onStartOver = { confirmReset = true })
             Text(tr("COMPANION", "TÁRS"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
             CompanionPicker(avatar, onAvatar, compact = true)
+            Text(tr("WHAT FRIENDS SEE", "MIT LÁTNAK A BARÁTAID"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
+            FriendsPrivacy()
             Text(tr("YOUR TOWN & YOU", "A VÁROSOD ÉS TE"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
             Card { aboutYou() }
             Text(tr("SOUNDS", "HANGOK"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
@@ -886,4 +889,25 @@ private fun PeriodsCard(
         }.padding(vertical = 6.dp),
     )
     Text(tr("A lock keeps the picked apps closed: only \"Not now\", something better, or once a day 5 minutes for ${app.tend.data.TendStore.LOCK_PASS_ACORNS} acorns.", "A zár csukva tartja a kiválasztott appokat: csak „Most nem”, valami jobb, vagy naponta egyszer 5 perc ${app.tend.data.TendStore.LOCK_PASS_ACORNS} makkért."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+}
+
+/**
+ * What friends see of you (never your screen time or apps), and whether pranks may land in your
+ * camp. Kept here and sent to the server when there's an account.
+ */
+@Composable
+private fun FriendsPrivacy() = Card {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val store = remember { app.tend.data.TendStore(ctx) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    fun save() { scope.launch { app.tend.data.Friends.saveSettings(ctx) } }
+    var done by remember { androidx.compose.runtime.mutableStateOf(store.shareDone) }
+    var level by remember { androidx.compose.runtime.mutableStateOf(store.shareLevel) }
+    var fire by remember { androidx.compose.runtime.mutableStateOf(store.shareFire) }
+    var pranks by remember { androidx.compose.runtime.mutableStateOf(store.pranksOn) }
+    SwitchRow(tr("What you did last", "Amit legutóbb csináltál"), tr("\"Went for a walk\", for a day or two", "„Sétált egyet”, egy-két napig"), done) { done = it; store.shareDone = it; save() }
+    SwitchRow(tr("Your level", "A szinted"), tr("Next to your name", "A neved mellett"), level) { level = it; store.shareLevel = it; save() }
+    SwitchRow(tr("You at the fire", "Te a tűznél"), tr("While you're phone-free", "Amíg telefon nélkül vagy"), fire) { fire = it; store.shareFire = it; save() }
+    SwitchRow(tr("Pranks", "Csínyek"), tr("Toilet paper on your oak", "Vécépapír a tölgyfádon"), pranks) { pranks = it; store.pranksOn = it; save() }
+    Text(tr("Your minutes and apps are never shown.", "A perceid és az appjaid soha nem látszanak."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
 }

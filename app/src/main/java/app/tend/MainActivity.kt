@@ -526,6 +526,7 @@ class MainActivity : ComponentActivity() {
         // Friends today: who did what (heard every minute), and who's been cheered for it.
         var friendsToday by remember { mutableStateOf(app.tend.data.Friends.doneToday()) }
         var cheeredToday by remember { mutableStateOf(setOf<String>()) }
+        var together by remember { mutableStateOf(app.tend.data.Friends.lastWeek(this)) }
         LaunchedEffect(Unit) {
             if (app.tend.data.Account.user(this@MainActivity) != null) runCatching {
                 app.tend.data.Friends.sent(this@MainActivity)?.let { s -> cheeredToday = s.used.filterValues { app.tend.data.Friends.Kind.CHEER in it }.keys }
@@ -535,6 +536,12 @@ class MainActivity : ComponentActivity() {
             while (true) {
                 if (app.tend.data.Account.user(this@MainActivity) != null) runCatching { app.tend.data.Friends.list(this@MainActivity) }
                 friendsToday = app.tend.data.Friends.doneToday()
+                together = app.tend.data.Friends.lastWeek(this@MainActivity)
+                // Invited, and a first activity done: acorns for both.
+                runCatching { app.tend.data.Friends.claimInvite(this@MainActivity) }.getOrDefault(0).takeIf { it > 0 }?.let {
+                    Toast.makeText(this@MainActivity, tr("Your first activity: +${app.tend.data.Friends.INVITE_ACORNS} acorns for you and whoever invited you.", "Az első tevékenységed: +${app.tend.data.Friends.INVITE_ACORNS} makk neked és annak, aki meghívott."), Toast.LENGTH_LONG).show()
+                    app.tend.ui.Sounds.acorns(this@MainActivity); refresh++
+                }
                 // A new friendship (they accepted, or you did): said once, with its acorns.
                 app.tend.data.Friends.takeNewFriends(this@MainActivity)?.let { news ->
                     Toast.makeText(this@MainActivity, news, Toast.LENGTH_LONG).show(); app.tend.ui.Sounds.acorns(this@MainActivity); refresh++
@@ -688,7 +695,12 @@ class MainActivity : ComponentActivity() {
                 onAppLimit = { pkg, m -> if (store.setAppLimit(pkg, m)) refresh++ else strictNo() },
                 strict = store.isStrict,
                 strictEndsAt = store.strictEndsAt,
-                onStrict = { store.setStrict(it); refresh++ },
+                onStrict = { on ->
+                    val was = store.isStrict
+                    store.setStrict(on); refresh++
+                    // Strict off: a buddy hears of it.
+                    if (was && !on) lifecycleScope.launch { app.tend.data.Friends.buddyAlert(this@MainActivity, app.tend.data.Friends.STRICT_OFF) }
+                },
                 plus = store.isPlus,
                 trialDaysLeft = store.trialDaysLeft.takeIf { store.plusTrialRunning },
                 plusPaid = store.plusPaid,
@@ -1102,6 +1114,8 @@ class MainActivity : ComponentActivity() {
                 onAnswerCall = answerCall,
                 onDismissCall = { app.tend.data.Friends.doneFireCall(this@MainActivity); refresh++ },
                 friendsToday = friendsToday,
+                together = together,
+                fireCount = app.tend.data.Friends.fireCount,
                 cheered = cheeredToday,
                 onCheer = { f ->
                     cheeredToday = cheeredToday + f.id

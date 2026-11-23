@@ -60,12 +60,12 @@ fun RiverScreen(
     var sent by remember { mutableStateOf(Friends.Sent(emptyMap(), emptySet())) }
     var note by remember { mutableStateOf<Pair<String, String>?>(null) } // friend id to a short line under their camp
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    fun wave(f: Friends.Friend) {
-        if (Friends.Kind.WAVE in sent.used[f.id].orEmpty()) { note = f.id to tr("You waved today. Again tomorrow.", "Ma már integettél. Holnap megint lehet."); return }
+    fun cheer(f: Friends.Friend) {
+        if (Friends.Kind.CHEER in sent.used[f.id].orEmpty()) { note = f.id to tr("You cheered today. Again tomorrow.", "Ma már tapsoltál. Holnap megint lehet."); return }
         scope.launch {
-            val ok = Friends.send(context, f.id, Friends.Kind.WAVE)
-            if (ok) sent = Friends.Sent(sent.used + (f.id to (sent.used[f.id].orEmpty() + Friends.Kind.WAVE)), sent.paperUp)
-            note = f.id to if (ok) tr("${f.name} will see your wave.", "${f.name} látni fogja, hogy integettél.") else tr("Couldn't wave. Try again in a moment.", "Nem sikerült integetni. Próbáld újra egy pillanat múlva.")
+            val ok = Friends.send(context, f.id, Friends.Kind.CHEER)
+            if (ok) sent = Friends.Sent(sent.used + (f.id to (sent.used[f.id].orEmpty() + Friends.Kind.CHEER)), sent.paperUp)
+            note = f.id to if (ok) tr("${f.name} will see your cheer (and gets acorns for it).", "${f.name} látni fogja a tapsodat (és makkot kap érte).") else tr("Couldn't send it. Try again in a moment.", "Nem sikerült elküldeni. Próbáld újra egy pillanat múlva.")
         }
     }
     fun paper(f: Friends.Friend) {
@@ -116,8 +116,9 @@ fun RiverScreen(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Camp(f, f.name, emptySet(), night, paper = up)
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ChipButton(if (Friends.Kind.WAVE in done) tr("Waved", "Integettél") else tr("Wave", "Integetek"), { wave(f) }, filled = Friends.Kind.WAVE !in done)
-                    ChipButton(if (up) tr("Paper's up", "Fent a papír") else tr("Toilet-paper their oak", "Vécépapírt a tölgyfájára"), { paper(f) }, filled = false)
+                    ChipButton(if (Friends.Kind.CHEER in done) tr("Cheered", "Megtapsoltad") else tr("\uD83D\uDC4F Cheer", "\uD83D\uDC4F Taps"), { cheer(f) }, filled = Friends.Kind.CHEER !in done)
+                    // Pranks only where they're welcome.
+                    if (f.pranks || up) ChipButton(if (up) tr("Paper's up", "Fent a papír") else tr("Toilet-paper their oak", "Vécépapírt a tölgyfájára"), { paper(f) }, filled = false)
                 }
                 note?.takeIf { it.first == f.id }?.let { Text(it.second, style = MaterialTheme.typography.bodyMedium, color = Brand.Muted) }
             }

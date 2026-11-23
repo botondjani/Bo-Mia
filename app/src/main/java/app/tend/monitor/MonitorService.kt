@@ -176,6 +176,8 @@ class MonitorService : Service() {
                     runCatching { app.tend.data.Friends.list(this@MonitorService) }
                     if (app.tend.data.Friends.atFire(this@MonitorService) != before) app.tend.widget.Widgets.refresh(this@MonitorService)
                     app.tend.data.Friends.notifyAtFire(this@MonitorService)
+                    // Over the minutes a third time this week: buddies hear of it.
+                    runCatching { app.tend.data.Friends.checkOver(this@MonitorService) }
                 }
             }
         }

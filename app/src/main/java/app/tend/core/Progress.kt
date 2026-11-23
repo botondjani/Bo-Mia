@@ -96,12 +96,25 @@ object Progress {
 }
 
 /**
- * The together goal: you and your friends add up this week's activities. Reaching it builds a
- * bridge over your river (it stays) and gives acorns, every week it's reached.
+ * The together goal: you and your friends add up this week's activities, in three steps (bronze,
+ * silver, gold). Gold (8 a camp) builds a bridge over your river the first time (it stays); each
+ * step gives acorns, every week.
  */
 object Together {
     const val PER_CAMP = 8
     const val ACORNS = 40
+
+    /** The steps: activities per camp, and the acorns each gives. Gold is the goal itself. */
+    enum class Tier(val title: String, val perCamp: Int, val acorns: Int) {
+        BRONZE(tr("Bronze", "Bronz"), 3, 15), SILVER(tr("Silver", "Ezüst"), 5, 25), GOLD(tr("Gold", "Arany"), PER_CAMP, ACORNS);
+        fun target(camps: Int) = perCamp * camps.coerceAtLeast(1)
+    }
+
+    /** The highest step [total] reaches with [camps] camps, or null. */
+    fun tier(total: Int, camps: Int): Tier? = Tier.entries.lastOrNull { total >= it.target(camps) }
+
+    /** The next step to reach, or null when gold is reached. */
+    fun next(total: Int, camps: Int): Tier? = Tier.entries.firstOrNull { total < it.target(camps) }
 
     /** Activities done this week (Monday to [today]). */
     fun activities(today: LocalDate, days: List<DaySummary>): Int {

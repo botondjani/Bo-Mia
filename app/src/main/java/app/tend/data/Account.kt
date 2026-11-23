@@ -142,6 +142,8 @@ object Account {
         // With the camp's layout; a server without it yet gets the rest.
         val saved = rpc(c, "tend_save_profile", JSONObject(args.toString()).put("p_layout", app.tend.core.Clearing.formatLayout(me.layout)))
         if (saved?.ok != true) rpc(c, "tend_save_profile", args)
+        // What friends see, as chosen here (also when chosen before signing in).
+        Friends.saveSettings(c)
     }
 
     suspend fun signOut(c: Context) {

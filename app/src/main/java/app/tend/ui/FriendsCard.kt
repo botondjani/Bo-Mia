@@ -68,6 +68,8 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
     var givingTo by remember { mutableStateOf<Friends.Friend?>(null) }
     var asking by remember { mutableStateOf<Pair<String, Friends.Friend>?>(null) }
     var removing by remember { mutableStateOf<Friends.Friend?>(null) }
+    var blocking by remember { mutableStateOf<Friends.Friend?>(null) }
+    var buddyAbout by remember { mutableStateOf<Friends.Friend?>(null) }
     var note by rememberSaveable { mutableStateOf<String?>(null) }
     // Cheered today (the server allows one a day per friend): kept here so the button says so at once.
     var cheered by remember { mutableStateOf(setOf<String>()) }
@@ -121,6 +123,20 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
         } else {
             val list = friends.orEmpty()
             notes.forEach { n -> NoteRow(n) }
+            // Asked to be someone's buddy: yes or no, right here.
+            list.filter { it.buddyIn == "asked" }.forEach { f ->
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Brand.Sage).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        tr("${f.name} asks you to be their buddy: you'll hear from tend if they turn Strict off or go over their minutes 3 times in a week. Nothing else, and either of you can stop it any time.",
+                            "${f.name} a pajtásának kér: szólunk neked, ha kikapcsolja a Szigorút, vagy egy héten háromszor túllépi a keretét. Mást nem, és bármelyikőtök bármikor kiléphet."),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ChipButton(tr("Yes", "Vállalom"), { scope.launch { if (Friends.buddyAnswer(context, f.id, true)) { note = tr("You're ${f.name}'s buddy now.", "Mostantól ${f.name} pajtása vagy."); reload() } } })
+                        ChipButton(tr("No", "Most nem"), { scope.launch { if (Friends.buddyAnswer(context, f.id, false)) reload() } }, filled = false)
+                    }
+                }
+            }
             if (list.isEmpty()) Text(
                 if (offline) tr("Can't reach the server right now.", "Most nem érjük el a szervert.") else tr("No friends yet. Invite someone: when they accept, you'll see each other's camps.", "Még nincs barátod. Hívj meg valakit: ha elfogadja, látjátok egymás táborát."),
                 style = MaterialTheme.typography.bodyMedium,
@@ -141,6 +157,8 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
                             else { called = called - f.id; note = tr("Couldn't call ${f.name} right now (once an hour to each friend).", "Most nem sikerült hívni: ${f.name} (egy barátot óránként egyszer lehet).") }
                         }
                     },
+                    onBuddy = { buddyAbout = f },
+                    onBlock = { blocking = f },
                     onCheer = {
                         cheered = cheered + f.id
                         scope.launch { if (!Friends.send(context, f.id, Friends.Kind.CHEER)) note = tr("Couldn't send the cheer. Try again in a moment.", "Nem sikerült elküldeni a tapsot. Próbáld újra egy pillanat múlva.") else app.tend.data.Stats.log(context, "cheer") }
@@ -203,6 +221,54 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
             containerColor = Brand.Card,
         )
     }
+    blocking?.let { f ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { blocking = null },
+            title = { Text(tr("Block ${f.name}?", "Letiltod: ${f.name}?")) },
+            text = { Text(tr("You stop being friends, and neither of you can add the other again. They won't be told.", "Nem lesztek többé barátok, és egyikőtök sem veheti fel újra a másikat. Ő nem kap róla értesítést.")) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { blocking = null; scope.launch { Friends.block(context, f.id); reload() } }) { Text(tr("Block", "Tiltás"), color = Brand.Coral) }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { blocking = null }) { Text(tr("Keep", "Mégsem")) } },
+            containerColor = Brand.Card,
+        )
+    }
+    // A buddy: asking, taking it back, or ending it.
+    buddyAbout?.let { f ->
+        val mine = friends.orEmpty().count { it.buddyOut != null }
+        val max = Friends.buddiesMax(context)
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { buddyAbout = null },
+            icon = { Face(f.companion, 56) },
+            title = { Text(if (f.buddyOut == null && f.buddyIn == null) tr("Ask ${f.name} to be your buddy?", "Pajtásnak kéred: ${f.name}?") else tr("${f.name} and you", "${f.name} és te")) },
+            text = {
+                Text(
+                    when {
+                        f.buddyOut == "yes" -> tr("${f.name} is your buddy: they hear when you turn Strict off or go over your minutes 3 times in a week.", "${f.name} a pajtásod: szólunk neki, ha kikapcsolod a Szigorút, vagy egy héten háromszor túllépted a keretet.")
+                        f.buddyOut == "asked" -> tr("Asked. Waiting for ${f.name} to say yes.", "Elküldve. Várjuk, hogy ${f.name} igent mondjon.")
+                        f.buddyIn == "yes" -> tr("You're ${f.name}'s buddy.", "Te vagy ${f.name} pajtása.")
+                        mine >= max -> if (max == 1) tr("You have a buddy already. With Plus you can have three.", "Már van pajtásod. Plusszal három is lehet.") else tr("You have three buddies already.", "Már három pajtásod van.")
+                        else -> tr("If you agree, ${f.name} hears from tend when you turn Strict off or go over your minutes 3 times in a week. Nothing else: not your apps or minutes. Either of you can stop it any time.", "Ha elfogadja, ${f.name} értesítést kap, ha kikapcsolod a Szigorút, vagy egy héten háromszor túllépted a keretet. Mást nem: sem az appjaidat, sem a perceidet. Bármelyikőtök bármikor kiléphet.")
+                    },
+                )
+            },
+            confirmButton = {
+                val pact = f.buddyOut != null || f.buddyIn != null
+                when {
+                    pact -> androidx.compose.material3.TextButton(onClick = { buddyAbout = null; scope.launch { Friends.buddyLeave(context, f.id); reload() } }) {
+                        Text(if (f.buddyOut == "asked" && f.buddyIn == null) tr("Take it back", "Visszavonom") else tr("End it", "Kilépek"), color = Brand.Coral)
+                    }
+                    mine < max -> androidx.compose.material3.TextButton(onClick = {
+                        buddyAbout = null
+                        scope.launch { note = if (Friends.buddyAsk(context, f.id)) tr("Asked ${f.name}.", "Elküldve: ${f.name}.") else tr("Couldn't ask right now.", "Most nem sikerült elküldeni."); reload() }
+                    }) { Text(tr("Ask", "Kérem"), color = Brand.Moss) }
+                    else -> {}
+                }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { buddyAbout = null }) { Text(tr("Close", "Bezárás"), color = Brand.Muted) } },
+            containerColor = Brand.Card,
+        )
+    }
     removing?.let { f ->
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { removing = null },
@@ -221,7 +287,7 @@ fun FriendsCard(onOpenSettings: () -> Unit, onOpenRiver: (friendId: String?) -> 
 private const val FRIENDS_SHOWN = 5
 
 @Composable
-private fun FriendRow(f: Friends.Friend, cheered: Boolean, onVisit: () -> Unit, called: Boolean = false, onCall: () -> Unit = {}, onCheer: () -> Unit, onGift: () -> Unit, onRemove: () -> Unit) = Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).tappable(onClick = onVisit).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun FriendRow(f: Friends.Friend, cheered: Boolean, onVisit: () -> Unit, called: Boolean = false, onCall: () -> Unit = {}, onBuddy: () -> Unit = {}, onBlock: () -> Unit = {}, onCheer: () -> Unit, onGift: () -> Unit, onRemove: () -> Unit) = Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).tappable(onClick = onVisit).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
     Face(f.companion, 40)
     Spacer(Modifier.width(10.dp))
     Column(Modifier.weight(1f)) {
@@ -229,9 +295,11 @@ private fun FriendRow(f: Friends.Friend, cheered: Boolean, onVisit: () -> Unit, 
         // What they did last, with when; otherwise their level and camp.
         val done = f.lastDone
         val at = f.lastDoneAt
+        val buddy = if (f.buddyOut == "yes" || f.buddyIn == "yes") tr("Buddy · ", "Pajtás · ") else ""
         Text(
-            if (done != null && at != null) "${app.tend.core.Tasks.doneShown(done).replaceFirstChar { it.uppercase() }} · ${android.text.format.DateUtils.getRelativeTimeSpanString(at, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS)}"
-            else tr("Level ${f.level} · ${f.placed.size} thing${if (f.placed.size == 1) "" else "s"} at camp", "${f.level}. szint · ${f.placed.size} tárgy a táborban"),
+            buddy + if (done != null && at != null) "${app.tend.core.Tasks.doneShown(done).replaceFirstChar { it.uppercase() }} · ${android.text.format.DateUtils.getRelativeTimeSpanString(at, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS)}"
+            // Level 0: they keep it to themselves.
+            else (if (f.level > 0) tr("Level ${f.level} · ", "${f.level}. szint · ") else "") + tr("${f.placed.size} thing${if (f.placed.size == 1) "" else "s"} at camp", "${f.placed.size} tárgy a táborban"),
             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, maxLines = 1,
         )
     }
@@ -258,7 +326,9 @@ private fun FriendRow(f: Friends.Friend, cheered: Boolean, onVisit: () -> Unit, 
                 enabled = !called, onClick = { more = false; onCall() },
             )
             androidx.compose.material3.DropdownMenuItem(text = { Text(tr("Send a present", "Ajándék küldése")) }, onClick = { more = false; onGift() })
+            androidx.compose.material3.DropdownMenuItem(text = { Text(if (f.buddyOut != null || f.buddyIn == "yes") tr("Buddy", "Pajtás") else tr("Ask to be your buddy", "Pajtásnak kérem")) }, onClick = { more = false; onBuddy() })
             androidx.compose.material3.DropdownMenuItem(text = { Text(tr("Remove ${f.name}", "Eltávolítás: ${f.name}"), color = Brand.Coral) }, onClick = { more = false; onRemove() })
+            androidx.compose.material3.DropdownMenuItem(text = { Text(tr("Block ${f.name}", "Tiltás: ${f.name}"), color = Brand.Coral) }, onClick = { more = false; onBlock() })
         }
     }
 }
@@ -275,37 +345,49 @@ private fun NoteRow(n: Friends.Note) = Row(Modifier.fillMaxWidth().padding(verti
     )
 }
 
-/** This week's shared goal: a bar, who added how much, and what reaching it gives. */
+/** This week's shared goal: a bar with its three steps (bronze, silver, gold), who added how much, and what's next. */
 @Composable
 internal fun TogetherWeek(week: Friends.Week, weeksDone: Int, justClaimed: Boolean) = Column(
     Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(18.dp)).background(Brand.Sage).padding(14.dp),
     verticalArrangement = Arrangement.spacedBy(8.dp),
 ) {
+    val camps = week.parts.size
+    val gold = app.tend.core.Together.Tier.GOLD.target(camps)
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(tr("TOGETHER THIS WEEK", "EGYÜTT A HÉTEN"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
-        Text("${week.total.coerceAtMost(week.target)} / ${week.target}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+        Text((week.tier?.let { "${it.title} · " } ?: "") + "${week.total.coerceAtMost(gold)} / $gold", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
     }
-    Box(Modifier.fillMaxWidth().size(height = 8.dp, width = 0.dp).clip(RoundedCornerShape(4.dp)).background(Brand.Mint)) {
-        Box(Modifier.fillMaxWidth((week.total / week.target.toFloat()).coerceIn(0f, 1f)).size(height = 8.dp, width = 0.dp).clip(RoundedCornerShape(4.dp)).background(Brand.Moss))
+    // The bar, with a mark at each step.
+    Box(Modifier.fillMaxWidth().height(10.dp)) {
+        Box(Modifier.fillMaxWidth().height(8.dp).align(Alignment.Center).clip(RoundedCornerShape(4.dp)).background(Brand.Mint))
+        Box(Modifier.fillMaxWidth((week.total / gold.toFloat()).coerceIn(0f, 1f)).height(8.dp).align(Alignment.CenterStart).clip(RoundedCornerShape(4.dp)).background(Brand.Moss))
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().height(10.dp)) {
+            app.tend.core.Together.Tier.entries.dropLast(1).forEach { t ->
+                Box(Modifier.padding(start = maxWidth * (t.target(camps) / gold.toFloat()) - 1.dp).size(2.dp, 10.dp).background(Brand.Card))
+            }
+        }
     }
     androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         week.parts.forEachIndexed { i, (f, n) ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Face(f.companion, 24)
                 Spacer(Modifier.width(6.dp))
-                Text("${if (i == 0) "You" else f.name} $n", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp))
+                Text("${if (i == 0) tr("You", "Te") else f.name} $n", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp))
             }
         }
     }
-    val left = week.target - week.total
+    val next = week.next
     Text(
         when {
-            justClaimed && weeksDone == 1 -> tr("Reached! A bridge now crosses your river. +${app.tend.core.Together.ACORNS} acorns.", "Megvan! Mostantól híd vezet át a folyódon. +${app.tend.core.Together.ACORNS} makk.")
-            week.done -> tr("Reached together. +${app.tend.core.Together.ACORNS} acorns for each of you.", "Együtt elértétek. Fejenként +${app.tend.core.Together.ACORNS} makk.")
-            weeksDone == 0 -> tr("$left more activities between you all, and a bridge crosses your river.", "Még $left közös tevékenység, és híd épül a folyódon.")
-            else -> tr("$left more activities between you all for +${app.tend.core.Together.ACORNS} acorns each.", "Még $left közös tevékenység, és fejenként +${app.tend.core.Together.ACORNS} makk jár.")
+            justClaimed && weeksDone == 1 && week.done -> tr("Gold! A bridge now crosses your river. +${app.tend.core.Together.ACORNS} acorns.", "Arany! Mostantól híd vezet át a folyódon. +${app.tend.core.Together.ACORNS} makk.")
+            next == null -> tr("Gold, together. Every step gave acorns to each of you.", "Arany, együtt. Minden fokozat makkot adott mindenkinek.")
+            else -> {
+                val left = next.target(camps) - week.total
+                val bridge = if (next == app.tend.core.Together.Tier.GOLD && weeksDone == 0) tr(", and a bridge over your river", ", és híd épül a folyódon") else ""
+                tr("$left more between you all for ${next.title.lowercase()}: +${next.acorns} acorns each$bridge.", "Még $left közös tevékenység ${if (next.title.first().lowercaseChar() in "aáeéiíoóöőuúüű") "az" else "a"} ${next.title.lowercase()} fokozatig: fejenként +${next.acorns} makk$bridge.")
+            }
         },
-        style = MaterialTheme.typography.bodyMedium, color = if (week.done) Brand.Moss else Brand.Muted,
+        style = MaterialTheme.typography.bodyMedium, color = if (week.tier != null) Brand.Moss else Brand.Muted,
     )
 }
 
@@ -333,8 +415,8 @@ private fun InviteDialog(onDismiss: () -> Unit) {
             // What it's worth, for both: said before anything is sent.
             Text(
                 tr(
-                    "When they accept, you both get acorns (${app.tend.data.TendStore.FIRST_FRIEND_ACORNS} for a first friend), and a signpost for your camps.",
-                    "Ha elfogadja, mindketten makkot kaptok (az első barátért ${app.tend.data.TendStore.FIRST_FRIEND_ACORNS}-at), és útjelző tábla kerül a táborotokba.",
+                    "When they accept, you both get acorns (${app.tend.data.TendStore.FIRST_FRIEND_ACORNS} for a first friend) and a signpost; when they do their first activity, +${Friends.INVITE_ACORNS} more for each of you.",
+                    "Ha elfogadja, mindketten makkot kaptok (az első barátért ${app.tend.data.TendStore.FIRST_FRIEND_ACORNS}-at) és útjelző táblát; amikor megcsinálja az első tevékenységét, még +${Friends.INVITE_ACORNS} makk jár mindkettőtöknek.",
                 ),
                 style = MaterialTheme.typography.bodyMedium, color = Brand.Muted,
             )

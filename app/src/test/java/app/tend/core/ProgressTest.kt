@@ -65,5 +65,11 @@ class ProgressTest {
         assertEquals(5, Together.activities(wed, days))
         assertEquals(24, Together.target(3))
         assertEquals(8, Together.target(0))
+        // Steps: with two camps, 6 is bronze, 10 silver, 16 gold.
+        assertEquals(null, Together.tier(5, 2))
+        assertEquals(Together.Tier.BRONZE, Together.tier(6, 2))
+        assertEquals(Together.Tier.SILVER, Together.next(9, 2))
+        assertEquals(Together.Tier.GOLD, Together.tier(16, 2))
+        assertEquals(null, Together.next(16, 2))
     }
 }

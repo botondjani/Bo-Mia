@@ -24,6 +24,11 @@ object Friends {
         /** What they did last ("went for a walk") and when, within the last two days. */
         val lastDone: String? = null,
         val lastDoneAt: Long? = null,
+        /** Pranks may land in their camp (they can turn them off). */
+        val pranks: Boolean = true,
+        /** You asked them to be your buddy ("asked", "yes"), and they asked you; null when not. */
+        val buddyOut: String? = null,
+        val buddyIn: String? = null,
     )
 
     /** A friend at your campfire: phone-free right now. */
@@ -58,7 +63,78 @@ object Friends {
     /** Your friends, oldest friendship first; null when the server can't be reached. Who's at the fire is kept too. */
     suspend fun list(c: Context): List<Friend>? {
         val reply = Account.rpc(c, "tend_friends")?.takeIf { it.ok } ?: return null
+        // How many sit at a fire anywhere (null while tend is too small for it to say nothing about anyone).
+        fireCount = Account.rpc(c, "tend_fire_count")?.takeIf { it.ok }?.body?.trim()?.toIntOrNull()
         return parse(reply.body).also { keepAtFire(c, it); last = it; celebrate(c, it) }
+    }
+
+    /** People phone-free at a fire right now, anywhere; null until tend has 20 people a day. */
+    @Volatile var fireCount: Int? = null
+        private set
+
+    /** This week's together goal with friends as last heard; null with no friends. */
+    fun lastWeek(c: Context): Week? = last.takeIf { it.isNotEmpty() }?.let { week(me(c), it) }
+
+    /** Removes a friend for good: they can't add you again, nor you them. */
+    suspend fun block(c: Context, id: String): Boolean =
+        Account.rpc(c, "tend_block", JSONObject().put("p_friend", id))?.ok == true
+
+    /** Sends what friends may see (and whether pranks may land here). Quietly does nothing offline. */
+    suspend fun saveSettings(c: Context) {
+        if (Account.user(c) == null) return
+        val s = TendStore(c)
+        Account.rpc(c, "tend_save_settings", JSONObject().put("p_pranks", s.pranksOn).put("p_share_done", s.shareDone).put("p_share_level", s.shareLevel).put("p_share_fire", s.shareFire))
+    }
+
+    // ---- Buddies: a friend who's told when you slip ----
+
+    /** How many buddies you can have: one, three with Plus. */
+    fun buddiesMax(c: Context) = if (TendStore(c).isPlus) 3 else 1
+
+    suspend fun buddyAsk(c: Context, to: String): Boolean =
+        Account.rpc(c, "tend_buddy_ask", JSONObject().put("p_to", to).put("p_max", buddiesMax(c)))?.takeIf { it.ok }?.body?.trim() == "true"
+
+    suspend fun buddyAnswer(c: Context, from: String, yes: Boolean): Boolean =
+        Account.rpc(c, "tend_buddy_answer", JSONObject().put("p_from", from).put("p_yes", yes))?.ok == true
+
+    suspend fun buddyLeave(c: Context, other: String): Boolean =
+        Account.rpc(c, "tend_buddy_leave", JSONObject().put("p_other", other))?.ok == true
+
+    /** Tells your buddies you slipped: [STRICT_OFF] or [OVER_3]. Once a day per reason (the server keeps to it). */
+    suspend fun buddyAlert(c: Context, reason: String) {
+        if (Account.user(c) == null) return
+        Account.rpc(c, "tend_buddy_alert", JSONObject().put("p_reason", reason))
+    }
+    const val STRICT_OFF = "strict_off"
+    const val OVER_3 = "over_3"
+
+    /**
+     * Over the day's minutes on 3 days this week: your buddies hear of it, once a week. Checked
+     * from the background; quietly does nothing offline.
+     */
+    suspend fun checkOver(c: Context) {
+        val store = TendStore(c)
+        if (Account.user(c) == null || !store.markOverToday()) return
+        val week = app.tend.core.Progress.weekKey(java.time.LocalDate.now())
+        if (store.overDaysThisWeek() >= 3 && store.overToldWeek != week) {
+            buddyAlert(c, OVER_3)
+            store.overToldWeek = week
+        }
+    }
+
+    // ---- Inviting: acorns for both, once the invited one did a first activity ----
+
+    const val INVITE_ACORNS = 30
+
+    /** After your first activity: whoever invited you gets their acorns (by a note), and you yours. How many. */
+    suspend fun claimInvite(c: Context): Int {
+        val store = TendStore(c)
+        if (Account.user(c) == null || store.inviteClaimed || store.daySummaries().sumOf { it.tasksDone } == 0) return 0
+        val n = Account.rpc(c, "tend_invite_reward")?.takeIf { it.ok }?.body?.trim()?.toIntOrNull() ?: return 0
+        // Asked once there are friends and an activity: whatever it says, it's settled (later friends invited you after this).
+        if (last.isNotEmpty()) store.inviteClaimed = true
+        if (n > 0) store.addAcorns(n * INVITE_ACORNS, "invite")
+        return n
     }
 
     /** New friends since last heard: acorns for each (both sides get theirs), and said once ([takeNewFriends]). */
@@ -143,7 +219,9 @@ object Friends {
     /** "Anna put her phone down": one note per friend's session, with "Join her" (opens tend to join). */
     fun notifyAtFire(c: Context) {
         val fresh = newAtFire(c)
-        if (fresh.isEmpty() || !app.tend.reminder.RecapReminder.canNotify(c) || TendStore(c).focusStartedAt > 0) return
+        val store = TendStore(c)
+        if (fresh.isEmpty() || !app.tend.reminder.RecapReminder.canNotify(c) || store.focusStartedAt > 0 || !app.tend.reminder.Notes.underCap(store)) return
+        store.countNote()
         val f = fresh.first()
         val minutes = ((f.until - System.currentTimeMillis()) / 60_000L).toInt()
         val nm = c.getSystemService(android.app.NotificationManager::class.java)
@@ -201,6 +279,8 @@ object Friends {
                 app.tend.core.Clearing.parseLayout(o.optString("layout"), placed),
                 time(o.optString("focus_started")), time(o.optString("focus_until")), o.optString("focus_task").ifBlank { null },
                 o.optString("last_done").takeIf { it.isNotBlank() && it != "null" }, time(o.optString("last_done_at")),
+                o.optBoolean("pranks", true),
+                o.optString("buddy_out").takeIf { it == "asked" || it == "yes" }, o.optString("buddy_in").takeIf { it == "asked" || it == "yes" },
             )
         }
     }.getOrDefault(emptyList())
@@ -211,6 +291,9 @@ object Friends {
     class Week(val parts: List<Pair<Friend, Int>>, val target: Int) {
         val total: Int get() = parts.sumOf { it.second }
         val done: Boolean get() = total >= target
+        /** The step reached (bronze, silver, gold) and the next one. */
+        val tier: app.tend.core.Together.Tier? get() = app.tend.core.Together.tier(total, parts.size)
+        val next: app.tend.core.Together.Tier? get() = app.tend.core.Together.next(total, parts.size)
     }
 
     /** The together week from [me] and [friends]; a friend's count only counts in the same week. */
@@ -231,24 +314,44 @@ object Friends {
         )
     }
 
-    /** When the week's goal is reached for the first time: acorns, and the bridge if it isn't built. True then. */
+    /**
+     * Each step reached this week for the first time: its acorns (bronze and silver), and gold the
+     * goal's (and the bridge if it isn't built). True when something was given.
+     */
     fun claimWeek(c: Context, week: Week, key: String): Boolean {
         val store = TendStore(c)
-        if (!week.done || week.parts.size < 2 || key in store.togetherDone) return false
-        store.togetherDone = store.togetherDone + key
-        store.addAcorns(app.tend.core.Together.ACORNS, "together")
-        return true
+        if (week.parts.size < 2) return false
+        var given = false
+        app.tend.core.Together.Tier.entries.filter { it.target(week.parts.size) <= week.total }.forEach { t ->
+            if (t == app.tend.core.Together.Tier.GOLD) {
+                if (key in store.togetherDone) return@forEach
+                store.togetherDone = store.togetherDone + key
+            } else {
+                val k = "$key:${t.name}"
+                if (k in store.togetherSteps) return@forEach
+                store.togetherSteps = store.togetherSteps + k
+            }
+            store.addAcorns(t.acorns, "together")
+            given = true
+        }
+        return given
     }
 
     // ---- Notes: a wave, a visit, toilet paper ----
 
-    /** What friends do to each other's camps. */
+    /** What friends do to each other's camps (a wave is a cheer now; older ones still read). */
     enum class Kind(val id: String) {
         WAVE("wave"), VISIT("visit"), TP("tp"), CHEER("cheer"), GIFT("gift"),
         /** "Come to the fire": let's put the phones down together, now. */
         FIRE("fire"),
         /** A thing for the camp, from the giver's chest into yours. */
-        THING("thing");
+        THING("thing"),
+        /** Asks you to be their buddy. */
+        BUDDY_ASK("buddy_ask"),
+        /** Your buddy slipped (the note's thing says how: [STRICT_OFF] or [OVER_3]). */
+        BUDDY_ALERT("buddy_alert"),
+        /** Someone you invited did their first activity: acorns for you. */
+        INVITE_BONUS("invite_bonus");
 
         /** How it reads for whoever got it: "Anna waved at you". */
         fun received(name: String) = when (this) {
@@ -259,13 +362,16 @@ object Friends {
             GIFT -> tr("$name sent you a present", "$name ajándékot küldött")
             FIRE -> tr("$name calls you to the campfire", "$name a tábortűzhöz hív")
             THING -> tr("$name sent you a present", "$name ajándékot küldött")
+            BUDDY_ASK -> tr("$name asks you to be their buddy", "$name a pajtásának kér")
+            BUDDY_ALERT -> tr("Your buddy $name could use you now", "$name pajtásod most rád számít")
+            INVITE_BONUS -> tr("$name did a first activity: +$INVITE_ACORNS acorns", "$name megcsinálta az első tevékenységét: +$INVITE_ACORNS makk")
         }
 
         /** For the widget's small label: "Anna: visited". */
-        val short: String get() = when (this) { WAVE -> tr("waved", "integetett"); VISIT -> tr("visited", "itt járt"); TP -> tr("toilet paper!", "vécépapír!"); CHEER -> tr("cheered!", "megtapsolt!"); GIFT -> tr("a present!", "ajándék!"); FIRE -> tr("to the fire!", "a tűzhöz hív!"); THING -> tr("a present!", "ajándék!") }
+        val short: String get() = when (this) { WAVE -> tr("waved", "integetett"); VISIT -> tr("visited", "itt járt"); TP -> tr("toilet paper!", "vécépapír!"); CHEER -> tr("cheered!", "megtapsolt!"); GIFT -> tr("a present!", "ajándék!"); FIRE -> tr("to the fire!", "a tűzhöz hív!"); THING -> tr("a present!", "ajándék!"); BUDDY_ASK -> tr("a buddy?", "pajtás?"); BUDDY_ALERT -> tr("needs you", "rád számít"); INVITE_BONUS -> tr("+acorns", "+makk") }
 
         /** For the 1x1 widget's badge. */
-        val emoji: String get() = when (this) { WAVE -> "\uD83D\uDC4B"; VISIT -> "\uD83E\uDD86"; TP -> "\uD83E\uDDFB"; CHEER -> "\uD83D\uDC4F"; GIFT -> "\uD83C\uDF81"; FIRE -> "\uD83D\uDD25"; THING -> "\uD83C\uDF81" }
+        val emoji: String get() = when (this) { WAVE -> "\uD83D\uDC4B"; VISIT -> "\uD83E\uDD86"; TP -> "\uD83E\uDDFB"; CHEER -> "\uD83D\uDC4F"; GIFT -> "\uD83C\uDF81"; FIRE -> "\uD83D\uDD25"; THING -> "\uD83C\uDF81"; BUDDY_ASK, BUDDY_ALERT -> "\uD83E\uDD1D"; INVITE_BONUS -> "\uD83C\uDF30" }
 
         companion object { fun of(id: String) = entries.firstOrNull { it.id == id } }
     }
@@ -327,8 +433,15 @@ object Friends {
             if (counted > 0) store.addAcorns(counted * CHEER_ACORNS, "cheer")
             p.edit().putLong("cheers_paid", cheers.maxOf { it.id }).putString("cheers_day", today).putInt("cheers_today", countedToday + counted).apply()
         }
-        // Presents (a thing, or acorns from older versions): wrapped by the fire, each once.
+        // Someone you invited did a first activity: acorns, each once.
         val store = TendStore(c)
+        val bonusPaid = p.getLong("bonus_paid", 0)
+        val bonuses = notes.filter { it.kind == Kind.INVITE_BONUS && it.id > bonusPaid }
+        if (bonuses.isNotEmpty()) {
+            store.addAcorns(bonuses.size * INVITE_ACORNS, "invite")
+            p.edit().putLong("bonus_paid", bonuses.maxOf { it.id }).apply()
+        }
+        // Presents (a thing, or acorns from older versions): wrapped by the fire, each once.
         val upTo = store.giftsUpTo
         val presents = notes.filter { n ->
             (n.kind == Kind.THING && n.thing != null || n.kind == Kind.GIFT) &&
@@ -339,9 +452,10 @@ object Friends {
         // The mark set from the first sync on, presents or not: it travels with the camp's backup, so a camp
         // restored on another phone doesn't get the presents it already opened a second time.
         if (upTo == 0L) notes.maxOfOrNull { it.id }?.let { newest -> if (newest > store.giftsUpTo) store.giftsUpTo = newest }
-        // Calls already over aren't news any more. A cheer isn't worth a buzz on its own: it waits in the camp.
-        val news = fresh.filter { (it.kind != Kind.FIRE || System.currentTimeMillis() - it.at < FIRE_CALL_MS) && it.kind != Kind.CHEER }
-        if (news.isNotEmpty()) notify(c, news)
+        // A call to the fire goes out at once (while it's on); everything else waits for the day's one summary.
+        val call = fresh.filter { it.kind == Kind.FIRE && System.currentTimeMillis() - it.at < FIRE_CALL_MS }
+        if (call.isNotEmpty()) notify(c, call)
+        digest(c)
         return notes.any { it.id > known }
     }
 
@@ -355,7 +469,8 @@ object Friends {
     fun notes(c: Context): List<Note> = parseNotes(prefs(c).getString("notes", null) ?: "[]")
 
     /** Who toilet-papered your oak (paper still up), newest first; empty when it's clean. */
-    fun paperOnMe(c: Context): List<Note> = notes(c).filter { it.kind == Kind.TP && !it.cleared && it.id > prefs(c).getLong("paper_down", 0) }
+    fun paperOnMe(c: Context): List<Note> =
+        if (!TendStore(c).pranksOn) emptyList() else notes(c).filter { it.kind == Kind.TP && !it.cleared && it.id > prefs(c).getLong("paper_down", 0) }
 
     /** Takes the paper down: at once on this phone, and on the server when it can be reached. */
     suspend fun clearPaper(c: Context) {
@@ -405,7 +520,7 @@ object Friends {
     /** Where a note is answered: the call joined, a wave or cheer in the friends list, the rest in the camp. */
     fun openFor(kind: Kind): String = when (kind) {
         Kind.FIRE -> OPEN_JOIN
-        Kind.WAVE, Kind.CHEER -> OPEN_NOTES
+        Kind.WAVE, Kind.CHEER, Kind.BUDDY_ASK, Kind.BUDDY_ALERT -> OPEN_NOTES
         else -> app.tend.reminder.WeeklyLetter.OPEN_CLEARING
     }
 
@@ -439,6 +554,28 @@ object Friends {
     /** Acorns in a present from a friend (sent by older versions). */
     const val GIFT_ACORNS = 10
 
+    /**
+     * Friends' news in one note a day, from [DIGEST_HOUR] on: what came since the last one and
+     * hasn't been seen in the app (not calls to the fire: those go at once). It counts toward the
+     * day's cap of notes.
+     */
+    private fun digest(c: Context, now: java.time.LocalDateTime = java.time.LocalDateTime.now()) {
+        val p = prefs(c)
+        val today = now.toLocalDate().toString()
+        if (now.hour < DIGEST_HOUR || p.getString("digest_day", "") == today) return
+        val since = maxOf(p.getLong("digest_upto", 0), p.getLong("notes_seen", 0))
+        val news = notes(c).filter { it.id > since && it.kind != Kind.FIRE && System.currentTimeMillis() - it.at < DAY_MS }
+        if (news.isEmpty()) return
+        val store = TendStore(c)
+        if (!app.tend.reminder.Notes.underCap(store)) return
+        p.edit().putString("digest_day", today).putLong("digest_upto", news.maxOf { it.id }).apply()
+        notify(c, news)
+        store.countNote()
+    }
+
+    /** Friends' news comes in one note, from this hour of the evening. */
+    const val DIGEST_HOUR = 18
+
     /** One notification for what's new: "Anna toilet-papered your oak" (and how many more). */
     private fun notify(c: Context, fresh: List<Note>) {
         if (!app.tend.reminder.RecapReminder.canNotify(c)) return
@@ -452,6 +589,9 @@ object Friends {
             Kind.CHEER -> tr("For what you did today: +$CHEER_ACORNS acorns.", "Azért, amit ma csináltál: +$CHEER_ACORNS makk.")
             Kind.GIFT, Kind.THING -> tr("It's wrapped by your fire. Tap it to open.", "Becsomagolva vár a tüzednél. Koppints rá, és kibontod.")
             Kind.FIRE -> tr("Put your phones down together: +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each. Tap to join.", "Tegyétek le együtt a telefont: fejenként +${app.tend.core.Acorns.TOGETHER_FIRE} makk. Koppints, és csatlakozol.")
+            Kind.BUDDY_ASK -> tr("Say yes or no under Friends.", "A Barátoknál mondhatsz igent vagy nemet.")
+            Kind.BUDDY_ALERT -> if (first.thing == STRICT_OFF) tr("They turned Strict off. A cheer might help.", "Kikapcsolta a Szigorút. Egy taps jól jöhet neki.") else tr("Over their minutes 3 times this week. A cheer might help.", "A héten háromszor túllépte a keretét. Egy taps jól jöhet neki.")
+            Kind.INVITE_BONUS -> tr("Thanks for bringing them to the fire.", "Köszönjük, hogy elhoztad a tűzhöz.")
         } + if (fresh.size > 1) tr(" And ${fresh.size - 1} more from friends.", " És még ${fresh.size - 1} a barátaidtól.") else ""
         val open = android.app.PendingIntent.getActivity(
             // A call to the fire opens tend ready to join; the rest opens the camp, where it happened.

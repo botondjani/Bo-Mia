@@ -144,6 +144,9 @@ fun HomeScreen(
     onDismissCall: () -> Unit = {},
     /** Friends who did something today, with a cheer for each (once a day). */
     friendsToday: List<app.tend.data.Friends.Friend> = emptyList(),
+    /** The together week with friends (null with none), and how many sit at a fire anywhere (null: not said). */
+    together: app.tend.data.Friends.Week? = null,
+    fireCount: Int? = null,
     cheered: Set<String> = emptySet(),
     onCheer: (app.tend.data.Friends.Friend) -> Unit = {},
     campTip: app.tend.core.Tip? = null,
@@ -535,7 +538,15 @@ fun HomeScreen(
         var claimed by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
         var claimKey by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
         Box(Modifier.fillMaxWidth()) {
-            HubButtons(waiting, friendsToday.size, onChallenges = {
+            // The fire, always: who's there, or a call to make; under it the together step, or how many sit at a fire anywhere.
+            val fireLine = if (atFire.isNotEmpty()) tr("${atFire.size} at your fire", "${atFire.size} barátod a tűznél ül") else tr("Call someone to the fire", "Hívj valakit a tűzhöz")
+            val gold = together?.let { app.tend.core.Together.Tier.GOLD.target(it.parts.size) }
+            val sub = when {
+                together != null && gold != null -> tr("Together: ", "Együtt: ") + (together.tier?.let { "${it.title.lowercase()} · " } ?: "") + "${together.total.coerceAtMost(gold)}/$gold"
+                fireCount != null && fireCount > 0 -> tr("$fireCount at a fire right now", "Most $fireCount-en ülnek a tűznél")
+                else -> null
+            }
+            HubButtons(waiting, fireLine, sub, atFire.isNotEmpty(), onChallenges = {
                 // Acorns waiting: tapped, they're taken at once (the list opens when there's nothing to take).
                 if (waiting == 0) hubOpen = true
                 else {
@@ -733,10 +744,10 @@ private fun NextSteps(
  */
 /** Challenges and friends, side by side: each a big, calm button with what's waiting. */
 @Composable
-private fun HubButtons(waiting: Int, friendsToday: Int, onChallenges: () -> Unit, onFriends: () -> Unit) =
+private fun HubButtons(waiting: Int, friendsNote: String, friendsSub: String?, fireOn: Boolean, onChallenges: () -> Unit, onFriends: () -> Unit) =
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         @Composable
-        fun Button(icon: String, title: String, note: String?, highlight: Boolean, onClick: () -> Unit) = Row(
+        fun Button(icon: String, title: String, note: String?, highlight: Boolean, onClick: () -> Unit, sub: String? = null) = Row(
             Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(if (highlight) Brand.Moss else Brand.Card).tappable(onClick = onClick)
                 .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -746,10 +757,11 @@ private fun HubButtons(waiting: Int, friendsToday: Int, onChallenges: () -> Unit
             Column {
                 Text(title, style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp), color = if (highlight) Color.White else Brand.Ink, maxLines = 1)
                 note?.let { Text(it, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = if (highlight) Color.White.copy(alpha = 0.85f) else Brand.Muted, maxLines = 1) }
+                sub?.let { Text(it, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = if (highlight) Color.White.copy(alpha = 0.85f) else Brand.Moss, maxLines = 1) }
             }
         }
         Button("star", tr("Challenges", "Kihívások"), if (waiting > 0) tr("$waiting acorns waiting", "$waiting makk vár") else tr("Quest and goals", "Küldetés és célok"), waiting > 0, onChallenges)
-        Button("friends", tr("Friends", "Barátok"), if (friendsToday > 0) tr("$friendsToday did something today", "$friendsToday ma tett valamit") else tr("Your camps together", "Közös táborok"), false, onFriends)
+        Button("friends", tr("Friends", "Barátok"), friendsNote, fireOn, onFriends, friendsSub)
     }
 
 /** Everything for acorns in one place: today's quest, this week's goal and the level, and the challenges. */
