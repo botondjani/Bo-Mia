@@ -40,9 +40,7 @@ import app.tend.core.Avatar
 import app.tend.core.BudgetConfig
 import app.tend.core.TaskDef
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Favorite
@@ -142,22 +140,19 @@ fun SettingsScreen(
     @Composable
     fun Section(key: String) {
         when (key) {
-        "companion" -> CompanionPicker(avatar, onAvatar, compact = true)
         // The apps, each with its own limit, in one list; the full picker opens below it.
         "apps" -> {
             AppsCard(catalog, blocked, onToggleApp, appLimits, appSecondsToday, strict, plus, onAppLimit) { onPlus(PlusFrom.APP_LIMITS) }
             Card { CountedKinds(cfg, onConfig) }
         }
-        // The day's budget, and the weekend.
-        "minutes" -> Card {
-            BudgetSteppers(cfg, onConfig)
-            Divider()
-            WeekendRow(strict)
-        }
-        // How strict, Bo's peeks, and a day off.
-        "strict" -> {
-            if (plus || strict) StrictCard(plus, strict, strictEndsAt, onStrict, { onPlus(PlusFrom.STRICT) }, avatar.displayName, peekOn, onPeek)
-            else StrictCard(false, false, 0, onStrict, { onPlus(PlusFrom.STRICT) }, avatar.displayName, peekOn, onPeek)
+        // The day's budget and the weekend, then how strict (and Bo's peeks): one page.
+        "minutes" -> {
+            Card {
+                BudgetSteppers(cfg, onConfig)
+                Divider()
+                WeekendRow(strict)
+            }
+            StrictCard(plus, strict, if (plus || strict) strictEndsAt else 0, onStrict, { onPlus(PlusFrom.STRICT) }, avatar.displayName, peekOn, onPeek)
         }
         "periods" -> PeriodsCard(catalog, blocked, plus, { onPlus(PlusFrom.SETTINGS) }, strict, eveningFrom, onEvening, lockSchedules, onLockSchedule, onAccountChanged)
         "notes" -> NotesCard(avatar.displayName, reminderEnabled, onReminder, notesMorning, notesNudges, onNotes, weeklyLetter, onWeeklyLetter, onAccountChanged)
@@ -166,6 +161,8 @@ fun SettingsScreen(
         else -> {
             var confirmReset by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
             AccountCard(onAccountChanged, onRestored, onStartOver = { confirmReset = true })
+            Text(tr("COMPANION", "TÁRS"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
+            CompanionPicker(avatar, onAvatar, compact = true)
             Text(tr("YOUR TOWN & YOU", "A VÁROSOD ÉS TE"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
             Card { aboutYou() }
             Text(tr("SOUNDS", "HANGOK"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
@@ -221,9 +218,6 @@ fun SettingsScreen(
                         if (pair.size == 1) Spacer(Modifier.weight(1f))
                     }
                 }
-                // Testers only: the Play build doesn't show it.
-                val diagnostics = if (app.tend.BuildConfig.PLAY) "" else if (missCount == 0) tr(" · no blocking misses", " · nem maradt el Megállító") else tr(" · $missCount blocking misses", " · $missCount elmaradt Megállító")
-                Text("tend $version$diagnostics", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
             }
             if (confirmReset) androidx.compose.material3.AlertDialog(
                 onDismissRequest = { confirmReset = false },
@@ -260,14 +254,12 @@ fun SettingsScreen(
         val level = when { strict -> tr("Strict", "Szigorú"); store.strictLevel == app.tend.core.StrictLevel.EASY -> tr("Easy", "Laza"); else -> tr("Balanced", "Kiegyensúlyozott") }
         val evening = when (store.eveningMode) { app.tend.core.EveningMode.OFF -> tr("evening off", "este ki"); app.tend.core.EveningMode.SLOW -> tr("slower from %d:00", "%d:00-tól lassít").format(eveningFrom); app.tend.core.EveningMode.LOCK -> tr("closed at night", "éjjel zár") }
         val summaries = mapOf(
-            "companion" to avatar.displayName,
             "apps" to if (blocked.isEmpty()) tr("None yet", "Még egy sincs") else tr("${blocked.size} app${if (blocked.size == 1) "" else "s"}", "${blocked.size} app") + if (appLimits.isNotEmpty()) tr(" · ${appLimits.size} with a limit", " · ${appLimits.size} saját limittel") else "",
-            "minutes" to tr("${cfg.freeMinutes} free a day", "napi ${cfg.freeMinutes} perc jár"),
-            "strict" to level + if (pausedUntil > System.currentTimeMillis()) tr(" · a day off", " · szabadnap") else "",
+            "minutes" to tr("${cfg.freeMinutes} min a day", "napi ${cfg.freeMinutes} perc") + " · " + level,
             "periods" to evening + if (lockSchedules.any { it.on && it.id != "bed" }) tr(" · a lock on", " · zár bekapcsolva") else "",
             "activities" to tr("${tasks.size} picked", "${tasks.size} kiválasztva"),
             "notes" to when (store.notesLevel) { app.tend.core.NotesLevel.QUIET -> tr("Quiet", "Csendes"); app.tend.core.NotesLevel.NORMAL -> tr("Normal", "Normál"); app.tend.core.NotesLevel.CHATTY -> tr("Chatty", "Beszédes") },
-            "account" to tr("Sign in, backup, town, theme, sounds", "Belépés, mentés, város, téma, hangok"),
+            "account" to tr("Sign in, backup, ${avatar.displayName}, theme, sounds", "Belépés, mentés, ${avatar.displayName}, téma, hangok"),
         )
         SETTINGS_PAGES.forEach { (key, title, icon) ->
             val open = page == key
@@ -296,12 +288,10 @@ fun SettingsScreen(
 
 private val SETTINGS_PAGES = listOf(
     Triple("apps", tr("Picked apps", "Kiválasztott appok"), androidx.compose.material.icons.Icons.Filled.Lock),
-    Triple("minutes", tr("Daily minutes", "Napi keret"), androidx.compose.material.icons.Icons.Filled.DateRange),
-    Triple("strict", tr("How strict", "Szigor"), androidx.compose.material.icons.Icons.Filled.Settings),
+    Triple("minutes", tr("Minutes and strictness", "Keret és szigor"), androidx.compose.material.icons.Icons.Filled.DateRange),
     Triple("periods", tr("Times of day", "Időszakok"), androidx.compose.material.icons.Icons.Filled.Info),
     Triple("activities", tr("Instead of scrolling", "Görgetés helyett"), androidx.compose.material.icons.Icons.Filled.Favorite),
     Triple("notes", tr("Bo's notes", "Bo üzenetei"), androidx.compose.material.icons.Icons.Filled.Notifications),
-    Triple("companion", tr("Companion", "Társ"), androidx.compose.material.icons.Icons.Filled.Face),
     Triple("account", tr("Account & more", "Fiók és egyebek"), androidx.compose.material.icons.Icons.Filled.AccountCircle),
 )
 
@@ -800,8 +790,9 @@ private fun LockEditor(catalog: AppCatalog, blocked: Set<String>, lock: app.tend
         app.tend.core.LockSchedule.WEEKDAYS -> tr("weekdays", "hétköznap")
         else -> tr("${lock.days.size} days a week", "heti ${lock.days.size} nap")
     }
-    SwitchRow(title, "%d:00 – %d:00 · %s".format(lock.from, lock.to, daysText) + if (lock.apps.isNotEmpty()) tr(" · ${lock.apps.size} apps", " · ${lock.apps.size} app") else "", lock.on) { onLock(lock.copy(on = it)) }
-    if (lock.on) Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 6.dp)) {
+    var editing by remember { androidx.compose.runtime.mutableStateOf(false) }
+    SwitchRow(title, "%d:00 – %d:00 · %s".format(lock.from, lock.to, daysText) + if (lock.apps.isNotEmpty()) tr(" · ${lock.apps.size} apps", " · ${lock.apps.size} app") else "", lock.on) { editing = it; onLock(lock.copy(on = it)) }
+    if (lock.on && editing) Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 6.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             HourStepper(tr("From", "Ettől"), lock.from, Modifier.weight(1f)) { onLock(lock.copy(from = it)) }
             HourStepper(tr("To", "Eddig"), lock.to, Modifier.weight(1f)) { onLock(lock.copy(to = it)) }
@@ -809,10 +800,12 @@ private fun LockEditor(catalog: AppCatalog, blocked: Set<String>, lock: app.tend
         DayChips(lock.days) { onLock(lock.copy(days = it)) }
         LockApps(catalog, blocked, lock.apps) { onLock(lock.copy(apps = it)) }
     }
-    // Your own: a name of its own ("Studying"), and a way to remove it.
-    if (lock.id.startsWith("c")) Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+    // Change it (hours, days, apps); your own ones can be renamed ("Studying") and removed too.
+    if (lock.on || lock.id.startsWith("c")) Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         var naming by remember { androidx.compose.runtime.mutableStateOf(false) }
-        Text(tr("Rename", "Átnevezés"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+        if (lock.on) Text(if (editing) tr("Done", "Kész") else tr("Change", "Módosítás"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+            modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable { editing = !editing }.padding(vertical = 4.dp))
+        if (lock.id.startsWith("c")) Text(tr("Rename", "Átnevezés"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
             modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable { naming = true }.padding(vertical = 4.dp))
         onRemove?.let { remove ->
             Text(tr("Remove", "Törlés"), style = MaterialTheme.typography.labelLarge, color = Brand.Coral,
