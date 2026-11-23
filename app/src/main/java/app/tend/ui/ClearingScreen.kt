@@ -5,13 +5,9 @@ import app.tend.core.tr
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.animation.togetherWith
-import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Settings
 import kotlinx.coroutines.flow.first
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.horizontalScroll
@@ -36,8 +32,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -212,7 +206,7 @@ fun ClearingScreen(
 
     // The same header as home, settings and all (nothing moves going between them).
     TodayHeader(java.time.LocalDate.now(), minutes, {}) {
-        IconButtonSoft(androidx.compose.material.icons.Icons.Filled.Settings, tr("Settings", "Beállítások"), onOpenSettings)
+        IconButtonSoft(TendIcons.vector("gear"), tr("Settings", "Beállítások"), onOpenSettings)
     }
 
     // What friends did: toilet paper unrolls when tapped; a visitor's duck is fished out.
@@ -659,7 +653,7 @@ fun ClearingScreen(
         Box(
             Modifier.align(Alignment.TopStart).padding(start = 28.dp, top = 12.dp).size(36.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xE6FFFFFF)).tappable(onClick = onBack),
             contentAlignment = Alignment.Center,
-        ) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, tr("Home", "Főoldal"), tint = Brand.MossOnPill, modifier = Modifier.size(18.dp)) }
+        ) { androidx.compose.material3.Icon(TendIcons.vector("back"), tr("Home", "Főoldal"), tint = Brand.MossOnPill, modifier = Modifier.size(18.dp)) }
         AcornBadge(acorns, Modifier.align(Alignment.TopEnd).padding(12.dp))
         // Until something has been moved: how, right on the camp.
         if (hintSpot != null && drag == null && carries.isEmpty()) Text(
@@ -719,7 +713,7 @@ fun ClearingScreen(
     app.tend.core.CampEvent.on(java.time.LocalDate.now())?.let { event ->
         val left = event.daysLeft(java.time.LocalDate.now())
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Brand.Coral.copy(alpha = 0.12f)).tappable { shopTab = 2; shopOpen = true }.padding(horizontal = 14.dp, vertical = 10.dp),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Brand.Plus.copy(alpha = 0.14f)).tappable { shopTab = 2; shopOpen = true }.padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Canvas(Modifier.size(40.dp)) { drawThingIcon(event.thing) }
@@ -733,9 +727,9 @@ fun ClearingScreen(
 
     // The shop, friends, and sharing the camp: a button each.
     Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
-        PillButton(tr("Shop", "Bolt"), androidx.compose.material.icons.Icons.Filled.ShoppingCart, Modifier.weight(1f)) { shopTab = 0; shopOpen = true }
-        PillButton(tr("Friends", "Barátok"), androidx.compose.material.icons.Icons.Filled.Person, Modifier.weight(1f)) { friendsOpen = true }
-        PillButton(tr("Share", "Megosztás"), androidx.compose.material.icons.Icons.Filled.Share, Modifier.weight(1f), onShare)
+        PillButton(tr("Shop", "Bolt"), TendIcons.vector("bag"), Modifier.weight(1f)) { shopTab = 0; shopOpen = true }
+        PillButton(tr("Friends", "Barátok"), TendIcons.vector("friends"), Modifier.weight(1f)) { friendsOpen = true }
+        PillButton(tr("Share", "Megosztás"), TendIcons.vector("share"), Modifier.weight(1f), onShare)
     }
 
     // Set up before the town was asked: once, the real weather offered.
@@ -871,7 +865,7 @@ private fun MilestonesCard(t: app.tend.core.Totals) = Card {
         val done = m in reached
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
             Box(Modifier.size(28.dp).clip(androidx.compose.foundation.shape.CircleShape).background(if (done) Brand.Moss else Brand.Sage), contentAlignment = Alignment.Center) {
-                if (done) androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                if (done) androidx.compose.material3.Icon(TendIcons.vector("check"), null, tint = Color.White, modifier = Modifier.size(16.dp))
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
@@ -980,7 +974,8 @@ private fun Shop(
             }
             // To wear: this season's outfit and any bought before (tap to put on or take off).
             1 -> {
-                val wardrobe = (outfits + app.tend.core.Accessory.outfitFor(season) + app.tend.core.Accessory.anytime).sortedBy { it.ordinal }
+                val today = java.time.LocalDate.now()
+                val wardrobe = (outfits + app.tend.core.Accessory.entries.filter { it.isOutfit && it.forSale(today) }).sortedBy { it.ordinal }
                 heading(tr("OUTFITS", "RUHÁK"), plusMark = true)
                 wardrobe.chunked(4).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
@@ -1002,10 +997,10 @@ private fun Shop(
                     val left = event.daysLeft(java.time.LocalDate.now())
                     heading(tr("${event.title.uppercase()} · ${if (left == 1) "LAST DAY" else "$left DAYS LEFT"}", "${event.title.uppercase()} · ${if (left == 1) "UTOLSÓ NAP" else "MÉG $left NAP"}"), coral = true, plusMark = true)
                     Text(event.line, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
-                    tiles(Things.forEvent(event), Brand.Coral.copy(alpha = 0.12f), paid = true)
+                    tiles(Things.forEvent(event), Brand.Plus.copy(alpha = 0.14f), paid = true)
                 }
                 heading(tr("THIS ${season.title.uppercase()} ONLY", "CSAK EBBEN AZ ÉVSZAKBAN: ${season.title.uppercase()}"), coral = true, plusMark = true)
-                tiles(Things.forSeason(season), Brand.Coral.copy(alpha = 0.12f), paid = true)
+                tiles(Things.forSeason(season), Brand.Plus.copy(alpha = 0.14f), paid = true)
                 val nowEvent = app.tend.core.CampEvent.on(java.time.LocalDate.now())
                 val earlier = (app.tend.core.Season.entries.filter { it != season }.flatMap { Things.forSeason(it) } +
                     app.tend.core.CampEvent.entries.filter { it != nowEvent }.flatMap { Things.forEvent(it) }).filter { owns(it.id) }
@@ -1352,7 +1347,7 @@ private fun Guestbook(book: Map<app.tend.core.Visitor, Int>) {
 /** One of the seasons' outfits in the shop: its price, or (bought) whether it's on. */
 @Composable
 private fun OutfitTile(a: app.tend.core.Accessory, owned: Boolean, worn: Boolean, affordable: Boolean, modifier: Modifier, onTap: () -> Unit) = Column(
-    modifier.clip(RoundedCornerShape(14.dp)).background(if (worn) Brand.Picked else Brand.Coral.copy(alpha = 0.12f)).tappable(onClick = onTap).padding(vertical = 6.dp, horizontal = 2.dp),
+    modifier.clip(RoundedCornerShape(14.dp)).background(if (worn) Brand.Picked else Brand.Plus.copy(alpha = 0.14f)).tappable(onClick = onTap).padding(vertical = 6.dp, horizontal = 2.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
 ) {
     val icon = remember(a) { CharacterPainter.accessoryIcon(a, 144).asImageBitmap() }
@@ -1498,7 +1493,7 @@ internal fun Wardrobe(
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { TryOn(avatar, worn, trying, 132.dp) }
     trying?.let { a ->
         // Tried on: how to get it, and the button when it's for sale now.
-        val forSale = a.isOutfit && (a.always || a.outfit == season)
+        val forSale = a.isOutfit && a.forSale(java.time.LocalDate.now())
         val price = Accessory.OUTFIT_PRICE
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Brand.Card).padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {

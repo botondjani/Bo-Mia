@@ -40,7 +40,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.asImageBitmap
 import app.tend.core.Accessory
-import androidx.compose.material.icons.filled.Share
 import app.tend.core.Mood
 import app.tend.core.Recap
 

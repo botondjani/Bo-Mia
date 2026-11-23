@@ -608,16 +608,20 @@ fun DrawScope.drawClearing(
         app.tend.core.Weather.FOG -> drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.5f), Color.White.copy(alpha = 0.18f)), startY = horizon - h * 0.12f, endY = h * 0.85f), size = size)
         else -> {}
     }
-    if (!night) hourTint(hour, weather)
+    // With a town set, the light follows its real sunset and sunrise; the evening hour only sets what
+    // tend does then. Without one, the evening hour brings the night too.
+    val nightLight = night && app.tend.core.LiveWeather.fetchedAt == 0L
+    if (!nightLight) hourTint(hour, weather)
 
-    // After dark (by the real sunset and sunrise), and at bedtime: a blue veil over everything, then the lights.
-    val dark = if (night) 1f else darkOf(hour)
+    // After dark (by the real sunset and sunrise), or at bedtime without a town: a blue veil over everything, then the lights.
+    val dark = if (nightLight) 1f else darkOf(hour)
     if (dark > 0f) {
         drawRect(NightVeil.copy(alpha = 0.6f * dark), size = size)
         if (weather != app.tend.core.Weather.RAIN && weather != app.tend.core.Weather.SNOW) {
             for ((sx, sy) in listOf(0.08f to 0.08f, 0.22f to 0.15f, 0.35f to 0.05f, 0.52f to 0.12f, 0.7f to 0.06f, 0.86f to 0.14f, 0.95f to 0.04f))
                 drawCircle(Color.White.copy(alpha = 0.8f * dark), h * 0.004f, Offset(w * sx, h * sy))
-            drawCircle(Color(0xFFF3EBC8).copy(alpha = dark), h * 0.035f, Offset(w * 0.16f, h * 0.12f))
+            // The moon: clear of the back button (top left) and the acorns (top right).
+            drawCircle(Color(0xFFF3EBC8).copy(alpha = dark), h * 0.035f, Offset(w * 0.4f, h * 0.11f))
         }
         // The companion stays readable: drawn again over the veil, cooled down to match the night.
         drawIntoCanvas {

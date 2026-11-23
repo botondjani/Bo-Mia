@@ -64,9 +64,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.tend.core.Avatar
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
 import app.tend.core.AppKinds
 import app.tend.core.BudgetConfig
 import app.tend.core.Budget
@@ -412,7 +409,7 @@ fun Onboarding(
                         }
                         // Once the fire's going: the welcome gift, said plainly, with when it ends.
                         if (roasting) Row(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Brand.Coral.copy(alpha = 0.12f)).padding(14.dp),
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Brand.Plus.copy(alpha = 0.14f)).padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Column(Modifier.weight(1f)) {
@@ -438,7 +435,7 @@ fun Onboarding(
 private fun Progress(step: Int, total: Int, onBack: () -> Unit) =
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         // On the first page there's nowhere to go back to: an empty space of the same size, so nothing moves.
-        Box(Modifier.alpha(if (step > 1) 1f else 0f)) { IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, tr("Back", "Vissza"), if (step > 1) onBack else ({})) }
+        Box(Modifier.alpha(if (step > 1) 1f else 0f)) { IconButtonSoft(TendIcons.vector("back"), tr("Back", "Vissza"), if (step > 1) onBack else ({})) }
         Spacer(Modifier.width(Space.m))
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             for (i in 1 until total) {
@@ -525,7 +522,7 @@ fun CompanionPicker(avatar: Avatar, onAvatar: (Avatar) -> Unit, compact: Boolean
                 Text(a.displayName, style = MaterialTheme.typography.titleMedium, color = if (selected) Brand.Moss else Brand.Ink)
                 if (selected) {
                     Spacer(Modifier.width(6.dp))
-                    androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, tint = Brand.Moss, modifier = Modifier.size(18.dp))
+                    androidx.compose.material3.Icon(TendIcons.vector("check"), null, tint = Brand.Moss, modifier = Modifier.size(18.dp))
                 }
             } else Column(
                 Modifier.weight(1f).clip(RoundedCornerShape(24.dp)).background(Brand.Card)
@@ -569,7 +566,7 @@ fun AppPicker(catalog: AppCatalog, blocked: Set<String>, onToggle: (String) -> U
                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted,
             )
         }
-        androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Add, null, tint = Brand.Moss)
+        androidx.compose.material3.Icon(TendIcons.vector("plus"), null, tint = Brand.Moss)
     }
 
     SecondaryButton(if (showOthers) tr("Hide other apps", "Többi app elrejtése") else tr("Add another app", "Másik app hozzáadása"), { showOthers = !showOthers })
@@ -614,7 +611,7 @@ private fun AppTile(catalog: AppCatalog, app: InstalledApp, selected: Boolean, o
         if (selected) Box(
             Modifier.align(Alignment.BottomEnd).size(18.dp).clip(CircleShape).background(Brand.Moss),
             contentAlignment = Alignment.Center,
-        ) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(12.dp)) }
+        ) { androidx.compose.material3.Icon(TendIcons.vector("check"), null, tint = Color.White, modifier = Modifier.size(12.dp)) }
     }
     Spacer(Modifier.height(6.dp))
     Text(
@@ -645,7 +642,7 @@ private fun AppRow(catalog: AppCatalog, app: InstalledApp, selected: Boolean, on
         contentAlignment = Alignment.Center,
     ) {
         androidx.compose.material3.Icon(
-            if (selected) androidx.compose.material.icons.Icons.Filled.Check else androidx.compose.material.icons.Icons.Filled.Add,
+            if (selected) TendIcons.vector("check") else TendIcons.vector("plus"),
             null, tint = if (selected) Color.White else Brand.Moss, modifier = Modifier.size(16.dp),
         )
     }
@@ -777,7 +774,7 @@ private fun PermissionCard(
             Modifier.size(32.dp).clip(CircleShape).background(if (granted) Brand.Moss else Brand.Sage),
             contentAlignment = Alignment.Center,
         ) {
-            if (granted) androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(18.dp))
+            if (granted) androidx.compose.material3.Icon(TendIcons.vector("check"), null, tint = Color.White, modifier = Modifier.size(18.dp))
             else Text("$number", color = Brand.Moss, style = MaterialTheme.typography.titleMedium)
         }
         Spacer(Modifier.width(12.dp))
@@ -828,7 +825,7 @@ fun WidgetButton(avatar: Avatar, onAddWidget: () -> Boolean) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
-        androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, tint = Brand.Moss)
+        androidx.compose.material3.Icon(TendIcons.vector("check"), null, tint = Brand.Moss)
         Spacer(Modifier.width(Space.s))
         Text(tr("${avatar.displayName} is on your home screen", "${avatar.displayName} kint van a kezdőképernyődön"), style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
     }
@@ -995,7 +992,7 @@ private fun OneSwitch(title: String, why: String, done: Boolean, next: Boolean, 
     Spacer(Modifier.width(12.dp))
     androidx.compose.animation.AnimatedContent(done, label = "switch") { on ->
         if (on) Box(Modifier.size(40.dp).clip(CircleShape).background(Brand.Moss), contentAlignment = Alignment.Center) {
-            androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, tr("On", "Bekapcsolva"), tint = Color.White, modifier = Modifier.size(22.dp))
+            androidx.compose.material3.Icon(TendIcons.vector("check"), tr("On", "Bekapcsolva"), tint = Color.White, modifier = Modifier.size(22.dp))
         }
         else ChipButton(if (blocked) tr("App info", "Alkalmazásinfó") else tr("Allow", "Engedélyezem"), if (blocked) onAppInfo else onAllow, filled = next)
     }
@@ -1025,6 +1022,6 @@ private fun TaskTile(label: String, icon: String, picked: Boolean, modifier: Mod
     TendIcons.Badge(icon, 26.dp)
     Spacer(Modifier.width(8.dp))
     Text(label, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp, lineHeight = 15.sp), maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-    if (picked) androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, tint = Brand.Moss, modifier = Modifier.size(16.dp))
+    if (picked) androidx.compose.material3.Icon(TendIcons.vector("check"), null, tint = Brand.Moss, modifier = Modifier.size(16.dp))
     if (plus) Text("+", style = MaterialTheme.typography.titleMedium, color = Brand.Moss)
 }

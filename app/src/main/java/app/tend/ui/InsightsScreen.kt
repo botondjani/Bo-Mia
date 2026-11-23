@@ -2,7 +2,6 @@ package app.tend.ui
 
 import app.tend.core.tr
 
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -71,7 +70,7 @@ fun InsightsScreen(
     verticalArrangement = Arrangement.spacedBy(Space.s),
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, tr("Back", "Vissza"), onBack)
+        IconButtonSoft(TendIcons.vector("back"), tr("Back", "Vissza"), onBack)
         Spacer(Modifier.width(Space.m))
         Column {
             Text(tr("What tend gave back", "Mit adott vissza a tend"), style = MaterialTheme.typography.bodyMedium)

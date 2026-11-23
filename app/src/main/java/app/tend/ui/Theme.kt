@@ -31,6 +31,8 @@ object Brand {
     val Coral = Color(0xFFE76649)
     val Sunny = Color(0xFFF6D673)
     val Sky = Color(0xFF8EC4E8)
+    /** Plus: amber, with a small star. Coral stays for warnings. */
+    val Plus = Color(0xFFE0A43A)
     // Dark is a near-neutral charcoal; green stays for accents only.
     val Ink get() = if (dark) Color(0xFFE9EBEA) else Color(0xFF1D2A23)
     val Sage get() = if (dark) Color(0xFF131414) else Color(0xFFF1F4ED)

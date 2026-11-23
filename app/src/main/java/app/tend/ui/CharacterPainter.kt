@@ -48,6 +48,14 @@ object CharacterPainter {
     private const val TAN_DARK = 0xFF6F4424.toInt()
     private const val WIZARD = 0xFF6A4FB0.toInt()
     private const val WIZARD_DARK = 0xFF513B8C.toInt()
+    private const val WITCH = 0xFF34343F.toInt()
+    private const val WITCH_DARK = 0xFF24242C.toInt()
+    private const val SANTA = 0xFFD2483F.toInt()
+    private const val LEAF_GREEN = 0xFF4FA36F.toInt()
+    /** Things on Mia's head sit this much higher (painter units), over her ears and bow. */
+    const val MIA_HAT_LIFT = 3f
+    val MIA_LIFT = setOf(Accessory.HAT, Accessory.NIGHTCAP, Accessory.BOBBLE_HAT, Accessory.BERET, Accessory.PARTY_HAT, Accessory.CROWN,
+        Accessory.CHEF_HAT, Accessory.CAPTAIN_HAT, Accessory.COWBOY_HAT, Accessory.WIZARD_HAT, Accessory.FLOWER_CROWN, Accessory.WITCH_HAT, Accessory.SANTA_HAT)
 
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -135,7 +143,7 @@ object CharacterPainter {
         drawMouth(c, mood)
         drawExtras(c, mood)
         if (pose.book) drawBook(c)
-        drawAccessories(c, if (pose.scientist) accessories + Accessory.GLASSES else accessories)
+        drawAccessories(c, if (pose.scientist) accessories + Accessory.GLASSES else accessories, mia = avatar == Avatar.MIA)
         if (pose.scientist) drawPointer(c, pose.point)
         drawProp(c, pose.prop, body)
         c.restore()
@@ -288,7 +296,10 @@ object CharacterPainter {
             Accessory.CAPTAIN_HAT -> RectF(26f, 6f, 74f, 31f)
             Accessory.COWBOY_HAT -> RectF(13f, 3f, 87f, 34f)
             Accessory.WIZARD_HAT -> RectF(23f, -5f, 77f, 30f)
-            Accessory.MUSTACHE -> RectF(33f, 49f, 67f, 60f)
+            Accessory.MUSTACHE -> RectF(33f, 51f, 67f, 62f)
+            Accessory.WITCH_HAT -> RectF(22f, -4f, 78f, 30f)
+            Accessory.SANTA_HAT -> RectF(30f, 2f, 76f, 27f)
+            Accessory.GARLAND -> RectF(26f, 66f, 74f, 84f)
             Accessory.MONOCLE -> RectF(48f, 34f, 78f, 76f)
             Accessory.STAR_GLASSES -> RectF(26f, 33f, 74f, 59f)
         }
@@ -300,9 +311,17 @@ object CharacterPainter {
     }
 
     /** Same shapes as the Rive rig (tools/rive/make_character.py), drawn back to front. */
-    private fun drawAccessories(c: Canvas, all: Set<Accessory>) {
+    private fun drawAccessories(c: Canvas, all: Set<Accessory>, mia: Boolean = false) {
         // An outfit wins over a habit's thing in the same place: one hat at a time, one pair of glasses.
-        val a = app.tend.core.Accessories.shown(all)
+        val shown = app.tend.core.Accessories.shown(all)
+        // On Mia a hat sits a little higher, over her ears and bow.
+        val lifted = if (mia) shown.filter { it in MIA_LIFT }.toSet() else emptySet()
+        if (lifted.isNotEmpty()) {
+            drawAccessories(c, shown - lifted)
+            c.save(); c.translate(0f, -MIA_HAT_LIFT); drawAccessories(c, lifted); c.restore()
+            return
+        }
+        val a = shown
         if (Accessory.HEADBAND in a) {
             stroke.color = CORAL; stroke.strokeWidth = 4.5f
             c.drawPath(Path().apply { moveTo(25f, 37f); quadTo(50f, 25f, 75f, 37f) }, stroke)
@@ -480,8 +499,40 @@ object CharacterPainter {
         }
         if (Accessory.MUSTACHE in a) {
             fill.color = HAIR
-            c.drawPath(Path().apply { moveTo(50f, 54f); cubicTo(46f, 50f, 37f, 50f, 34f, 56f); cubicTo(38f, 55f, 40f, 59f, 44f, 59f); cubicTo(47f, 59f, 49f, 57f, 50f, 55.5f); close() }, fill)
-            c.drawPath(Path().apply { moveTo(50f, 54f); cubicTo(54f, 50f, 63f, 50f, 66f, 56f); cubicTo(62f, 55f, 60f, 59f, 56f, 59f); cubicTo(53f, 59f, 51f, 57f, 50f, 55.5f); close() }, fill)
+            c.drawPath(Path().apply { moveTo(50f, 56f); cubicTo(46f, 52f, 37f, 52f, 34f, 58f); cubicTo(38f, 57f, 40f, 61f, 44f, 61f); cubicTo(47f, 61f, 49f, 59f, 50f, 57.5f); close() }, fill)
+            c.drawPath(Path().apply { moveTo(50f, 56f); cubicTo(54f, 52f, 63f, 52f, 66f, 58f); cubicTo(62f, 57f, 60f, 61f, 56f, 61f); cubicTo(53f, 61f, 51f, 59f, 50f, 57.5f); close() }, fill)
+        }
+        if (Accessory.WITCH_HAT in a) {
+            // A black cone, bent at the tip, an orange band with a gold buckle.
+            fill.color = WITCH_DARK; c.drawOval(RectF(22f, 21f, 78f, 29f), fill)
+            fill.color = WITCH
+            c.drawPath(Path().apply { moveTo(33f, 25f); quadTo(44f, 8f, 50f, -1f); quadTo(58f, -4f, 62f, 3f); quadTo(56f, 6f, 59f, 12f); quadTo(63f, 18f, 67f, 25f); close() }, fill)
+            fill.color = 0xFFE8892B.toInt(); c.drawRect(35f, 19f, 65f, 23.5f, fill)
+            fill.color = GOLD; c.drawRect(47.5f, 18.5f, 52.5f, 24f, fill)
+        }
+        if (Accessory.SANTA_HAT in a) {
+            // The nightcap's shape in red, white fur round it and on the tip.
+            fill.color = SANTA
+            c.drawPath(Path().apply { moveTo(34f, 22f); quadTo(48f, 0f, 70f, 12f); lineTo(64f, 17f); quadTo(54f, 12f, 66f, 22f); close() }, fill)
+            fill.color = COAT; c.drawRoundRect(RectF(31f, 18.5f, 69f, 26f), 3.5f, 3.5f, fill)
+            c.drawCircle(71f, 13f, 4.2f, fill)
+        }
+        if (Accessory.GARLAND in a) {
+            // Small flowers on a green string round the neck.
+            stroke.color = LEAF_GREEN; stroke.strokeWidth = 1.6f
+            c.drawPath(Path().apply { moveTo(28f, 71f); quadTo(50f, 84f, 72f, 71f) }, stroke)
+            stroke.color = INK; stroke.strokeWidth = 2.6f
+            for ((k, color) in listOf(0xFFF2A0B8.toInt(), 0xFFFFFFFF.toInt(), SUNNY, 0xFFF2A0B8.toInt(), 0xFFFFFFFF.toInt()).withIndex()) {
+                val t = k / 4f
+                val x = 30f + 40f * t
+                val y = 72f + 5.5f * (1f - (2f * t - 1f) * (2f * t - 1f))
+                fill.color = color
+                for (q in 0 until 5) {
+                    val ang = Math.toRadians(q * 72.0 - 90)
+                    c.drawCircle(x + 2.2f * Math.cos(ang).toFloat(), y + 2.2f * Math.sin(ang).toFloat(), 1.9f, fill)
+                }
+                fill.color = 0xFFF2C14E.toInt(); c.drawCircle(x, y, 1.4f, fill)
+            }
         }
         if (Accessory.MONOCLE in a) {
             fill.color = 0x33FFFFFF; c.drawCircle(61f, 46f, 10.5f, fill)

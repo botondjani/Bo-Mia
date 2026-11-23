@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,7 +31,30 @@ object TendIcons {
         "cup" to R.drawable.ic_t_cup, "dice" to R.drawable.ic_t_dice, "camera" to R.drawable.ic_t_camera, "brush" to R.drawable.ic_t_brush,
         "wave" to R.drawable.ic_t_wave, "puzzle" to R.drawable.ic_t_puzzle,
         "face_yes" to R.drawable.ic_t_face_yes, "face_meh" to R.drawable.ic_t_face_meh, "face_no" to R.drawable.ic_t_face_no,
+        "check" to R.drawable.ic_t_check,
+        "back" to R.drawable.ic_t_back,
+        "chevron" to R.drawable.ic_t_chevron,
+        "plus" to R.drawable.ic_t_plus,
+        "close" to R.drawable.ic_t_close,
+        "gear" to R.drawable.ic_t_gear,
+        "bag" to R.drawable.ic_t_bag,
+        "share" to R.drawable.ic_t_share,
+        "person" to R.drawable.ic_t_person,
+        "bell" to R.drawable.ic_t_bell,
+        "lock" to R.drawable.ic_t_lock,
+        "calendar" to R.drawable.ic_t_calendar,
+        "clock" to R.drawable.ic_t_clock,
+        "dial" to R.drawable.ic_t_dial,
+        "chest" to R.drawable.ic_t_chest,
+        "book" to R.drawable.ic_t_book,
+        "trophy" to R.drawable.ic_t_trophy,
+        "fire" to R.drawable.ic_t_fire,
     )
+
+    /** An icon of the set as a vector, for places that take one (buttons, menus). */
+    @Composable
+    fun vector(key: String): androidx.compose.ui.graphics.vector.ImageVector =
+        androidx.compose.ui.graphics.vector.ImageVector.vectorResource(res.getValue(key))
 
     /** The icon as a painter, for drawing it on a canvas; null for old emoji keys. */
     @Composable

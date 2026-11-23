@@ -106,7 +106,11 @@ private fun Feature(icon: String, title: String, body: String) = Row(verticalAli
 
 /** A small "Plus" mark on a locked feature. */
 @Composable
-fun PlusMark(modifier: Modifier = Modifier) = Text(
-    "PLUS", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = androidx.compose.ui.graphics.Color.White,
-    modifier = modifier.clip(RoundedCornerShape(50)).background(Brand.Coral).padding(horizontal = 8.dp, vertical = 2.dp),
-)
+fun PlusMark(modifier: Modifier = Modifier) = Row(
+    modifier.clip(RoundedCornerShape(50)).background(Brand.Plus).padding(start = 6.dp, end = 8.dp, top = 2.dp, bottom = 2.dp),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    TendIcons.Glyph("star", 10.dp, tint = androidx.compose.ui.graphics.Color.White)
+    Spacer(Modifier.width(3.dp))
+    Text("PLUS", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = androidx.compose.ui.graphics.Color.White)
+}

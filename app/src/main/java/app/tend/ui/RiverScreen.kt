@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -104,7 +103,7 @@ fun RiverScreen(
     ) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, tr("Back", "Vissza"), onBack)
+                IconButtonSoft(TendIcons.vector("back"), tr("Back", "Vissza"), onBack)
                 Spacer(Modifier.width(Space.m))
                 Text(tr("Along the river", "A folyó mentén"), style = MaterialTheme.typography.headlineMedium, maxLines = 1)
             }

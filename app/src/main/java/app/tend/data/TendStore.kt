@@ -1008,7 +1008,7 @@ class TendStore(private val context: Context) {
     /** Buys this season's outfit (with Plus, for acorns) and puts it on. False when it can't be bought now. */
     fun buyOutfit(a: Accessory): Boolean {
         if (!a.isOutfit || a in outfits) return false
-        if (!isPlus || (a.outfit != null && a.outfit != app.tend.core.Season.of(LocalDate.now())) || acorns < Accessory.OUTFIT_PRICE) return false
+        if (!isPlus || !a.forSale(LocalDate.now()) || acorns < Accessory.OUTFIT_PRICE) return false
         addAcorns(-Accessory.OUTFIT_PRICE, "outfit")
         edit { putStringSet("outfits", outfits.map { it.name }.toSet() + a.name) }
         wear(a)

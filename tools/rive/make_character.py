@@ -135,7 +135,13 @@ class Rig:
 
 # Outfits: bought, worn one at a time (Accessory.isOutfit). Input names are the enum names in lower case.
 OUTFITS = ('flower_crown', 'sunglasses', 'scarf', 'bobble_hat', 'beret', 'party_hat', 'bandana', 'headphones', 'crown', 'hair_bow',
-           'chef_hat', 'captain_hat', 'cowboy_hat', 'wizard_hat', 'mustache', 'monocle', 'star_glasses')
+           'chef_hat', 'captain_hat', 'cowboy_hat', 'wizard_hat', 'mustache', 'monocle', 'star_glasses',
+           'witch_hat', 'santa_hat', 'garland')
+
+# On Mia these sit MIA_HAT_LIFT higher (over her ears and bow), as in CharacterPainter.MIA_LIFT.
+MIA_LIFT = ('hat', 'nightcap', 'bobble_hat', 'beret', 'party_hat', 'crown', 'chef_hat', 'captain_hat', 'cowboy_hat', 'wizard_hat',
+            'flower_crown', 'witch_hat', 'santa_hat')
+MIA_HAT_LIFT = 3.0
 
 
 def outfits(r, body):
@@ -242,8 +248,8 @@ def outfits(r, body):
     r.ellipse('wizard_brim', p, 50, 25, 52, 8, 0xFF513B8C)
 
     p = g['mustache']
-    r.draw('mustache_l', p, (50, 54), [('C', 46, 50, 37, 50, 34, 56), ('C', 38, 55, 40, 59, 44, 59), ('C', 47, 59, 49, 57, 50, 55.5)], True, fill=HAIR)
-    r.draw('mustache_r', p, (50, 54), [('C', 54, 50, 63, 50, 66, 56), ('C', 62, 55, 60, 59, 56, 59), ('C', 53, 59, 51, 57, 50, 55.5)], True, fill=HAIR)
+    r.draw('mustache_l', p, (50, 56), [('C', 46, 52, 37, 52, 34, 58), ('C', 38, 57, 40, 61, 44, 61), ('C', 47, 61, 49, 59, 50, 57.5)], True, fill=HAIR)
+    r.draw('mustache_r', p, (50, 56), [('C', 54, 52, 63, 52, 66, 58), ('C', 62, 57, 60, 61, 56, 61), ('C', 53, 61, 51, 59, 50, 57.5)], True, fill=HAIR)
 
     p = g['monocle']
     r.draw('monocle_chain', p, (70, 52), [('Q', 77, 64, 72, 75)], False, stroke=GOLD, width=1)
@@ -255,6 +261,28 @@ def outfits(r, body):
     r.path('star_bridge', p, [(46, 44, None, None), (54, 44, None, None)], False, stroke=INK, width=2)
     r.star('star_frame_l', p, 39, 46, 12, 6.5, PINK)
     r.star('star_frame_r', p, 61, 46, 12, 6.5, PINK)
+
+    p = g['witch_hat']
+    r.rect('witch_buckle', p, 50, 21.25, 5, 5.5, 0, GOLD)
+    r.rect('witch_band', p, 50, 21.25, 30, 4.5, 0, 0xFFE8892B)
+    r.draw('witch_cone', p, (33, 25), [('Q', 44, 8, 50, -1), ('Q', 58, -4, 62, 3), ('Q', 56, 6, 59, 12), ('Q', 63, 18, 67, 25)], True, fill=0xFF34343F)
+    r.ellipse('witch_brim', p, 50, 25, 56, 8, 0xFF24242C)
+
+    p = g['santa_hat']
+    r.ellipse('santa_pom', p, 71, 13, 8.4, 8.4, COAT)
+    r.rect('santa_fur', p, 50, 22.25, 38, 7.5, 3.5, COAT)
+    r.draw('santa_cone', p, (34, 22), [('Q', 48, 0, 70, 12), ('L', 64, 17), ('Q', 54, 12, 66, 22)], True, fill=RED)
+
+    p = g['garland']
+    colors = (PINK, WHITE, SUNNY, PINK, WHITE)
+    for k in reversed(range(5)):
+        tt = k / 4
+        x, y = 30 + 40 * tt, 72 + 5.5 * (1 - (2 * tt - 1) ** 2)
+        r.ellipse(f'gl_mid_{k}', p, x, y, 2.8, 2.8, GOLD)
+        for q in range(5):
+            a = math.radians(q * 72 - 90)
+            r.ellipse(f'gl_petal_{k}_{q}', p, x + 2.2 * math.cos(a), y + 2.2 * math.sin(a), 3.8, 3.8, colors[k])
+    r.draw('gl_string', p, (28, 71), [('Q', 50, 84, 72, 71)], False, stroke=LEAF, width=1.6)
     return g
 
 
@@ -470,11 +498,15 @@ def build():
     a_sleepy = pose('sleepy', lid=9 / 17, mouth=mouth_happy, zz_on=True)
 
     def skin(name, mia):
-        return animation(name, 1, LOOP_ONESHOT, {
+        keys = {
             bo: {K_OPACITY: [(0, 0.0 if mia else 1.0, INTERP_HOLD)]},
             mia_front: {K_OPACITY: [(0, 1.0 if mia else 0.0, INTERP_HOLD)]},
             mia_back: {K_OPACITY: [(0, 1.0 if mia else 0.0, INTERP_HOLD)]},
-        })
+        }
+        # Hats a little higher on Mia.
+        for n in MIA_LIFT:
+            keys[acc[n]] = {K_Y: [(0, -MIA_HAT_LIFT * S if mia else 0.0, INTERP_HOLD)]}
+        return animation(name, 1, LOOP_ONESHOT, keys)
 
     a_bo, a_mia = skin('bo', False), skin('mia', True)
     a_breathe = animation('breathe', 72, LOOP_PINGPONG, {body: {

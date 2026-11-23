@@ -12,11 +12,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -223,7 +218,7 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(Space.m),
     ) {
         TodayHeader(day.date, Triple(remaining, (cfg.freeMinutes + day.earnedMinutes).coerceAtLeast(1), Budget.earnableFrom(cfg, day, tasks)), { explain = "minutes" }) {
-            IconButtonSoft(Icons.Filled.Settings, tr("Settings", "Beállítások"), onOpenSettings)
+            IconButtonSoft(TendIcons.vector("gear"), tr("Settings", "Beállítások"), onOpenSettings)
         }
         // Once, after the update that moved them: the settings are all still there.
         if (settingsMoved) Notice("sparkle", tr("Settings, rearranged", "Átrendeztük a beállításokat"), tr("Everything's still there, in a clearer place. Tap to have a look.", "Minden megvan, csak logikusabb helyen. Koppints, és megnézheted."), onSettingsMoved)
@@ -294,7 +289,7 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(tr("${avatar.displayName}'s camp", "${avatar.displayName} tábora"), style = MaterialTheme.typography.labelLarge, color = Color.White, maxLines = 1)
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                    Icon(TendIcons.vector("chevron"), null, tint = Color.White, modifier = Modifier.size(20.dp))
                 }
             }
         }
@@ -635,7 +630,7 @@ private fun DoneRow(task: TaskDef, day: DayState, onUndo: (TaskDef) -> Unit) = R
     verticalAlignment = Alignment.CenterVertically,
 ) {
     Box(Modifier.size(24.dp).clip(CircleShape).background(Brand.Moss), contentAlignment = Alignment.Center) {
-        Icon(Icons.Filled.Check, tr("Done", "Kész"), tint = Color.White, modifier = Modifier.size(14.dp))
+        Icon(TendIcons.vector("check"), tr("Done", "Kész"), tint = Color.White, modifier = Modifier.size(14.dp))
     }
     Spacer(Modifier.width(10.dp))
     Text(
@@ -903,7 +898,7 @@ internal fun TaskRow(
     val measured = !(workoutTimer && !exerciseTracked) && task.verification == Verification.AUTOMATIC && (health == HealthConnect.Status.READY || estimated)
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (done) Box(Modifier.size(38.dp).clip(CircleShape).background(Brand.Moss), contentAlignment = Alignment.Center) {
-            Icon(Icons.Filled.Check, tr("Done", "Kész"), tint = Color.White, modifier = Modifier.size(20.dp))
+            Icon(TendIcons.vector("check"), tr("Done", "Kész"), tint = Color.White, modifier = Modifier.size(20.dp))
         } else TendIcons.Badge(task.icon, 38.dp)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
@@ -1250,7 +1245,7 @@ private fun ScreenTimeRow(today: Int, yesterday: Int?, onOpen: () -> Unit) = Row
         Text(hm(today), style = MaterialTheme.typography.titleMedium, color = Brand.Ink)
         if (yesterday != null) Text(tr("yesterday ${hm(yesterday)}", "tegnap ${hm(yesterday)}"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp), color = Brand.Muted)
     }
-    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Brand.Muted, modifier = Modifier.padding(start = 6.dp).size(20.dp))
+    Icon(TendIcons.vector("chevron"), null, tint = Brand.Muted, modifier = Modifier.padding(start = 6.dp).size(20.dp))
 }
 
 /** Today's minutes in a header: what's left, a small bar of it, and what's still to earn. Home and the camp. */

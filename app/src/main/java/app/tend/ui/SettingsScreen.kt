@@ -11,7 +11,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Switch
 import androidx.compose.ui.Alignment
@@ -41,13 +40,6 @@ import app.tend.core.Avatar
 import app.tend.core.BudgetConfig
 import app.tend.core.TaskDef
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 
 /** Settings after onboarding: the same pickers, on one page. */
 @Composable
@@ -239,7 +231,7 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = Space.l, bottom = 2.dp)) {
-            IconButtonSoft(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, tr("Back", "Vissza"), onDone)
+            IconButtonSoft(TendIcons.vector("back"), tr("Back", "Vissza"), onDone)
             Spacer(Modifier.width(Space.m))
             Text(tr("Settings", "Beállítások"), style = MaterialTheme.typography.headlineMedium)
         }
@@ -290,22 +282,22 @@ fun SettingsScreen(
 }
 
 private val SETTINGS_PAGES = listOf(
-    Triple("apps", tr("Picked apps", "Kiválasztott appok"), androidx.compose.material.icons.Icons.Filled.Lock),
-    Triple("minutes", tr("Minutes and strictness", "Keret és szigor"), androidx.compose.material.icons.Icons.Filled.DateRange),
-    Triple("periods", tr("Times of day", "Időszakok"), androidx.compose.material.icons.Icons.Filled.Info),
-    Triple("activities", tr("Instead of scrolling", "Görgetés helyett"), androidx.compose.material.icons.Icons.Filled.Favorite),
-    Triple("notes", tr("Bo's notes", "Bo üzenetei"), androidx.compose.material.icons.Icons.Filled.Notifications),
-    Triple("account", tr("Account & more", "Fiók és egyebek"), androidx.compose.material.icons.Icons.Filled.AccountCircle),
+    Triple("apps", tr("Picked apps", "Kiválasztott appok"), "lock"),
+    Triple("minutes", tr("Minutes and strictness", "Keret és szigor"), "dial"),
+    Triple("periods", tr("Times of day", "Időszakok"), "clock"),
+    Triple("activities", tr("Instead of scrolling", "Görgetés helyett"), "heart"),
+    Triple("notes", tr("Bo's notes", "Bo üzenetei"), "bell"),
+    Triple("account", tr("Account & more", "Fiók és egyebek"), "person"),
 )
 
 /** One row of the settings menu: an icon, the title, how it's set now, and an arrow (down while open). */
 @Composable
-private fun MenuRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, summary: String, open: Boolean, onClick: () -> Unit) = Row(
+private fun MenuRow(icon: String, title: String, summary: String, open: Boolean, onClick: () -> Unit) = Row(
     Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tappable(onClick = onClick).padding(vertical = 8.dp),
     verticalAlignment = Alignment.CenterVertically,
 ) {
     Box(Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)).background(Brand.Sage), contentAlignment = Alignment.Center) {
-        androidx.compose.material3.Icon(icon, null, tint = Brand.Moss, modifier = Modifier.size(19.dp))
+        TendIcons.Glyph(icon, 19.dp)
     }
     Spacer(Modifier.width(14.dp))
     Column(Modifier.weight(1f)) {
@@ -314,7 +306,7 @@ private fun MenuRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title
     }
     // Pointing down while open.
     val turn by androidx.compose.animation.core.animateFloatAsState(if (open) 90f else 0f, androidx.compose.animation.core.spring(stiffness = 500f), label = "chevron")
-    androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Brand.Muted, modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = turn })
+    androidx.compose.material3.Icon(TendIcons.vector("chevron"), null, tint = Brand.Muted, modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = turn })
 }
 
 /** Any hour from 16:00 round to 3:00, one step at a time. */

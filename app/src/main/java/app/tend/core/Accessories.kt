@@ -10,6 +10,8 @@ enum class Accessory(
     val outfit: Season? = null,
     /** An outfit sold all year round. */
     val always: Boolean = false,
+    /** An outfit sold only during a camp event (a few days a year). */
+    val event: CampEvent? = null,
 ) {
     // Quick ones for the first days: any activity counts (an empty set means any).
     LEAF(tr("Lucky leaf", "Szerencselevél"), tr("Any activity, once", "Bármilyen tevékenység, egyszer"), tr("1 activity", "1 tevékenység"), emptySet(), 1),
@@ -41,10 +43,18 @@ enum class Accessory(
     MUSTACHE(tr("Mustache", "Bajusz"), tr("In the shop", "A boltban"), "mustache", emptySet(), 0, always = true),
     MONOCLE(tr("Monocle", "Monokli"), tr("In the shop", "A boltban"), "monocle", emptySet(), 0, always = true),
     STAR_GLASSES(tr("Star glasses", "Csillagszemüveg"), tr("In the shop", "A boltban"), "stars", emptySet(), 0, always = true),
+
+    // Events' outfits: in the shop only while the event is on.
+    WITCH_HAT(tr("Witch's hat", "Boszorkánykalap"), tr("On pumpkin night, in the shop", "Töklámpás-estén a boltban"), "witch", emptySet(), 0, event = CampEvent.PUMPKINS),
+    SANTA_HAT(tr("Santa hat", "Mikulássapka"), tr("In Advent, in the shop", "Adventkor a boltban"), "santa", emptySet(), 0, event = CampEvent.ADVENT),
+    GARLAND(tr("Flower garland", "Virágfüzér"), tr("At Midsummer, in the shop", "Szent Iván-éjkor a boltban"), "garland", emptySet(), 0, event = CampEvent.MIDSUMMER),
     ;
 
     /** Bought and worn by choice (a season's, or any time's), not earned by a habit. */
-    val isOutfit: Boolean get() = outfit != null || always
+    val isOutfit: Boolean get() = outfit != null || always || event != null
+
+    /** For sale in the shop on [date]: all year, this season's, or this event's. */
+    fun forSale(date: java.time.LocalDate): Boolean = always || (outfit != null && outfit == Season.of(date)) || event?.on(date) == true
 
     companion object {
         /** The ones earned by habits (the outfits are bought). */
@@ -67,7 +77,7 @@ enum class Slot(val title: String) {
 
 val Accessory.slot: Slot get() = when (this) {
     Accessory.GLASSES, Accessory.SUNGLASSES, Accessory.MONOCLE, Accessory.STAR_GLASSES -> Slot.EYES
-    Accessory.BOWTIE, Accessory.SCARF, Accessory.BANDANA -> Slot.NECK
+    Accessory.BOWTIE, Accessory.SCARF, Accessory.BANDANA, Accessory.GARLAND -> Slot.NECK
     Accessory.LEAF, Accessory.FLOWER, Accessory.HAIR_BOW, Accessory.MUSTACHE -> Slot.DECOR
     else -> Slot.HEAD
 }

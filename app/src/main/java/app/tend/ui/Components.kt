@@ -26,8 +26,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -138,7 +136,7 @@ fun Notice(icon: String, title: String, body: String, onClick: () -> Unit, tint:
         Text(title, style = MaterialTheme.typography.titleMedium)
         Text(body, style = MaterialTheme.typography.bodyMedium)
     }
-    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Brand.Muted)
+    Icon(TendIcons.vector("chevron"), null, tint = Brand.Muted)
 }
 
 /** Small caps section header with an optional right-hand note. */
