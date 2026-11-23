@@ -221,7 +221,7 @@ class MonitorService : Service() {
                 waited > AWAY_CONFIRM_MS -> endSession(now, askWorthIt = true) // really in another app
             }
         }
-        if (fg != null && fg == sessionPkg && (now > sessionEnds || scheduledLock() != null)) {
+        if (fg != null && fg == sessionPkg && (now > sessionEnds || scheduledLock(fg) != null)) {
             // The chosen minutes are up, or a scheduled lock just began: check in again, kindly.
             val timeUp = now > sessionEnds
             endSession(now, askWorthIt = false)
@@ -299,7 +299,7 @@ class MonitorService : Service() {
         }
         if (store.onboarded && new in store.blockedPackages && !store.isPaused) {
             if (sessionPkg != null) endSession(now, askWorthIt = false) // another paused app: the pause takes over
-            val closed = ((store.isLocked() || store.appLocked(new)) && !store.borrowing(new)) || scheduledLock() != null
+            val closed = ((store.isLocked() || store.appLocked(new)) && !store.borrowing(new)) || scheduledLock(new) != null
             val pass = if (closed) null else store.consumePass(new)
             // Back in the same app within a few seconds (slipped out by mistake, a quick look elsewhere),
             // or within a few minutes with its chosen time not up yet (not in strict mode): no second
@@ -314,7 +314,7 @@ class MonitorService : Service() {
                 sessionPkg = new
                 sessionStart = now
                 sessionEnds = Long.MAX_VALUE
-                if (now - lastLeft > STREAK_GAP_MS || streakStart == 0L) { streakStart = now; nextPeekAt = now + Peek.EVERY_MS }
+                if (now - lastLeft > STREAK_GAP_MS || streakStart == 0L) { streakStart = now; nextPeekAt = now + Peek.everyMs(store.effectiveStrict) }
             } else if (pass != null || back) {
                 sessionPkg = new
                 sessionStart = now
@@ -326,14 +326,14 @@ class MonitorService : Service() {
                     app.tend.health.TimerAlarm.showRunning(this, tr("$label, for ${((sessionEnds - now + 59_999) / 60_000)} min", "$label, még ${((sessionEnds - now + 59_999) / 60_000)} percig"), tr("${store.avatar.displayName} checks in when the time is up.", "${store.avatar.displayName} szól, ha letelt az idő."), sessionEnds)
                 }
                 // Carrying on after a short break (another "15 more", a quick look elsewhere): the same stretch.
-                if (now - lastLeft > STREAK_GAP_MS || streakStart == 0L) { streakStart = now; nextPeekAt = now + Peek.EVERY_MS }
+                if (now - lastLeft > STREAK_GAP_MS || streakStart == 0L) { streakStart = now; nextPeekAt = now + Peek.everyMs(store.effectiveStrict) }
             } else {
                 intercept(new, now)
             }
         }
     }
 
-    private fun scheduledLock() = store.activeLock()
+    private fun scheduledLock(pkg: String) = store.activeLock(pkg)
 
     private val kinds = HashMap<String, String?>()
 
@@ -346,9 +346,9 @@ class MonitorService : Service() {
      * after a pause screen, and not when one is about to come anyway.
      */
     private fun maybePeek(pkg: String, now: Long) {
-        if (streakStart == 0L) { streakStart = sessionStart; nextPeekAt = sessionStart + Peek.EVERY_MS }
+        if (streakStart == 0L) { streakStart = sessionStart; nextPeekAt = sessionStart + Peek.everyMs(store.effectiveStrict) }
         if (now < nextPeekAt || peek.showing) return
-        nextPeekAt = now + Peek.EVERY_MS
+        nextPeekAt = now + Peek.everyMs(store.effectiveStrict)
         if (!store.peekOn || !android.provider.Settings.canDrawOverlays(this)) return
         if (now - sessionStart < 90_000L || sessionEnds - now < 60_000L) return
         val minutes = ((now - streakStart) / 60_000L).toInt()

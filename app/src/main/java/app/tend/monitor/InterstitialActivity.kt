@@ -151,7 +151,7 @@ class InterstitialActivity : ComponentActivity() {
         val appLimit = store.appLimits[pkg]?.takeIf { store.appLocked(pkg) }
         val locked = Budget.isLocked(cfg, day) || appLimit != null
         val evening = Budget.isEvening(if (store.eveningSlows) store.eveningFrom else -1, java.time.LocalTime.now().hour)
-        val scheduled = store.activeLock()
+        val scheduled = store.activeLock(pkg)
         // A scheduled lock isn't an open: it doesn't make the next pause longer.
         val counts = savedInstanceState == null && !locked && scheduled == null
         val earlier = if (counts) store.recordOpen() else 0
@@ -344,6 +344,16 @@ class InterstitialActivity : ComponentActivity() {
             SecondaryButton(notNowLabel(), ::notNow)
             // Good night is a promise to yourself, not a cage: a way out when something really can't wait.
             // Held for a few seconds, not just tapped: it's undoing a promise.
+            // Any other lock: once a day, five minutes for acorns (not in strict mode).
+            if (lock != app.tend.core.LockSchedule.GOOD_NIGHT && store.lockPassLeft) SecondaryButton(
+                tr("5 minutes · ${TendStore.LOCK_PASS_ACORNS} acorns (once a day)", "5 perc · ${TendStore.LOCK_PASS_ACORNS} makk (naponta egyszer)"), {
+                    if (store.takeLockPass(pkgName)) {
+                        decide("lock_pass")
+                        packageManager.getLaunchIntentForPackage(pkgName)?.let { startActivity(it) }
+                        finish()
+                    }
+                },
+            )
             if (lock == app.tend.core.LockSchedule.GOOD_NIGHT && !store.isStrict) app.tend.ui.HoldToConfirm(tr("Hold if it can't wait", "Tartsd nyomva, ha nem várhat"), seconds = 7f) {
                 decide("woke")
                 store.wakeUp()

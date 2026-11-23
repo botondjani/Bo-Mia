@@ -576,8 +576,8 @@ class MainActivity : ComponentActivity() {
             if (pkg in b && store.isStrict) strictNo()
             else {
                 store.blockedPackages = if (pkg in b) b - pkg else b + pkg
-                // Taken off: picked again later, it starts with its pause on, like any newly picked app.
-                if (pkg in b && pkg in store.pauseOff) store.pauseOff = store.pauseOff - pkg
+                // Taken off: picked again later, it starts with the Megállító, like any newly picked app.
+                if (pkg in b && pkg in store.appModes) store.setAppMode(pkg, app.tend.core.AppMode.STOP)
                 refresh++
             }
         }
@@ -653,8 +653,6 @@ class MainActivity : ComponentActivity() {
                 onReminder = ::setReminder,
                 eveningFrom = store.eveningFrom,
                 onEvening = { store.eveningFrom = it; RecapReminder.schedule(this); app.tend.reminder.DayClock.schedule(this); refresh++ },
-                eveningPause = store.eveningPause,
-                onEveningPause = { store.eveningPause = it; refresh++ },
                 weeklyLetter = store.weeklyLetter,
                 onWeeklyLetter = ::setWeeklyLetter,
                 onExport = if (BuildConfig.PLAY) null else ::exportTestData,
@@ -679,7 +677,7 @@ class MainActivity : ComponentActivity() {
                 onTheme = { store.themeMode = it; app.tend.ui.ThemeChoice.mode = it },
                 lockSchedules = store.lockSchedules,
                 onLockSchedule = { new ->
-                    val was = store.lockSchedules.firstOrNull { it.label == new.label }
+                    val was = store.lockSchedules.firstOrNull { it.id == new.id }
                     // Strict mode: a lock can be turned on, not off or shortened.
                     if (store.isStrict && was?.on == true) strictNo() else { store.setLockSchedule(new); refresh++ }
                 },
@@ -688,8 +686,6 @@ class MainActivity : ComponentActivity() {
                 appLimits = store.appLimits,
                 appSecondsToday = store.appSecondsToday(),
                 onAppLimit = { pkg, m -> if (store.setAppLimit(pkg, m)) refresh++ else strictNo() },
-                pauseApps = store.pauseApps,
-                onPauseApp = { pkg, on -> store.pauseOff = if (on) store.pauseOff - pkg else store.pauseOff + pkg; refresh++ },
                 strict = store.isStrict,
                 strictEndsAt = store.strictEndsAt,
                 onStrict = { store.setStrict(it); refresh++ },
@@ -1080,6 +1076,8 @@ class MainActivity : ComponentActivity() {
                 signedIn = app.tend.data.Account.user(this@MainActivity) != null,
                 onOpenAccount = { signUp = true },
                 onPauseSetup = { settingsSection = "apps"; screen = Screen.SETTINGS },
+                settingsMoved = store.settingsMovedNote,
+                onSettingsMoved = { store.settingsMovedNote = false; screen = Screen.SETTINGS; refresh++ },
                 overlayNoteTip = Build.VERSION.SDK_INT >= 35 && permissions().overlay && store.daysTended >= 1 &&
                     !store.overlayTipSeen && !app.tend.monitor.ShortsGuard.enabled(this@MainActivity),
                 onOverlayNoteTip = { store.overlayTipSeen = true; refresh++ },

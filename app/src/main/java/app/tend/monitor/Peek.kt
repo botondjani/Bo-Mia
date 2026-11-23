@@ -175,7 +175,9 @@ class Peek(private val context: Context) {
         private const val SAGE = 0xFFE8EFE4.toInt()
         private const val CARD = 0xFFFFFFFF.toInt()
 
-        /** Peeks come at 10, 20, 30... minutes in a row in paused apps. */
-        const val EVERY_MS = 10 * 60_000L
+        /** How long in a row in picked apps before a peek: Easy 20, Balanced 15, Strict 10 minutes. */
+        fun everyMs(level: app.tend.core.StrictLevel) = when (level) {
+            app.tend.core.StrictLevel.EASY -> 20; app.tend.core.StrictLevel.BALANCED -> 15; app.tend.core.StrictLevel.STRICT -> 10
+        } * 60_000L
     }
 }

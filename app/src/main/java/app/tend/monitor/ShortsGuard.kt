@@ -36,7 +36,8 @@ class ShortsGuard : AccessibilityService() {
         val now = System.currentTimeMillis()
         if (now - lastBlock < 1_500) return
         val store = TendStore(this)
-        if (!store.shortsGuardOn || !store.isPlus) return
+        // An app set to "only Reels and Shorts" (free), or the older switch for all three.
+        if (store.appModes[pkg] != app.tend.core.AppMode.SHORTS && !store.shortsGuardOn) return
         val root = rootInActiveWindow ?: return
         val showing = ids.any { id -> runCatching { root.findAccessibilityNodeInfosByViewId("$pkg:id/$id").any { it.isVisibleToUser } }.getOrDefault(false) }
         if (!showing) return
@@ -93,6 +94,9 @@ class ShortsGuard : AccessibilityService() {
             "com.google.android.youtube" to listOf("reel_recycler", "reel_player_page_container", "reel_watch_player"),
             "com.facebook.katana" to listOf("reels_viewer_container", "video_home_reels_container"),
         )
+
+        /** The apps whose Reels or Shorts it can close (the Play build only: the side-loaded one has no service). */
+        fun supports(pkg: String) = app.tend.BuildConfig.PLAY && pkg in PLAYERS
 
         /** Whether the user has switched the service on in Android's accessibility settings. */
         fun enabled(c: Context): Boolean = c.getSystemService(AccessibilityManager::class.java)

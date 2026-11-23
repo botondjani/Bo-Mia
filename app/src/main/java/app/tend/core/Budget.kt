@@ -28,6 +28,10 @@ data class BudgetConfig(
         const val WEEKEND_PLUS = 60
 
         fun isWeekend(date: java.time.LocalDate) = date.dayOfWeek.value >= 6
+
+        /** The weekend for the extra hour: Saturday, Sunday, and Friday from [FRIDAY_EVENING]. */
+        fun isWeekend(t: java.time.LocalDateTime) = isWeekend(t.toLocalDate()) || (t.dayOfWeek == java.time.DayOfWeek.FRIDAY && t.hour >= FRIDAY_EVENING)
+        const val FRIDAY_EVENING = 18
     }
 }
 

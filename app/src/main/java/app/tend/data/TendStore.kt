@@ -275,8 +275,23 @@ class TendStore(private val context: Context) {
     }
 
     /** The lock in force now: a bedtime or work-hours schedule, or "Good night" until 7:00. */
-    fun activeLock(): LockSchedule? =
-        if (isPaused) null else LockSchedule.activeOf(lockSchedules) ?: LockSchedule.GOOD_NIGHT.takeIf { System.currentTimeMillis() < sleepUntil }
+    fun activeLock(pkg: String? = null): LockSchedule? =
+        if (isPaused || (pkg != null && lockPassFor(pkg))) null
+        else LockSchedule.activeOf(lockSchedules, pkg = pkg) ?: LockSchedule.GOOD_NIGHT.takeIf { System.currentTimeMillis() < sleepUntil }
+
+    /** Once a day, not in strict mode: 5 minutes of [pkg] during a scheduled lock, for [LOCK_PASS_ACORNS] acorns. */
+    val lockPassLeft: Boolean
+        get() = !isStrict && prefs.getString("lock_pass_day", "") != LocalDate.now().toString() && acorns >= LOCK_PASS_ACORNS
+
+    fun takeLockPass(pkg: String): Boolean {
+        if (!lockPassLeft) return false
+        addAcorns(-LOCK_PASS_ACORNS, "lock_pass")
+        edit { putString("lock_pass_day", LocalDate.now().toString()); putString("lock_pass_pkg", pkg); putLong("lock_pass_until", System.currentTimeMillis() + 5 * 60_000L) }
+        grantPass(pkg, 5)
+        return true
+    }
+
+    private fun lockPassFor(pkg: String) = prefs.getString("lock_pass_pkg", null) == pkg && System.currentTimeMillis() < prefs.getLong("lock_pass_until", 0)
 
     /** Woken up before 7:00: the apps are back. */
     /** Up again before 7:00: the apps wake (not in strict mode). */
@@ -333,11 +348,6 @@ class TendStore(private val context: Context) {
         }
         set(v) = edit { putString("placed", app.tend.core.Clearing.format(v)) }
 
-    /** Picked apps whose Megállító was turned off, one by one: they only count their time (every picked app stops unless it's here). */
-    var pauseOff: Set<String>
-        get() = appModes.filterValues { it == app.tend.core.AppMode.COUNT }.keys
-        set(v) = edit { putString("app_modes", formatModes(appModes.filterValues { it != app.tend.core.AppMode.COUNT } + v.associateWith { app.tend.core.AppMode.COUNT })) }
-
     /** What each picked app does when opened, where it isn't the Megállító (the default). */
     val appModes: Map<String, app.tend.core.AppMode>
         get() = prefs.getString("app_modes", null)?.let(::parseModes)
@@ -348,6 +358,17 @@ class TendStore(private val context: Context) {
     }.toMap()
 
     private fun formatModes(m: Map<String, app.tend.core.AppMode>) = m.filterValues { it != app.tend.core.AppMode.STOP }.entries.joinToString(";") { "${it.key}=${it.value}" }
+
+    /** Sets what opening [pkg] does (the Megállító, count only, or only Reels and Shorts). */
+    fun setAppMode(pkg: String, mode: app.tend.core.AppMode) =
+        edit { putString("app_modes", formatModes(appModes - pkg + (pkg to mode))) }
+
+    /** How much Bo says: sets the notes it stands for (each can still be changed under "Details"). */
+    fun applyNotesLevel(level: app.tend.core.NotesLevel) {
+        val on = level != app.tend.core.NotesLevel.QUIET
+        notesLevel = level
+        notesMorning = on; notesNudges = on; reminderEnabled = on; weeklyLetter = on
+    }
 
     /** How strict tend is (Strict needs Plus; without it, Balanced). */
     var strictLevel: app.tend.core.StrictLevel
@@ -392,7 +413,7 @@ class TendStore(private val context: Context) {
         if (prefs.getBoolean("settings_v2", false)) return
         val moved = app.tend.core.SettingsMove.from(
             strict = prefs.getBoolean("strict", false) && prefs.getLong("strict_ends", 0) == 0L,
-            bedtimeLock = lockSchedules.firstOrNull { it.label == app.tend.core.LockSchedule.BEDTIME.label }?.on == true,
+            bedtimeLock = prefs.getString("lock_bed", null)?.substringBefore('|')?.toBoolean() == true,
             sleepyPauses = prefs.getBoolean("evening_pause", prefs.getInt("evening_from", 22) >= 0),
             morning = notesMorning, nudges = notesNudges, recap = reminderEnabled, letter = weeklyLetter,
             pauseOff = prefs.getStringSet("pause_off", emptySet())!!,
@@ -407,11 +428,9 @@ class TendStore(private val context: Context) {
             .apply()
     }
 
-    /** Picked apps that get a short pause before each open. */
-    val pauseApps: Set<String> get() = blockedPackages - pauseOff
 
     /** Whether opening [pkg] waits on the pause screen first: unless turned off for it; always in strict mode. */
-    fun pausesOnOpen(pkg: String) = isStrict || pkg !in pauseOff
+    fun pausesOnOpen(pkg: String) = isStrict || pkg !in appModes
 
     /** Things bought and put away: not in the camp, kept to take out again or give a friend. */
     var chest: List<String>
@@ -729,18 +748,22 @@ class TendStore(private val context: Context) {
         set(v) = edit { putStringSet("blocked", v) }
 
     /** The day's budget: [baseConfig], with the weekend's extra hour when it was taken today (never in strict mode). */
-    val config: BudgetConfig get() = baseConfig.let { if (weekendExtraToday && !isStrict) it.withWeekendExtra() else it }
+    val config: BudgetConfig get() = baseConfig.let { if ((weekendExtraToday || weekendAlways) && !isStrict) it.withWeekendExtra() else it }
+
+    /** The weekend's extra hour set to "always", and it's the weekend now. */
+    private val weekendAlways: Boolean
+        get() = weekendMode == app.tend.core.WeekendMode.ALWAYS && BudgetConfig.isWeekend(LocalDateTime.now())
 
     /** The day (yyyy-mm-dd) the weekend's extra hour was taken: one day at a time, never left on. */
     private val weekendExtraToday: Boolean get() = prefs.getString("weekend_extra", "") == LocalDate.now().toString()
 
     /** Saturday or Sunday, the minutes gone, not in strict mode, and not taken yet today: the extra hour is on offer. */
     val weekendExtraOffered: Boolean
-        get() = BudgetConfig.isWeekend(LocalDate.now()) && !isStrict && !weekendExtraToday && app.tend.core.Budget.remainingMinutes(baseConfig, today()) <= 0
+        get() = weekendMode == app.tend.core.WeekendMode.ASK && BudgetConfig.isWeekend(LocalDateTime.now()) && !isStrict && !weekendExtraToday && app.tend.core.Budget.remainingMinutes(baseConfig, today()) <= 0
 
     /** Takes the weekend's extra hour, for today only. */
     fun takeWeekendExtra() {
-        if (!BudgetConfig.isWeekend(LocalDate.now()) || isStrict) return
+        if (!BudgetConfig.isWeekend(LocalDateTime.now()) || isStrict) return
         edit { putString("weekend_extra", LocalDate.now().toString()) }
     }
 
@@ -1082,16 +1105,40 @@ class TendStore(private val context: Context) {
         edit { putString("quick_day", LocalDate.now().toString()); putInt("quick_used", used) }
     }
 
-    /** Scheduled locks: bedtime and work hours, both off until turned on. */
+    /**
+     * Scheduled locks: bedtime (on when the evening mode is "lock"), work hours, and your own
+     * (Plus, at most three).
+     */
     val lockSchedules: List<LockSchedule>
-        get() = listOf(readLock("lock_bed", LockSchedule.BEDTIME), readLock("lock_work", LockSchedule.WORK))
+        get() = listOf(
+            readLock("lock_bed", LockSchedule.BEDTIME).copy(on = eveningMode == app.tend.core.EveningMode.LOCK),
+            readLock("lock_work", LockSchedule.WORK),
+        ) + customLocks
 
-    fun setLockSchedule(s: LockSchedule) =
-        edit { putString(if (s.label == LockSchedule.BEDTIME.label) "lock_bed" else "lock_work", "${s.on}|${s.from}|${s.to}") }
+    /** Your own times, as set (they lock only with Plus). */
+    val customLocks: List<LockSchedule>
+        get() = (0 until LockSchedule.CUSTOM_MAX).mapNotNull { i -> if (prefs.contains("lock_c$i")) readLock("lock_c$i", LockSchedule.custom(i)) else null }
+            .map { if (isPlus) it else it.copy(on = false) }
+
+    fun setLockSchedule(s: LockSchedule) = edit {
+        val days = s.days.sortedBy { it.value }.joinToString("") { it.value.toString() }
+        putString(lockKey(s.id), "${s.on}|${s.from}|${s.to}|$days|${s.apps.joinToString(",")}|${s.label.replace('|', ' ')}")
+    }
+
+    fun removeLock(id: String) = edit { remove(lockKey(id)) }
+
+    private fun lockKey(id: String) = when (id) { "bed" -> "lock_bed"; "work" -> "lock_work"; else -> "lock_$id" }
 
     private fun readLock(key: String, default: LockSchedule): LockSchedule {
         val p = prefs.getString(key, null)?.split('|') ?: return default
-        return runCatching { default.copy(on = p[0].toBoolean(), from = p[1].toInt(), to = p[2].toInt()) }.getOrDefault(default)
+        return runCatching {
+            default.copy(
+                on = p[0].toBoolean(), from = p[1].toInt(), to = p[2].toInt(),
+                days = p.getOrNull(3)?.mapNotNull { it.digitToIntOrNull()?.let(java.time.DayOfWeek::of) }?.toSet()?.takeIf { it.isNotEmpty() } ?: default.days,
+                apps = p.getOrNull(4)?.split(',')?.filter { it.isNotBlank() }?.toSet() ?: emptySet(),
+                label = p.getOrNull(5)?.takeIf { it.isNotBlank() } ?: default.label,
+            )
+        }.getOrDefault(default)
     }
 
     /** The background monitor was found stopped for a while (battery savers do that). */
@@ -1358,6 +1405,7 @@ class TendStore(private val context: Context) {
         const val PLUS_ON_SALE = false
         private const val PASS_VALID_MS = 15_000L
         const val QUICK_LOOKS_PER_DAY = 3
+        const val LOCK_PASS_ACORNS = 30
 
         /** Own activities saved with an emoji before tend had its own icons. */
         private val LEGACY_EMOJI = mapOf(

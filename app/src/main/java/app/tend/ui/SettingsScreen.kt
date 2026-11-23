@@ -3,6 +3,9 @@ package app.tend.ui
 import app.tend.core.tr
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -39,10 +42,11 @@ import app.tend.core.TaskDef
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 
@@ -67,8 +71,6 @@ fun SettingsScreen(
     onReminder: (enabled: Boolean) -> Unit,
     eveningFrom: Int,
     onEvening: (Int) -> Unit,
-    eveningPause: Boolean,
-    onEveningPause: (Boolean) -> Unit,
     weeklyLetter: Boolean,
     onWeeklyLetter: (Boolean) -> Unit,
     /** Side-loaded test builds: share all logs. Null on the Play build. */
@@ -105,9 +107,6 @@ fun SettingsScreen(
     appSecondsToday: Map<String, Long> = emptyMap(),
     /** Sets or (null) removes an app's own limit. */
     onAppLimit: (String, Int?) -> Unit = { _, _ -> },
-    /** Apps with a pause before they open (the rest just count), and turning it on or off for one. */
-    pauseApps: Set<String> = emptySet(),
-    onPauseApp: (String, Boolean) -> Unit = { _, _ -> },
     strict: Boolean = false,
     /** Strict mode was turned off and ends then (epoch ms); 0 = it isn't ending. */
     strictEndsAt: Long = 0,
@@ -146,67 +145,36 @@ fun SettingsScreen(
         "companion" -> CompanionPicker(avatar, onAvatar, compact = true)
         // The apps, each with its own limit, in one list; the full picker opens below it.
         "apps" -> {
-            AppsCard(catalog, blocked, onToggleApp, appLimits, appSecondsToday, strict, plus, onAppLimit, pauseApps, onPauseApp) { onPlus(PlusFrom.APP_LIMITS) }
-            // The accessibility service ships in the Play build only (Play Protect blocks side-loaded apps that have one).
-            if (app.tend.BuildConfig.PLAY) ShortsGuardCard(plus) { onPlus(PlusFrom.SETTINGS) }
+            AppsCard(catalog, blocked, onToggleApp, appLimits, appSecondsToday, strict, plus, onAppLimit) { onPlus(PlusFrom.APP_LIMITS) }
+            Card { CountedKinds(cfg, onConfig) }
         }
-        // Minutes: the day's budget, strict mode and a break, together.
-        "minutes" -> {
-            Card {
-                BudgetSteppers(cfg, onConfig)
-                Divider()
-                if (plus) StrictRow(strict, strictEndsAt, onStrict)
-                else Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tappable { onPlus(PlusFrom.STRICT) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(tr("Strict mode", "Szigorú mód"), style = MaterialTheme.typography.bodyLarge)
-                        Text(tr("No shortcuts, for the days you need it", "Nincs kiskapu, azokra a napokra, amikor erre van szükség"), style = MaterialTheme.typography.bodyMedium)
-                    }
-                    PlusMark()
-                }
-                Divider()
-                BreakRows(pausedUntil, strict, onPause)
-            }
+        // The day's budget, and the weekend.
+        "minutes" -> Card {
+            BudgetSteppers(cfg, onConfig)
+            Divider()
+            WeekendRow(strict)
         }
+        // How strict, Bo's peeks, and a day off.
+        "strict" -> {
+            if (plus || strict) StrictCard(plus, strict, strictEndsAt, onStrict, { onPlus(PlusFrom.STRICT) }, avatar.displayName, peekOn, onPeek)
+            else StrictCard(false, false, 0, onStrict, { onPlus(PlusFrom.STRICT) }, avatar.displayName, peekOn, onPeek)
+        }
+        "periods" -> PeriodsCard(catalog, blocked, plus, { onPlus(PlusFrom.SETTINGS) }, strict, eveningFrom, onEvening, lockSchedules, onLockSchedule, onAccountChanged)
+        "notes" -> NotesCard(avatar.displayName, reminderEnabled, onReminder, notesMorning, notesNudges, onNotes, weeklyLetter, onWeeklyLetter, onAccountChanged)
         "activities" -> ActivitySummary(tasks, onToggleTask)
-        // Everything about the evening and the notes in one place.
-        "evening" -> {
-            // Everything about the evening in one place: when it starts, the pause, the recap, the lock.
-            val bedtime = lockSchedules.firstOrNull { it.label == app.tend.core.LockSchedule.BEDTIME.label }
-            val work = lockSchedules.firstOrNull { it.label == app.tend.core.LockSchedule.WORK.label }
-            // Notes and the evening in one place.
-            Card {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(tr("Evening starts at", "Az este kezdete"), style = MaterialTheme.typography.bodyLarge)
-                        Text(tr("Until 5:00", "5:00-ig tart"), style = MaterialTheme.typography.bodyMedium)
-                    }
-                    EveningStepper(eveningFrom, onEvening)
-                }
-                SwitchRow(tr("Sleepy pauses", "Álmos Megállító"), tr("The pause waits 10 s and ${avatar.displayName} gets sleepy", "A Megállító 10 mp-ig vár, és ${avatar.displayName} elálmosodik"), eveningPause, onEveningPause)
-                SwitchRow(tr("Evening recap", "Esti összefoglaló"), tr("A note when the evening starts", "Üzenet, amikor kezdődik az este"), reminderEnabled, onReminder)
-                bedtime?.let { LockRow(it, tr("Bedtime lock", "Lefekvési zár"), onLockSchedule) }
-                Divider()
-                SwitchRow(tr("Morning plan", "Reggeli terv"), tr("8:30: today's minutes and what's worth the most", "8:30: a mai percek, és ami a legtöbbet éri"), notesMorning) { onNotes("morning", it) }
-                SwitchRow(tr("Gentle nudges", "Finom emlékeztetők"), tr("When 10 minutes are left", "Amikor 10 perc maradt"), notesNudges) { onNotes("nudges", it) }
-                SwitchRow(tr("${avatar.displayName} peeks in", "${avatar.displayName} benéz"), tr("After 10 minutes in a row in a paused app, from the edge of the screen", "Ha 10 perce megszakítás nélkül egy kiválasztott appban vagy, a képernyő széléről"), peekOn, onPeek)
-                SwitchRow(tr("Sunday letter", "Vasárnapi levél"), tr("Your week, on Sunday evening", "A heted, vasárnap este"), weeklyLetter, onWeeklyLetter)
-                work?.let { LockRow(it, tr("Work hours lock", "Munkaidő-zár"), onLockSchedule) }
-                Text(tr("At most 3 notes a day. A lock keeps the picked apps closed; only \"Not now\" or something better.", "Naponta legfeljebb 3 üzenet. A zár csukva tartja a kiválasztott appokat; csak „Most nem” van, vagy valami jobb."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
-            }
-        }
-        "sounds" -> Card {
-            // Each kind of sound on its own.
-            Sounds.Kind.entries.forEach { kind ->
-                var on by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(Sounds.on(ctx, kind)) }
-                SwitchRow(kind.title, kind.about, on) { on = it; Sounds.set(ctx, kind, it) }
-            }
-        }
         // The account, your town and you, and the rest: one part.
         else -> {
             var confirmReset by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
             AccountCard(onAccountChanged, onRestored, onStartOver = { confirmReset = true })
             Text(tr("YOUR TOWN & YOU", "A VÁROSOD ÉS TE"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
             Card { aboutYou() }
+            Text(tr("SOUNDS", "HANGOK"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
+            Card {
+                Sounds.Kind.entries.forEach { kind ->
+                    var on by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(Sounds.on(ctx, kind)) }
+                    SwitchRow(kind.title, kind.about, on) { on = it; Sounds.set(ctx, kind, it) }
+                }
+            }
             Text(tr("MORE", "EGYEBEK"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
             Card {
                 LanguagePicker(plain = Brand.Sage)
@@ -279,15 +247,27 @@ fun SettingsScreen(
             Text(tr("Settings", "Beállítások"), style = MaterialTheme.typography.headlineMedium)
         }
         PlusCard(plus, trialDaysLeft, plusPaid, onTestTrial) { onPlus(PlusFrom.SETTINGS) }
-        val soundsOff = Sounds.Kind.entries.filter { !Sounds.on(ctx, it) }
+        // What decides the picked apps right now, in one line; and a day off, one tap away.
+        var dayOff by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+        NowLine(onDayOff = { dayOff = true })
+        if (dayOff) androidx.compose.material3.AlertDialog(
+            onDismissRequest = { dayOff = false },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(6.dp)) { BreakRows(pausedUntil, strict) { onPause(it); dayOff = false } } },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { dayOff = false }) { Text(tr("Close", "Bezárás"), color = Brand.Moss) } },
+            containerColor = Brand.Card,
+        )
+        val store = remember { app.tend.data.TendStore(ctx) }
+        val level = when { strict -> tr("Strict", "Szigorú"); store.strictLevel == app.tend.core.StrictLevel.EASY -> tr("Easy", "Laza"); else -> tr("Balanced", "Kiegyensúlyozott") }
+        val evening = when (store.eveningMode) { app.tend.core.EveningMode.OFF -> tr("evening off", "este ki"); app.tend.core.EveningMode.SLOW -> tr("slower from %d:00", "%d:00-tól lassít").format(eveningFrom); app.tend.core.EveningMode.LOCK -> tr("closed at night", "éjjel zár") }
         val summaries = mapOf(
             "companion" to avatar.displayName,
             "apps" to if (blocked.isEmpty()) tr("None yet", "Még egy sincs") else tr("${blocked.size} app${if (blocked.size == 1) "" else "s"}", "${blocked.size} app") + if (appLimits.isNotEmpty()) tr(" · ${appLimits.size} with a limit", " · ${appLimits.size} saját limittel") else "",
-            "minutes" to tr("${cfg.freeMinutes} free a day", "napi ${cfg.freeMinutes} perc jár") + if (strict) tr(" · strict", " · szigorú") else "",
+            "minutes" to tr("${cfg.freeMinutes} free a day", "napi ${cfg.freeMinutes} perc jár"),
+            "strict" to level + if (pausedUntil > System.currentTimeMillis()) tr(" · a day off", " · szabadnap") else "",
+            "periods" to evening + if (lockSchedules.any { it.on && it.id != "bed" }) tr(" · a lock on", " · zár bekapcsolva") else "",
             "activities" to tr("${tasks.size} picked", "${tasks.size} kiválasztva"),
-            "evening" to tr("From %d:00", "%d:00-tól").format(eveningFrom) + if (lockSchedules.any { it.on }) tr(" · a lock on", " · zár bekapcsolva") else "",
-            "sounds" to when (soundsOff.size) { 0 -> tr("All on", "Mind bekapcsolva"); Sounds.Kind.entries.size -> tr("Off", "Kikapcsolva"); else -> soundsOff.joinToString(", ") { it.title } + " off" },
-            "account" to tr("Sign in, backup · ", "Belépés, mentés · ") + (townName?.let { tr("weather from $it", "időjárás: $it") } ?: tr("your town", "a városod")) + tr(" · theme", " · nyelv, téma"),
+            "notes" to when (store.notesLevel) { app.tend.core.NotesLevel.QUIET -> tr("Quiet", "Csendes"); app.tend.core.NotesLevel.NORMAL -> tr("Normal", "Normál"); app.tend.core.NotesLevel.CHATTY -> tr("Chatty", "Beszédes") },
+            "account" to tr("Sign in, backup, town, theme, sounds", "Belépés, mentés, város, téma, hangok"),
         )
         SETTINGS_PAGES.forEach { (key, title, icon) ->
             val open = page == key
@@ -314,71 +294,14 @@ fun SettingsScreen(
     }
 }
 
-/**
- * Optional (Plus): Reels and Shorts closed, the rest of those apps open. Turning it on says plainly
- * what it does and doesn't look at, then leads to Android's switch for it.
- */
-@Composable
-private fun ShortsGuardCard(plus: Boolean, onPlus: () -> Unit) = Card {
-    val ctx = androidx.compose.ui.platform.LocalContext.current
-    val store = remember { app.tend.data.TendStore(ctx) }
-    var on by remember { androidx.compose.runtime.mutableStateOf(store.shortsGuardOn) }
-    var asking by remember { androidx.compose.runtime.mutableStateOf(false) }
-    // Back from Android's settings: whether its switch is on now.
-    var running by remember { androidx.compose.runtime.mutableStateOf(app.tend.monitor.ShortsGuard.enabled(ctx)) }
-    val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    androidx.compose.runtime.DisposableEffect(owner) {
-        val o = androidx.lifecycle.LifecycleEventObserver { _, e -> if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) running = app.tend.monitor.ShortsGuard.enabled(ctx) }
-        owner.lifecycle.addObserver(o)
-        onDispose { owner.lifecycle.removeObserver(o) }
-    }
-    fun openAndroid() = ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(tr("Close only Reels & Shorts", "Csak a Reels és a Shorts zárása"), style = MaterialTheme.typography.bodyLarge)
-            Text(tr("Instagram, YouTube and Facebook stay open; the endless videos don't", "Az Instagram, a YouTube és a Facebook nyitva marad; a végtelen videók nem"), style = MaterialTheme.typography.bodyMedium)
-        }
-        Spacer(Modifier.width(12.dp))
-        if (plus) Switch(checked = on, onCheckedChange = { want -> if (want) asking = true else { on = false; store.shortsGuardOn = false } })
-        else Box(Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onPlus).padding(6.dp)) { PlusMark() }
-    }
-    if (on && !running) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tappable { openAndroid() }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(tr("One more step: switch on \u201ctend: Reels and Shorts\u201d in Android's accessibility settings", "Még egy lépés: kapcsold be a „tend: Reels and Shorts” szolgáltatást az Android akadálymentesítési beállításaiban"), style = MaterialTheme.typography.bodyMedium, color = Brand.Coral, modifier = Modifier.weight(1f))
-        Text(tr("Open", "Megnyitás"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss, modifier = Modifier.padding(start = 8.dp))
-    }
-    if (on && running) Text(
-        store.shortsClosedToday.let { if (it > 0) tr("Closed $it time${if (it == 1) "" else "s"} today", "Ma $it alkalommal zárta be") else tr("On. Nothing to close yet today.", "Bekapcsolva. Ma még nem volt mit bezárni.") },
-        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted,
-    )
-    if (asking) androidx.compose.material3.AlertDialog(
-        onDismissRequest = { asking = false },
-        title = { Text(tr("Close Reels & Shorts?", "Zárjuk a Reelst és a Shortsot?")) },
-        text = {
-            Text(
-                tr("tend uses Android's accessibility service for this. In Instagram, YouTube and Facebook it only checks whether the screen ", "A tend ehhez az Android akadálymentesítési szolgáltatását használja. Az Instagramban, a YouTube-on és a Facebookon csak azt figyeli, hogy a képernyőn ") +
-                    tr("showing is the short-video player; if it is, it goes back and ${store.avatar.displayName} says so. Nothing on your screen is read, ", "a rövidvideó-lejátszó van-e; ha igen, visszalép, és ${store.avatar.displayName} szól róla. A képernyőd tartalmát nem olvassa, ") +
-                    tr("kept or sent anywhere, and no other app is looked at. You can turn it off here or in Android's settings any time.", "nem tárolja és nem küldi sehová, más appba pedig nem néz bele. Itt vagy az Android beállításaiban bármikor kikapcsolhatod."),
-            )
-        },
-        confirmButton = {
-            androidx.compose.material3.TextButton(onClick = {
-                asking = false; on = true; store.shortsGuardOn = true
-                if (!app.tend.monitor.ShortsGuard.enabled(ctx)) openAndroid()
-            }) { Text(tr("Turn on", "Bekapcsolom")) }
-        },
-        dismissButton = { androidx.compose.material3.TextButton(onClick = { asking = false }) { Text(tr("Not now", "Most nem")) } },
-        containerColor = Brand.Card,
-    )
-}
-
-/** The settings menu: key, title, icon. */
 private val SETTINGS_PAGES = listOf(
-    Triple("companion", tr("Companion", "Társ"), androidx.compose.material.icons.Icons.Filled.Face),
     Triple("apps", tr("Picked apps", "Kiválasztott appok"), androidx.compose.material.icons.Icons.Filled.Lock),
-    Triple("minutes", tr("Minutes", "Percek"), androidx.compose.material.icons.Icons.Filled.DateRange),
+    Triple("minutes", tr("Daily minutes", "Napi keret"), androidx.compose.material.icons.Icons.Filled.DateRange),
+    Triple("strict", tr("How strict", "Szigor"), androidx.compose.material.icons.Icons.Filled.Settings),
+    Triple("periods", tr("Times of day", "Időszakok"), androidx.compose.material.icons.Icons.Filled.Info),
     Triple("activities", tr("Instead of scrolling", "Görgetés helyett"), androidx.compose.material.icons.Icons.Filled.Favorite),
-    Triple("evening", tr("Evening & notes", "Este és üzenetek"), androidx.compose.material.icons.Icons.Filled.Notifications),
-    Triple("sounds", tr("Sounds", "Hangok"), androidx.compose.material.icons.Icons.Filled.PlayArrow),
+    Triple("notes", tr("Bo's notes", "Bo üzenetei"), androidx.compose.material.icons.Icons.Filled.Notifications),
+    Triple("companion", tr("Companion", "Társ"), androidx.compose.material.icons.Icons.Filled.Face),
     Triple("account", tr("Account & more", "Fiók és egyebek"), androidx.compose.material.icons.Icons.Filled.AccountCircle),
 )
 
@@ -399,16 +322,6 @@ private fun MenuRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title
     // Pointing down while open.
     val turn by androidx.compose.animation.core.animateFloatAsState(if (open) 90f else 0f, androidx.compose.animation.core.spring(stiffness = 500f), label = "chevron")
     androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Brand.Muted, modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = turn })
-}
-
-/** A lock as one switch; its hours show while it's on. */
-@Composable
-private fun LockRow(lock: app.tend.core.LockSchedule, title: String, onLockSchedule: (app.tend.core.LockSchedule) -> Unit) {
-    SwitchRow(title, "%d:00 – %d:00 · %s".format(lock.from, lock.to, if (lock.weekdaysOnly) tr("weekdays", "hétköznap") else tr("every day", "minden nap")), lock.on) { onLockSchedule(lock.copy(on = it)) }
-    if (lock.on) Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(bottom = 6.dp)) {
-        HourStepper(tr("From", "Ettől"), lock.from, Modifier.weight(1f)) { onLockSchedule(lock.copy(from = it)) }
-        HourStepper(tr("To", "Eddig"), lock.to, Modifier.weight(1f)) { onLockSchedule(lock.copy(to = it)) }
-    }
 }
 
 /** Any hour from 16:00 round to 3:00, one step at a time. */
@@ -463,7 +376,7 @@ fun PermissionsScreen(avatar: Avatar, perms: PermissionActions, onDone: () -> Un
 
 /** A holiday, a sick day: every limit off for a while, and those days don't count against you. */
 @Composable
-private fun BreakRows(pausedUntil: Long, strict: Boolean, onPause: (Int) -> Unit) {
+internal fun BreakRows(pausedUntil: Long, strict: Boolean, onPause: (Int) -> Unit) {
     if (pausedUntil > System.currentTimeMillis()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -504,13 +417,21 @@ fun breakEnd(until: Long): String {
 @Composable
 private fun AppsCard(
     catalog: AppCatalog, blocked: Set<String>, onToggleApp: (String) -> Unit, limits: Map<String, Int>, secondsToday: Map<String, Long>, strict: Boolean,
-    plus: Boolean, onAppLimit: (String, Int?) -> Unit, pauseApps: Set<String>, onPauseApp: (String, Boolean) -> Unit, onPlus: () -> Unit,
+    plus: Boolean, onAppLimit: (String, Int?) -> Unit, onPlus: () -> Unit,
 ) = Card {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val store = remember { app.tend.data.TendStore(ctx) }
     var editing by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf<String?>(null) }
     var picking by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(blocked.isEmpty()) }
-    // The switch flips at once, whatever the screen around it does; saved through [onPauseApp].
-    var paused by remember(pauseApps) { androidx.compose.runtime.mutableStateOf(pauseApps) }
-    if (blocked.isNotEmpty()) Text(tr("Their time comes off your daily minutes, and each pauses for a moment before it opens. Tap one to turn its pause off, or to give it its own minutes a day.", "Az idejük a napi keretedből fogy, és mindegyiknél megjelenik a Megállító. Koppints egyre, ha nála kikapcsolnád, vagy saját napi perceket adnál neki."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+    // What each app does when opened: changes show at once.
+    var modes by remember { androidx.compose.runtime.mutableStateOf(store.appModes) }
+    var askShorts by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    fun modeLabel(m: app.tend.core.AppMode?) = when (m) {
+        app.tend.core.AppMode.COUNT -> tr("Only counts", "Csak számol")
+        app.tend.core.AppMode.SHORTS -> tr("Only Reels and Shorts closed", "Csak a Reels és a Shorts zárva")
+        else -> tr("Opens with the Megállító", "Megállítóval nyílik")
+    }
+    if (blocked.isNotEmpty()) Text(tr("Their time comes off your daily minutes. Tap one to choose what opening it does, or to give it its own minutes a day.", "Az idejük a napi keretedből fogy. Koppints egyre: kiválaszthatod, mi történjen megnyitáskor, vagy saját napi perceket adhatsz neki."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
     blocked.sortedBy { catalog.label(it).lowercase() }.forEach { pkg ->
         val limit = limits[pkg]
         val used = ((secondsToday[pkg] ?: 0L) / 60).toInt()
@@ -524,9 +445,9 @@ private fun AppsCard(
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(catalog.label(pkg), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                val mode = if (strict) null else modes[pkg]
                 Text(
-                    if (strict || pkg in paused) tr("Pauses first", "Megállítóval nyílik") else tr("Opens without a pause", "Megállító nélkül nyílik"),
-                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = if (strict || pkg in paused) Brand.Moss else Brand.Muted,
+                    modeLabel(mode), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = if (mode == null) Brand.Moss else Brand.Muted,
                     maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
                 if (limit != null) Text(
@@ -548,6 +469,22 @@ private fun AppsCard(
     androidx.compose.animation.AnimatedVisibility(picking) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { AppPicker(catalog, blocked, onToggleApp) }
     }
+    // Only Reels and Shorts: it needs Android's accessibility switch for tend, said plainly first.
+    askShorts?.let {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { askShorts = null },
+            title = { Text(tr("One more step", "Még egy lépés")) },
+            text = {
+                Text(tr("tend uses Android's accessibility service for this. It only checks whether the short-video player is showing; if it is, it goes back. Nothing on your screen is read, kept or sent, and no other app is looked at. It also makes the Megállító quicker, and Android's \"over other apps\" note goes away.", "A tend ehhez az Android akadálymentesítési szolgáltatását használja. Csak azt nézi, hogy a rövidvideó-lejátszó látszik-e; ha igen, visszalép. Semmit nem olvas, nem tárol és nem küld el a képernyődről, más appba nem néz bele. A Megállító is gyorsabb lesz tőle, és az Android „other apps” értesítése eltűnik."))
+            },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = {
+                askShorts = null
+                ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+            }) { Text(tr("Turn it on", "Bekapcsolom"), color = Brand.Moss) } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { askShorts = null }) { Text(tr("Later", "Később"), color = Brand.Muted) } },
+            containerColor = Brand.Card,
+        )
+    }
     editing?.let { pkg ->
         val now = limits[pkg]
         androidx.compose.material3.AlertDialog(
@@ -555,12 +492,26 @@ private fun AppsCard(
             title = { Text(catalog.label(pkg)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // A short pause before each open: on for every picked app, off one by one (always on in strict mode).
-                    SwitchRow(
-                        tr("Pause before it opens", "Megállító"),
-                        if (strict) tr("Always on in strict mode.", "Szigorú módban mindig be van kapcsolva.") else tr("A few seconds first: often enough to change your mind.", "Megnyitás előtt pár másodperc: sokszor ennyi is elég, hogy meggondold."),
-                        strict || pkg in paused,
-                    ) { on -> if (!strict) { paused = if (on) paused + pkg else paused - pkg; onPauseApp(pkg, on) } }
+                    // What opening it does: the Megállító (the default), only counting, or only Reels and Shorts closed.
+                    Text(tr("When it opens", "Megnyitáskor"), style = MaterialTheme.typography.bodyMedium)
+                    val modeOptions = listOfNotNull(app.tend.core.AppMode.STOP, app.tend.core.AppMode.COUNT, app.tend.core.AppMode.SHORTS.takeIf { app.tend.monitor.ShortsGuard.supports(pkg) })
+                    val current = modes[pkg] ?: app.tend.core.AppMode.STOP
+                    modeOptions.forEach { m ->
+                        OptionCard(
+                            when (m) { app.tend.core.AppMode.STOP -> tr("Megállító", "Megállító"); app.tend.core.AppMode.COUNT -> tr("Only count", "Csak számol"); app.tend.core.AppMode.SHORTS -> tr("Only Reels and Shorts", "Csak Reels és Shorts") },
+                            when (m) {
+                                app.tend.core.AppMode.STOP -> tr("A few seconds before it opens: often enough to change your mind.", "Pár másodperc megnyitás előtt: sokszor ennyi is elég, hogy meggondold.")
+                                app.tend.core.AppMode.COUNT -> tr("Opens straight away; its time comes off your minutes.", "Azonnal nyílik; az ideje a keretedből fogy.")
+                                app.tend.core.AppMode.SHORTS -> tr("The app stays open; the endless videos close.", "Az app nyitva marad; a végtelen videók bezárnak.")
+                            },
+                            picked = !strict && current == m || strict && m == app.tend.core.AppMode.STOP,
+                        ) {
+                            if (strict) return@OptionCard
+                            store.setAppMode(pkg, m); modes = store.appModes
+                            if (m == app.tend.core.AppMode.SHORTS && !app.tend.monitor.ShortsGuard.enabled(ctx)) askShorts = pkg
+                        }
+                    }
+                    if (strict) Text(tr("Strict: every picked app opens with the Megállító.", "Szigorú fokozatban minden kiválasztott app Megállítóval nyílik."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
                     Text(tr("Minutes a day, at most:", "Naponta legfeljebb ennyi perc:"), style = MaterialTheme.typography.bodyMedium)
                     if (!plus) Row(Modifier.clip(RoundedCornerShape(12.dp)).tappable { editing = null; onPlus() }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(tr("Own limits for each app come with Plus ", "Appok saját limitje a Plusszal "), style = MaterialTheme.typography.bodyMedium); PlusMark()
@@ -635,3 +586,311 @@ private fun PlusCard(plus: Boolean, daysLeft: Int?, paid: Boolean, onTestTrial: 
 /** A thin line between groups inside one card. */
 @Composable
 private fun Divider() = Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp).background(Brand.Sage))
+
+/** A choice among a few: one row of equal chips, the picked one filled. */
+@Composable
+private fun Choice(options: List<String>, picked: Int, modifier: Modifier = Modifier, onPick: (Int) -> Unit) =
+    Row(modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        options.forEachIndexed { i, label ->
+            val on = i == picked
+            Text(
+                label, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), textAlign = TextAlign.Center, maxLines = 1,
+                color = if (on) Color.White else Brand.Moss,
+                modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if (on) Brand.Moss else Brand.Sage).tappable { onPick(i) }.padding(vertical = 9.dp),
+            )
+        }
+    }
+
+/** One option as a card: a title, what it means, ticked when picked. */
+@Composable
+private fun OptionCard(title: String, body: String, picked: Boolean, plusMark: Boolean = false, onClick: () -> Unit) = Row(
+    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(if (picked) Brand.Picked else Brand.Sage)
+        .border(if (picked) 2.dp else 0.dp, if (picked) Brand.Moss else Color.Transparent, RoundedCornerShape(16.dp))
+        .tappable(onClick = onClick).padding(horizontal = 14.dp, vertical = 10.dp),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    Column(Modifier.weight(1f)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title, style = MaterialTheme.typography.titleSmall, color = if (picked) Brand.Moss else Brand.Ink)
+            if (plusMark) { Spacer(Modifier.width(6.dp)); PlusMark() }
+        }
+        Text(body, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Brand.Muted)
+    }
+    if (picked) Text("✓", style = MaterialTheme.typography.titleMedium, color = Brand.Moss, modifier = Modifier.padding(start = 8.dp))
+}
+
+/**
+ * "Now": what decides the picked apps at this moment, in one line (a lock and until when, the
+ * minutes left, how strict), so it's never a mystery why something closed.
+ */
+@Composable
+private fun NowLine(onDayOff: () -> Unit) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val store = remember { app.tend.data.TendStore(ctx) }
+    val lock = store.activeLock()
+    val left = app.tend.core.Budget.remainingMinutes(store.config, store.today())
+    val level = when (store.effectiveStrict) { app.tend.core.StrictLevel.EASY -> tr("easy", "laza"); app.tend.core.StrictLevel.BALANCED -> tr("balanced", "kiegyensúlyozott"); app.tend.core.StrictLevel.STRICT -> tr("strict", "szigorú") }
+    val parts = listOfNotNull(
+        if (store.isPaused) tr("a day off", "szabadnap") else null,
+        lock?.let { tr("${it.label} until %d:00".format(it.to), "${it.label} %d:00-ig".format(it.to)) },
+        if (left <= 0) tr("today's minutes are gone", "a mai keret elfogyott") else tr("$left min left", "$left perc maradt"),
+        level,
+    )
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Brand.Card).padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(tr("NOW", "MOST"), style = MaterialTheme.typography.labelSmall, color = Brand.Moss)
+        Spacer(Modifier.width(10.dp))
+        Text(parts.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, maxLines = 2, modifier = Modifier.weight(1f))
+        Text(
+            tr("Day off", "Szabadnap"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp), color = Brand.Moss, maxLines = 1,
+            modifier = Modifier.padding(start = 8.dp).clip(RoundedCornerShape(50)).background(Brand.Sage).tappable(onClick = onDayOff).padding(horizontal = 10.dp, vertical = 6.dp),
+        )
+    }
+}
+
+/** How strict tend is: three levels, each said plainly; Strict comes with Plus. Bo's peeks belong here too. */
+@Composable
+private fun StrictCard(plus: Boolean, strict: Boolean, strictEndsAt: Long, onStrict: (Boolean) -> Unit, onPlus: () -> Unit, avatarName: String, peekOn: Boolean, onPeek: (Boolean) -> Unit) = Card {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val store = remember { app.tend.data.TendStore(ctx) }
+    var chosen by remember { androidx.compose.runtime.mutableStateOf(if (strict) app.tend.core.StrictLevel.STRICT else store.effectiveStrict) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OptionCard(tr("Easy", "Laza"), tr("A 3 s wait (8 s in the evening). $avatarName peeks in after 20 minutes. Every way in is there.", "3 mp várakozás (este 8). $avatarName 20 perc után néz be. Minden kiskapu megvan."), chosen == app.tend.core.StrictLevel.EASY) {
+            if (strict && strictEndsAt == 0L) onStrict(false)
+            store.strictLevel = app.tend.core.StrictLevel.EASY; chosen = store.strictLevel
+        }
+        OptionCard(tr("Balanced", "Kiegyensúlyozott"), tr("A 5 s wait (10 s in the evening). $avatarName peeks in after 15 minutes. Quick look 3 times a day.", "5 mp várakozás (este 10). $avatarName 15 perc után néz be. Gyors belesés naponta 3-szor."), chosen == app.tend.core.StrictLevel.BALANCED) {
+            if (strict && strictEndsAt == 0L) onStrict(false)
+            store.strictLevel = app.tend.core.StrictLevel.BALANCED; chosen = store.strictLevel
+        }
+        OptionCard(tr("Strict", "Szigorú"), tr("A 10 s wait, no quick look, no 5 minutes for acorns, no day off; limits only get tighter; off only from the next day.", "10 mp várakozás, nincs Gyors belesés, nincs 5 perc makkért, nincs Szabadnap; a limitek csak szigorodhatnak; kikapcsolni csak másnaptól lehet."), chosen == app.tend.core.StrictLevel.STRICT, plusMark = !plus) {
+            if (!plus) onPlus()
+            else { if (!strict) onStrict(true); store.strictLevel = app.tend.core.StrictLevel.STRICT; chosen = app.tend.core.StrictLevel.STRICT }
+        }
+        if (strict && strictEndsAt > 0) Text(
+            tr("Strict until midnight, then ${if (store.strictLevel == app.tend.core.StrictLevel.EASY) "Easy" else "Balanced"}.", "Éjfélig szigorú, utána ${if (store.strictLevel == app.tend.core.StrictLevel.EASY) "laza" else "kiegyensúlyozott"}."),
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Coral,
+        )
+        SwitchRow(tr("$avatarName peeks in", "$avatarName benéz"), tr("From the edge of the screen, after a while in a picked app (by the level above)", "A képernyő széléről, egy idő után egy kiválasztott appban (a fenti fokozat szerint)"), peekOn, onPeek)
+    }
+}
+
+/** The weekend's extra hour: never, always, or offered when the minutes run out (Friday from 18:00 counts). */
+@Composable
+private fun WeekendRow(strict: Boolean) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val store = remember { app.tend.data.TendStore(ctx) }
+    var mode by remember { androidx.compose.runtime.mutableStateOf(store.weekendMode) }
+    Text(tr("Weekend", "Hétvége"), style = MaterialTheme.typography.bodyLarge)
+    Text(
+        if (strict) tr("Not in strict mode.", "Szigorú fokozatban nincs.") else tr("+${BudgetConfig.WEEKEND_PLUS} minutes on Saturday and Sunday (Friday from 18:00)", "+${BudgetConfig.WEEKEND_PLUS} perc szombaton és vasárnap (pénteken 18:00-tól)"),
+        style = MaterialTheme.typography.bodyMedium,
+    )
+    val modes = listOf(app.tend.core.WeekendMode.OFF, app.tend.core.WeekendMode.ALWAYS, app.tend.core.WeekendMode.ASK)
+    Choice(listOf(tr("Off", "Ki"), tr("Always", "Mindig"), tr("Ask me", "Kérdezzen")), modes.indexOf(mode)) { store.weekendMode = modes[it]; mode = modes[it] }
+}
+
+/** How much Bo says: three levels, the single notes under "Details". */
+@Composable
+private fun NotesCard(
+    avatarName: String, reminderEnabled: Boolean, onReminder: (Boolean) -> Unit, notesMorning: Boolean, notesNudges: Boolean,
+    onNotes: (String, Boolean) -> Unit, weeklyLetter: Boolean, onWeeklyLetter: (Boolean) -> Unit, onChanged: () -> Unit,
+) = Card {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val store = remember { app.tend.data.TendStore(ctx) }
+    var level by remember { androidx.compose.runtime.mutableStateOf(store.notesLevel) }
+    val levels = app.tend.core.NotesLevel.entries
+    Choice(listOf(tr("Quiet", "Csendes"), tr("Normal", "Normál"), tr("Chatty", "Beszédes")), levels.indexOf(level)) {
+        store.applyNotesLevel(levels[it]); level = levels[it]; onChanged()
+    }
+    Text(
+        when (level) {
+            app.tend.core.NotesLevel.QUIET -> tr("Only what you start yourself (timers) and calls to the fire.", "Csak amit te indítasz (időzítők), és a tűzhöz hívás.")
+            app.tend.core.NotesLevel.NORMAL -> tr("The morning plan, a heads-up at 10 minutes left, the evening recap, the Sunday letter. At most 3 a day.", "Reggeli terv, jelzés 10 percnél, esti összefoglaló, vasárnapi levél. Naponta legfeljebb 3.")
+            app.tend.core.NotesLevel.CHATTY -> tr("All of those, and $avatarName may say one more a day. At most 4 a day.", "Mindez, és $avatarName naponta egyszer többet szólhat. Naponta legfeljebb 4.")
+        },
+        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted,
+    )
+    var details by remember { androidx.compose.runtime.mutableStateOf(false) }
+    Text(
+        if (details) tr("Hide details", "Részletek elrejtése") else tr("Details", "Részletek"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+        modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable { details = !details }.padding(vertical = 6.dp),
+    )
+    if (details) {
+        SwitchRow(tr("Morning plan", "Reggeli terv"), tr("Today's minutes and what's worth the most", "A mai percek, és ami a legtöbbet éri"), notesMorning) { onNotes("morning", it) }
+        SwitchRow(tr("Gentle nudges", "Finom emlékeztetők"), tr("When 10 minutes are left", "Amikor 10 perc maradt"), notesNudges) { onNotes("nudges", it) }
+        SwitchRow(tr("Evening recap", "Esti összefoglaló"), tr("A note when the evening starts", "Üzenet, amikor kezdődik az este"), reminderEnabled, onReminder)
+        SwitchRow(tr("Sunday letter", "Vasárnapi levél"), tr("Your week, on Sunday evening", "A heted, vasárnap este"), weeklyLetter, onWeeklyLetter)
+    }
+}
+
+/** The day as a bar, midnight to midnight: when the evening slows things down and when locks close them. */
+@Composable
+private fun DayBar(eveningFrom: Int, evening: app.tend.core.EveningMode, locks: List<app.tend.core.LockSchedule>) {
+    val today = java.time.LocalDate.now().dayOfWeek
+    val moss = Brand.Moss
+    val slow = Brand.Mint.copy(alpha = 0.55f)
+    val track = Brand.Sage
+    val muted = Brand.Muted
+    androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(40.dp)) {
+        val barH = 14.dp.toPx()
+        val r = androidx.compose.ui.geometry.CornerRadius(barH / 2)
+        fun x(h: Int) = size.width * h / 24f
+        drawRoundRect(track, size = androidx.compose.ui.geometry.Size(size.width, barH), cornerRadius = r)
+        fun span(from: Int, to: Int, c: Color) {
+            if (from == to) return
+            if (from < to) drawRect(c, androidx.compose.ui.geometry.Offset(x(from), 0f), androidx.compose.ui.geometry.Size(x(to) - x(from), barH))
+            else { drawRect(c, androidx.compose.ui.geometry.Offset(x(from), 0f), androidx.compose.ui.geometry.Size(size.width - x(from), barH)); drawRect(c, androidx.compose.ui.geometry.Offset(0f, 0f), androidx.compose.ui.geometry.Size(x(to), barH)) }
+        }
+        if (evening != app.tend.core.EveningMode.OFF && eveningFrom >= 0) span(eveningFrom, 5, slow)
+        locks.filter { it.on && today in it.days }.forEach { span(it.from, it.to, moss) }
+        val text = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { textSize = 11.sp.toPx(); color = muted.toArgb(); textAlign = android.graphics.Paint.Align.CENTER }
+        listOf(0, 6, 12, 18, 24).forEach { h ->
+            text.textAlign = when (h) { 0 -> android.graphics.Paint.Align.LEFT; 24 -> android.graphics.Paint.Align.RIGHT; else -> android.graphics.Paint.Align.CENTER }
+            drawContext.canvas.nativeCanvas.drawText("$h", x(h), size.height - 2.dp.toPx(), text)
+        }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(10.dp).clip(RoundedCornerShape(3.dp)).background(slow)); Text(tr("slower", "lassít"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+        Box(Modifier.size(10.dp).clip(RoundedCornerShape(3.dp)).background(moss)); Text(tr("closed (today)", "zárva (ma)"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+    }
+}
+
+/** Which days a lock runs on: seven chips, Monday first. */
+@Composable
+private fun DayChips(days: Set<java.time.DayOfWeek>, onChange: (Set<java.time.DayOfWeek>) -> Unit) =
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        java.time.DayOfWeek.entries.forEach { d ->
+            val on = d in days
+            Text(
+                d.getDisplayName(java.time.format.TextStyle.NARROW_STANDALONE, app.tend.core.Lang.locale).replaceFirstChar { it.uppercase() },
+                style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp), textAlign = TextAlign.Center,
+                color = if (on) Color.White else Brand.Moss,
+                modifier = Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(if (on) Brand.Moss else Brand.Sage)
+                    .tappable { val next = if (on) days - d else days + d; if (next.isNotEmpty()) onChange(next) }.padding(vertical = 8.dp),
+            )
+        }
+    }
+
+/** Which picked apps a lock closes: all of them, or the ones chosen. */
+@Composable
+private fun LockApps(catalog: AppCatalog, blocked: Set<String>, apps: Set<String>, onChange: (Set<String>) -> Unit) =
+    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        val all = apps.isEmpty()
+        Text(
+            tr("All picked apps", "Minden kiválasztott app"), style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
+            color = if (all) Color.White else Brand.Moss,
+            modifier = Modifier.clip(RoundedCornerShape(50)).background(if (all) Brand.Moss else Brand.Sage).tappable { onChange(emptySet()) }.padding(horizontal = 12.dp, vertical = 6.dp),
+        )
+        blocked.sortedBy { catalog.label(it).lowercase() }.forEach { pkg ->
+            val on = !all && pkg in apps
+            Text(
+                catalog.label(pkg), style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp), maxLines = 1,
+                color = if (on) Color.White else Brand.Moss,
+                modifier = Modifier.clip(RoundedCornerShape(50)).background(if (on) Brand.Moss else Brand.Sage)
+                    .tappable { val next = if (on) apps - pkg else apps + pkg; onChange(next) }.padding(horizontal = 12.dp, vertical = 6.dp),
+            )
+        }
+    }
+
+/** One lock: on or off, its hours, days and apps while on; a name for your own ones. */
+@Composable
+private fun LockEditor(catalog: AppCatalog, blocked: Set<String>, lock: app.tend.core.LockSchedule, title: String, onLock: (app.tend.core.LockSchedule) -> Unit, onRemove: (() -> Unit)? = null) {
+    val daysText = when (lock.days) {
+        app.tend.core.LockSchedule.ALL_DAYS -> tr("every day", "minden nap")
+        app.tend.core.LockSchedule.WEEKDAYS -> tr("weekdays", "hétköznap")
+        else -> tr("${lock.days.size} days a week", "heti ${lock.days.size} nap")
+    }
+    SwitchRow(title, "%d:00 – %d:00 · %s".format(lock.from, lock.to, daysText) + if (lock.apps.isNotEmpty()) tr(" · ${lock.apps.size} apps", " · ${lock.apps.size} app") else "", lock.on) { onLock(lock.copy(on = it)) }
+    if (lock.on) Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 6.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            HourStepper(tr("From", "Ettől"), lock.from, Modifier.weight(1f)) { onLock(lock.copy(from = it)) }
+            HourStepper(tr("To", "Eddig"), lock.to, Modifier.weight(1f)) { onLock(lock.copy(to = it)) }
+        }
+        DayChips(lock.days) { onLock(lock.copy(days = it)) }
+        LockApps(catalog, blocked, lock.apps) { onLock(lock.copy(apps = it)) }
+    }
+    // Your own: a name of its own ("Studying"), and a way to remove it.
+    if (lock.id.startsWith("c")) Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        var naming by remember { androidx.compose.runtime.mutableStateOf(false) }
+        Text(tr("Rename", "Átnevezés"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+            modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable { naming = true }.padding(vertical = 4.dp))
+        onRemove?.let { remove ->
+            Text(tr("Remove", "Törlés"), style = MaterialTheme.typography.labelLarge, color = Brand.Coral,
+                modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = remove).padding(vertical = 4.dp))
+        }
+        if (naming) {
+            var name by remember { androidx.compose.runtime.mutableStateOf(lock.label) }
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { naming = false },
+                title = { Text(tr("Name", "Név")) },
+                text = { androidx.compose.material3.OutlinedTextField(name, { name = it.take(20) }, singleLine = true) },
+                confirmButton = { androidx.compose.material3.TextButton(onClick = { naming = false; if (name.isNotBlank()) onLock(lock.copy(label = name.trim())) }) { Text(tr("Save", "Mentés"), color = Brand.Moss) } },
+                dismissButton = { androidx.compose.material3.TextButton(onClick = { naming = false }) { Text(tr("Cancel", "Mégse"), color = Brand.Muted) } },
+                containerColor = Brand.Card,
+            )
+        }
+    }
+}
+
+/**
+ * Times of the day, all in one place: the evening (off, slower, or closed), work hours, and your own
+ * times (Plus, three at most), over a bar showing today.
+ */
+@Composable
+private fun PeriodsCard(
+    catalog: AppCatalog, blocked: Set<String>, plus: Boolean, onPlus: () -> Unit, strict: Boolean,
+    eveningFrom: Int, onEvening: (Int) -> Unit, lockSchedules: List<app.tend.core.LockSchedule>, onLockSchedule: (app.tend.core.LockSchedule) -> Unit, onChanged: () -> Unit,
+) = Card {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val store = remember { app.tend.data.TendStore(ctx) }
+    var evening by remember { androidx.compose.runtime.mutableStateOf(store.eveningMode) }
+    val bed = lockSchedules.first { it.id == "bed" }
+    val work = lockSchedules.first { it.id == "work" }
+    val customs = lockSchedules.filter { it.id.startsWith("c") }
+    DayBar(eveningFrom, evening, lockSchedules)
+    Text(tr("EVENING", "ESTE"), style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.padding(top = 6.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(tr("Evening starts at", "Az este kezdete"), style = MaterialTheme.typography.bodyLarge)
+            Text(tr("Until 5:00", "5:00-ig tart"), style = MaterialTheme.typography.bodyMedium)
+        }
+        EveningStepper(eveningFrom, onEvening)
+    }
+    val modes = app.tend.core.EveningMode.entries
+    Choice(listOf(tr("Off", "Ki"), tr("Slower", "Lassít"), tr("Closed", "Zár")), modes.indexOf(evening)) {
+        if (strict && evening == app.tend.core.EveningMode.LOCK && modes[it] != app.tend.core.EveningMode.LOCK) return@Choice
+        store.eveningMode = modes[it]; evening = modes[it]; onChanged()
+    }
+    Text(
+        when (evening) {
+            app.tend.core.EveningMode.OFF -> tr("The evening is like any other time.", "Az este olyan, mint bármikor máskor.")
+            app.tend.core.EveningMode.SLOW -> tr("The Megállító waits 5 s longer and ${store.avatar.displayName} gets sleepy.", "A Megállító 5 mp-cel tovább vár, és ${store.avatar.displayName} elálmosodik.")
+            app.tend.core.EveningMode.LOCK -> tr("Slower from the evening, and closed at bedtime:", "Estétől lassít, lefekvéskor pedig zár:")
+        },
+        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted,
+    )
+    if (evening == app.tend.core.EveningMode.LOCK) Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        HourStepper(tr("Bedtime", "Lefekvés"), bed.from, Modifier.weight(1f)) { onLockSchedule(bed.copy(from = it)) }
+        HourStepper(tr("Until", "Eddig"), bed.to, Modifier.weight(1f)) { onLockSchedule(bed.copy(to = it)) }
+    }
+    Text(tr("WORK", "MUNKA"), style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.padding(top = 6.dp))
+    LockEditor(catalog, blocked, work, tr("Work hours", "Munkaidő"), onLockSchedule)
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
+        Text(tr("MY OWN TIMES", "SAJÁT IDŐSZAKOK"), style = MaterialTheme.typography.labelSmall, color = Brand.Muted, modifier = Modifier.weight(1f))
+        if (!plus) PlusMark()
+    }
+    customs.forEach { c ->
+        LockEditor(catalog, blocked, c, c.label, onLockSchedule, onRemove = if (strict && c.on) null else ({ store.removeLock(c.id); onChanged() }))
+    }
+    if (customs.size < app.tend.core.LockSchedule.CUSTOM_MAX) Text(
+        tr("+ A time of my own (studying, training…)", "+ Saját időszak (tanulás, edzés…)"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+        modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable {
+            if (!plus) onPlus()
+            else {
+                val free = (0 until app.tend.core.LockSchedule.CUSTOM_MAX).first { i -> customs.none { it.id == "c$i" } }
+                store.setLockSchedule(app.tend.core.LockSchedule.custom(free)); onChanged()
+            }
+        }.padding(vertical = 6.dp),
+    )
+    Text(tr("A lock keeps the picked apps closed: only \"Not now\", something better, or once a day 5 minutes for ${app.tend.data.TendStore.LOCK_PASS_ACORNS} acorns.", "A zár csukva tartja a kiválasztott appokat: csak „Most nem”, valami jobb, vagy naponta egyszer 5 perc ${app.tend.data.TendStore.LOCK_PASS_ACORNS} makkért."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+}

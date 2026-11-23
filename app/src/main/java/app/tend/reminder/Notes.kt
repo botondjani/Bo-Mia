@@ -40,7 +40,7 @@ object Notes {
     }
 
     /** Called by every kind of note (also the recap and the Sunday letter) to keep the daily cap. */
-    fun underCap(store: TendStore) = store.notesSentToday() < DAILY_CAP
+    fun underCap(store: TendStore) = store.notesSentToday() < if (store.notesLevel == app.tend.core.NotesLevel.CHATTY) DAILY_CAP + 1 else DAILY_CAP
 
     private fun quietNow(store: TendStore): Boolean {
         val hour = LocalTime.now().hour

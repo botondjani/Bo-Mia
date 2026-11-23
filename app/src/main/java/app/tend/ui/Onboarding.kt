@@ -669,9 +669,14 @@ fun BudgetSteppers(cfg: BudgetConfig, onConfig: (BudgetConfig) -> Unit) {
     Stepper(tr("Max per day", "Napi maximum"), tr("With earned minutes", "A megszerzett percekkel együtt"), listOf(90, 120, 180, 240), cfg.totalMinutes) {
         onConfig(cfg.copy(totalMinutes = it, freeMinutes = minOf(cfg.freeMinutes, it)))
     }
-    Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp).background(Brand.Sage))
-    Text(tr("These count too", "Ezek is beleszámítanak"), style = MaterialTheme.typography.titleMedium)
-    Text(tr("No pause pops up, their time just comes off the same minutes", "Megállító nem ugrik fel, csak az idejük fogy ugyanabból a keretből"), style = MaterialTheme.typography.bodyMedium)
+    Text(tr("At 0 the picked apps stay closed until you earn more with an activity. Every day starts fresh.", "Nullánál a kiválasztott appok zárva maradnak, amíg egy tevékenységgel nem szerzel többet. Minden nap tiszta lappal indul."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+}
+
+/** Other apps of these kinds (not picked) count against the minutes too, with no Megállító. */
+@Composable
+fun CountedKinds(cfg: BudgetConfig, onConfig: (BudgetConfig) -> Unit) {
+    Text(tr("The rest count too", "A többi is számít"), style = MaterialTheme.typography.titleMedium)
+    Text(tr("Other social, video and game apps you didn't pick: no Megállító, their time just comes off the same minutes", "A nem kiválasztott közösségi, videós és játékappok: Megállító nélkül, csak az idejük fogy ugyanabból a keretből"), style = MaterialTheme.typography.bodyMedium)
     Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         listOf(AppKinds.SOCIAL to tr("Social", "Közösségi"), AppKinds.VIDEO to tr("Video", "Videó"), AppKinds.GAMES to tr("Games", "Játékok")).forEach { (kind, label) ->
             val on = kind in cfg.counted
@@ -684,7 +689,6 @@ fun BudgetSteppers(cfg: BudgetConfig, onConfig: (BudgetConfig) -> Unit) {
             )
         }
     }
-    Text(tr("At 0 the picked apps stay closed until you earn more with an activity. Every day starts fresh.", "Nullánál a kiválasztott appok zárva maradnak, amíg egy tevékenységgel nem szerzel többet. Minden nap tiszta lappal indul."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
 }
 
 @Composable

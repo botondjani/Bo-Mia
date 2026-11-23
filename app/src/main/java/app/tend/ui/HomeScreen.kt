@@ -98,6 +98,9 @@ fun HomeScreen(
     /** On a break until then (epoch ms); in the past = none. */
     pausedUntil: Long = 0,
     onResume: () -> Unit = {},
+    /** The settings were rearranged and that hasn't been said yet; [onSettingsMoved] opens them and it's said. */
+    settingsMoved: Boolean = false,
+    onSettingsMoved: () -> Unit = {},
     /** What the companion knows for today's line (time, weather, yesterday, who's here); null: the plain line. */
     voice: app.tend.core.Voice.Moment? = null,
     /** Friends phone-free right now, and joining them (a phone-free activity of your own). */
@@ -219,6 +222,8 @@ fun HomeScreen(
         TodayHeader(day.date, Triple(remaining, (cfg.freeMinutes + day.earnedMinutes).coerceAtLeast(1), Budget.earnableFrom(cfg, day, tasks)), { explain = "minutes" }) {
             IconButtonSoft(Icons.Filled.Settings, tr("Settings", "Beállítások"), onOpenSettings)
         }
+        // Once, after the update that moved them: the settings are all still there.
+        if (settingsMoved) Notice("sparkle", tr("Settings, rearranged", "Átrendeztük a beállításokat"), tr("Everything's still there, in a clearer place. Tap to have a look.", "Minden megvan, csak logikusabb helyen. Koppints, és megnézheted."), onSettingsMoved)
 
         // Hero: the camp, with the companion living in it; what they say, today's minutes, and the
         // acorns to spend. Tapping it opens the camp.
