@@ -51,7 +51,6 @@ object CharacterPainter {
     private const val WITCH = 0xFF34343F.toInt()
     private const val WITCH_DARK = 0xFF24242C.toInt()
     private const val SANTA = 0xFFD2483F.toInt()
-    private const val LEAF_GREEN = 0xFF4FA36F.toInt()
     /** Things on Mia's head sit this much higher (painter units), over her ears and bow. */
     const val MIA_HAT_LIFT = 3f
     val MIA_LIFT = setOf(Accessory.HAT, Accessory.NIGHTCAP, Accessory.BOBBLE_HAT, Accessory.BERET, Accessory.PARTY_HAT, Accessory.CROWN,
