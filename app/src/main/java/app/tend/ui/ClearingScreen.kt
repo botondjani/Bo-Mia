@@ -293,13 +293,16 @@ fun ClearingScreen(
         val here = if (using != null) Whereabouts.drawn else Whereabouts.standing
         var w = if (here == null && restNow == hit && thing !in setOf("woodpile", "fishing_rod")) 0f
             else walkSeconds(here ?: restFraction(restNow, pinnedNow), restFraction(hit, pinnedNow))
+        // Onto the bridge: round by its foot and up the planks, a longer way than straight.
+        if (thing == "bridge") w += 1.2f
         if (nightNow) w *= Uses.NIGHT_SLOW
         // Asleep in the shelter: a yawn first, on the way out.
         if (nightNow && using == null && restNow != null && restNow == bedOf(placedNow) && hit != restNow) w += Uses.YAWN
         walk = w
         // The clock starts on the next frame: not a frame drawn on the last use's clock (they'd show up there, arrived).
         useStart = -1L
-        using = hit to thing; caught = null; Sounds.forUse(context, thing, (w * 1000).toLong()); onUsed(thing)
+        using = hit to thing; caught = null; Sounds.forUse(context, thing, (w * 1000).toLong())
+        if (Things.byId(thing) != null) onUsed(thing)
     }
 
     // One done: on to the next waiting, straight from there; nothing waiting at night: back to bed.
@@ -364,8 +367,6 @@ fun ClearingScreen(
     var pokeT by remember { androidx.compose.runtime.mutableFloatStateOf(-1f) }
     // The bridge tapped: when (a second tap soon after goes across to the river).
     var bridgeTapAt by remember { mutableStateOf(0L) }
-    // A friend at the fire, tapped: their id and name.
-    var guestOpen by remember { mutableStateOf<Pair<String, String>?>(null) }
     // Poked again and again: they notice (and say so).
     val pokes = remember { mutableListOf<Long>() }
     fun poke(forced: Pair<String, String>? = null) {
@@ -535,7 +536,14 @@ fun ClearingScreen(
                         }
                         // A friend sitting at the fire: what to do with them.
                         guestAt(Offset(fx, fy), size.width / size.height.toFloat(), pinnedNow, guests.size)?.let { i ->
-                            guestIds.getOrNull(i)?.let { id -> guestOpen = id to guests[i].second; tick(); return@detectTapGestures }
+                            guestIds.getOrNull(i)?.let { id ->
+                                val name = guests[i].second
+                                startUse(0, "guest$i")
+                                caught = tr("${avatar.displayName} goes over to $name for a high five. $name gets a cheer.", "${avatar.displayName} odamegy $name mellé, és lepacsiznak. $name kap egy tapsot.")
+                                scope.launch { app.tend.data.Friends.send(context, id, app.tend.data.Friends.Kind.CHEER) }
+                                tick()
+                                return@detectTapGestures
+                            }
                         }
                         if (paperNow && fx > PAPER_LEFT && fy < PAPER_BOTTOM) { onUnroll(); tick(); caught = tr("All clean again.", "Megint minden tiszta."); return@detectTapGestures }
                         // The bridge leads to friends' camps along the river.
@@ -914,31 +922,6 @@ fun ClearingScreen(
         Column(Modifier.sheetBody(0.62f)) { Guestbook(guestbook) }
     }
 
-    guestOpen?.let { (id, name) ->
-        var note by remember(id) { mutableStateOf<String?>(null) }
-        var giving by remember(id) { mutableStateOf(false) }
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { guestOpen = null },
-            title = { Text(tr("$name is at your fire", "$name a tüzednél ül")) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(tr("Phone-free right now. Put yours down too for acorns each, or say hi.", "Most épp telefon nélkül. Tedd le te is, és mindketten makkot kaptok, vagy köszönj neki."), style = MaterialTheme.typography.bodyMedium)
-                    note?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Brand.Moss) }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ChipButton(tr("\uD83D\uDC4F Cheer", "\uD83D\uDC4F Taps"), {
-                            scope.launch { note = if (app.tend.data.Friends.send(context, id, app.tend.data.Friends.Kind.CHEER)) tr("$name will see your cheer.", "$name látni fogja a tapsodat.") else tr("Already cheered today.", "Ma már tapsoltál neki.") }
-                        })
-                        ChipButton(tr("Present", "Ajándék"), { giving = true }, filled = false)
-                        ChipButton(tr("Their camp", "A tábora"), { guestOpen = null; onOpenRiver(id) }, filled = false)
-                    }
-                }
-            },
-            confirmButton = { androidx.compose.material3.TextButton(onClick = { guestOpen = null; onJoinFire() }) { Text(tr("Put my phone down too", "Én is leteszem"), color = Brand.Moss) } },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { guestOpen = null }) { Text(tr("Close", "Bezárás"), color = Brand.Muted) } },
-            containerColor = Brand.Card,
-        )
-        if (giving) GiftDialog(null, to = app.tend.data.Friends.Friend(id, name, "BO", 0, emptyMap()), onGave = onFriendsChanged) { giving = false }
-    }
     if (friendsOpen) androidx.compose.material3.ModalBottomSheet(onDismissRequest = { friendsOpen = false }, containerColor = Brand.Sage, sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.sheetBody()) {
             FriendsCard(onOpenSettings, onOpenRiver, onFriendsChanged, openInvite)

@@ -329,6 +329,10 @@ fun DrawScope.useAnchor(use: InUse, placed: Map<Int, String>, here: Offset? = nu
         "rocking_chair" -> p + Offset(0f, -u * 0.012f * k)
         "wind_chimes", "bird_feeder" -> Offset(w * 0.64f, h * 0.71f)
         "dock" -> p + Offset(-u * 0.04f, u * 0.014f) // on the planks, near the end
+        // Beside a friend at the fire (their seats: left, right, behind), a step towards the camp's side.
+        "guest0" -> fire + Offset(-u * 0.11f + u * 0.07f, -u * 0.06f + u * 0.01f)
+        "guest1" -> fire + Offset(u * 0.12f - u * 0.07f, -u * 0.055f + u * 0.01f)
+        "guest2" -> fire + Offset(u * 0.07f, -u * 0.085f + u * 0.01f)
         "string_lights" -> Offset(w * 0.6f, h * 0.7f)
         else -> p
     }
@@ -706,26 +710,59 @@ fun DrawScope.drawUse(
             }
         }
         "bridge" -> {
-            // On the bridge: a stick dropped over the rail, falling to the water and floating downstream; a wave after it.
-            actor(avatar, mood, worn, base, s, bounce = sin(t * 2f) * 0.25f, look = -0.5f, rotation = if (t in 0.4f..1.2f) -8f else 0f)
-            val hand = base + Offset(-s * 0.32f, -s * 0.45f)
-            val water = Offset(base.x - s * 0.1f, h * 0.6f)
+            // A stick over the rail: held up, swung back, thrown in an arc (spinning), a splash, and it bobs off downstream.
+            val windUp = (t / 0.6f).coerceIn(0f, 1f)
+            val throwK = ((t - 0.6f) / 0.8f).coerceIn(0f, 1f)
+            val lean = when { t < 0.6f -> 6f * windUp; t < 0.9f -> 6f - 20f * ((t - 0.6f) / 0.3f); t < 1.6f -> -14f + 14f * ((t - 0.9f) / 0.7f); else -> 0f }
+            // Watching it go; a little hop when it floats off.
+            val hop = if (t in 3.2f..3.8f) sin((t - 3.2f) / 0.6f * PI.toFloat()) * 0.8f else 0f
+            actor(avatar, mood, worn, base, s, rotation = lean, look = if (t < 0.6f) 0.3f else -0.7f, bounce = hop)
+            val stick = Color(0xFF5C3B24)
+            val len = u * 0.045f
+            fun stickAt(c: Offset, angle: Float, alpha: Float = 1f) {
+                val d = Offset(kotlin.math.cos(angle) * len / 2, kotlin.math.sin(angle) * len / 2)
+                drawLine(stick.copy(alpha = alpha), c - d, c + d, strokeWidth = u * 0.009f, cap = StrokeCap.Round)
+                drawLine(Color(0xFF8E6440).copy(alpha = alpha), c - d * 0.6f + Offset(0f, -u * 0.0015f), c + d * 0.2f + Offset(0f, -u * 0.0015f), strokeWidth = u * 0.002f, cap = StrokeCap.Round)
+            }
+            val hand = base + Offset(-s * 0.25f, -s * 0.55f) + Offset(s * 0.12f * windUp, -s * 0.1f * windUp)
+            val land = Offset(base.x - u * 0.05f, h * 0.605f)
             when {
-                t < 0.8f -> drawLine(Color(0xFF5C3B24), hand, hand + Offset(-u * 0.035f, -u * 0.012f), strokeWidth = u * 0.009f, cap = StrokeCap.Round)
-                t < 1.6f -> {
-                    val k = (t - 0.8f) / 0.8f
-                    val at = Offset(hand.x - s * 0.1f, hand.y + (water.y - hand.y) * k * k)
-                    drawLine(Color(0xFF5C3B24), at, at + Offset(-u * 0.035f, u * 0.004f), strokeWidth = u * 0.009f, cap = StrokeCap.Round)
+                t < 0.6f -> stickAt(hand, -0.6f - windUp * 0.8f)
+                throwK < 1f -> {
+                    // A thrown arc: out, up a little, and down to the water, turning as it goes.
+                    val from = hand
+                    val at = Offset(from.x + (land.x - from.x) * throwK, from.y + (land.y - from.y) * throwK * throwK - u * 0.05f * sin(throwK * PI.toFloat()))
+                    stickAt(at, -1.4f + throwK * 9.4f)
                 }
                 else -> {
-                    // Floating off down the river, a ring where it landed.
-                    val k = (t - 1.6f)
-                    val at = water + Offset(-k * w * 0.018f, k * h * 0.012f)
-                    drawLine(Color(0xFF5C3B24).copy(alpha = (1f - k / 5f).coerceIn(0f, 1f)), at, at + Offset(-u * 0.035f, u * 0.004f), strokeWidth = u * 0.009f, cap = StrokeCap.Round)
-                    val r = ((t - 1.6f) % 1.2f) / 1.2f
-                    drawOval(Color.White.copy(alpha = 0.85f * (1 - r)), Offset(water.x - u * 0.04f * r - u * 0.01f, water.y - u * 0.006f * r), Size(u * 0.08f * r + u * 0.02f, u * 0.012f * r + u * 0.004f), style = Stroke(u * 0.003f))
+                    val k = t - 1.4f
+                    // The splash: drops up and back down, and rings spreading.
+                    if (k < 0.6f) for (d in 0 until 5) {
+                        val a = -PI.toFloat() * (0.15f + 0.7f * d / 4f)
+                        val r = u * 0.03f * (k / 0.6f)
+                        val p = land + Offset(kotlin.math.cos(a) * r, kotlin.math.sin(a) * r * 1.2f + u * 0.05f * (k / 0.6f) * (k / 0.6f))
+                        drawCircle(Color.White.copy(alpha = 0.9f * (1f - k / 0.6f)), u * 0.003f, p)
+                    }
+                    for (ring in 0 until 2) {
+                        val r = ((k + ring * 0.6f) % 1.6f) / 1.6f
+                        val at = land + Offset(-k * w * 0.012f, k * h * 0.008f)
+                        drawOval(Color.White.copy(alpha = 0.75f * (1 - r) * (1f - (k / 6f).coerceIn(0f, 1f))), Offset(at.x - u * 0.045f * r - u * 0.008f, at.y - u * 0.006f * r - u * 0.002f), Size(u * 0.09f * r + u * 0.016f, u * 0.012f * r + u * 0.004f), style = Stroke(u * 0.0025f))
+                    }
+                    // Drifting off with the current, bobbing and slowly turning.
+                    val at = land + Offset(-k * w * 0.012f, k * h * 0.008f + sin(k * 3f) * u * 0.002f)
+                    stickAt(at, 0.15f + sin(k * 0.8f) * 0.25f, (1f - (k - 4f) / 2f).coerceIn(0f, 1f))
                 }
             }
+        }
+        "guest0", "guest1", "guest2" -> {
+            // Over to a friend at the fire: a high five, sparks between the hands, then hearts.
+            shadowAt(base, s * 0.45f)
+            // They stand right of the friends on the left and behind, left of the one on the right.
+            val toFriend = if (use.thing == "guest1") 1f else -1f
+            val reach = if (t in 0.6f..1.1f) sin((t - 0.6f) / 0.5f * PI.toFloat()) else 0f
+            actor(avatar, mood, worn, base, s, rotation = toFriend * 8f * reach, bounce = if (t > 1.1f) sin(t * 4f) * 0.4f else 0f, look = toFriend * 0.6f)
+            if (t in 0.85f..1.6f) sparkles(base + Offset(toFriend * s * 0.45f, -s * 0.65f), u, (t - 0.85f) / 0.75f)
+            if (t > 1.2f) rising(t - 1.2f, base + Offset(toFriend * s * 0.25f, -s * 0.95f), u * 0.014f, every = 0.9f, drift = 1.5f) { at, a -> heart(at, u * 0.016f, a) }
         }
         "string_lights" -> {
             shadowAt(base, s * 0.45f)
@@ -1149,6 +1186,30 @@ internal fun DrawScope.inWater(p: Offset) = p.y > size.height * 0.55f && p.x < r
  * walk over it), and round the fire pit, not through the flames, when there's a fire.
  */
 internal fun DrawScope.route(a: Offset, b: Offset, placed: Map<Int, String>, layout: Map<Int, Offset>): List<Offset> {
+    // The bridge: up and down by its foot on the camp's bank, along the planks (never across the water).
+    val top = Offset(BRIDGE_TOP.x * size.width, BRIDGE_TOP.y * size.height)
+    fun onBridge(p: Offset) = (p - top).getDistance() < size.height * 0.03f
+    val deck = (0..6).map { bridgeDeck(1f - it / 12f) } // from the foot (1.0) to the middle (0.5)
+    return when {
+        onBridge(a) && onBridge(b) -> listOf(a, b)
+        onBridge(b) -> routeOnLand(a, deck.first(), placed, layout) + deck.drop(1) + b
+        onBridge(a) -> listOf(a) + deck.reversed().drop(1) + routeOnLand(deck.first(), b, placed, layout).drop(1)
+        else -> routeOnLand(a, b, placed, layout)
+    }
+}
+
+/** A point on the bridge's planks, [t] from the far bank (0) to the camp's bank (1), where feet go. */
+internal fun DrawScope.bridgeDeck(t: Float): Offset {
+    val w = size.width
+    val h = size.height
+    val a = Offset(w * 0.1f, h * 0.555f)
+    val b = Offset(w * 0.348f, h * 0.555f)
+    val c = Offset((a.x + b.x) / 2, (a.y + b.y) / 2 - h * 0.12f)
+    val m = 1 - t
+    return Offset(m * m * a.x + 2 * m * t * c.x + t * t * b.x, m * m * a.y + 2 * m * t * c.y + t * t * b.y - h * 0.004f)
+}
+
+private fun DrawScope.routeOnLand(a: Offset, b: Offset, placed: Map<Int, String>, layout: Map<Int, Offset>): List<Offset> {
     val w = size.width
     val h = size.height
     fun bank(p: Offset) = Offset((riverEdge(p.y / h) + 0.035f) * w, p.y + h * 0.01f)
