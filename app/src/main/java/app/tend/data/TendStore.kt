@@ -1406,11 +1406,19 @@ class TendStore(private val context: Context) {
         return accessoriesEarned.filter { it.name !in before }.toSet()
     }
 
-    fun accessories(): Pair<Set<Accessory>, Set<Accessory>> {
+    /** The last six closed days' and today's done activities, oldest first. */
+    private fun lastWeekDone(): List<Set<String>> {
         val today = LocalDate.now()
         val byDate = daySummaries().associateBy { it.date }
         // The last six closed days plus today as it stands, so a first activity earns the leaf right away.
-        val week = (6 downTo 1).map { byDate[today.minusDays(it.toLong())]?.done.orEmpty() } + listOf(today().completedTasks)
+        return (6 downTo 1).map { byDate[today.minusDays(it.toLong())]?.done.orEmpty() } + listOf(today().completedTasks)
+    }
+
+    /** For each habit's thing: its days in the last week. */
+    fun habitProgress(): Map<Accessory, Int> = Accessories.progress(lastWeekDone())
+
+    fun accessories(): Pair<Set<Accessory>, Set<Accessory>> {
+        val week = lastWeekDone()
         val earned = Accessories.active(week)
         // Once, from the earlier versions: what showed then is put in its place.
         if (!prefs.contains("wardrobe")) {

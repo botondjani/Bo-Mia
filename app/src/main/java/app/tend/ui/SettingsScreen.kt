@@ -1,6 +1,9 @@
 package app.tend.ui
 
 import kotlinx.coroutines.launch
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.foundation.layout.heightIn
 import app.tend.core.tr
 
 import androidx.compose.foundation.background
@@ -256,9 +259,17 @@ fun SettingsScreen(
             "notes" to when (store.notesLevel) { app.tend.core.NotesLevel.QUIET -> tr("Quiet", "Csendes"); app.tend.core.NotesLevel.NORMAL -> tr("Normal", "Normál"); app.tend.core.NotesLevel.CHATTY -> tr("Chatty", "Beszédes") },
             "account" to tr("Sign in, backup, ${avatar.displayName}, theme, sounds", "Belépés, mentés, ${avatar.displayName}, téma, hangok"),
         )
+        // Opening a part scrolls it to the top; the one open before closes at once (no two animations fighting).
+        val rowY = remember { mutableMapOf<String, Float>() }
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        androidx.compose.runtime.LaunchedEffect(page) {
+            val key = page ?: return@LaunchedEffect
+            kotlinx.coroutines.delay(60)
+            rowY[key]?.let { y -> scroll.animateScrollTo((y - with(density) { 12.dp.toPx() }).toInt().coerceAtLeast(0)) }
+        }
         SETTINGS_PAGES.forEach { (key, title, icon) ->
             val open = page == key
-            Box(Modifier.surface(radius = 20.dp).padding(horizontal = 14.dp, vertical = 2.dp)) {
+            Box(Modifier.onGloballyPositioned { rowY[key] = it.positionInParent().y }.surface(radius = 20.dp).padding(horizontal = 14.dp, vertical = 2.dp)) {
                 run {
                     MenuRow(icon, title, summaries[key] ?: "", open) {
                         page = if (open) null else key
@@ -269,7 +280,7 @@ fun SettingsScreen(
                 open,
                 enter = androidx.compose.animation.expandVertically(androidx.compose.animation.core.spring(dampingRatio = 0.9f, stiffness = 420f)) +
                     androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(220, delayMillis = 60)),
-                exit = androidx.compose.animation.shrinkVertically(androidx.compose.animation.core.tween(220)) + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(150)),
+                exit = androidx.compose.animation.ExitTransition.None,
             ) {
                 Column(Modifier.padding(bottom = 6.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { Section(key) }
             }
@@ -589,8 +600,8 @@ private fun Choice(options: List<String>, picked: Int, modifier: Modifier = Modi
 /** One option as a card: a title, what it means, ticked when picked. */
 @Composable
 private fun OptionCard(title: String, body: String, picked: Boolean, plusMark: Boolean = false, onClick: () -> Unit) = Row(
-    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(if (picked) Brand.Picked else Brand.Sage)
-        .border(if (picked) 2.dp else 0.dp, if (picked) Brand.Moss else Color.Transparent, RoundedCornerShape(16.dp))
+    Modifier.fillMaxWidth().heightIn(min = 76.dp).clip(RoundedCornerShape(16.dp)).background(if (picked) Brand.Picked else Brand.Sage)
+        .border(2.dp, if (picked) Brand.Moss else Color.Transparent, RoundedCornerShape(16.dp))
         .tappable(onClick = onClick).padding(horizontal = 14.dp, vertical = 10.dp),
     verticalAlignment = Alignment.CenterVertically,
 ) {
@@ -601,7 +612,8 @@ private fun OptionCard(title: String, body: String, picked: Boolean, plusMark: B
         }
         Text(body, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Brand.Muted)
     }
-    if (picked) Text("✓", style = MaterialTheme.typography.titleMedium, color = Brand.Moss, modifier = Modifier.padding(start = 8.dp))
+    // The tick's place is kept when it isn't picked, so the text doesn't reflow on a tap.
+    Text("✓", style = MaterialTheme.typography.titleMedium, color = if (picked) Brand.Moss else Color.Transparent, modifier = Modifier.padding(start = 8.dp))
 }
 
 /**
@@ -696,7 +708,7 @@ private fun NotesCard(
             app.tend.core.NotesLevel.NORMAL -> tr("The morning plan, a heads-up at 10 minutes left, the evening recap, the Sunday letter. At most 3 a day.", "Reggeli terv, jelzés 10 percnél, esti összefoglaló, vasárnapi levél. Naponta legfeljebb 3.")
             app.tend.core.NotesLevel.CHATTY -> tr("All of those, and $avatarName may say one more a day. At most 4 a day.", "Mindez, és $avatarName naponta egyszer többet szólhat. Naponta legfeljebb 4.")
         },
-        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted,
+        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, minLines = 2,
     )
     var details by remember { androidx.compose.runtime.mutableStateOf(false) }
     Text(

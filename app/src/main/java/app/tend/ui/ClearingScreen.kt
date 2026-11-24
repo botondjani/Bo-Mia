@@ -142,6 +142,8 @@ fun ClearingScreen(
     onTakeOff: (app.tend.core.Slot) -> Unit = {},
     autoDress: Boolean = false,
     onAutoDress: (Boolean) -> Unit = {},
+    /** For each habit's thing: days of it in the last week. */
+    habitProgress: Map<Accessory, Int> = emptyMap(),
     /** Opens the challenges (they live on home). */
     onOpenChallenges: () -> Unit = {},
     /** The habits held right now (their things shine), and putting a thing on or off. */
@@ -195,6 +197,7 @@ fun ClearingScreen(
     var bookOpen by rememberSaveable { mutableStateOf(false) }
     var milestonesOpen by rememberSaveable { mutableStateOf(false) }
     var chestOpen by rememberSaveable { mutableStateOf(false) }
+    var wardrobeOpen by rememberSaveable { mutableStateOf(false) }
     var shopStart by remember { mutableStateOf<SpotKind?>(null) }
     var shopTab by remember { androidx.compose.runtime.mutableIntStateOf(0) }
     androidx.compose.runtime.LaunchedEffect(openSheet) {
@@ -780,17 +783,17 @@ fun ClearingScreen(
             }
             Box { Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 HubTile("friends", tr("Friends", "Barátok"), if (guests.isNotEmpty()) tr("${guests.size} at the fire", "${guests.size} a tűznél") else tr("The fire, together", "Közös tűz"), false, Modifier.weight(1f).height(tileH)) { friendsOpen = true }
-                HubTile("challenges", tr("Challenges", "Kihívások"), if (waiting > 0) tr("$waiting acorns waiting", "$waiting makk vár") else tr("Quests and goals", "Küldetések, célok"), waiting > 0, Modifier.weight(1f).height(tileH)) {
-                    // Acorns waiting: tapped, they're taken at once (the list opens when there's nothing to take).
-                    val ready = app.tend.core.FirstSteps.current(steps).filter { it.claimable }
-                    if (ready.isEmpty()) onOpenChallenges() else { ready.forEach { onClaimStep(it.step) }; Sounds.acorns(context); claimed = waiting; claimKey++ }
-                }
+                HubTile("wardrobe", tr("Wardrobe", "Szekrény"), tr("${avatar.displayName}'s things to wear", "${avatar.displayName} ruhái"), false, Modifier.weight(1f).height(tileH)) { wardrobeOpen = true }
             }
                 AcornsClaimed(claimed, claimKey, Modifier.align(Alignment.CenterEnd).fillMaxWidth(0.5f))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 HubTile("guestbook", tr("Guestbook", "Vendégkönyv"), "${guestbook.size} / ${app.tend.core.Visitor.entries.size}", false, Modifier.weight(1f).height(smallH), visitor = guestbook.keys.firstOrNull()) { bookOpen = true }
-                HubTile("achievements", tr("Achievements", "Eredmények"), totals?.let { t -> "${app.tend.core.Milestone.reached(t).size} / ${app.tend.core.Milestone.entries.size}" } ?: "", false, Modifier.weight(1f).height(smallH)) { milestonesOpen = true }
+                // Challenges and achievements, one tile: acorns waiting are taken with a tap, otherwise it opens.
+                HubTile("challenges", tr("Goals", "Célok"), if (waiting > 0) tr("$waiting acorns waiting", "$waiting makk vár") else totals?.let { t -> tr("${app.tend.core.Milestone.reached(t).size} of ${app.tend.core.Milestone.entries.size} reached", "${app.tend.core.Milestone.reached(t).size} / ${app.tend.core.Milestone.entries.size} elérve") } ?: tr("Challenges, achievements", "Kihívások, eredmények"), waiting > 0, Modifier.weight(1f).height(smallH)) {
+                    val ready = app.tend.core.FirstSteps.current(steps).filter { it.claimable }
+                    if (ready.isEmpty()) milestonesOpen = true else { ready.forEach { onClaimStep(it.step) }; Sounds.acorns(context); claimed = waiting; claimKey++ }
+                }
             }
         }
         if (rest > 24.dp) {
@@ -841,20 +844,40 @@ fun ClearingScreen(
         Column(Modifier.sheetBody(0.62f)) {
             Inventory(avatar, placed, chest, onPutAway = { tick(); onPutAway(it) }, onSell = onSell, onTakeOut = { id ->
                 onTakeOut(id).also { ok -> if (ok) { tick(firm = true); chestOpen = false; scope.launch { scroll.animateScrollTo(0) } } }
-            }, onTraded = onFriendsChanged,
-                wardrobe = {
-                    Wardrobe(avatar, worn, chosen, owned, earned, plus, acorns, autoDress, { tick(); onAutoDress(it) },
-                        onToggle = { tick(); onToggleAccessory?.invoke(it) }, onTakeOff = { tick(); onTakeOff(it) },
-                        onBuy = { a -> onBuyOutfit(a).also { if (it) { tick(firm = true); Sounds.chime(context) } } }, onPlus = onPlus)
-                })
+            }, onTraded = onFriendsChanged)
+        }
+    }
+    // Bo's wardrobe: its own sheet, from its own tile.
+    if (wardrobeOpen) androidx.compose.material3.ModalBottomSheet(onDismissRequest = { wardrobeOpen = false }, containerColor = Brand.Sage,
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.sheetBody(0.62f), verticalArrangement = Arrangement.spacedBy(Space.s)) {
+            Text(tr("${avatar.displayName}'s wardrobe", "${avatar.displayName} szekrénye"), style = MaterialTheme.typography.headlineSmall)
+            Wardrobe(avatar, worn, chosen, owned, earned, plus, acorns, autoDress, { tick(); onAutoDress(it) },
+                onToggle = { tick(); onToggleAccessory?.invoke(it) }, onTakeOff = { tick(); onTakeOff(it) },
+                onBuy = { a -> onBuyOutfit(a).also { if (it) { tick(firm = true); Sounds.chime(context) } } }, onPlus = onPlus)
         }
     }
     // Achievements: the milestones, and what the companion earns by habits.
     if (milestonesOpen) androidx.compose.material3.ModalBottomSheet(onDismissRequest = { milestonesOpen = false }, containerColor = Brand.Sage, sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.sheetBody(0.62f), verticalArrangement = Arrangement.spacedBy(Space.m)) {
-            Text(tr("Achievements", "Eredmények"), style = MaterialTheme.typography.headlineSmall)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(tr("Challenges & achievements", "Kihívások és eredmények"), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+            }
+            // The quests and goals live on home: one tap there.
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Brand.Card).tappable { milestonesOpen = false; onOpenChallenges() }.padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TendIcons.Badge("star", 36.dp)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(tr("Challenges", "Kihívások"), style = MaterialTheme.typography.titleSmall)
+                    Text(tr("Today's quest, this week's goal, the level", "A mai küldetés, a heti cél, a szint"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+                }
+                androidx.compose.material3.Icon(TendIcons.vector("chevron"), null, tint = Brand.Muted, modifier = Modifier.size(20.dp))
+            }
             totals?.let { MilestonesCard(it) }
-            Things(avatar, worn, emptySet(), owned, onToggleAccessory)
+            HabitThings(avatar, owned, earned, habitProgress) { milestonesOpen = false; wardrobeOpen = true }
         }
     }
     if (bookOpen) androidx.compose.material3.ModalBottomSheet(onDismissRequest = { bookOpen = false }, containerColor = Brand.Sage, sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
@@ -1111,8 +1134,6 @@ private fun Shop(
 @Composable
 private fun Inventory(
     avatar: Avatar, placed: Map<Int, String>, chest: List<String>, onPutAway: (String) -> Unit, onSell: (String) -> Unit, onTakeOut: (String) -> Boolean, onTraded: () -> Unit,
-    /** The companion's tab: the wardrobe. */
-    wardrobe: @Composable () -> Unit = {},
 ) = Column(verticalArrangement = Arrangement.spacedBy(Space.s)) {
     var tab by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
     var open by remember { mutableStateOf<app.tend.core.Thing?>(null) }
@@ -1120,7 +1141,7 @@ private fun Inventory(
     val signedIn = app.tend.data.Account.user(androidx.compose.ui.platform.LocalContext.current) != null
     Text(tr("Things", "Holmik"), style = MaterialTheme.typography.headlineSmall)
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        listOf(tr("In camp", "Táborban"), tr("Chest (${chest.size})", "Láda (${chest.size})"), avatar.displayName).forEachIndexed { i, label ->
+        listOf(tr("In camp", "Táborban"), tr("Chest (${chest.size})", "Láda (${chest.size})")).forEachIndexed { i, label ->
             Text(
                 label, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), textAlign = TextAlign.Center, maxLines = 1,
                 color = if (tab == i) Color.White else Brand.Moss,
@@ -1139,7 +1160,6 @@ private fun Inventory(
         0 -> grid(placed.values.filterNot(app.tend.core.Home::isHome), false)
         1 -> if (chest.isEmpty()) Text(tr("Empty. Put things away here to make room in the camp; presents from friends come here once you open them by the fire.", "Üres. Ide teheted el, amit most nem szeretnél kint látni; a barátaid ajándékai is ide kerülnek, ha kibontod őket a tűz mellett."), style = MaterialTheme.typography.bodyMedium)
             else grid(chest, true)
-        else -> wardrobe()
     }
     open?.let { t ->
         val stored = t.id in chest
@@ -1355,6 +1375,15 @@ private fun HubIcon(kind: String, visitor: app.tend.core.Visitor?, modifier: Mod
                 drawRect(Color(0xFF8E6440), Offset(w * 0.16f, w * 0.48f), Size(w * 0.68f, w * 0.07f))
                 for (i in 0 until 4) drawRect(if (i % 2 == 0) Color(0xFFE07A5F) else Color.White, Offset(w * (0.14f + 0.18f * i) + sway, w * 0.22f), Size(w * 0.18f, w * 0.2f))
                 drawCircle(Color(0xFF9C6B3F), w * 0.07f, Offset(w * 0.5f, w * 0.4f - kotlin.math.abs(kotlin.math.sin(a * 2)) * w * 0.06f))
+            }
+            "wardrobe" -> {
+                // A straw hat on a hook, swinging a little.
+                drawLine(Color(0xFF6B4A33), Offset(w * 0.5f, w * 0.1f), Offset(w * 0.5f, w * 0.3f), strokeWidth = w * 0.05f, cap = StrokeCap.Round)
+                rotate(kotlin.math.sin(a) * 8f, Offset(w * 0.5f, w * 0.3f)) {
+                    drawRoundRect(Color(0xFFF2C94C), Offset(w * 0.32f, w * 0.34f), Size(w * 0.36f, w * 0.24f), CornerRadius(w * 0.1f))
+                    drawOval(Color(0xFFF2C94C), Offset(w * 0.12f, w * 0.52f), Size(w * 0.76f, w * 0.16f))
+                    drawRect(Color(0xFFE07A5F), Offset(w * 0.32f, w * 0.48f), Size(w * 0.36f, w * 0.06f))
+                }
             }
             "friends" -> {
                 // A small fire, flickering.
@@ -1638,3 +1667,44 @@ private fun WardrobeTile(a: Accessory?, picked: Boolean, mine: Boolean, shines: 
 
 /** Behind a thing's picture: light in both themes, so the ink-drawn glasses stay visible. */
 private val IconChip: Color @Composable get() = if (Brand.dark) Color(0xFFDCE2DD) else Color.Transparent
+
+/**
+ * What the companion earns by habits, as a list: each thing big, how to earn it, how far this week
+ * ("2 / 4 reading days"), and the ones already yours open the wardrobe.
+ */
+@Composable
+internal fun HabitThings(avatar: Avatar, owned: Set<Accessory>, active: Set<Accessory>, progress: Map<Accessory, Int>, onWardrobe: () -> Unit) = Card {
+    Text(tr("EARNED BY DOING", "TETTEKKEL SZEREZHETŐ"), style = MaterialTheme.typography.labelSmall)
+    Text(tr("Kept for good once earned; they shine while the habit holds.", "Ha egyszer megszerezte, örökre megmarad; amíg a szokás tart, ragyog."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+    Accessory.habits.forEach { a ->
+        val mine = a in owned
+        val done = (progress[a] ?: 0).coerceAtMost(a.days)
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).then(if (mine) Modifier.tappable(onClick = onWardrobe) else Modifier).padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier.size(52.dp).clip(CircleShape).background(if (Brand.dark) Color(0xFFDCE2DD) else Brand.Sage)
+                    .then(if (a in active) Modifier.border(2.dp, Brand.Sunny, CircleShape) else Modifier),
+                contentAlignment = Alignment.Center,
+            ) {
+                androidx.compose.foundation.Image(remember(a) { CharacterPainter.accessoryIcon(a, 120).asImageBitmap() }, a.title, Modifier.size(40.dp).graphicsLayer { alpha = if (mine) 1f else 0.4f })
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(a.title, style = MaterialTheme.typography.titleSmall)
+                Text(a.how, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+                // This week's days of it, against what it takes.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f).height(5.dp).clip(RoundedCornerShape(3.dp)).background(Brand.Mint.copy(alpha = 0.3f))) {
+                        Box(Modifier.fillMaxWidth(done / a.days.toFloat()).height(5.dp).clip(RoundedCornerShape(3.dp)).background(Brand.Moss))
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text("$done / ${a.days}", style = MaterialTheme.typography.labelSmall, color = Brand.Moss)
+                }
+            }
+            Spacer(Modifier.width(8.dp))
+            Text(if (mine) tr("Yours ›", "Megvan ›") else "", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+        }
+    }
+}

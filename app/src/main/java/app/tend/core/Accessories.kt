@@ -89,6 +89,12 @@ object Accessories {
         return Accessory.habits.filter { a -> week.count { day -> day.any { a.tasks.isEmpty() || it in a.tasks } } >= a.days }.toSet()
     }
 
+    /** For each habit's thing: on how many of the last 7 days (today included) its habit was done. */
+    fun progress(lastDays: List<Set<String>>): Map<Accessory, Int> {
+        val week = lastDays.takeLast(7)
+        return Accessory.habits.associateWith { a -> week.count { day -> day.any { a.tasks.isEmpty() || it in a.tasks } } }
+    }
+
     /** What actually shows of [all]: one thing per place, a bought one before an earned one (for older or friends' sets). */
     fun shown(all: Set<Accessory>): Set<Accessory> =
         all.groupBy { it.slot }.values.map { same -> same.firstOrNull { it.isOutfit } ?: same.first() }.toSet()

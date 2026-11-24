@@ -804,6 +804,7 @@ class MainActivity : ComponentActivity() {
                 onToggleAccessory = { a -> store.toggleWear(a); shelf = store.accessories(); refresh++ },
                 onTakeOff = { slot -> store.takeOff(slot); shelf = store.accessories(); refresh++ },
                 autoDress = remember(refresh) { store.autoDress },
+                habitProgress = remember(refresh) { store.habitProgress() },
                 onAutoDress = { store.autoDress = it; shelf = store.accessories(); refresh++ },
                 onOpenSettings = { screen = Screen.SETTINGS },
                 onOpenRiver = { id -> riverFocus = id; screen = Screen.RIVER },
