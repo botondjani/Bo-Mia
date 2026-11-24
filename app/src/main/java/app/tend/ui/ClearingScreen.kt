@@ -1554,24 +1554,6 @@ internal fun Wardrobe(
     }
     val season = app.tend.core.Season.of(java.time.LocalDate.now())
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { TryOn(avatar, worn, trying, 132.dp) }
-    trying?.let { a ->
-        // Tried on: how to get it, and the button when it's for sale now.
-        val forSale = a.isOutfit && a.forSale(java.time.LocalDate.now())
-        val price = Accessory.OUTFIT_PRICE
-        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Brand.Card).padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(a.title, style = MaterialTheme.typography.labelLarge)
-                Text(if (forSale) tr("In the shop, $price acorns", "A boltban, $price makk") else a.how, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp))
-            }
-            if (forSale) Text(
-                when { !plus -> tr("With Plus", "Plusszal"); acorns >= price -> tr("Get it", "Megveszem"); else -> tr("${price - acorns} to go", "még ${price - acorns}") },
-                style = MaterialTheme.typography.labelLarge, color = if (!plus || acorns >= price) Brand.Moss else Brand.Muted,
-                modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable {
-                    when { !plus -> onPlus(); acorns >= price -> if (onBuy(a)) trying = null }
-                }.padding(horizontal = 8.dp, vertical = 6.dp),
-            )
-        }
-    }
     app.tend.core.Slot.entries.forEach { slot ->
         val on = chosen[slot]
         val open = place == slot
@@ -1601,6 +1583,27 @@ internal fun Wardrobe(
                 }
                 repeat((4 - (all.size + 1) % 4) % 4) { Spacer(Modifier.weight(1f)) }
             }
+            trying?.takeIf { it.slot == slot }?.let { a ->
+                // Tried on: how to get it, and the button when it's for sale now.
+                val forSale = a.isOutfit && a.forSale(java.time.LocalDate.now())
+                val price = Accessory.OUTFIT_PRICE
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Brand.Card).padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    // Right here, where it was tapped: Bo trying it on, small.
+                    TryOn(avatar, worn, a, 64.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(a.title, style = MaterialTheme.typography.labelLarge)
+                        Text(if (forSale) tr("In the shop, $price acorns", "A boltban, $price makk") else a.how, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp))
+                    }
+                    if (forSale) Text(
+                        when { !plus -> tr("With Plus", "Plusszal"); acorns >= price -> tr("Get it", "Megveszem"); else -> tr("${price - acorns} to go", "még ${price - acorns}") },
+                        style = MaterialTheme.typography.labelLarge, color = if (!plus || acorns >= price) Brand.Moss else Brand.Muted,
+                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable {
+                            when { !plus -> onPlus(); acorns >= price -> if (onBuy(a)) trying = null }
+                        }.padding(horizontal = 8.dp, vertical = 6.dp),
+                    )
+                }
+    }
         }
     }
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Brand.Card).padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {

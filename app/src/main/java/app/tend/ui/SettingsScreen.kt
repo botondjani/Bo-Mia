@@ -685,7 +685,10 @@ private fun NotesCard(
     var level by remember { androidx.compose.runtime.mutableStateOf(store.notesLevel) }
     val levels = app.tend.core.NotesLevel.entries
     Choice(listOf(tr("Quiet", "Csendes"), tr("Normal", "Normál"), tr("Chatty", "Beszédes")), levels.indexOf(level)) {
-        store.applyNotesLevel(levels[it]); level = levels[it]; onChanged()
+        store.applyNotesLevel(levels[it]); level = levels[it]
+        // The evening recap and the Sunday letter are alarms: set again (or cancelled) for the new level.
+        app.tend.reminder.RecapReminder.schedule(ctx); app.tend.reminder.WeeklyLetter.schedule(ctx)
+        onChanged()
     }
     Text(
         when (level) {

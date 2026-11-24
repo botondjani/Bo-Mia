@@ -379,6 +379,13 @@ class MainActivity : ComponentActivity() {
             enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
         }
         var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
+        // Settings go back where they were opened from (home, the camp, the river…).
+        var settingsBack by rememberSaveable { mutableStateOf(Screen.HOME) }
+        var lastScreen by rememberSaveable { mutableStateOf(Screen.HOME) }
+        LaunchedEffect(screen) {
+            if (screen == Screen.SETTINGS && lastScreen != Screen.SETTINGS && lastScreen != Screen.PLUS) settingsBack = lastScreen
+            lastScreen = screen
+        }
         // tend Plus: where it was opened from (for the counts), and where to go back to.
         var plusFrom by rememberSaveable { mutableStateOf(app.tend.ui.PlusFrom.SETTINGS) }
         var plusBack by rememberSaveable { mutableStateOf(Screen.HOME) }
@@ -469,7 +476,7 @@ class MainActivity : ComponentActivity() {
         // System back always leads home from inner pages.
         androidx.activity.compose.BackHandler(enabled = store.onboarded && screen != Screen.HOME) {
             if (screen == Screen.CLEARING) campInvite = false
-            screen = when (screen) { Screen.RIVER -> Screen.CLEARING; Screen.PLUS -> plusBack; else -> Screen.HOME }
+            screen = when (screen) { Screen.RIVER -> Screen.CLEARING; Screen.PLUS -> plusBack; Screen.SETTINGS -> { settingsSection = null; settingsBack }; else -> Screen.HOME }
         }
         LaunchedEffect(openRecap) { if (openRecap) { screen = Screen.RECAP; openRecap = false } }
         LaunchedEffect(openClearing) { if (openClearing) { screen = Screen.CLEARING; openClearing = false } }
@@ -497,6 +504,7 @@ class MainActivity : ComponentActivity() {
         val onTown: (app.tend.data.WeatherService.Place?) -> Unit = { p ->
             store.setWeatherPlace(p); refresh++
             // The weather of the new town, at once: asked up to three times (a slow connection is common), then the camp changes and says so.
+            if (p != null) Toast.makeText(this, tr("Getting ${p.name}'s weather…", "Lekérem ${p.name} időjárását…"), Toast.LENGTH_SHORT).show()
             if (p != null) lifecycleScope.launch {
                 var got = false
                 for (attempt in 0 until 3) {
@@ -710,7 +718,7 @@ class MainActivity : ComponentActivity() {
                 aboutYou = aboutYou,
                 townName = store.weatherPlace?.name,
                 onPeek = { store.peekOn = it; refresh++ },
-                onDone = { settingsSection = null; screen = Screen.HOME },
+                onDone = { settingsSection = null; screen = settingsBack },
                 openSection = settingsSection,
             )
 
@@ -1116,7 +1124,8 @@ class MainActivity : ComponentActivity() {
                 friendsToday = friendsToday,
                 together = together,
                 saving = remember(refresh) { store.savingFor?.let(app.tend.core.Things::byId)?.let { it.name to it.price } },
-                gentleDaysLeft = store.dayOfUse.takeIf { store.gentleDays }?.let { TendStore.GENTLE_DAYS + 1 - it },
+                gentleDaysLeft = store.dayOfUse.takeIf { store.gentleDays && !store.gentleSeen }?.let { TendStore.GENTLE_DAYS + 1 - it },
+                onGentleSeen = { store.gentleSeen = true; refresh++ },
                 ask = remember(refresh, done) { firstWeekAsk() },
                 onAnswer = { a, answer ->
                     when (a) {

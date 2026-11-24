@@ -120,6 +120,9 @@ class TendStore(private val context: Context) {
     val gentleDays: Boolean get() = dayOfUse in 1..GENTLE_DAYS
 
     /** Bo's questions in the first week, each asked once: the evening, a friend, a stricter level. */
+    var gentleSeen: Boolean
+        get() = prefs.getBoolean("gentle_seen", false)
+        set(v) = edit { putBoolean("gentle_seen", v) }
     var eveningAsked: Boolean
         get() = prefs.getBoolean("asked_evening", false)
         set(v) = edit { putBoolean("asked_evening", v) }

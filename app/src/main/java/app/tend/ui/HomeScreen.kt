@@ -143,6 +143,7 @@ fun HomeScreen(
     saving: Pair<String, Int>? = null,
     /** The first week: days left of the gentle start (null after), and Bo's questions, each asked once. */
     gentleDaysLeft: Int? = null,
+    onGentleSeen: () -> Unit = {},
     ask: Ask? = null,
     onAnswer: (Ask, Int) -> Unit = { _, _ -> },
     /** The together week with friends (null with none), and how many sit at a fire anywhere (null: not said). */
@@ -467,65 +468,27 @@ fun HomeScreen(
 
         // What needs a look (a permission, a crash, the trial's end…): one directly, more under "To do (n)".
         val todo = mutableListOf<@Composable () -> Unit>()
-        gentleDaysLeft?.let { left ->
-            todo += {
-                Notice("sparkle", tr("Easy does it: the first days", "Lassan a testtel: az első napok"),
-                    if (left <= 1) tr("Today still the shortest Megállító; from tomorrow your evening and work locks start.", "Ma még a legrövidebb a Megállító; holnaptól élnek az esti és a munkaidős zárak.")
-                    else tr("The shortest Megállító for now, and the evening and work locks start on day 3.", "Egyelőre a legrövidebb a Megállító, az esti és a munkaidős zárak pedig a 3. naptól élnek."), {})
-            }
-        }
-        if (settingsMoved) todo += { Notice("sparkle", tr("Settings, rearranged", "Átrendeztük a beállításokat"), tr("Everything's still there, in a clearer place. Tap to have a look.", "Minden megvan, csak logikusabb helyen. Koppints, és megnézheted."), onSettingsMoved) }
-        todo += {
-            if (onShareCrash != null) Notice("alert", tr("tend crashed last time", "A tend legutóbb összeomlott"), tr("Sorry! Tap to share the crash report.", "Bocsánat! Koppints, és megoszthatod a hibajelentést."), onShareCrash)
-        }
-        todo += {
-            if (brokenTimer != null) Notice(
-                brokenTimer.icon, tr("The phone came back a little early", "A telefon kicsit korán került elő"),
-                tr("${brokenTimer.title} needs ${brokenTimer.target} phone-free minutes. Tap to try again later.", "Ehhez ${brokenTimer.target} telefonmentes perc kell: ${brokenTimer.title.lowercase()}. Koppints, és később újra megpróbálhatod."), onDismissBroken,
-            )
-        }
-        todo += {
-            // The trial's last days: said once a day on home, never in the way.
-            if (plusDaysLeft != null && plusDaysLeft <= 3) Notice(
-                "sparkle", if (plusDaysLeft <= 1) tr("Last day of tend Plus", "A tend Plus utolsó napja") else tr("$plusDaysLeft more day${if (plusDaysLeft == 1) "" else "s"} of tend Plus", "Még $plusDaysLeft nap tend Plus"),
-                tr("See what stays free and what Plus keeps", "Nézd meg, mi marad ingyen, és mit tart meg a Plus"), onPlus,
-            )
-        }
-        todo += {
-            when {
-                !permissions.usageAccess -> Notice("alert", tr("Limited mode", "Korlátozott mód"), tr("${avatar.displayName} can't see screen time. Tap to turn it on.", "${avatar.displayName} nem látja a képernyőidőt. Koppints, és bekapcsolhatod."), onFixPermissions)
-                !permissions.overlay -> Notice(
-                    "alert", if (remaining <= 0) tr("Out of minutes, but your apps are open", "Elfogytak a percek, de az appjaid nyitva vannak") else tr("No pause before scrolling", "Nincs Megállító görgetés előtt"),
+        // Only what's true right now goes in (the count is what's there); the dialogs they open live outside the list.
+        var overlayHelp by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+        var weekendAsk by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+        if (onShareCrash != null) todo += { Notice("alert", tr("tend crashed last time", "A tend legutóbb összeomlott"), tr("Sorry! Tap to share the crash report.", "Bocsánat! Koppints, és megoszthatod a hibajelentést."), onShareCrash) }
+        when {
+            !permissions.usageAccess -> todo += { Notice("alert", tr("Limited mode", "Korlátozott mód"), tr("${avatar.displayName} can't see screen time. Tap to turn it on.", "${avatar.displayName} nem látja a képernyőidőt. Koppints, és bekapcsolhatod."), onFixPermissions) }
+            !permissions.overlay -> todo += {
+                Notice(
+                    "alert", if (remaining <= 0) tr("Out of minutes, but your apps are open", "Elfogytak a percek, de az appjaid nyitva vannak") else tr("No Megállító before scrolling", "Nincs Megállító görgetés előtt"),
                     if (remaining <= 0) tr("tend can only notify you, not close them. Tap to fix.", "A tend csak értesíteni tud, bezárni nem. Koppints, és megjavítjuk.") else tr("Only a notification for now. Tap to fix.", "Egyelőre csak értesítés jön. Koppints, és megjavítjuk."), onFixPermissions,
                 )
             }
         }
-        todo += {
-            // Android 15 and later: once, how to quiet Android's own "displaying over other apps" note.
-            var overlayHelp by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
-            if (overlayNoteTip) Notice("sparkle", tr("Android's \"over other apps\" note bothers you?", "Zavar az Android „other apps” értesítése?"), tr("Tap to see how to hide it.", "Koppints, és megmutatjuk, hogyan rejtheted el."), { overlayHelp = true })
-            if (overlayHelp) androidx.compose.material3.AlertDialog(
-                onDismissRequest = { overlayHelp = false; onOverlayNoteTip() },
-                title = { Text(tr("Hide Android's note", "Az Android értesítésének elrejtése")) },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(tr("Android shows it while tend can bring the Megállító up over other apps. tend works the same without it.", "Az Android akkor mutatja, amikor a tend más appok fölé tudja hozni a Megállítót. A tend nélküle is ugyanúgy működik."))
-                        Text(tr("1. Pull down the notifications.\n2. Hold \"tend is displaying over other apps\".\n3. Turn it off.", "1. Húzd le az értesítéseket.\n2. Tartsd nyomva: „tend is displaying over other apps”.\n3. Kapcsold ki."))
-                        if (app.tend.BuildConfig.PLAY) Text(tr("Or turn on \"Close only Reels & Shorts\" in Settings → Picked apps: with it, the note doesn't come at all.", "Vagy kapcsold be a Beállítások → Kiválasztott appok alatt a „Csak a Reels és a Shorts zárása” lehetőséget: ezzel az értesítés meg sem jelenik."), color = Brand.Muted)
-                    }
-                },
-                confirmButton = { androidx.compose.material3.TextButton(onClick = { overlayHelp = false; onOverlayNoteTip() }) { Text(tr("Got it", "Értem"), color = Brand.Moss) } },
-                containerColor = Brand.Card,
+        if (brokenTimer != null) todo += {
+            Notice(
+                brokenTimer.icon, tr("The phone came back a little early", "A telefon kicsit korán került elő"),
+                tr("${brokenTimer.title} needs ${brokenTimer.target} phone-free minutes. Tap to try again later.", "Ehhez ${brokenTimer.target} telefonmentes perc kell: ${brokenTimer.title.lowercase()}. Koppints, és később újra megpróbálhatod."), onDismissBroken,
             )
         }
-        todo += {
-            var weekendAsk by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
-            if (weekendExtra) Notice("sun", tr("It's the weekend: one more hour?", "Hétvége van: kérsz még egy órát?"), tr("Today's minutes are gone. Tap to see how it works.", "A mai keret elfogyott. Koppints, és megnézheted, hogy működik."), { weekendAsk = true })
-            if (weekendAsk) WeekendExtraDialog(onTake = { weekendAsk = false; onWeekendExtra() }, onDismiss = { weekendAsk = false })
-        }
-        if (main != "fire" && focusSecondsLeft == null && atFire.isNotEmpty()) todo += {
-        // A friend at the fire: join them (unless a timer of your own is already going).
-                atFire.firstOrNull()?.let { f ->
+        if (main != "fire" && focusSecondsLeft == null) atFire.firstOrNull()?.let { f ->
+            todo += {
                 val until = java.time.Instant.ofEpochMilli(f.until).atZone(java.time.ZoneId.systemDefault()).toLocalTime()
                 Notice(
                     "friends", tr("${f.name}${if (atFire.size > 1) " and ${atFire.size - 1} more" else ""} at your campfire", "${f.name}${if (atFire.size > 1) " és még ${atFire.size - 1} barátod" else ""} a tábortüzednél ül"),
@@ -533,6 +496,39 @@ fun HomeScreen(
                 )
             }
         }
+        if (weekendExtra) todo += { Notice("sun", tr("It's the weekend: one more hour?", "Hétvége van: kérsz még egy órát?"), tr("Today's minutes are gone. Tap to see how it works.", "A mai keret elfogyott. Koppints, és megnézheted, hogy működik."), { weekendAsk = true }) }
+        // The trial's last days: said once a day on home, never in the way.
+        if (plusDaysLeft != null && plusDaysLeft <= 3) todo += {
+            Notice(
+                "sparkle", if (plusDaysLeft <= 1) tr("Last day of tend Plus", "A tend Plus utolsó napja") else tr("$plusDaysLeft more day${if (plusDaysLeft == 1) "" else "s"} of tend Plus", "Még $plusDaysLeft nap tend Plus"),
+                tr("See what stays free and what Plus keeps", "Nézd meg, mi marad ingyen, és mit tart meg a Plus"), onPlus,
+            )
+        }
+        if (settingsMoved) todo += { Notice("sparkle", tr("Settings, rearranged", "Átrendeztük a beállításokat"), tr("Everything's still there, in a clearer place. Tap to have a look.", "Minden megvan, csak logikusabb helyen. Koppints, és megnézheted."), onSettingsMoved) }
+        // Android 15 and later: once, how to quiet Android's own "displaying over other apps" note.
+        if (overlayNoteTip) todo += { Notice("sparkle", tr("Android's \"over other apps\" note bothers you?", "Zavar az Android „other apps” értesítése?"), tr("Tap to see how to hide it.", "Koppints, és megmutatjuk, hogyan rejtheted el."), { overlayHelp = true }) }
+        // The first days, said once: a tap and it's put away.
+        gentleDaysLeft?.let { left ->
+            todo += {
+                Notice("sparkle", tr("Easy does it: the first days", "Lassan a testtel: az első napok"),
+                    (if (left <= 1) tr("Today still the shortest Megállító; from tomorrow your evening and work locks start.", "Ma még a legrövidebb a Megállító; holnaptól élnek az esti és a munkaidős zárak.")
+                    else tr("The shortest Megállító for now; the evening and work locks start on day 3.", "Egyelőre a legrövidebb a Megállító; az esti és a munkaidős zárak a 3. naptól élnek.")) + tr(" Tap to put this away.", " Koppints, és eltűnik."), onGentleSeen)
+            }
+        }
+        if (overlayHelp) androidx.compose.material3.AlertDialog(
+            onDismissRequest = { overlayHelp = false; onOverlayNoteTip() },
+            title = { Text(tr("Hide Android's note", "Az Android értesítésének elrejtése")) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(tr("Android shows it while tend can bring the Megállító up over other apps. tend works the same without it.", "Az Android akkor mutatja, amikor a tend más appok fölé tudja hozni a Megállítót. A tend nélküle is ugyanúgy működik."))
+                    Text(tr("1. Pull down the notifications.\n2. Hold \"tend is displaying over other apps\".\n3. Turn it off.", "1. Húzd le az értesítéseket.\n2. Tartsd nyomva: „tend is displaying over other apps”.\n3. Kapcsold ki."))
+                    if (app.tend.BuildConfig.PLAY) Text(tr("Or turn on Precise mode (Settings → Picked apps, \"Reels & Shorts only\"): with it, the note doesn't come at all.", "Vagy kapcsold be a Pontos módot (Beállítások → Kiválasztott appok, „Csak Reels és Shorts”): azzal az értesítés meg sem jelenik."), color = Brand.Muted)
+                }
+            },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { overlayHelp = false; onOverlayNoteTip() }) { Text(tr("Got it", "Értem"), color = Brand.Moss) } },
+            containerColor = Brand.Card,
+        )
+        if (weekendAsk) WeekendExtraDialog(onTake = { weekendAsk = false; onWeekendExtra() }, onDismiss = { weekendAsk = false })
         TodoList(todo)
         // Saving up for something: how far, in a thin bar.
         saving?.let { (thing, price) ->
