@@ -29,6 +29,10 @@ jobs:
           echo "${{ secrets.TEND_UPLOAD_KEYSTORE_B64 }}" | base64 -d > "$RUNNER_TEMP/tend-upload.jks"
           printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=tend-upload\nkeyPassword=%s\n' \
             "$RUNNER_TEMP/tend-upload.jks" "${{ secrets.TEND_KEYSTORE_PASSWORD }}" "${{ secrets.TEND_KEY_PASSWORD }}" > keystore.properties
+      # The unit tests and the flows (settings, the first days, the To-do list, the wardrobe, setup) first:
+      # nothing goes out if one fails.
+      - name: Tests
+        run: ./gradlew --no-daemon testPlayDebugUnitTest
       - name: Build
         run: ./gradlew --no-daemon bundlePlayRelease -PversionCode=$((100 + ${{ github.run_number }}))
       - name: Release notes

@@ -59,6 +59,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     buildFeatures { compose = true; buildConfig = true }
+    testOptions { unitTests.isIncludeAndroidResources = true }
     // Lint misreads the merged manifest once a flavor manifest has an <application> element (the side-load
     // one drops the accessibility service): it says MonitorService has no foregroundServiceType, but the
     // merged manifests of both flavors do (specialUse), checked in the build outputs.
@@ -90,4 +91,9 @@ dependencies {
     "playImplementation"("androidx.fragment:fragment:1.8.5")
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.junit)
+    // Flows run on the JVM (Robolectric): settings, the first days, the To-do list, the wardrobe, setup.
+    testImplementation("org.robolectric:robolectric:4.16")
+    testImplementation(platform(libs.compose.bom))
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

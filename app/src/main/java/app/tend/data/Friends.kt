@@ -57,7 +57,10 @@ object Friends {
     /** Adds the code's owner as a friend; true when you're friends now. */
     suspend fun accept(c: Context, code: String): Boolean {
         val reply = Account.rpc(c, "tend_accept_invite", JSONObject().put("p_code", code)) ?: return false
-        return reply.ok && reply.body.trim() != "null"
+        val ok = reply.ok && reply.body.trim() != "null"
+        // A new invite accepted: its reward is asked for again (after an activity, checked by the server).
+        if (ok) TendStore(c).inviteClaimed = false
+        return ok
     }
 
     /** Your friends, oldest friendship first; null when the server can't be reached. Who's at the fire is kept too. */
@@ -136,10 +139,10 @@ object Friends {
         if (now - lastInviteAsk < 3_600_000L) return 0
         lastInviteAsk = now
         val n = Account.rpc(c, "tend_invite_reward")?.takeIf { it.ok }?.body?.trim()?.toIntOrNull() ?: return 0
-        // Asked once there are friends and an activity: whatever it says, it's settled (later friends invited you after this).
-        if (last.isNotEmpty()) store.inviteClaimed = true
+        // The server checks the activity: -1 nothing to reward (settled), 0 not yet (asked again later), n rewarded.
+        if (n != 0) store.inviteClaimed = true
         if (n > 0) store.addAcorns(n * INVITE_ACORNS, "invite")
-        return n
+        return n.coerceAtLeast(0)
     }
 
     /** New friends since last heard: acorns for each (both sides get theirs), and said once ([takeNewFriends]). */

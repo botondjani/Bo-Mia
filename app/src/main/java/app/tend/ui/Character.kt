@@ -82,6 +82,8 @@ object RiveRig {
     @android.annotation.SuppressLint("ApplySharedPref")
     @Synchronized
     fun bytes(context: Context): ByteArray? {
+        // Tests on the JVM (Robolectric) have no native Rive: the drawn character.
+        if (android.os.Build.FINGERPRINT == "robolectric") return null
         if (!loaded) {
             loaded = true
             val prefs = context.getSharedPreferences("tend_rive", Context.MODE_PRIVATE)
