@@ -60,6 +60,8 @@ fun SettingsScreen(
     onToggleApp: (String) -> Unit,
     tasks: List<TaskDef>,
     onToggleTask: (TaskDef) -> Unit,
+    /** An activity's goal set (steps, or minutes). */
+    onTaskTarget: (TaskDef, Int) -> Unit = { _, _ -> },
     missCount: Int,
     reminderEnabled: Boolean,
     onReminder: (enabled: Boolean) -> Unit,
@@ -152,7 +154,7 @@ fun SettingsScreen(
         }
         "periods" -> PeriodsCard(catalog, blocked, plus, { onPlus(PlusFrom.SETTINGS) }, strict, eveningFrom, onEvening, lockSchedules, onLockSchedule, onAccountChanged)
         "notes" -> NotesCard(avatar.displayName, reminderEnabled, onReminder, notesMorning, notesNudges, onNotes, weeklyLetter, onWeeklyLetter, onAccountChanged)
-        "activities" -> ActivitySummary(tasks, onToggleTask)
+        "activities" -> ActivitySummary(tasks, onToggleTask, onTaskTarget)
         // The account, your town and you, and the rest: one part.
         else -> {
             var confirmReset by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }

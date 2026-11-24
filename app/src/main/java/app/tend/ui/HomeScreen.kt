@@ -997,7 +997,7 @@ internal fun TaskRow(
                     measured && progress != null -> progressLabel(task, progress)
                     workoutTimer || task.verification.timed -> tr("${task.target} min, phone down", "${task.target} perc, telefon nélkül")
                     task.manual -> tr("Tick it off when done", "Pipáld ki, ha megvan")
-                    task.id == Tasks.SLEEP.id -> tr("${task.target / 60} h of sleep", "${task.target / 60} óra alvás")
+                    task.id == Tasks.SLEEP.id -> Tasks.targetText(task, task.target) + tr(" of sleep", " alvás")
                     health == HealthConnect.Status.UNSUPPORTED -> tr("Not available on this phone", "Ezen a telefonon nem elérhető")
                     needsHealth -> tr("Needs Health Connect", "Health Connect kell hozzá")
                     else -> task.subtitle.substringAfter("· ")
@@ -1059,7 +1059,7 @@ private fun FloatingIcons(icon: String) {
 
 private fun progressLabel(task: TaskDef, progress: Long): String = when (task.id) {
     Tasks.OUTSIDE.id -> tr("%,d of %,d steps", "%,d / %,d lépés").format(app.tend.core.Lang.locale, progress, task.target)
-    Tasks.SLEEP.id -> tr("%d h %02d of %d h sleep last night", "%d ó %02d p alvás a %d órából tegnap éjjel").format(app.tend.core.Lang.locale, progress / 60, progress % 60, task.target / 60)
+    Tasks.SLEEP.id -> tr("%d h %02d of %s sleep last night", "%d ó %02d p alvás (cél: %s) tegnap éjjel").format(app.tend.core.Lang.locale, progress / 60, progress % 60, Tasks.targetText(task, task.target))
     else -> tr("$progress of ${task.target} min of exercise", "$progress / ${task.target} perc mozgás")
 }
 

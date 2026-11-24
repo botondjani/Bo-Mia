@@ -53,8 +53,17 @@ class TendStore(private val context: Context) {
             val ids = prefs.getString("tasks", null)
                 ?: return if (onboarded) Tasks.legacyDefault else emptyList() // onboarded before picking existed
             val known = (Tasks.presets + customTasks).associateBy { it.id }
-            return Tasks.withRewards(config, ids.split(',').mapNotNull { known[it] })
+            val goals = taskTargets
+            return Tasks.withRewards(config, ids.split(',').mapNotNull { known[it] }.map { t -> goals[t.id]?.let { Tasks.withTarget(t, it) } ?: t })
         }
+
+    /** Goals set for built-in activities (steps, or minutes), by id. */
+    val taskTargets: Map<String, Int>
+        get() = prefs.getString("task_targets", "")!!.split(';').mapNotNull { e ->
+            e.split('=').takeIf { it.size == 2 }?.let { (k, v) -> v.toIntOrNull()?.let { k to it } }
+        }.toMap()
+
+    fun setTaskTarget(id: String, value: Int) = edit { putString("task_targets", (taskTargets + (id to value)).entries.joinToString(";") { "${it.key}=${it.value}" }) }
 
     /** User-made activities, stored as "id|icon|title|minutes" lines (minutes 0 or missing: tick off). */
     private val customTasks: List<TaskDef>

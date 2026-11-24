@@ -152,7 +152,7 @@ private fun IdeaChip(label: String, icon: String, enabled: Boolean, filled: Bool
  * Settings view: the picked activities as one compact card; "Change" opens the full picker in place.
  */
 @Composable
-fun ActivitySummary(selected: List<TaskDef>, onToggle: (TaskDef) -> Unit) {
+fun ActivitySummary(selected: List<TaskDef>, onToggle: (TaskDef) -> Unit, onTarget: (TaskDef, Int) -> Unit = { _, _ -> }) {
     var editing by rememberSaveable { mutableStateOf(false) }
     if (editing) {
         ActivityPicker(selected, onToggle)
@@ -162,13 +162,26 @@ fun ActivitySummary(selected: List<TaskDef>, onToggle: (TaskDef) -> Unit) {
     Card {
         if (selected.isEmpty()) Text(tr("Nothing picked yet.", "Még nincs kiválasztva semmi."), style = MaterialTheme.typography.bodyLarge)
         selected.forEach { task ->
+            val range = Tasks.targetRange(task)
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
                 TendIcons.Badge(task.icon, 32.dp)
                 Spacer(Modifier.width(10.dp))
-                Text(task.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                Text("+${task.rewardMinutes}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
+                Column(Modifier.weight(1f)) {
+                    Text(task.title, style = MaterialTheme.typography.bodyLarge)
+                    Text("+${task.rewardMinutes} " + tr("min", "perc"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Moss)
+                }
+                // The goal, a step down or up at a time (steps, minutes, hours of sleep).
+                if (range != null) {
+                    Stepper(enabled = task.target > range.first) { onTarget(task, task.target - range.step) }
+                    Text(Tasks.targetText(task, task.target), style = MaterialTheme.typography.labelLarge, color = Brand.Ink, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 1, modifier = Modifier.width(92.dp))
+                    Stepper(plus = true, enabled = task.target < range.last) { onTarget(task, task.target + range.step) }
+                }
             }
         }
+        if (selected.any { Tasks.targetRange(it) != null }) Text(
+            tr("Set each goal to what's a good day for you. The minutes they give stay the same.", "Állítsd be a célokat arra, ami neked egy jó nap. Az értük járó percek nem változnak."),
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted,
+        )
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
             Text(tr("${selected.size} of ${Tasks.MAX_SELECTED} picked", "${selected.size} / ${Tasks.MAX_SELECTED} kiválasztva"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
             ChipButton(tr("Change", "Módosítás"), { editing = true })
@@ -249,5 +262,19 @@ internal fun OwnActivityDialog(onDismiss: () -> Unit, onAdd: (TaskDef) -> Unit) 
             PrimaryButton(tr("Add", "Hozzáadás"), { onAdd(Tasks.custom(name, icon, minutes)) }, enabled = name.isNotBlank())
             TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text(tr("Cancel", "Mégse")) }
         }
+    }
+}
+
+/** A small round − or + for a goal. */
+@Composable
+private fun Stepper(plus: Boolean = false, enabled: Boolean, onClick: () -> Unit) = Box(
+    Modifier.size(32.dp).clip(CircleShape).background(Brand.Mint.copy(alpha = if (enabled) 0.25f else 0.1f)).then(if (enabled) Modifier.tappable { onClick() } else Modifier),
+    contentAlignment = Alignment.Center,
+) {
+    androidx.compose.foundation.Canvas(Modifier.size(11.dp)) {
+        val col = if (enabled) Brand.Moss else Brand.Muted.copy(alpha = 0.4f)
+        val w = 2.dp.toPx()
+        drawLine(col, androidx.compose.ui.geometry.Offset(0f, size.height / 2), androidx.compose.ui.geometry.Offset(size.width, size.height / 2), w, androidx.compose.ui.graphics.StrokeCap.Round)
+        if (plus) drawLine(col, androidx.compose.ui.geometry.Offset(size.width / 2, 0f), androidx.compose.ui.geometry.Offset(size.width / 2, size.height), w, androidx.compose.ui.graphics.StrokeCap.Round)
     }
 }

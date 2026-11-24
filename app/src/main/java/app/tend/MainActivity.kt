@@ -664,6 +664,7 @@ class MainActivity : ComponentActivity() {
                 onToggleApp = toggleApp,
                 tasks = store.selectedTasks,
                 onToggleTask = toggleTask,
+                onTaskTarget = { t, v -> store.setTaskTarget(t.id, v); refresh++ },
                 missCount = store.missCount(),
                 reminderEnabled = store.reminderEnabled,
                 onReminder = ::setReminder,

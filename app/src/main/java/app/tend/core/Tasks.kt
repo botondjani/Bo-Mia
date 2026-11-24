@@ -95,6 +95,39 @@ object Tasks {
 
     fun isCustom(task: TaskDef) = task.id.startsWith(CUSTOM_PREFIX)
 
+    /** What a built-in activity's goal can be set to (steps, or minutes; sleep in minutes by half hours); null: not adjustable. */
+    fun targetRange(task: TaskDef): IntProgression? = when {
+        isCustom(task) -> null
+        task.id == OUTSIDE.id -> 2000..15000 step 500
+        task.id == MOVE.id -> 10..90 step 5
+        task.id == SLEEP.id -> 360..540 step 30
+        task.verification.timed -> 10..120 step 5
+        else -> null
+    }
+
+    /** [n] as the goal reads: "6,000 steps", "45 min", "7.5 h". */
+    fun targetText(task: TaskDef, n: Int): String = when (task.id) {
+        OUTSIDE.id -> tr("%,d steps".format(java.util.Locale.US, n), "%d lépés".format(n))
+        SLEEP.id -> (n / 60f).let { h -> val s = if (n % 60 == 0) "${n / 60}" else "%.1f".format(java.util.Locale.US, h); tr("$s h", "${s.replace('.', ',')} óra") }
+        else -> tr("$n min", "$n perc")
+    }
+
+    /** The activity with its goal set to [n] (kept in range), its subtitle saying so. */
+    fun withTarget(task: TaskDef, n: Int): TaskDef {
+        val range = targetRange(task) ?: return task
+        val v = n.coerceIn(range.first, range.last)
+        val goal = targetText(task, v)
+        val subtitle = when {
+            task.id == MOVE.id -> tr("Automatic · $goal of exercise", "Automatikus · $goal mozgás")
+            task.id == SLEEP.id -> tr("Automatic · $goal of sleep", "Automatikus · $goal alvás")
+            task.verification == Verification.AUTOMATIC -> tr("Automatic · $goal", "Automatikus · $goal")
+            task.verification == Verification.FOCUS_TIMER -> tr("Focus timer · $goal", "Fókuszidőzítő · $goal")
+            task.id == FRIENDS.id -> tr("Phone-free · $goal together", "Telefonmentes · $goal együtt")
+            else -> tr("Phone-free · $goal", "Telefonmentes · $goal")
+        }
+        return task.copy(target = v, subtitle = subtitle)
+    }
+
     fun next(day: DayState, selected: List<TaskDef>): TaskDef? = selected.firstOrNull { it.id !in day.completedTasks }
 
     /** Today's list: still-to-do first, finished ones sink to the bottom (order kept within each group). */
@@ -169,7 +202,8 @@ interface ActivitySource {
 fun completedAutomaticTasks(steps: Long?, exerciseMinutes: Int?, selected: List<TaskDef>, sleepMinutes: Int? = null): List<TaskDef> = buildList {
     // The picked instances, so today's shared-out reward is what gets credited.
     fun picked(t: TaskDef) = selected.firstOrNull { it == t }
-    if (exerciseMinutes != null && exerciseMinutes >= Tasks.MOVE.target) picked(Tasks.MOVE)?.let(::add)
-    if (steps != null && steps >= Tasks.OUTSIDE.target) picked(Tasks.OUTSIDE)?.let(::add)
-    if (sleepMinutes != null && sleepMinutes >= Tasks.SLEEP.target) picked(Tasks.SLEEP)?.let(::add)
+    // Each by its own goal (it can be set in Settings).
+    picked(Tasks.MOVE)?.takeIf { exerciseMinutes != null && exerciseMinutes >= it.target }?.let(::add)
+    picked(Tasks.OUTSIDE)?.takeIf { steps != null && steps >= it.target }?.let(::add)
+    picked(Tasks.SLEEP)?.takeIf { sleepMinutes != null && sleepMinutes >= it.target }?.let(::add)
 }
