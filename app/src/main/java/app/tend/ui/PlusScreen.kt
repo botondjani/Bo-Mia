@@ -77,7 +77,7 @@ fun PlusScreen(
     Card {
         Feature("hourglass", tr("Your time, in full", "Az időd, részletesen"), tr("Every week, and each app before and now.", "Minden hét, és minden app: akkor és most."))
         Feature("alert", tr("A limit for each app", "Saját limit minden appnak"), tr("Its own minutes a day, on top of your budget.", "Saját napi percek, a kereteden felül."))
-        Feature("moon", tr("Strict mode", "Szigorú mód"), tr("No shortcuts, for the days you need it.", "Nincs kiskapu, azokra a napokra, amikor erre van szükség."))
+        Feature("moon", tr("Strict", "Szigorú fokozat"), tr("No shortcuts, for the days you need it.", "Nincs kiskapu, azokra a napokra, amikor erre van szükség."))
         Feature("flower", tr("The season's own things", "Az évszak saját tárgyai"), tr("Three new ones every season, yours to keep.", "Évszakonként három új, és örökre a tiéd."))
     }
     Text(

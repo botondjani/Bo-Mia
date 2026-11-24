@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="shorts_guard_description">A tend bezárja a Reelst és a Shortsot az Instagramban, a YouTube-on és a Facebookon, ha ezt bekapcsolod, így ezeknek az appoknak a többi része nyitva marad. Csak azt figyeli, hogy a képernyőn a rövidvideó-lejátszó van-e; a képernyő tartalmát nem olvassa, nem tárolja és nem küldi el.</string>
+    <string name="shorts_guard_description">Pontos mód: gyorsabb Megállító az Android „other apps” értesítése nélkül, és ha szeretnéd, a tend bezárja a Reelst és a Shortsot az Instagramban, a YouTube-on és a Facebookon, ha ezt bekapcsolod, így ezeknek az appoknak a többi része nyitva marad. Csak azt figyeli, hogy a képernyőn a rövidvideó-lejátszó van-e; a képernyő tartalmát nem olvassa, nem tárolja és nem küldi el.</string>
+    <string name="tile_label">Telefon le</string>
+    <string name="precise_label">tend: Pontos mód</string>
     <string name="widget_min_left">perc maradt</string>
     <string name="widget_min">perc</string>
     <string name="widget_description">A társad, a hátralévő percek és a következő tevékenység</string>

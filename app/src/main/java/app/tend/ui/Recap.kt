@@ -113,7 +113,7 @@ private fun ThingTile(a: Accessory, worn: Set<Accessory>, onShelf: Set<Accessory
             maxLines = 1, textAlign = TextAlign.Center, color = if (a in worn) Brand.Ink else Brand.Muted, modifier = Modifier.padding(top = 4.dp),
         )
         Text(
-            when (a) { in worn -> tr("Wearing it", "Rajta van"); in earned -> tr("Tap to wear", "Koppints: felveszi"); in onShelf -> tr("On the shelf", "A polcon"); else -> a.short },
+            when (a) { in worn -> tr("Wearing it", "Rajta van"); in earned -> tr("Tap to wear", "Koppints: felveszi"); in onShelf -> tr("On the shelf", "Megvan"); else -> a.short },
             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp), textAlign = TextAlign.Center,
         )
     }

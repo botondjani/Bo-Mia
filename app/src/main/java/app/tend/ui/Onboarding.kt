@@ -260,7 +260,7 @@ fun Onboarding(
                     ) {
                         Text(tr("Precise mode (optional)", "Pontos mód (nem kötelező)"), style = MaterialTheme.typography.titleMedium)
                         Text(
-                            tr("A faster Megállító, no \"displaying over other apps\" note, and closing only Reels and Shorts if you like. It reads only which app and screen is open, nothing you type.",
+                            tr("A faster pause, no \"displaying over other apps\" note, and closing only Reels and Shorts if you like. It reads only which app and screen is open, nothing you type.",
                                 "Gyorsabb Megállító, nincs „displaying over other apps” értesítés, és ha szeretnéd, csak a Reels és a Shorts zár be. Csak azt látja, melyik app és képernyő van nyitva, semmit abból, amit írsz."),
                             style = MaterialTheme.typography.bodyMedium, color = Brand.Muted,
                         )
@@ -435,7 +435,7 @@ fun Onboarding(
                                 val onSale = app.tend.data.TendStore.PLUS_ON_SALE
                                 Text(if (onSale) tr("A welcome gift: 14 days of tend Plus", "Üdvözlő ajándék: 14 nap tend Plus") else tr("A welcome gift: tend Plus, on us", "Üdvözlő ajándék: tend Plus, a vendégünk vagy"), style = MaterialTheme.typography.titleSmall)
                                 Text(
-                                    tr("Every week of your time, a limit for each app, strict mode, and the season's own things. ", "A heteid részletesen, saját limit minden appnak, szigorú mód és az évszak saját tárgyai. ") +
+                                    tr("Every week of your time, a limit for each app, strict mode, and the season's own things. ", "A heteid részletesen, saját limit minden appnak, a Szigorú fokozat és az évszak saját tárgyai. ") +
                                         if (onSale) tr("Then it's your choice: Plus, or the free tend.", "Utána te döntesz: Plus, vagy az ingyenes tend.") else tr("All yours, free, while tend is new.", "Mind a tiéd, ingyen, amíg a tend új."),
                                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp), color = Brand.Muted,
                                 )
@@ -692,7 +692,7 @@ fun BudgetSteppers(cfg: BudgetConfig, onConfig: (BudgetConfig) -> Unit) {
 @Composable
 fun CountedKinds(cfg: BudgetConfig, onConfig: (BudgetConfig) -> Unit) {
     Text(tr("The rest count too", "A többi is számít"), style = MaterialTheme.typography.titleMedium)
-    Text(tr("Other social, video and game apps you didn't pick: no Megállító, their time just comes off the same minutes", "A nem kiválasztott közösségi, videós és játékappok: Megállító nélkül, csak az idejük fogy ugyanabból a keretből"), style = MaterialTheme.typography.bodyMedium)
+    Text(tr("Other social, video and game apps you didn't pick: no pause, their time just comes off the same minutes", "A nem kiválasztott közösségi, videós és játékappok: Megállító nélkül, csak az idejük fogy ugyanabból a keretből"), style = MaterialTheme.typography.bodyMedium)
     Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         listOf(AppKinds.SOCIAL to tr("Social", "Közösségi"), AppKinds.VIDEO to tr("Video", "Videó"), AppKinds.GAMES to tr("Games", "Játékok")).forEach { (kind, label) ->
             val on = kind in cfg.counted

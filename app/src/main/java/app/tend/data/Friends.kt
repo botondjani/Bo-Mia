@@ -585,7 +585,7 @@ object Friends {
         val text = when (first.kind) {
             Kind.TP -> tr("Tap the oak in your camp to unroll it.", "Koppints a tölgyfára a táborodban, és letekered.")
             Kind.VISIT -> tr("They left a rubber duck in your river.", "Egy gumikacsát hagyott a folyódban.")
-            Kind.WAVE -> tr("Wave back from your camp.", "Integess vissza a táborodból.")
+            Kind.WAVE -> tr("Wave back from your camp.", "Tapsolj neki vissza a Barátoknál.")
             Kind.CHEER -> tr("For what you did today: +$CHEER_ACORNS acorns.", "Azért, amit ma csináltál: +$CHEER_ACORNS makk.")
             Kind.GIFT, Kind.THING -> tr("It's wrapped by your fire. Tap it to open.", "Becsomagolva vár a tüzednél. Koppints rá, és kibontod.")
             Kind.FIRE -> tr("Put your phones down together: +${app.tend.core.Acorns.TOGETHER_FIRE} acorns each. Tap to join.", "Tegyétek le együtt a telefont: fejenként +${app.tend.core.Acorns.TOGETHER_FIRE} makk. Koppints, és csatlakozol.")

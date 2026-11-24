@@ -390,7 +390,7 @@ class MonitorService : Service() {
             32, // 31 is the friends' note
             Notification.Builder(this, PLUS_CHANNEL).setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(tr("$days more day${if (days == 1) "" else "s"} of tend Plus", "Még $days nap tend Plus"))
-                .setContentText(if (won >= 60) tr("You've won back ${app.tend.core.InsightsOf.hours(won)} so far. Your time stays yours either way.", "Eddig ennyi időt nyertél vissza: ${app.tend.core.InsightsOf.hours(won)}. Az időd így is, úgy is a tiéd marad.") else tr("Your weeks, each app's limit and strict mode are yours until then.", "Addig a tiéd a heteid, az appok saját limitje és a szigorú mód."))
+                .setContentText(if (won >= 60) tr("You've won back ${app.tend.core.InsightsOf.hours(won)} so far. Your time stays yours either way.", "Eddig ennyi időt nyertél vissza: ${app.tend.core.InsightsOf.hours(won)}. Az időd így is, úgy is a tiéd marad.") else tr("Your weeks, each app's limit and strict mode are yours until then.", "Addig a tiéd a heteid részletes képe, az appok saját limitje és a Szigorú fokozat."))
                 .setContentIntent(open).setAutoCancel(true).build(),
         )
         app.tend.data.Stats.log(this, "trial_note")

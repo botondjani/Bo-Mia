@@ -41,7 +41,7 @@ fun FirstStepsCard(steps: List<StepState>, onClaim: (Step) -> Unit, onGo: (Step)
     Card {
         // Tapped (where it folds), the header folds it back into the strip.
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).then(if (onFold != null) Modifier.tappable(onClick = onFold) else Modifier), verticalAlignment = Alignment.CenterVertically) {
-            Text(tr("CHALLENGES · ROUND ${app.tend.core.FirstSteps.roundOf(steps)} OF ${app.tend.core.FirstSteps.rounds}", "KIHÍVÁSOK · ${app.tend.core.FirstSteps.roundOf(steps)}. KÖR A ${app.tend.core.FirstSteps.rounds}-BŐL"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            Text(tr("CHALLENGES · ROUND ${app.tend.core.FirstSteps.roundOf(steps)} OF ${app.tend.core.FirstSteps.rounds}", "KIHÍVÁSOK · ${app.tend.core.FirstSteps.roundOf(steps)}. KÖR (ÖSSZESEN ${app.tend.core.FirstSteps.rounds})"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
             Text("${round.count { it.claimed }} / ${round.size}", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
             if (onFold != null) Text(" \u2303", style = MaterialTheme.typography.labelLarge, color = Brand.Muted)
         }

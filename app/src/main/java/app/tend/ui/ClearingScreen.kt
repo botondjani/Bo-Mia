@@ -732,7 +732,7 @@ fun ClearingScreen(
             bridge -> tr("Cross the bridge to visit your friends' camps.", "Menj át a hídon, és látogasd meg a barátaid táborát.")
             // Once the camp is familiar, what the companion is up to; before that, how it works.
             placed.isNotEmpty() -> if (placed.size >= 3) campLine else tr("Tap something: ${avatar.displayName} will use it. Hold it to move it.", "Koppints valamire: ${avatar.displayName} használni fogja. Tartsd nyomva, ha arrébb tennéd.")
-            else -> tr("Earn acorns by living; spend them in the shop below.", "A makkot élettel keresed; lent a boltban költheted el.")
+            else -> tr("Earn acorns by living; spend them in the shop below.", "Makkot a tetteiddel szerzel; lent a boltban költheted el.")
         },
         style = MaterialTheme.typography.bodyMedium,
     )
@@ -1038,7 +1038,7 @@ private fun Shop(
                         repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
-                Text(tr("The rest $name earns by doing: see Things in the camp.", "A többit $name tettekkel szerzi: lásd a Holmik a táborban."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, modifier = Modifier.padding(top = 8.dp))
+                Text(tr("The rest $name earns by doing: see Things in the camp.", "A többit $name tettekkel szerzi: lásd a Szekrényt a táborban."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, modifier = Modifier.padding(top = 8.dp))
             }
             // The season's and an event's own, sold only while they last; and those bought before.
             else -> {
@@ -1105,7 +1105,7 @@ private fun Shop(
                 when {
                     stored -> androidx.compose.material3.TextButton(onClick = { if (onTakeOut(t.id)) open = null }) { Text(tr("Put it out", "Kirakom"), color = Brand.Moss) }
                     owned -> androidx.compose.material3.TextButton(onClick = { onPutAway(t.id); open = null }) { Text(tr("Put away", "Elteszem"), color = Brand.Moss) }
-                    lockedAt != null -> androidx.compose.material3.TextButton(onClick = { open = null }) { Text(tr("Opens at level $lockedAt", "A(z) $lockedAt. szinten nyílik"), color = Brand.Muted) }
+                    lockedAt != null -> androidx.compose.material3.TextButton(onClick = { open = null }) { Text(tr("Opens at level $lockedAt", "A $lockedAt. szinttől nyílik"), color = Brand.Muted) }
                     acorns >= cost -> androidx.compose.material3.TextButton(onClick = { if (onBuy(t.id)) open = null }) { Text(tr("Get it for ${t.price}", "Megveszem ${t.price} makkért"), color = Brand.Moss) }
                     // Not enough yet: make it the goal (home shows how far), or stop saving for it.
                     savingFor == t.id -> androidx.compose.material3.TextButton(onClick = { store.savingFor = null; savingFor = null }) { Text(tr("Not my goal", "Mégsem ez a célom"), color = Brand.Muted) }

@@ -476,7 +476,7 @@ fun HomeScreen(
             !permissions.usageAccess -> todo += { Notice("alert", tr("Limited mode", "Korlátozott mód"), tr("${avatar.displayName} can't see screen time. Tap to turn it on.", "${avatar.displayName} nem látja a képernyőidőt. Koppints, és bekapcsolhatod."), onFixPermissions) }
             !permissions.overlay -> todo += {
                 Notice(
-                    "alert", if (remaining <= 0) tr("Out of minutes, but your apps are open", "Elfogytak a percek, de az appjaid nyitva vannak") else tr("No Megállító before scrolling", "Nincs Megállító görgetés előtt"),
+                    "alert", if (remaining <= 0) tr("Out of minutes, but your apps are open", "Elfogytak a percek, de az appjaid nyitva vannak") else tr("No pause before scrolling", "Nincs Megállító görgetés előtt"),
                     if (remaining <= 0) tr("tend can only notify you, not close them. Tap to fix.", "A tend csak értesíteni tud, bezárni nem. Koppints, és megjavítjuk.") else tr("Only a notification for now. Tap to fix.", "Egyelőre csak értesítés jön. Koppints, és megjavítjuk."), onFixPermissions,
                 )
             }
@@ -511,8 +511,8 @@ fun HomeScreen(
         gentleDaysLeft?.let { left ->
             todo += {
                 Notice("sparkle", tr("Easy does it: the first days", "Lassan a testtel: az első napok"),
-                    (if (left <= 1) tr("Today still the shortest Megállító; from tomorrow your evening and work locks start.", "Ma még a legrövidebb a Megállító; holnaptól élnek az esti és a munkaidős zárak.")
-                    else tr("The shortest Megállító for now; the evening and work locks start on day 3.", "Egyelőre a legrövidebb a Megállító; az esti és a munkaidős zárak a 3. naptól élnek.")) + tr(" Tap to put this away.", " Koppints, és eltűnik."), onGentleSeen)
+                    (if (left <= 1) tr("Today still the shortest pause; from tomorrow your evening and work locks start.", "Ma még a legrövidebb a Megállító; holnaptól élnek az esti és a munkaidős zárak.")
+                    else tr("The shortest pause for now; the evening and work locks start on day 3.", "Egyelőre a legrövidebb a Megállító; az esti és a munkaidős zárak a 3. naptól élnek.")) + tr(" Tap to put this away.", " Koppints, és eltűnik."), onGentleSeen)
             }
         }
         if (overlayHelp) androidx.compose.material3.AlertDialog(
@@ -520,7 +520,7 @@ fun HomeScreen(
             title = { Text(tr("Hide Android's note", "Az Android értesítésének elrejtése")) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(tr("Android shows it while tend can bring the Megállító up over other apps. tend works the same without it.", "Az Android akkor mutatja, amikor a tend más appok fölé tudja hozni a Megállítót. A tend nélküle is ugyanúgy működik."))
+                    Text(tr("Android shows it while tend can bring the pause up over other apps. tend works the same without it.", "Az Android akkor mutatja, amikor a tend más appok fölé tudja hozni a Megállítót. A tend nélküle is ugyanúgy működik."))
                     Text(tr("1. Pull down the notifications.\n2. Hold \"tend is displaying over other apps\".\n3. Turn it off.", "1. Húzd le az értesítéseket.\n2. Tartsd nyomva: „tend is displaying over other apps”.\n3. Kapcsold ki."))
                     if (app.tend.BuildConfig.PLAY) Text(tr("Or turn on Precise mode (Settings → Picked apps, \"Reels & Shorts only\"): with it, the note doesn't come at all.", "Vagy kapcsold be a Pontos módot (Beállítások → Kiválasztott appok, „Csak Reels és Shorts”): azzal az értesítés meg sem jelenik."), color = Brand.Muted)
                 }
@@ -617,7 +617,7 @@ fun HomeScreen(
             val gold = together?.let { app.tend.core.Together.Tier.GOLD.target(it.parts.size) }
             val sub = when {
                 together != null && gold != null -> tr("Together: ", "Együtt: ") + (together.tier?.let { "${it.title.lowercase()} · " } ?: "") + "${together.total.coerceAtMost(gold)}/$gold"
-                fireCount != null && fireCount > 0 -> tr("$fireCount at a fire right now", "Most $fireCount-en ülnek a tűznél")
+                fireCount != null && fireCount > 0 -> tr("$fireCount at a fire right now", "Most ennyien ülnek a tűznél: $fireCount")
                 else -> null
             }
             HubButtons(waiting, fireLine, sub, atFire.isNotEmpty(), onChallenges = {
@@ -920,7 +920,7 @@ private fun LevelUpDialog(avatar: Avatar, level: Int, onDone: () -> Unit) = andr
             news.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium, color = Brand.Ink) }
         }
         app.tend.core.Home.TIERS.firstOrNull { it.first > level }?.let { (at, id) ->
-            Text(tr("Next home at level $at: ${app.tend.core.Things.byId(id)?.name?.lowercase()}", "Következő otthon a(z) $at. szinten: ${app.tend.core.Things.byId(id)?.name?.lowercase()}"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Text(tr("Next home at level $at: ${app.tend.core.Things.byId(id)?.name?.lowercase()}", "Következő otthon a $at. szinttől: ${app.tend.core.Things.byId(id)?.name?.lowercase()}"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
         PrimaryButton(tr("Nice", "Szuper"), onDone)
     }
@@ -1293,7 +1293,7 @@ private fun GoodNightCard(avatar: Avatar, strict: Boolean, onWake: () -> Unit) =
         Column(Modifier.weight(1f).padding(end = 34.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(tr("Good night", "Jó éjt"), style = MaterialTheme.typography.titleMedium, color = Color.White)
             Text(tr("Your apps rest until 7:00.", "Az appjaid reggel 7:00-ig pihennek."), style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f))
-            if (strict) Text(tr("Strict mode: they wake at 7:00", "Szigorú mód: 7:00-kor ébrednek"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Color.White.copy(alpha = 0.6f))
+            if (strict) Text(tr("Strict mode: they wake at 7:00", "Szigorú fokozat: 7:00-kor ébrednek"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Color.White.copy(alpha = 0.6f))
             else Text(
                 tr("Need them?", "Kellenek?"), style = MaterialTheme.typography.labelLarge, color = Color.White,
                 modifier = Modifier.padding(top = 6.dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.16f)).tappable(onClick = onWake).padding(horizontal = 12.dp, vertical = 6.dp),
@@ -1414,10 +1414,10 @@ private fun AskCard(avatar: Avatar, ask: Ask, onAnswer: (Int) -> Unit) = Column(
     }
     Text(
         when (ask) {
-            Ask.Evening -> tr("Slower: a longer, sleepy Megállító. Closed: the apps rest until morning. You can change it any time.", "Lassít: hosszabb, álmos Megállító. Zár: az appok reggelig pihennek. Bármikor átállíthatod.")
+            Ask.Evening -> tr("Slower: a longer, sleepy pause. Closed: the apps rest until morning. You can change it any time.", "Lassít: hosszabb, álmos Megállító. Zár: az appok reggelig pihennek. Bármikor átállíthatod.")
             Ask.Invite -> tr("Phone-free together at the fire, acorns for both of you.", "Együtt telefon nélkül a tűznél, makk mindkettőtöknek.")
             is Ask.Level -> if (ask.to == app.tend.core.StrictLevel.STRICT) tr("Strict: a 10-second wait and no shortcuts. It's in Settings, if you'd like it.", "Szigorú: 10 mp várakozás, kiskapuk nélkül. A Beállításokban megtalálod, ha kéred.")
-                else tr("Balanced: a 5-second wait instead of 3, and Bo peeks in a bit sooner.", "Kiegyensúlyozott: 3 helyett 5 mp várakozás, és Bo kicsit hamarabb benéz.")
+                else tr("Balanced: a 5-second wait instead of 3, and ${avatar.displayName} peeks in a bit sooner.", "Kiegyensúlyozott: 3 helyett 5 mp várakozás, és ${avatar.displayName} kicsit hamarabb benéz.")
         },
         style = MaterialTheme.typography.bodyMedium, color = Brand.Muted,
     )

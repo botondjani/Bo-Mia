@@ -33,7 +33,7 @@ fun MinutesDialog(cfg: BudgetConfig, tasks: List<TaskDef>, canClose: Boolean = t
         else tr("At 0 you get a notification, but the apps stay open: without \"display over other apps\" tend can't close them. Turn it on in Settings.", "Nullánál értesítést kapsz, de az appok nyitva maradnak: a „megjelenítés más appok fölött” engedély nélkül a tend nem tudja bezárni őket. A Beállításokban kapcsolhatod be."),
     )
     Para(tr("An app with its own limit (Plus) closes when its own minutes are used, even with minutes left for the rest.", "Ha egy appnak saját limitje van (Plus), akkor is bezár, amikor a saját percei elfogytak, ha a többire még maradt."))
-    Para(tr("Once a day, if it really can't wait: 5 minutes for ${app.tend.core.Acorns.BORROW} acorns, from the pause screen (not in strict mode). Otherwise acorns never turn into minutes.", "Naponta egyszer, ha tényleg nem várhat: 5 perc ${app.tend.core.Acorns.BORROW} makkért, a Megállítóról (szigorú módban nem). Máskülönben a makkból sosem lesz perc."))
+    Para(tr("Once a day, if it really can't wait: 5 minutes for ${app.tend.core.Acorns.BORROW} acorns, from the pause screen (not in strict mode). Otherwise acorns never turn into minutes.", "Naponta egyszer, ha tényleg nem várhat: 5 perc ${app.tend.core.Acorns.BORROW} makkért, a Megállítóról (Szigorú fokozatban nem). Máskülönben a makkból sosem lesz perc."))
 }
 
 @Composable

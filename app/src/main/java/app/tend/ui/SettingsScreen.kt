@@ -192,7 +192,7 @@ fun SettingsScreen(
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tappable(onClick = add).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(tr("Phone down, from the quick settings", "Telefon le, a gyorsbeállításokból"), style = MaterialTheme.typography.bodyLarge)
-                    Text(tr("Swipe down, one tap: your next activity starts", "Lehúzod, egy koppintás: indul a következő tevékenységed"), style = MaterialTheme.typography.bodyMedium)
+                    Text(tr("Swipe down, one tap: your next activity starts", "Lehúzod, kiválasztod, meddig, és már indul is"), style = MaterialTheme.typography.bodyMedium)
                 }
                 Text(tr("Add", "Hozzáadás"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
             }
@@ -271,7 +271,7 @@ fun SettingsScreen(
             val open = page == key
             Box(Modifier.onGloballyPositioned { rowY[key] = it.positionInParent().y }.surface(radius = 20.dp).padding(horizontal = 14.dp, vertical = 2.dp)) {
                 run {
-                    MenuRow(icon, title, summaries[key] ?: "", open) {
+                    MenuRow(icon, if (key == "notes") tr("${avatar.displayName}'s notes", "${avatar.displayName} üzenetei") else title, summaries[key] ?: "", open) {
                         page = if (open) null else key
                     }
                 }
@@ -387,7 +387,7 @@ internal fun BreakRows(pausedUntil: Long, strict: Boolean, onPause: (Int) -> Uni
     } else {
         Text(tr("Day off", "Szabadnap"), style = MaterialTheme.typography.bodyLarge)
         Text(
-            if (strict) tr("Not while strict mode is on.", "Szigorú módban nem lehet.") else tr("Holiday or a sick day: every limit off, and those days don't count.", "Nyaralás vagy betegség: minden korlát kikapcsol, és ezek a napok nem számítanak."),
+            if (strict) tr("Not while strict mode is on.", "Szigorú fokozatban nem lehet.") else tr("Holiday or a sick day: every limit off, and those days don't count.", "Nyaralás vagy betegség: minden korlát kikapcsol, és ezek a napok nem számítanak."),
             style = MaterialTheme.typography.bodyMedium,
         )
         if (!strict) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
@@ -425,7 +425,7 @@ private fun AppsCard(
     fun modeLabel(m: app.tend.core.AppMode?) = when (m) {
         app.tend.core.AppMode.COUNT -> tr("Only counts", "Csak számol")
         app.tend.core.AppMode.SHORTS -> tr("Only Reels and Shorts closed", "Csak a Reels és a Shorts zárva")
-        else -> tr("Opens with the Megállító", "Megállítóval nyílik")
+        else -> tr("Opens with the pause", "Megállítóval nyílik")
     }
     if (blocked.isNotEmpty()) Text(tr("Their time comes off your daily minutes. Tap one to choose what opening it does, or to give it its own minutes a day.", "Az idejük a napi keretedből fogy. Koppints egyre: kiválaszthatod, mi történjen megnyitáskor, vagy saját napi perceket adhatsz neki."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
     blocked.sortedBy { catalog.label(it).lowercase() }.forEach { pkg ->
@@ -471,7 +471,7 @@ private fun AppsCard(
             onDismissRequest = { askShorts = null },
             title = { Text(tr("One more step", "Még egy lépés")) },
             text = {
-                Text(tr("tend uses Android's accessibility service for this. It only checks whether the short-video player is showing; if it is, it goes back. Nothing on your screen is read, kept or sent, and no other app is looked at. It also makes the Megállító quicker, and Android's \"over other apps\" note goes away.", "A tend ehhez az Android akadálymentesítési szolgáltatását használja. Csak azt nézi, hogy a rövidvideó-lejátszó látszik-e; ha igen, visszalép. Semmit nem olvas, nem tárol és nem küld el a képernyődről, más appba nem néz bele. A Megállító is gyorsabb lesz tőle, és az Android „other apps” értesítése eltűnik."))
+                Text(tr("tend uses Android's accessibility service for this. It only checks whether the short-video player is showing; if it is, it goes back. Nothing on your screen is read, kept or sent, and no other app is looked at. It also makes the pause quicker, and Android's \"over other apps\" note goes away.", "A tend ehhez az Android akadálymentesítési szolgáltatását használja. Csak azt nézi, hogy a rövidvideó-lejátszó látszik-e; ha igen, visszalép. Semmit nem olvas, nem tárol és nem küld el a képernyődről, más appba nem néz bele. A Megállító is gyorsabb lesz tőle, és az Android „other apps” értesítése eltűnik."))
             },
             confirmButton = { androidx.compose.material3.TextButton(onClick = {
                 askShorts = null
@@ -494,7 +494,7 @@ private fun AppsCard(
                     val current = modes[pkg] ?: app.tend.core.AppMode.STOP
                     modeOptions.forEach { m ->
                         OptionCard(
-                            when (m) { app.tend.core.AppMode.STOP -> tr("Megállító", "Megállító"); app.tend.core.AppMode.COUNT -> tr("Only count", "Csak számol"); app.tend.core.AppMode.SHORTS -> tr("Only Reels and Shorts", "Csak Reels és Shorts") },
+                            when (m) { app.tend.core.AppMode.STOP -> tr("Pause", "Megállító"); app.tend.core.AppMode.COUNT -> tr("Only count", "Csak számol"); app.tend.core.AppMode.SHORTS -> tr("Only Reels and Shorts", "Csak Reels és Shorts") },
                             when (m) {
                                 app.tend.core.AppMode.STOP -> tr("A few seconds before it opens: often enough to change your mind.", "Pár másodperc megnyitás előtt: sokszor ennyi is elég, hogy meggondold.")
                                 app.tend.core.AppMode.COUNT -> tr("Opens straight away; its time comes off your minutes.", "Azonnal nyílik; az ideje a keretedből fogy.")
@@ -507,7 +507,7 @@ private fun AppsCard(
                             if (m == app.tend.core.AppMode.SHORTS && !app.tend.monitor.ShortsGuard.enabled(ctx)) askShorts = pkg
                         }
                     }
-                    if (strict) Text(tr("Strict: every picked app opens with the Megállító.", "Szigorú fokozatban minden kiválasztott app Megállítóval nyílik."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+                    if (strict) Text(tr("Strict: every picked app opens with the pause.", "Szigorú fokozatban minden kiválasztott app Megállítóval nyílik."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
                     Text(tr("Minutes a day, at most:", "Naponta legfeljebb ennyi perc:"), style = MaterialTheme.typography.bodyMedium)
                     if (!plus) Row(Modifier.clip(RoundedCornerShape(12.dp)).tappable { editing = null; onPlus() }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(tr("Own limits for each app come with Plus ", "Appok saját limitje a Plusszal "), style = MaterialTheme.typography.bodyMedium); PlusMark()
@@ -529,7 +529,7 @@ private fun AppsCard(
                             }
                         }
                     }
-                    if (strict) Text(tr("Strict mode is on: a limit can only get tighter.", "Szigorú mód van: a limitet csak szigorítani lehet."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
+                    if (strict) Text(tr("Strict mode is on: a limit can only get tighter.", "Szigorú fokozatban vagy: a limitet csak szigorítani lehet."), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted)
                     }
                 }
             },
@@ -543,7 +543,7 @@ private fun AppsCard(
 @Composable
 private fun StrictRow(strict: Boolean, endsAt: Long, onStrict: (Boolean) -> Unit) {
     SwitchRow(
-        tr("Strict mode", "Szigorú mód"),
+        tr("Strict", "Szigorú fokozat"),
         when {
             endsAt > 0 -> tr("Turned off: it ends at midnight.", "Kikapcsoltad: éjfélkor ér véget.")
             strict -> tr("On. Turning it off takes effect tomorrow.", "Bekapcsolva. Ha kikapcsolod, holnaptól érvényes.")
@@ -564,7 +564,7 @@ private fun PlusCard(plus: Boolean, daysLeft: Int?, paid: Boolean, onTestTrial: 
                     paid -> tr("Yours. Thank you!", "A tiéd. Köszönjük!")
                     plus && daysLeft != null -> if (daysLeft <= 1) tr("Free trial: last day", "Ingyenes próba: utolsó nap") else tr("Free trial: $daysLeft day${if (daysLeft == 1) "" else "s"} left", "Ingyenes próba: még $daysLeft nap")
                     plus -> tr("Yours, free, while tend is new", "A tiéd, ingyen, amíg a tend új")
-                    else -> tr("Your time in full, a limit for each app, strict mode, the season's things", "Az időd részletesen, saját limit minden appnak, szigorú mód, az évszak tárgyai")
+                    else -> tr("Your time in full, a limit for each app, strict mode, the season's things", "Az időd részletesen, saját limit minden appnak, Szigorú fokozat, az évszak tárgyai")
                 },
                 style = MaterialTheme.typography.bodyMedium,
             )
@@ -867,7 +867,7 @@ private fun PeriodsCard(
     Text(
         when (evening) {
             app.tend.core.EveningMode.OFF -> tr("The evening is like any other time.", "Az este olyan, mint bármikor máskor.")
-            app.tend.core.EveningMode.SLOW -> tr("The Megállító waits 5 s longer and ${store.avatar.displayName} gets sleepy.", "A Megállító 5 mp-cel tovább vár, és ${store.avatar.displayName} elálmosodik.")
+            app.tend.core.EveningMode.SLOW -> tr("The pause waits 5 s longer and ${store.avatar.displayName} gets sleepy.", "A Megállító 5 mp-cel tovább vár, és ${store.avatar.displayName} elálmosodik.")
             app.tend.core.EveningMode.LOCK -> tr("Slower from the evening, and closed at bedtime:", "Estétől lassít, lefekvéskor pedig zár:")
         },
         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp), color = Brand.Muted,

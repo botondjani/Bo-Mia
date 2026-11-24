@@ -1224,7 +1224,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun strictNo() =
-        android.widget.Toast.makeText(this, tr("Strict mode is on: things can only get tighter until it ends.", "Szigorú mód van: amíg tart, csak szigorítani lehet."), android.widget.Toast.LENGTH_LONG).show()
+        android.widget.Toast.makeText(this, tr("Strict mode is on: things can only get tighter until it ends.", "Szigorú fokozatban vagy: amíg tart, csak szigorítani lehet."), android.widget.Toast.LENGTH_LONG).show()
 
     /** Where the user put things in the camp, for drawing it. */
     private fun campLayout() = store.layout.mapValues { androidx.compose.ui.geometry.Offset(it.value.first, it.value.second) }
