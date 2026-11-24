@@ -5,10 +5,10 @@ data class Totals(val days: Int, val activities: Int, val hoursBack: Int)
 
 /**
  * Milestones over the months: each one reached adds something to the camp for good, so it grows
- * with you: a flag, lights along the path, a garden, a hut up the mountain, shooting stars.
+ * with you: butterflies, lights along the path, a garden, a hut up the mountain, shooting stars.
  */
 enum class Milestone(val title: String, val adds: String, val need: Int, private val unit: String) {
-    FLAG(tr("A week at the camp", "Egy hét a táborban"), tr("a flag over the camp", "zászló a tábor fölött"), 7, "days"),
+    FLAG(tr("A week at the camp", "Egy hét a táborban"), tr("butterflies over the meadow", "pillangók a réten"), 7, "days"),
     PATH_LIGHTS(tr("25 activities", "25 tevékenység"), tr("lamps along the river path", "lámpák a folyóparti ösvényen"), 25, "activities"),
     GARDEN(tr("10 hours back", "10 visszanyert óra"), tr("a vegetable garden", "veteményeskert"), 10, "hours back"),
     HUT(tr("A month at the camp", "Egy hónap a táborban"), tr("a hut up the mountain", "kunyhó fent a hegyen"), 30, "days"),

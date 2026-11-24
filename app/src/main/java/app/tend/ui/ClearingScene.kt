@@ -525,8 +525,14 @@ fun DrawScope.drawClearing(
             }
         }
     }
-    // Milestones: a flag over the camp, lamps along the path, a garden between the tent and the cabin.
-    if (app.tend.core.Milestone.FLAG in unlocked) Offset(w * 0.37f, h * 0.665f).let { p -> ground += p.y to { flag(p, u, ambient) } }
+    // Milestones: butterflies over the meadow, lamps along the path, a garden between the tent and the cabin.
+    // A week at the camp: butterflies over the meadow, by day and in fair weather.
+    if (app.tend.core.Milestone.FLAG in unlocked && darkOf(hour) < 0.5f && !night && weather != app.tend.core.Weather.RAIN && weather != app.tend.core.Weather.SNOW)
+        for (i in 0 until 3) {
+            val c = Offset(w * (0.55f + 0.14f * i), h * (0.7f + 0.05f * (i % 2)))
+            val at = c + Offset(kotlin.math.sin(ambient * 0.5f + i * 2.1f) * w * 0.05f, kotlin.math.cos(ambient * 0.7f + i) * h * 0.04f)
+            ground += at.y + h * 0.05f to { butterfly(at, u, ambient * 9f + i, listOf(Color(0xFFF2C94C), Color(0xFFE07A5F), Color(0xFF8EC4E8))[i]) }
+        }
     if (app.tend.core.Milestone.PATH_LIGHTS in unlocked) for (f in listOf(Offset(0.345f, 0.69f), Offset(0.325f, 0.79f), Offset(0.305f, 0.885f))) {
         val p = Offset(f.x * w, f.y * h)
         ground += p.y to { pathLamp(p, u, lights) }
@@ -1206,19 +1212,15 @@ private fun DrawScope.mountainHut(p: Offset, u: Float, t: Float, lights: Mutable
     }
 }
 
-/** A pennant flag on a pole, flapping in the breeze. */
-private fun DrawScope.flag(p: Offset, u: Float, t: Float) {
-    val top = p + Offset(0f, -u * 0.13f)
-    shadow(p, u * 0.01f, u)
-    drawLine(Color(0xFF6B4A33), p, top, strokeWidth = u * 0.004f, cap = StrokeCap.Round)
-    drawCircle(Color(0xFFF2C14E), u * 0.004f, top)
-    val wave = kotlin.math.sin(t * 3.2f) * u * 0.006f
-    drawPath(Path().apply {
-        moveTo(top.x, top.y + u * 0.004f)
-        quadraticTo(top.x + u * 0.025f, top.y + u * 0.008f + wave, top.x + u * 0.05f, top.y + u * 0.016f + wave * 1.4f)
-        quadraticTo(top.x + u * 0.025f, top.y + u * 0.026f + wave, top.x, top.y + u * 0.032f)
-        close()
-    }, Color(0xFFE07A5F))
+/** A small butterfly, its wings beating ([t] drives the flap). */
+private fun DrawScope.butterfly(at: Offset, u: Float, t: Float, color: Color) {
+    val flap = 0.35f + 0.65f * kotlin.math.abs(kotlin.math.sin(t))
+    val r = u * 0.009f
+    for (side in listOf(-1f, 1f)) {
+        drawOval(color, Offset(at.x + side * r * flap * 0.2f - (if (side < 0) r * 1.6f * flap else 0f), at.y - r), Size(r * 1.6f * flap, r * 1.5f))
+        drawOval(color.copy(alpha = 0.85f), Offset(at.x + side * r * flap * 0.2f - (if (side < 0) r * 1.2f * flap else 0f), at.y + r * 0.2f), Size(r * 1.2f * flap, r * 1.1f))
+    }
+    drawLine(Color(0xFF3D2A1C), at + Offset(0f, -r), at + Offset(0f, r * 1.1f), strokeWidth = u * 0.0025f, cap = StrokeCap.Round)
 }
 
 

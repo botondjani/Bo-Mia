@@ -794,6 +794,8 @@ class MainActivity : ComponentActivity() {
                 plus = store.isPlus,
                 onPlus = { openPlus(app.tend.ui.PlusFrom.SEASON) },
                 guests = fireGuests,
+                guestIds = atFire.map { it.id },
+                onJoinFire = { atFire.firstOrNull()?.let(join) },
                 minutes = store.today().let { d -> Triple(app.tend.core.Budget.remainingMinutes(store.config, d), (store.config.freeMinutes + d.earnedMinutes).coerceAtLeast(1), app.tend.core.Budget.earnableFrom(store.config, d, store.selectedTasks)) },
                 cheers = remember(refresh) { app.tend.data.Friends.cheersToShow(this@MainActivity) },
                 onCheersShown = { app.tend.data.Friends.markCheersShown(this@MainActivity) },

@@ -59,6 +59,7 @@ object Uses {
         "treehouse" -> tr("$name waves from the treehouse.", "$name integet a lombházból.")
         "canoe" -> tr("$name paddles the canoe.", "$name kenuzik.")
         "dock" -> tr("$name dangles their feet off the dock.", "$name a stégről lógatja a lábát.")
+        "bridge" -> tr("$name drops a stick off the bridge and watches it float away.", "$name bedob egy pálcikát a hídról, és nézi, ahogy elúszik.")
         "fence" -> tr("$name leans on the fence and looks out over the meadow.", "$name a kerítésre könyököl, és kinéz a rétre.")
         "garden" -> tr("$name waters the little garden.", "$name meglocsolja a kis kertet.")
         "stone_path" -> tr("$name hops along the stones.", "$name kőről kőre ugrál.")
@@ -704,6 +705,28 @@ fun DrawScope.drawUse(
                 drawOval(Color.White.copy(alpha = 0.4f * (1 - r)), Offset(base.x - u * 0.05f * r - u * 0.01f, base.y + u * 0.012f), Size(u * 0.1f * r + u * 0.02f, u * 0.012f * (r + 0.3f)), style = Stroke(u * 0.002f))
             }
         }
+        "bridge" -> {
+            // On the bridge: a stick dropped over the rail, falling to the water and floating downstream; a wave after it.
+            actor(avatar, mood, worn, base, s, bounce = sin(t * 2f) * 0.25f, look = -0.5f, rotation = if (t in 0.4f..1.2f) -8f else 0f)
+            val hand = base + Offset(-s * 0.32f, -s * 0.45f)
+            val water = Offset(base.x - s * 0.1f, h * 0.6f)
+            when {
+                t < 0.8f -> drawLine(Color(0xFF5C3B24), hand, hand + Offset(-u * 0.035f, -u * 0.012f), strokeWidth = u * 0.009f, cap = StrokeCap.Round)
+                t < 1.6f -> {
+                    val k = (t - 0.8f) / 0.8f
+                    val at = Offset(hand.x - s * 0.1f, hand.y + (water.y - hand.y) * k * k)
+                    drawLine(Color(0xFF5C3B24), at, at + Offset(-u * 0.035f, u * 0.004f), strokeWidth = u * 0.009f, cap = StrokeCap.Round)
+                }
+                else -> {
+                    // Floating off down the river, a ring where it landed.
+                    val k = (t - 1.6f)
+                    val at = water + Offset(-k * w * 0.018f, k * h * 0.012f)
+                    drawLine(Color(0xFF5C3B24).copy(alpha = (1f - k / 5f).coerceIn(0f, 1f)), at, at + Offset(-u * 0.035f, u * 0.004f), strokeWidth = u * 0.009f, cap = StrokeCap.Round)
+                    val r = ((t - 1.6f) % 1.2f) / 1.2f
+                    drawOval(Color.White.copy(alpha = 0.85f * (1 - r)), Offset(water.x - u * 0.04f * r - u * 0.01f, water.y - u * 0.006f * r), Size(u * 0.08f * r + u * 0.02f, u * 0.012f * r + u * 0.004f), style = Stroke(u * 0.003f))
+                }
+            }
+        }
         "string_lights" -> {
             shadowAt(base, s * 0.45f)
             actor(avatar, mood, worn, base + Offset(0f, -kotlin.math.abs(sin(t * 5f)) * u * 0.02f), s, rotation = sin(t * 5f) * 10f)
@@ -907,8 +930,12 @@ private val WANDER = listOf(
 )
 /** Under the trees, out of the rain or the snow (rest codes -20 and down): by the big tree on the right, under the oak. */
 private val SHELTERS = listOf(Offset(0.83f, 0.745f), Offset(0.475f, 0.625f))
+/** The middle of the bridge (when it's built): a place to run to and stand, rest code [BRIDGE_SPOT]. */
+const val BRIDGE_SPOT = -40
+private val BRIDGE_TOP = Offset(0.224f, 0.497f)
 private fun wanderAt(spot: Int?): Offset? = when {
     spot == null -> null
+    spot == BRIDGE_SPOT -> BRIDGE_TOP
     spot <= -20 -> SHELTERS.getOrNull(-20 - spot)
     spot <= -10 -> WANDER.getOrNull(-10 - spot)?.first
     else -> null

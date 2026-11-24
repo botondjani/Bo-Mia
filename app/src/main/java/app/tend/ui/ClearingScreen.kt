@@ -151,6 +151,10 @@ fun ClearingScreen(
     onToggleAccessory: ((Accessory) -> Unit)? = null,
     /** Friends phone-free right now, at the fire (companion, name). */
     guests: List<Pair<Avatar, String>> = emptyList(),
+    /** Joining the friends at the fire: your own Phone down. */
+    onJoinFire: () -> Unit = {},
+    /** The same friends' ids (to cheer them, send a present, or visit). */
+    guestIds: List<String> = emptyList(),
     /** Friends who cheered you since the camp last showed it; shown once, then [onCheersShown]. */
     cheers: List<String> = emptyList(),
     onCheersShown: () -> Unit = {},
@@ -360,6 +364,8 @@ fun ClearingScreen(
     var pokeT by remember { androidx.compose.runtime.mutableFloatStateOf(-1f) }
     // The bridge tapped: when (a second tap soon after goes across to the river).
     var bridgeTapAt by remember { mutableStateOf(0L) }
+    // A friend at the fire, tapped: their id and name.
+    var guestOpen by remember { mutableStateOf<Pair<String, String>?>(null) }
     // Poked again and again: they notice (and say so).
     val pokes = remember { mutableListOf<Long>() }
     fun poke(forced: Pair<String, String>? = null) {
@@ -527,15 +533,21 @@ fun ClearingScreen(
                                 return@detectTapGestures
                             }
                         }
+                        // A friend sitting at the fire: what to do with them.
+                        guestAt(Offset(fx, fy), size.width / size.height.toFloat(), pinnedNow, guests.size)?.let { i ->
+                            guestIds.getOrNull(i)?.let { id -> guestOpen = id to guests[i].second; tick(); return@detectTapGestures }
+                        }
                         if (paperNow && fx > PAPER_LEFT && fy < PAPER_BOTTOM) { onUnroll(); tick(); caught = tr("All clean again.", "Megint minden tiszta."); return@detectTapGestures }
                         // The bridge leads to friends' camps along the river.
                         // The bridge: the companion waves over to the friends' side; a second tap goes across.
                         if (bridgeNow && fx in 0.06f..0.37f && fy in 0.48f..0.62f) {
                             val now = System.currentTimeMillis()
-                            if (now - bridgeTapAt < 5_000L) { bridgeTapAt = 0L; onOpenRiver(null) }
+                            if (now - bridgeTapAt < 9_000L) { bridgeTapAt = 0L; onOpenRiver(null) }
                             else {
                                 bridgeTapAt = now
-                                poke("act_cheer" to tr("${avatar.displayName} waves over the bridge: your friends' camps are that way. Tap the bridge again to go across.", "${avatar.displayName} átint a hídon: arra vannak a barátaid táborai. Koppints még egyszer a hídra, és átmentek."))
+                                // Up onto the bridge, a stick over the rail; and they stay up there a while.
+                                startUse(BRIDGE_SPOT, "bridge")
+                                caught = tr("${avatar.displayName} runs up onto the bridge. Tap it again to go across to your friends' camps.", "${avatar.displayName} felszalad a hídra. Koppints rá még egyszer, és átmentek a barátaid táborához.")
                             }
                             return@detectTapGestures
                         }
@@ -902,6 +914,31 @@ fun ClearingScreen(
         Column(Modifier.sheetBody(0.62f)) { Guestbook(guestbook) }
     }
 
+    guestOpen?.let { (id, name) ->
+        var note by remember(id) { mutableStateOf<String?>(null) }
+        var giving by remember(id) { mutableStateOf(false) }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { guestOpen = null },
+            title = { Text(tr("$name is at your fire", "$name a tüzednél ül")) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(tr("Phone-free right now. Put yours down too for acorns each, or say hi.", "Most épp telefon nélkül. Tedd le te is, és mindketten makkot kaptok, vagy köszönj neki."), style = MaterialTheme.typography.bodyMedium)
+                    note?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Brand.Moss) }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ChipButton(tr("\uD83D\uDC4F Cheer", "\uD83D\uDC4F Taps"), {
+                            scope.launch { note = if (app.tend.data.Friends.send(context, id, app.tend.data.Friends.Kind.CHEER)) tr("$name will see your cheer.", "$name látni fogja a tapsodat.") else tr("Already cheered today.", "Ma már tapsoltál neki.") }
+                        })
+                        ChipButton(tr("Present", "Ajándék"), { giving = true }, filled = false)
+                        ChipButton(tr("Their camp", "A tábora"), { guestOpen = null; onOpenRiver(id) }, filled = false)
+                    }
+                }
+            },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { guestOpen = null; onJoinFire() }) { Text(tr("Put my phone down too", "Én is leteszem"), color = Brand.Moss) } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { guestOpen = null }) { Text(tr("Close", "Bezárás"), color = Brand.Muted) } },
+            containerColor = Brand.Card,
+        )
+        if (giving) GiftDialog(null, to = app.tend.data.Friends.Friend(id, name, "BO", 0, emptyMap()), onGave = onFriendsChanged) { giving = false }
+    }
     if (friendsOpen) androidx.compose.material3.ModalBottomSheet(onDismissRequest = { friendsOpen = false }, containerColor = Brand.Sage, sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.sheetBody()) {
             FriendsCard(onOpenSettings, onOpenRiver, onFriendsChanged, openInvite)
@@ -912,7 +949,7 @@ fun ClearingScreen(
 
 /** Where each milestone's addition is in the camp (scene fractions), for its sparkles. */
 private val MILESTONE_AT = mapOf(
-    app.tend.core.Milestone.FLAG to Offset(0.37f, 0.6f),
+    app.tend.core.Milestone.FLAG to Offset(0.62f, 0.7f),
     app.tend.core.Milestone.PATH_LIGHTS to Offset(0.32f, 0.76f),
     app.tend.core.Milestone.GARDEN to Offset(0.63f, 0.58f),
     app.tend.core.Milestone.HUT to Offset(0.735f, 0.3f),
@@ -1732,5 +1769,16 @@ internal fun HabitThings(avatar: Avatar, owned: Set<Accessory>, active: Set<Acce
             Spacer(Modifier.width(8.dp))
             Text(if (mine) tr("Yours ›", "Megvan ›") else "", style = MaterialTheme.typography.labelLarge, color = Brand.Moss)
         }
+    }
+}
+
+/** Which friend at the fire (index) a tap is on, if any: where the scene seats them, around the fire pit. */
+private fun guestAt(tap: Offset, ratio: Float, layout: Map<Int, Offset>, count: Int): Int? {
+    val pit = spotPos(0, layout)
+    return (0 until count.coerceAtMost(3)).firstOrNull { i ->
+        val seatX = pit.x + listOf(-0.11f, 0.12f, 0.0f)[i] / ratio
+        val seatY = pit.y - listOf(0.06f, 0.055f, 0.085f)[i]
+        // The figure stands up from its seat: a box over it.
+        kotlin.math.abs(tap.x - seatX) * ratio < 0.06f && tap.y in (seatY - 0.17f)..(seatY + 0.02f)
     }
 }
