@@ -421,7 +421,9 @@ class MainActivity : ComponentActivity() {
                 app.tend.core.Step.BETTER_FIRE -> { campSheet = "shop:FIRE"; screen = Screen.CLEARING }
                 app.tend.core.Step.SHELTER -> { campSheet = "shop:SHELTER"; screen = Screen.CLEARING }
                 app.tend.core.Step.ON_THE_RIVER -> { campSheet = "shop:WATER"; screen = Screen.CLEARING }
-                app.tend.core.Step.USE, app.tend.core.Step.MOVE -> screen = Screen.CLEARING
+                app.tend.core.Step.MOVE -> screen = Screen.CLEARING
+                // Phone down: home, where it starts.
+                app.tend.core.Step.PHONE_DOWN -> screen = Screen.HOME
                 app.tend.core.Step.NOT_NOW -> {
                     // Open a paused app: the pause comes up, and "Not now" is right there.
                     val launch = store.blockedPackages.firstNotNullOfOrNull { packageManager.getLaunchIntentForPackage(it) }
@@ -1273,8 +1275,9 @@ class MainActivity : ComponentActivity() {
                 .sumOf { m.getAppWidgetIds(android.content.ComponentName(this, it)).size }
         }
         val done = buildSet {
-            if (store.placed.isNotEmpty()) add(app.tend.core.Step.PLACE)
-            if (store.usedThings.isNotEmpty()) add(app.tend.core.Step.USE)
+            // Besides the home and the campfire from setting up: one more.
+            if (placed.values.count { !app.tend.core.Home.isHome(it) && it != "campfire" } + store.chest.size >= 1) add(app.tend.core.Step.PLACE)
+            if (store.phoneDownDone) add(app.tend.core.Step.PHONE_DOWN)
             if (store.layout.isNotEmpty()) add(app.tend.core.Step.MOVE)
             if (days.any { it.tasksDone > 0 }) add(app.tend.core.Step.ACTIVITY)
             if (book.isNotEmpty()) add(app.tend.core.Step.GREET)
@@ -1293,7 +1296,10 @@ class MainActivity : ComponentActivity() {
             if (widgets > 0) add(app.tend.core.Step.WIDGET)
             if (store.invited) add(app.tend.core.Step.FRIEND)
         }
-        return app.tend.core.FirstSteps.of(done, claimed)
+        // Done stays done: a thing sold or a layout reset doesn't take a challenge back.
+        val kept = store.stepsDone
+        if (!kept.containsAll(done)) store.stepsDone = kept + done
+        return app.tend.core.FirstSteps.of(done + kept, claimed)
     }
 
     private fun homeProgress(): HomeProgress {

@@ -888,6 +888,16 @@ class TendStore(private val context: Context) {
         set(v) = edit { putString("focus_task", v) }
 
     /** Minutes the last finished "phone down" gave (for its note). */
+    /** A Phone down timer was waited out at least once (a challenge). */
+    var phoneDownDone: Boolean
+        get() = prefs.getBoolean("phone_down_done", false)
+        set(v) = edit { putBoolean("phone_down_done", v) }
+
+    /** Challenges once done stay done (selling a thing doesn't take one back); kept by name. */
+    var stepsDone: Set<app.tend.core.Step>
+        get() = prefs.getStringSet("steps_done", emptySet())!!.mapNotNull { runCatching { app.tend.core.Step.valueOf(it) }.getOrNull() }.toSet()
+        set(v) = edit { putStringSet("steps_done", v.map { it.name }.toSet()) }
+
     var lastPhoneDownGrant: Int
         get() = prefs.getInt("phone_down_grant", 0)
         set(v) = edit { putInt("phone_down_grant", v) }

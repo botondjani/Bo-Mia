@@ -527,7 +527,6 @@ fun DrawScope.drawClearing(
     }
     // Milestones: a flag over the camp, lamps along the path, a garden between the tent and the cabin.
     if (app.tend.core.Milestone.FLAG in unlocked) Offset(w * 0.37f, h * 0.665f).let { p -> ground += p.y to { flag(p, u, ambient) } }
-    if (signpost) Offset(w * 0.36f, h * 0.625f).let { p -> ground += p.y to { signpost(p, u) } }
     if (app.tend.core.Milestone.PATH_LIGHTS in unlocked) for (f in listOf(Offset(0.345f, 0.69f), Offset(0.325f, 0.79f), Offset(0.305f, 0.885f))) {
         val p = Offset(f.x * w, f.y * h)
         ground += p.y to { pathLamp(p, u, lights) }
@@ -1222,22 +1221,6 @@ private fun DrawScope.flag(p: Offset, u: Float, t: Float) {
     }, Color(0xFFE07A5F))
 }
 
-/** A wooden signpost with two boards and a small heart: there since the first friend. */
-private fun DrawScope.signpost(p: Offset, u: Float) = withTransform({ scale(1.6f, 1.6f, pivot = p) }) {
-    val top = p + Offset(0f, -u * 0.085f)
-    shadow(p, u * 0.012f, u)
-    drawLine(Color(0xFF6B4A33), p, top, strokeWidth = u * 0.006f, cap = StrokeCap.Round)
-    fun board(y: Float, dir: Float, color: Color) = drawPath(Path().apply {
-        val x0 = p.x - dir * u * 0.008f; val x1 = p.x + dir * u * 0.04f; val tip = p.x + dir * u * 0.052f
-        moveTo(x0, y); lineTo(x1, y); lineTo(tip, y + u * 0.011f); lineTo(x1, y + u * 0.022f); lineTo(x0, y + u * 0.022f); close()
-    }, color)
-    board(top.y + u * 0.006f, 1f, Color(0xFFC79A6B))
-    board(top.y + u * 0.034f, -1f, Color(0xFFB5895C))
-    // A small heart on the upper board.
-    val c = Offset(p.x + u * 0.018f, top.y + u * 0.015f); val r = u * 0.0042f
-    drawCircle(Color(0xFFE07A5F), r, c + Offset(-r * 0.8f, 0f)); drawCircle(Color(0xFFE07A5F), r, c + Offset(r * 0.8f, 0f))
-    drawPath(Path().apply { moveTo(c.x - r * 1.7f, c.y + r * 0.4f); lineTo(c.x, c.y + r * 2.3f); lineTo(c.x + r * 1.7f, c.y + r * 0.4f); close() }, Color(0xFFE07A5F))
-}
 
 /** A little lamp on a post by the path; lit after dark. */
 private fun DrawScope.pathLamp(p: Offset, u: Float, lights: MutableList<Light>) {

@@ -7,9 +7,10 @@ package app.tend.core
  */
 enum class Step(val title: String, val how: String, val acorns: Int, val round: Int) {
     // Round 1: the first days.
+    // Nothing here is done by setting up (the campfire is bought and tried then): each asks for something new.
     ACTIVITY(tr("Do one activity", "Csinálj meg egy tevékenységet"), tr("Start one under Instead of scrolling", "Indíts el egyet a „Görgetés helyett” alatt"), 15, 0),
-    PLACE(tr("Get something for your camp", "Szerezz valamit a táborodba"), tr("Camp → Shop", "Tábor → Bolt"), 10, 0),
-    USE(tr("Watch your companion use it", "Nézd meg, ahogy a társad használja"), tr("Tap a thing in the camp", "Koppints egy tárgyra a táborban"), 10, 0),
+    PHONE_DOWN(tr("Put the phone down once", "Tedd le egyszer a telefont"), tr("Home → Phone down: start it and wait it out", "Főoldal → Telefon le: indítsd el, és várd ki"), 10, 0),
+    PLACE(tr("Get a second thing for your camp", "Szerezz még valamit a táborodba"), tr("Camp → Shop", "Tábor → Bolt"), 10, 0),
     MOVE(tr("Move something in your camp", "Tegyél arrébb valamit a táborban"), tr("Camp → hold a thing, then drag it", "Tábor → tartsd nyomva, aztán húzd"), 10, 0),
     NOT_NOW(tr("Say \"Not now\" once", "Mondd egyszer: „Most nem”"), tr("When a paused app opens", "Amikor megjelenik a Megállító"), 10, 0),
     WIDGET(tr("Swap the tend icon for your companion", "Cseréld a tend ikonját a társadra"), tr("Add the 1×1 widget; it opens tend too", "Tedd ki az 1×1-es widgetet; az is megnyitja a tendet"), 10, 0),

@@ -28,7 +28,7 @@ class DailyTest {
     @Test fun firstSteps() {
         val s = FirstSteps.of(setOf(Step.PLACE), emptySet())
         assertTrue(s.first { it.step == Step.PLACE }.claimable)
-        assertFalse(s.first { it.step == Step.USE }.done)
+        assertFalse(s.first { it.step == Step.PHONE_DOWN }.done)
         assertTrue(FirstSteps.finished(FirstSteps.of(emptySet(), Step.entries.toSet())))
         // Rounds: the next one opens when this one is all claimed.
         assertEquals(0, FirstSteps.current(FirstSteps.of(emptySet(), emptySet())).first().step.round)

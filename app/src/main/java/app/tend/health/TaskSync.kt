@@ -119,6 +119,7 @@ object TaskSync {
                     // Phone down: minutes back too, up to half of what can be earned in a day.
                     val cfg = store.config
                     val before = store.today().earnedMinutes
+                    store.phoneDownDone = true
                     store.lastPhoneDownGrant = store.update { Budget.creditPhoneDown(cfg, it, task.target) }.earnedMinutes - before
                     store.addXp(app.tend.core.Progress.xpPhoneDown(task.target))
                 }

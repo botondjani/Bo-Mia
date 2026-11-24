@@ -358,9 +358,11 @@ fun ClearingScreen(
     val companionAt = remember { floatArrayOf(-1f, -1f) }
     var pokeAct by remember { mutableStateOf<String?>(null) }
     var pokeT by remember { androidx.compose.runtime.mutableFloatStateOf(-1f) }
+    // The bridge tapped: when (a second tap soon after goes across to the river).
+    var bridgeTapAt by remember { mutableStateOf(0L) }
     // Poked again and again: they notice (and say so).
     val pokes = remember { mutableListOf<Long>() }
-    fun poke() {
+    fun poke(forced: Pair<String, String>? = null) {
         if (pokeAct != null) return
         val n = avatar.displayName
         val now = System.currentTimeMillis()
@@ -368,7 +370,7 @@ fun ClearingScreen(
         pokes += now
         val hour = java.time.LocalTime.now().hour
         // What fits right now first (poked a lot, late, an outfit on), otherwise one of the everyday ones.
-        val (act, line) = when {
+        val (act, line) = forced ?: when {
             pokes.size >= 4 -> "act_stretch" to tr("$n laughs: \"Okay, okay, I'm awake!\"", "$n nevet: „Jó, jó, ébren vagyok!”")
             pokes.size == 3 -> "act_hearts" to tr("$n pokes you back. Fair's fair.", "$n visszabök. Így igazságos.")
             (hour >= 22 || hour < 6) && kotlin.random.Random.nextBoolean() -> "act_stretch" to tr("$n yawns a big yawn. Bedtime soon?", "$n nagyot ásít. Lassan alvás?")
@@ -527,7 +529,16 @@ fun ClearingScreen(
                         }
                         if (paperNow && fx > PAPER_LEFT && fy < PAPER_BOTTOM) { onUnroll(); tick(); caught = tr("All clean again.", "Megint minden tiszta."); return@detectTapGestures }
                         // The bridge leads to friends' camps along the river.
-                        if (bridgeNow && fx in 0.06f..0.37f && fy in 0.48f..0.62f) { onOpenRiver(null); return@detectTapGestures } // the bridge or its signpost
+                        // The bridge: the companion waves over to the friends' side; a second tap goes across.
+                        if (bridgeNow && fx in 0.06f..0.37f && fy in 0.48f..0.62f) {
+                            val now = System.currentTimeMillis()
+                            if (now - bridgeTapAt < 5_000L) { bridgeTapAt = 0L; onOpenRiver(null) }
+                            else {
+                                bridgeTapAt = now
+                                poke("act_cheer" to tr("${avatar.displayName} waves over the bridge: your friends' camps are that way. Tap the bridge again to go across.", "${avatar.displayName} átint a hídon: arra vannak a barátaid táborai. Koppints még egyszer a hídra, és átmentek."))
+                            }
+                            return@detectTapGestures
+                        }
                         // A thing in the camp: the companion uses it (the guitar: another strum).
                         val hit = spotAt(Offset(fx, fy), size.width / size.height.toFloat(), pinnedNow, placedNow)
                         val thing = hit?.let { placedNow[it] }
@@ -851,10 +862,17 @@ fun ClearingScreen(
     if (wardrobeOpen) androidx.compose.material3.ModalBottomSheet(onDismissRequest = { wardrobeOpen = false }, containerColor = Brand.Sage,
         sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.sheetBody(0.62f), verticalArrangement = Arrangement.spacedBy(Space.s)) {
-            Text(tr("${avatar.displayName}'s wardrobe", "${avatar.displayName} szekrénye"), style = MaterialTheme.typography.headlineSmall)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(tr("${avatar.displayName}'s wardrobe", "${avatar.displayName} szekrénye"), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                Text(
+                    tr("Outfits in the shop →", "Ruhák a boltban →"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable { wardrobeOpen = false; shopStart = null; shopTab = 1; shopOpen = true }.padding(horizontal = 6.dp, vertical = 6.dp),
+                )
+            }
             Wardrobe(avatar, worn, chosen, owned, earned, plus, acorns, autoDress, { tick(); onAutoDress(it) },
                 onToggle = { tick(); onToggleAccessory?.invoke(it) }, onTakeOff = { tick(); onTakeOff(it) },
-                onBuy = { a -> onBuyOutfit(a).also { if (it) { tick(firm = true); Sounds.chime(context) } } }, onPlus = onPlus)
+                onBuy = { a -> onBuyOutfit(a).also { if (it) { tick(firm = true); Sounds.chime(context) } } }, onPlus = onPlus,
+                onShop = { wardrobeOpen = false; shopStart = null; shopTab = 1; shopOpen = true })
         }
     }
     // Achievements: the milestones, and what the companion earns by habits.
@@ -1339,7 +1357,7 @@ private fun HubTile(icon: String, title: String, value: String, highlight: Boole
 @Composable
 private fun HubIcon(kind: String, visitor: app.tend.core.Visitor?, modifier: Modifier) {
     val loop = androidx.compose.animation.core.rememberInfiniteTransition(label = "hub")
-    val t by loop.animateFloat(0f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(2400, easing = androidx.compose.animation.core.LinearEasing)), label = "t")
+    val t by loop.animateFloat(0f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(3600, easing = androidx.compose.animation.core.LinearEasing)), label = "t")
     val a = t * 2f * Math.PI.toFloat()
     Canvas(modifier) {
         val w = size.width
@@ -1365,7 +1383,7 @@ private fun HubIcon(kind: String, visitor: app.tend.core.Visitor?, modifier: Mod
                     drawCircle(Color(0xFFF2C94C).copy(alpha = v), w * 0.03f * v, o)
                 }
             }
-            "guestbook" -> translate(0f, -kotlin.math.abs(kotlin.math.sin(a)) * w * 0.08f) {
+            "guestbook" -> translate(0f, -(kotlin.math.sin(a) + 1f) / 2f * w * 0.06f) {
                 drawVisitorIcon(visitor ?: app.tend.core.Visitor.RABBIT, seen = visitor != null)
             }
             "shop" -> {
@@ -1374,7 +1392,7 @@ private fun HubIcon(kind: String, visitor: app.tend.core.Visitor?, modifier: Mod
                 drawRect(Color(0xFFB98A5E), Offset(w * 0.2f, w * 0.5f), Size(w * 0.6f, w * 0.38f))
                 drawRect(Color(0xFF8E6440), Offset(w * 0.16f, w * 0.48f), Size(w * 0.68f, w * 0.07f))
                 for (i in 0 until 4) drawRect(if (i % 2 == 0) Color(0xFFE07A5F) else Color.White, Offset(w * (0.14f + 0.18f * i) + sway, w * 0.22f), Size(w * 0.18f, w * 0.2f))
-                drawCircle(Color(0xFF9C6B3F), w * 0.07f, Offset(w * 0.5f, w * 0.4f - kotlin.math.abs(kotlin.math.sin(a * 2)) * w * 0.06f))
+                drawCircle(Color(0xFF9C6B3F), w * 0.07f, Offset(w * 0.5f, w * 0.4f - (kotlin.math.sin(a) + 1f) / 2f * w * 0.05f))
             }
             "wardrobe" -> {
                 // A straw hat on a hook, swinging a little.
@@ -1395,12 +1413,12 @@ private fun HubIcon(kind: String, visitor: app.tend.core.Visitor?, modifier: Mod
             }
             "things" -> {
                 // A present: the lid hops now and then, a sparkle escapes.
-                val hop = kotlin.math.max(0f, kotlin.math.sin(a * 2)) * w * 0.1f
+                val hop = (kotlin.math.sin(a) + 1f) / 2f * w * 0.07f
                 drawRoundRect(Color(0xFFE07A5F), Offset(w * 0.18f, w * 0.42f), Size(w * 0.64f, w * 0.46f), CornerRadius(w * 0.05f))
                 drawRect(Color(0xFFF2C94C), Offset(w * 0.45f, w * 0.42f), Size(w * 0.1f, w * 0.46f))
                 drawRoundRect(Color(0xFFC9634A), Offset(w * 0.12f, w * 0.3f - hop), Size(w * 0.76f, w * 0.14f), CornerRadius(w * 0.04f))
                 drawRect(Color(0xFFF2C94C), Offset(w * 0.45f, w * 0.3f - hop), Size(w * 0.1f, w * 0.14f))
-                if (hop > w * 0.04f) drawCircle(Color(0xFFF2C94C), w * 0.04f, Offset(w * 0.5f, w * 0.22f - hop))
+                drawCircle(Color(0xFFF2C94C).copy(alpha = hop / (w * 0.07f)), w * 0.04f, Offset(w * 0.5f, w * 0.22f - hop))
             }
             else -> {
                 // A flag waving on its pole.
@@ -1572,6 +1590,7 @@ internal fun Wardrobe(
     avatar: Avatar, worn: Set<Accessory>, chosen: Map<app.tend.core.Slot, Accessory>, owned: Set<Accessory>, active: Set<Accessory>,
     plus: Boolean, acorns: Int, autoDress: Boolean, onAutoDress: (Boolean) -> Unit,
     onToggle: (Accessory) -> Unit, onTakeOff: (app.tend.core.Slot) -> Unit, onBuy: (Accessory) -> Boolean, onPlus: () -> Unit,
+    onShop: () -> Unit = {},
 ) = Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
     var place by remember { mutableStateOf<app.tend.core.Slot?>(null) }
     var trying by remember { mutableStateOf<Accessory?>(null) }
@@ -1624,13 +1643,20 @@ internal fun Wardrobe(
                         Text(a.title, style = MaterialTheme.typography.labelLarge)
                         Text(if (forSale) tr("In the shop, $price acorns", "A boltban, $price makk") else a.how, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp))
                     }
-                    if (forSale) Text(
-                        when { !plus -> tr("With Plus", "Plusszal"); acorns >= price -> tr("Get it", "Megveszem"); else -> tr("${price - acorns} to go", "még ${price - acorns}") },
-                        style = MaterialTheme.typography.labelLarge, color = if (!plus || acorns >= price) Brand.Moss else Brand.Muted,
-                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable {
-                            when { !plus -> onPlus(); acorns >= price -> if (onBuy(a)) trying = null }
-                        }.padding(horizontal = 8.dp, vertical = 6.dp),
-                    )
+                    Column(horizontalAlignment = Alignment.End) {
+                        if (forSale) Text(
+                            when { !plus -> tr("With Plus", "Plusszal"); acorns >= price -> tr("Get it", "Megveszem"); else -> tr("${price - acorns} to go", "még ${price - acorns}") },
+                            style = MaterialTheme.typography.labelLarge, color = if (!plus || acorns >= price) Brand.Moss else Brand.Muted,
+                            modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable {
+                                when { !plus -> onPlus(); acorns >= price -> if (onBuy(a)) trying = null }
+                            }.padding(horizontal = 8.dp, vertical = 6.dp),
+                        )
+                        // Something to buy: to the shop's outfits, where all of them are.
+                        if (a.isOutfit) Text(
+                            tr("Shop →", "Bolt →"), style = MaterialTheme.typography.labelLarge, color = Brand.Moss,
+                            modifier = Modifier.clip(RoundedCornerShape(10.dp)).tappable(onClick = onShop).padding(horizontal = 8.dp, vertical = 6.dp),
+                        )
+                    }
                 }
     }
         }

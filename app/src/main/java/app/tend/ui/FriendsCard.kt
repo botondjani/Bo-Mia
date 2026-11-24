@@ -415,8 +415,8 @@ private fun InviteDialog(onDismiss: () -> Unit) {
             // What it's worth, for both: said before anything is sent.
             Text(
                 tr(
-                    "When they accept, you both get acorns (${app.tend.data.TendStore.FIRST_FRIEND_ACORNS} for a first friend) and a signpost; when they do their first activity, +${Friends.INVITE_ACORNS} more for each of you.",
-                    "Ha elfogadja, mindketten makkot kaptok (az első barátért ${app.tend.data.TendStore.FIRST_FRIEND_ACORNS}-at) és útjelző táblát; amikor megcsinálja az első tevékenységét, még +${Friends.INVITE_ACORNS} makk jár mindkettőtöknek.",
+                    "When they accept, you both get acorns (${app.tend.data.TendStore.FIRST_FRIEND_ACORNS} for a first friend); when they do their first activity, +${Friends.INVITE_ACORNS} more for each of you.",
+                    "Ha elfogadja, mindketten makkot kaptok (az első barátért ${app.tend.data.TendStore.FIRST_FRIEND_ACORNS}-at); amikor megcsinálja az első tevékenységét, még +${Friends.INVITE_ACORNS} makk jár mindkettőtöknek.",
                 ),
                 style = MaterialTheme.typography.bodyMedium, color = Brand.Muted,
             )

@@ -153,7 +153,7 @@ object Friends {
         val names = fresh.joinToString(tr(" and ", " és ")) { it.name }
         prefs(c).edit().putString(
             "friend_news",
-            if (first) tr("You and $names are friends now: +$acorns acorns, and a signpost for your camp.", "Mostantól barátok vagytok: $names. +$acorns makk, és egy útjelző tábla a táborodba.")
+            if (first) tr("You and $names are friends now: +$acorns acorns.", "Mostantól barátok vagytok: $names. +$acorns makk.")
             else tr("You and $names are friends now: +$acorns acorns.", "Mostantól barátok vagytok: $names. +$acorns makk."),
         ).apply()
         Stats.log(c, "friend_made", mapOf("first" to first))
