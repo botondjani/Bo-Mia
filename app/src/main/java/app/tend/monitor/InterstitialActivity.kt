@@ -277,7 +277,7 @@ class InterstitialActivity : ComponentActivity() {
         }
         PrimaryButton(notNowLabel(), ::notNow)
         // The chosen time ran out: no second countdown, just five more minutes (they come off the day's).
-        if (v.timeUp) {
+        if (v.timeUp && !store.isStrict) {
             SecondaryButton(tr("5 more minutes", "Még 5 perc"), { openFor(app.tend.core.TimeBox.CHOICES.first()) })
             return@Column
         }
@@ -346,7 +346,8 @@ class InterstitialActivity : ComponentActivity() {
             // Good night is a promise to yourself, not a cage: a way out when something really can't wait.
             // Held for a few seconds, not just tapped: it's undoing a promise.
             // Any other lock: once a day, five minutes for acorns (not in strict mode).
-            if (lock != app.tend.core.LockSchedule.GOOD_NIGHT && store.lockPassLeft) SecondaryButton(
+            // Only where it would open the app: not when the day's minutes or its own limit are gone too.
+            if (lock != app.tend.core.LockSchedule.GOOD_NIGHT && store.lockPassLeft && !v.locked) SecondaryButton(
                 tr("5 minutes · ${TendStore.LOCK_PASS_ACORNS} acorns (once a day)", "5 perc · ${TendStore.LOCK_PASS_ACORNS} makk (naponta egyszer)"), {
                     if (store.takeLockPass(pkgName)) {
                         decide("lock_pass")

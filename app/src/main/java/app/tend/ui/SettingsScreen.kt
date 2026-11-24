@@ -661,7 +661,7 @@ private fun StrictCard(plus: Boolean, strict: Boolean, strictEndsAt: Long, onStr
         }
         OptionCard(tr("Strict", "Szigorú"), tr("A 10 s wait, no quick look, no 5 minutes for acorns, no day off; limits only get tighter; off only from the next day.", "10 mp várakozás, nincs Gyors belesés, nincs 5 perc makkért, nincs Szabadnap; a limitek csak szigorodhatnak; kikapcsolni csak másnaptól lehet."), chosen == app.tend.core.StrictLevel.STRICT, plusMark = !plus) {
             if (!plus) onPlus()
-            else { if (!strict) onStrict(true); store.strictLevel = app.tend.core.StrictLevel.STRICT; chosen = app.tend.core.StrictLevel.STRICT }
+            else { if (!strict || strictEndsAt > 0) onStrict(true); store.strictLevel = app.tend.core.StrictLevel.STRICT; chosen = app.tend.core.StrictLevel.STRICT }
         }
         if (strict && strictEndsAt > 0) Text(
             tr("Strict until midnight, then ${if (store.strictLevel == app.tend.core.StrictLevel.EASY) "Easy" else "Balanced"}.", "Éjfélig szigorú, utána ${if (store.strictLevel == app.tend.core.StrictLevel.EASY) "laza" else "kiegyensúlyozott"}."),

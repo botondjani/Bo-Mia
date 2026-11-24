@@ -260,7 +260,6 @@ class MainActivity : ComponentActivity() {
 
     /** From the end of onboarding: notes on, the recap reminder included, asking Android if needed. */
     private fun allowNotes() {
-        store.eveningPause = true
         store.weeklyLetter = true
         WeeklyLetter.schedule(this)
         store.reminderPrompted = true
@@ -1088,8 +1087,9 @@ class MainActivity : ComponentActivity() {
                 monitorSlept = store.monitorSlept,
                 onKeepAwake = ::keepAwake,
                 // One "calm evenings" step: the recap and notes, sleepy pauses, the Sunday letter.
-                notesOff = !store.eveningPause || !store.weeklyLetter ||
-                    (!store.reminderPrompted && !(store.reminderEnabled && RecapReminder.canNotify(this@MainActivity))),
+                // Quiet was chosen: nothing to ask. Otherwise: the letter off, or the recap never set up.
+                notesOff = store.notesLevel != app.tend.core.NotesLevel.QUIET && (!store.weeklyLetter ||
+                    (!store.reminderPrompted && !(store.reminderEnabled && RecapReminder.canNotify(this@MainActivity)))),
                 onAllowNotes = ::allowNotes,
                 onAddWidget = ::pinWidget,
                 onClaimStep = { store.claimStep(it); refresh++ },

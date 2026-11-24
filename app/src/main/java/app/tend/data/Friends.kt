@@ -125,11 +125,16 @@ object Friends {
     // ---- Inviting: acorns for both, once the invited one did a first activity ----
 
     const val INVITE_ACORNS = 30
+    @Volatile private var lastInviteAsk = 0L
 
     /** After your first activity: whoever invited you gets their acorns (by a note), and you yours. How many. */
     suspend fun claimInvite(c: Context): Int {
         val store = TendStore(c)
         if (Account.user(c) == null || store.inviteClaimed || store.daySummaries().sumOf { it.tasksDone } == 0) return 0
+        // Asked at most hourly (the friends list is checked every minute).
+        val now = System.currentTimeMillis()
+        if (now - lastInviteAsk < 3_600_000L) return 0
+        lastInviteAsk = now
         val n = Account.rpc(c, "tend_invite_reward")?.takeIf { it.ok }?.body?.trim()?.toIntOrNull() ?: return 0
         // Asked once there are friends and an activity: whatever it says, it's settled (later friends invited you after this).
         if (last.isNotEmpty()) store.inviteClaimed = true
@@ -220,7 +225,7 @@ object Friends {
     fun notifyAtFire(c: Context) {
         val fresh = newAtFire(c)
         val store = TendStore(c)
-        if (fresh.isEmpty() || !app.tend.reminder.RecapReminder.canNotify(c) || store.focusStartedAt > 0 || !app.tend.reminder.Notes.underCap(store)) return
+        if (fresh.isEmpty() || store.notesLevel == app.tend.core.NotesLevel.QUIET || !app.tend.reminder.RecapReminder.canNotify(c) || store.focusStartedAt > 0 || !app.tend.reminder.Notes.underCap(store)) return
         store.countNote()
         val f = fresh.first()
         val minutes = ((f.until - System.currentTimeMillis()) / 60_000L).toInt()
@@ -435,11 +440,11 @@ object Friends {
         }
         // Someone you invited did a first activity: acorns, each once.
         val store = TendStore(c)
-        val bonusPaid = p.getLong("bonus_paid", 0)
+        val bonusPaid = maxOf(store.invitePaidUpTo, p.getLong("bonus_paid", 0))
         val bonuses = notes.filter { it.kind == Kind.INVITE_BONUS && it.id > bonusPaid }
         if (bonuses.isNotEmpty()) {
             store.addAcorns(bonuses.size * INVITE_ACORNS, "invite")
-            p.edit().putLong("bonus_paid", bonuses.maxOf { it.id }).apply()
+            store.invitePaidUpTo = bonuses.maxOf { it.id }
         }
         // Presents (a thing, or acorns from older versions): wrapped by the fire, each once.
         val upTo = store.giftsUpTo
@@ -567,7 +572,8 @@ object Friends {
         val news = notes(c).filter { it.id > since && it.kind != Kind.FIRE && System.currentTimeMillis() - it.at < DAY_MS }
         if (news.isEmpty()) return
         val store = TendStore(c)
-        if (!app.tend.reminder.Notes.underCap(store)) return
+        // Quiet: only what you start yourself, and calls to the fire.
+        if (store.notesLevel == app.tend.core.NotesLevel.QUIET || !app.tend.reminder.Notes.underCap(store)) return
         p.edit().putString("digest_day", today).putLong("digest_upto", news.maxOf { it.id }).apply()
         notify(c, news)
         store.countNote()

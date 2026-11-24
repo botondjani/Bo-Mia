@@ -455,7 +455,17 @@ class TendStore(private val context: Context) {
 
 
     /** Whether opening [pkg] waits on the pause screen first: unless turned off for it; always in strict mode. */
-    fun pausesOnOpen(pkg: String) = isStrict || pkg !in appModes
+    fun pausesOnOpen(pkg: String) = isStrict || when (appModes[pkg]) {
+        null -> true
+        // Only Reels and Shorts close, but only once Precise mode is on: till then, the Megállító.
+        app.tend.core.AppMode.SHORTS -> !app.tend.monitor.ShortsGuard.enabled(context)
+        else -> false
+    }
+
+    /** Invite bonuses already paid (the newest note's id): kept with the camp, so a restore doesn't pay them again. */
+    var invitePaidUpTo: Long
+        get() = prefs.getLong("invite_paid_upto", 0)
+        set(v) = edit { putLong("invite_paid_upto", v) }
 
     /** Things bought and put away: not in the camp, kept to take out again or give a friend. */
     var chest: List<String>
@@ -753,7 +763,8 @@ class TendStore(private val context: Context) {
 
     /** Marks today if it's over its minutes; true when it is. */
     fun markOverToday(): Boolean {
-        if (Budget.remainingMinutes(config, today()) >= 0) return false
+        // Out of minutes (the apps close at 0) or past them.
+        if (Budget.remainingMinutes(config, today()) > 0 || Budget.usedMinutes(today()) == 0) return false
         val day = LocalDate.now()
         if (day.toString() !in overDays) edit { putStringSet("over_days", overDays.filter { it >= day.minusDays(21).toString() }.toSet() + day.toString()) }
         return true

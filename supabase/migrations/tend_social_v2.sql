@@ -187,6 +187,11 @@ begin
 end $$;
 
 -- How many people are phone-free at a fire right now; null until tend has 20 people a day (no one can be picked out).
+-- Active installs a day (from the anonymous app_open events); the live database already has it.
+create or replace view tend.daily_active as
+  select date(received_at) as day, count(distinct install_id) as users
+  from tend.events where name = 'app_open' group by date(received_at) order by date(received_at);
+
 create or replace function public.tend_fire_count()
 returns int language sql stable security definer set search_path = '' as $$
   select case when coalesce((select max(users) from tend.daily_active where day >= current_date - 1), 0) >= 20
